@@ -123,6 +123,13 @@ class StorageViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet):
     permission_classes = [IsAuthenticated]
     pagination_class = CustomPageNumberPagination
 
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'batch_delete']:
+            permission_classes = [permissions.IsAdminUser]
+        else:
+            permission_classes = [permissions.IsAuthenticated]
+        return [permission() for permission in permission_classes]
+
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['storage_type']
     ordering_fields = ['storage_code', 'storage_name']
@@ -226,6 +233,13 @@ class AssetTypeViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     lookup_field = 'asset_type_code'
 
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'batch_delete']:
+            permission_classes = [permissions.IsAdminUser]
+        else:
+            permission_classes = [permissions.IsAuthenticated]
+        return [permission() for permission in permission_classes]
+
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['asset_type_category']
     search_fields = ['asset_type_secondary', 'asset_type_code']
@@ -309,6 +323,13 @@ class ContractViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet):
     lookup_field = 'contract_code'
     lookup_value_regex = '.*?'
     pagination_class = CustomPageNumberPagination
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'batch_delete']:
+            permission_classes = [permissions.IsAdminUser]
+        else:
+            permission_classes = [permissions.IsAuthenticated]
+        return [permission() for permission in permission_classes]
 
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['contract_type', 'contract_settlment_status']

@@ -152,34 +152,35 @@ class EmployeeService:
 
         for jobcode in employee_jobcodes:
             try:
-                employee = EmployeeSelector.get_employee_by_jobcode(jobcode)
-                if not employee or employee.is_deleted:
-                    fail_items.append({
-                        "id": jobcode,
-                        "error_code": "NOT_FOUND",
-                        "error_message": f"员工 {jobcode} 不存在或已删除"
-                    })
-                    continue
+                with transaction.atomic():
+                    employee = EmployeeSelector.get_employee_by_jobcode(jobcode)
+                    if not employee or employee.is_deleted:
+                        fail_items.append({
+                            "id": jobcode,
+                            "error_code": "NOT_FOUND",
+                            "error_message": f"员工 {jobcode} 不存在或已删除"
+                        })
+                        continue
 
-                # 检查关联资产（作为申请人）
-                if OutAsset.objects.filter(outasset_applicant_jobcode=employee, is_deleted=False).exists():
-                    fail_items.append({
-                        "id": jobcode,
-                        "error_code": "HAS_RELATED_ASSETS",
-                        "error_message": "员工存在关联出库记录（申请人），不允许删除"
-                    })
-                    continue
+                    # 检查关联资产（作为申请人）
+                    if OutAsset.objects.filter(outasset_applicant_jobcode=employee, is_deleted=False).exists():
+                        fail_items.append({
+                            "id": jobcode,
+                            "error_code": "HAS_RELATED_ASSETS",
+                            "error_message": "员工存在关联出库记录（申请人），不允许删除"
+                        })
+                        continue
 
-                # 检查关联资产（作为保管人）
-                if OutAsset.objects.filter(outasset_manager_jobcode=employee, is_deleted=False).exists():
-                    fail_items.append({
-                        "id": jobcode,
-                        "error_code": "HAS_RELATED_ASSETS",
-                        "error_message": "员工存在关联出库记录（保管人），不允许删除"
-                    })
-                    continue
+                    # 检查关联资产（作为保管人）
+                    if OutAsset.objects.filter(outasset_manager_jobcode=employee, is_deleted=False).exists():
+                        fail_items.append({
+                            "id": jobcode,
+                            "error_code": "HAS_RELATED_ASSETS",
+                            "error_message": "员工存在关联出库记录（保管人），不允许删除"
+                        })
+                        continue
 
-                employee.delete()
+                    employee.delete()
                 success_ids.append(jobcode)
 
             except Exception:
@@ -504,34 +505,35 @@ class DepartmentService:
 
         for dept_code in department_codes:
             try:
-                department = DepartmentSelector.get_department_by_code(dept_code)
-                if not department or department.is_deleted:
-                    fail_items.append({
-                        "id": dept_code,
-                        "error_code": "NOT_FOUND",
-                        "error_message": f"部门 {dept_code} 不存在或已删除"
-                    })
-                    continue
+                with transaction.atomic():
+                    department = DepartmentSelector.get_department_by_code(dept_code)
+                    if not department or department.is_deleted:
+                        fail_items.append({
+                            "id": dept_code,
+                            "error_code": "NOT_FOUND",
+                            "error_message": f"部门 {dept_code} 不存在或已删除"
+                        })
+                        continue
 
-                # 检查下属员工（排除已删除的）
-                if Employee.objects.filter(employee_department=department, is_deleted=False).exists():
-                    fail_items.append({
-                        "id": dept_code,
-                        "error_code": "HAS_EMPLOYEES",
-                        "error_message": "部门下存在员工，不允许删除"
-                    })
-                    continue
+                    # 检查下属员工（排除已删除的）
+                    if Employee.objects.filter(employee_department=department, is_deleted=False).exists():
+                        fail_items.append({
+                            "id": dept_code,
+                            "error_code": "HAS_EMPLOYEES",
+                            "error_message": "部门下存在员工，不允许删除"
+                        })
+                        continue
 
-                # 检查子部门（排除已删除的）
-                if Department.objects.filter(parent_code=dept_code, is_deleted=False).exists():
-                    fail_items.append({
-                        "id": dept_code,
-                        "error_code": "HAS_CHILD_DEPARTMENTS",
-                        "error_message": "部门下存在子部门，不允许删除"
-                    })
-                    continue
+                    # 检查子部门（排除已删除的）
+                    if Department.objects.filter(parent_code=dept_code, is_deleted=False).exists():
+                        fail_items.append({
+                            "id": dept_code,
+                            "error_code": "HAS_CHILD_DEPARTMENTS",
+                            "error_message": "部门下存在子部门，不允许删除"
+                        })
+                        continue
 
-                department.delete()
+                    department.delete()
                 success_ids.append(dept_code)
 
             except Exception:

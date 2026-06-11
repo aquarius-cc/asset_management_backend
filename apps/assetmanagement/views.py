@@ -955,6 +955,35 @@ class OutAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet):
             message=f"批量出库完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条"
         )
 
+    def destroy(self, request, *args, **kwargs):
+        """
+        【P1-优化】删除出库记录（软删除）
+
+        重写 destroy 方法，确保删除出库记录后恢复资产原始状态。
+        调用 OutAssetService.batch_delete_outasset 处理单条删除，
+        与批量删除保持一致的回滚逻辑。
+        """
+        outasset_recordcode = self.kwargs.get('outasset_recordcode')
+        try:
+            result = OutAssetService.batch_delete_outasset(
+                outasset_recordcodes=[outasset_recordcode],
+                operator_jobcode=request.user.auth_id,
+                operator_name=request.user.auth_username
+            )
+            if result['fail_count'] > 0:
+                fail_item = result['fail_items'][0]
+                return error_response(
+                    message=fail_item['error_message'],
+                    status_code=400,
+                    error_code=fail_item.get('error_code')
+                )
+            return success_response(message='删除成功')
+        except AppValidationError as e:
+            return error_response(message=str(e.detail), status_code=400)
+        except Exception:
+            logging.exception('出库记录删除失败')
+            return error_response(message='删除失败，请稍后重试', status_code=500)
+
     @action(detail=False, methods=['post'], url_path='batch-delete')
     def batch_delete(self, request):
         """批量删除出库记录"""

@@ -1925,6 +1925,63 @@ class AssetBatchDeleteSerializer(serializers.Serializer):
         return value
 
 
+class ContractBatchDeleteSerializer(serializers.Serializer):
+    """【P3-优化】批量删除合同请求校验"""
+    MAX_BATCH_SIZE = 100
+    ids = serializers.ListField(
+        child=serializers.CharField(),
+        required=True,
+        help_text="合同编码列表"
+    )
+
+    def validate_ids(self, value: List[str]) -> List[str]:
+        if len(value) > self.MAX_BATCH_SIZE:
+            raise serializers.ValidationError(
+                f"单次批量删除不能超过 {self.MAX_BATCH_SIZE} 条"
+            )
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError("ids 列表中存在重复项")
+        return value
+
+
+class StorageBatchDeleteSerializer(serializers.Serializer):
+    """【P3-优化】批量删除仓库请求校验"""
+    MAX_BATCH_SIZE = 100
+    ids = serializers.ListField(
+        child=serializers.CharField(),
+        required=True,
+        help_text="仓库编码列表"
+    )
+
+    def validate_ids(self, value: List[str]) -> List[str]:
+        if len(value) > self.MAX_BATCH_SIZE:
+            raise serializers.ValidationError(
+                f"单次批量删除不能超过 {self.MAX_BATCH_SIZE} 条"
+            )
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError("ids 列表中存在重复项")
+        return value
+
+
+class AssetTypeBatchDeleteSerializer(serializers.Serializer):
+    """【P3-优化】批量删除资产类型请求校验"""
+    MAX_BATCH_SIZE = 100
+    ids = serializers.ListField(
+        child=serializers.CharField(),
+        required=True,
+        help_text="资产类型编码列表"
+    )
+
+    def validate_ids(self, value: List[str]) -> List[str]:
+        if len(value) > self.MAX_BATCH_SIZE:
+            raise serializers.ValidationError(
+                f"单次批量删除不能超过 {self.MAX_BATCH_SIZE} 条"
+            )
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError("ids 列表中存在重复项")
+        return value
+
+
 class RecycleAssetBatchItemSerializer(serializers.Serializer):
     """单条回收记录批量创建数据校验"""
     row_number = serializers.IntegerField(required=False, help_text="Excel 行号")

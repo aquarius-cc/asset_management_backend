@@ -64,6 +64,9 @@ from apps.assetmanagement.serializers import (
     AssetTypeSerializer,
     ContractSerializer,
     ContractDetailSerializer,
+    ContractBatchDeleteSerializer,
+    StorageBatchDeleteSerializer,
+    AssetTypeBatchDeleteSerializer,
     AssetSerializer,
     AssetDetailSerializer,
     AssetCreateSerializer,
@@ -182,6 +185,39 @@ class StorageViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet):
         }
         return success_response(data={'total_storages': total, 'by_type': type_stats})
 
+    # 【P3-优化】重写 destroy，使用 Service 层软删除
+    def destroy(self, request, *args, **kwargs):
+        try:
+            storage = self.get_object()
+            StorageService.delete_storage(storage.storage_code)
+            return success_response(message='删除成功')
+        except AppValidationError as e:
+            return error_response(message=str(e.detail), status_code=400)
+        except Exception:
+            logging.exception('仓库删除失败')
+            return error_response(message='删除失败，请稍后重试', status_code=500)
+
+    @action(detail=False, methods=['post'], url_path='batch-delete')
+    def batch_delete(self, request):
+        """【P3-优化】批量删除仓库"""
+        serializer = StorageBatchDeleteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        result = StorageService.batch_delete_storage(
+            serializer.validated_data['ids']
+        )
+
+        return success_response(
+            data={
+                'total': result['total'],
+                'success_count': result['success_count'],
+                'fail_count': result['fail_count'],
+                'success_ids': result['success_ids'],
+                'fail_items': result['fail_items']
+            },
+            message=f"批量删除完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条"
+        )
+
 
 class AssetTypeViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet):
     queryset = AssetType.objects.all()
@@ -232,6 +268,39 @@ class AssetTypeViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet):
                                     message='创建成功', status_code=status.HTTP_201_CREATED)
         except AppValidationError as e:
             return error_response(message=str(e), status_code=400)
+
+    # 【P3-优化】重写 destroy，使用 Service 层软删除
+    def destroy(self, request, *args, **kwargs):
+        try:
+            asset_type = self.get_object()
+            AssetTypeService.delete_asset_type(asset_type.asset_type_code)
+            return success_response(message='删除成功')
+        except AppValidationError as e:
+            return error_response(message=str(e.detail), status_code=400)
+        except Exception:
+            logging.exception('资产类型删除失败')
+            return error_response(message='删除失败，请稍后重试', status_code=500)
+
+    @action(detail=False, methods=['post'], url_path='batch-delete')
+    def batch_delete(self, request):
+        """【P3-优化】批量删除资产类型"""
+        serializer = AssetTypeBatchDeleteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        result = AssetTypeService.batch_delete_asset_type(
+            serializer.validated_data['ids']
+        )
+
+        return success_response(
+            data={
+                'total': result['total'],
+                'success_count': result['success_count'],
+                'fail_count': result['fail_count'],
+                'success_ids': result['success_ids'],
+                'fail_items': result['fail_items']
+            },
+            message=f"批量删除完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条"
+        )
 
 
 class ContractViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet):
@@ -285,6 +354,27 @@ class ContractViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet):
         except Exception as e:
             logging.exception('合同删除失败')
             return error_response(message='删除失败，请稍后重试', status_code=500)
+
+    @action(detail=False, methods=['post'], url_path='batch-delete')
+    def batch_delete(self, request):
+        """【P3-优化】批量删除合同"""
+        serializer = ContractBatchDeleteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        result = ContractService.batch_delete_contract(
+            serializer.validated_data['ids']
+        )
+
+        return success_response(
+            data={
+                'total': result['total'],
+                'success_count': result['success_count'],
+                'fail_count': result['fail_count'],
+                'success_ids': result['success_ids'],
+                'fail_items': result['fail_items']
+            },
+            message=f"批量删除完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条"
+        )
 
     @extend_schema(
         parameters=[OpenApiParameter(name='name', type=OpenApiTypes.STR, location=OpenApiParameter.PATH, required=True)],

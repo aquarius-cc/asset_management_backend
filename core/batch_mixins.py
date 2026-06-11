@@ -1,0 +1,197 @@
+"""
+批量操作通用 Mixin
+
+提供批量创建/删除/更新的公共执行框架，统一处理：
+- MAX_BATCH_SIZE 前置校验
+- 逐条独立执行（单条失败不影响其他记录）
+- 异常分类捕获（AppValidationError → error_code，其他 → INTERNAL_ERROR）
+- 统一返回格式（total, success_count, fail_count, success_items, fail_items）
+
+使用方式：
+    class AssetService(BatchOperationMixin):
+        @staticmethod
+        def batch_create_asset(asset_data_list, ...):
+            def _create_item(idx, asset_data):
+                result = AssetService.create_asset(asset_data=asset_data, ...)
+                return result  # 成功返回对象
+
+            return BatchOperationMixin.batch_execute(
+                items=asset_data_list,
+                process_fn=_create_item,
+                max_batch_size=100,
+                use_transaction=False,  # 创建方法自身已有 @transaction.atomic
+            )
+"""
+
+from typing import Any, Callable, Dict, List, Optional, TypeVar
+
+from core.exceptions import AppValidationError
+
+T = TypeVar('T')
+
+
+class BatchOperationMixin:
+    """
+    批量操作通用 Mixin
+
+    【设计原则】
+    - 只提取"执行框架"公共逻辑，不涉及具体业务校验
+    - 业务校验（如状态检查、关联检查）仍由各 Service 自行实现
+    - 支持创建（返回对象）和删除（返回 ID）两种模式
+    """
+
+    DEFAULT_MAX_BATCH_SIZE = 100
+
+    @classmethod
+    def batch_execute(
+        cls,
+        items: List[Any],
+        process_fn: Callable[[int, Any], T],
+        max_batch_size: Optional[int] = None,
+        use_transaction: bool = False,
+        item_key: str = 'index',
+    ) -> Dict[str, Any]:
+        """
+        批量执行通用框架
+
+        【P2-优化】提取所有批量方法的公共循环+异常处理逻辑，减少代码重复。
+
+        Args:
+            items: 待处理的条目列表
+            process_fn: 单条处理函数，签名 fn(index, item) -> result
+                       成功时返回结果对象，失败时抛出 AppValidationError
+            max_batch_size: 最大批量大小，默认 100
+            use_transaction: 是否为每条记录包裹 transaction.atomic
+            item_key: fail_items 中用于标识条目的键名（'index' 或 'id'）
+
+        Returns:
+            Dict[str, Any]: 统一格式的批量操作结果
+                {
+                    "total": int,
+                    "success_count": int,
+                    "fail_count": int,
+                    "success_items": List[T],
+                    "fail_items": List[Dict]
+                }
+
+        Raises:
+            AppValidationError: 列表长度超过 max_batch_size 时抛出 BATCH_SIZE_EXCEEDED
+        """
+        max_size = max_batch_size or cls.DEFAULT_MAX_BATCH_SIZE
+
+        if len(items) > max_size:
+            raise AppValidationError(
+                detail=f"单次批量操作不能超过 {max_size} 条",
+                error_code="BATCH_SIZE_EXCEEDED"
+            )
+
+        success_items: List[T] = []
+        fail_items: List[Dict[str, Any]] = []
+
+        for idx, item in enumerate(items):
+            try:
+                if use_transaction:
+                    from django.db import transaction
+                    with transaction.atomic():
+                        result = process_fn(idx, item)
+                else:
+                    result = process_fn(idx, item)
+                success_items.append(result)
+            except AppValidationError as e:
+                fail_item = {
+                    item_key: idx if item_key == 'index' else (item.get(item_key) if isinstance(item, dict) else item),
+                    "error_code": e.error_code or "VALIDATION_ERROR",
+                    "error_message": str(e.detail)
+                }
+                # 如果 item 是字典，始终记录 row_number 和 input_data（保持与原有行为一致）
+                if isinstance(item, dict):
+                    fail_item["row_number"] = item.get('row_number')
+                    fail_item["input_data"] = item
+                fail_items.append(fail_item)
+            except Exception:
+                fail_item = {
+                    item_key: idx if item_key == 'index' else (item.get(item_key) if isinstance(item, dict) else item),
+                    "error_code": "INTERNAL_ERROR",
+                    "error_message": "服务器内部错误，请稍后重试"
+                }
+                if isinstance(item, dict):
+                    fail_item["row_number"] = item.get('row_number')
+                    fail_item["input_data"] = item
+                fail_items.append(fail_item)
+
+        return {
+            "total": len(items),
+            "success_count": len(success_items),
+            "fail_count": len(fail_items),
+            "success_items": success_items,
+            "fail_items": fail_items
+        }
+
+    @classmethod
+    def batch_delete_execute(
+        cls,
+        ids: List[str],
+        process_fn: Callable[[str], None],
+        max_batch_size: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """
+        批量删除专用框架
+
+        与 batch_execute 的区别：
+        - process_fn 无返回值（None）
+        - fail_items 使用 "id" 作为键
+        - 默认启用 transaction.atomic 包裹单条删除
+
+        Args:
+            ids: 待删除的 ID 列表
+            process_fn: 单条删除函数，签名 fn(id) -> None
+                       成功时无返回，失败时抛出 AppValidationError
+            max_batch_size: 最大批量大小，默认 100
+
+        Returns:
+            Dict[str, Any]: 统一格式的批量删除结果
+                {
+                    "total": int,
+                    "success_count": int,
+                    "fail_count": int,
+                    "success_ids": List[str],
+                    "fail_items": List[Dict]
+                }
+        """
+        max_size = max_batch_size or cls.DEFAULT_MAX_BATCH_SIZE
+
+        if len(ids) > max_size:
+            raise AppValidationError(
+                detail=f"单次批量删除不能超过 {max_size} 条",
+                error_code="BATCH_SIZE_EXCEEDED"
+            )
+
+        success_ids: List[str] = []
+        fail_items: List[Dict[str, Any]] = []
+
+        for item_id in ids:
+            try:
+                from django.db import transaction
+                with transaction.atomic():
+                    process_fn(item_id)
+                success_ids.append(item_id)
+            except AppValidationError as e:
+                fail_items.append({
+                    "id": item_id,
+                    "error_code": e.error_code or "VALIDATION_ERROR",
+                    "error_message": str(e.detail)
+                })
+            except Exception:
+                fail_items.append({
+                    "id": item_id,
+                    "error_code": "INTERNAL_ERROR",
+                    "error_message": "服务器内部错误，请稍后重试"
+                })
+
+        return {
+            "total": len(ids),
+            "success_count": len(success_ids),
+            "fail_count": len(fail_items),
+            "success_ids": success_ids,
+            "fail_items": fail_items
+        }

@@ -24,6 +24,7 @@ from typing import Optional, Dict, Any, List
 from django.db import transaction
 from django.utils import timezone
 from core.exceptions import AppValidationError
+from core.batch_mixins import BatchOperationMixin
 
 from apps.assetmanagement.models import (
     Asset,
@@ -165,12 +166,14 @@ class AssetCodeGenerator:
         )
 
 
-class AssetService:
+class AssetService(BatchOperationMixin):
     """
     资产管理服务
 
     提供资产全生命周期管理的业务逻辑，包括资产的创建、更新、删除、状态变更等操作。
     所有涉及数据修改的操作都使用事务装饰器确保数据一致性。
+
+    【P2-优化】继承 BatchOperationMixin，复用批量操作公共框架。
     """
 
     @staticmethod
@@ -341,76 +344,34 @@ class AssetService:
         """
         批量创建资产（逐条独立执行，返回详细结果）
 
+        【P2-优化】使用 BatchOperationMixin.batch_execute 复用公共执行框架：
+        - MAX_BATCH_SIZE 前置校验
+        - 逐条独立执行，单条失败不影响其他记录
+        - 统一异常捕获和错误码收集
+
         【P0-优化】错误码映射机制：
         - 单条创建方法(create_asset)中的验证异常均携带 error_code 属性
         - 批量方法通过 e.error_code 直接读取，不再使用字符串匹配
-        - 若单条方法未设置 error_code，则兜底使用 "VALIDATION_ERROR"
-        - 所有 AppValidationError 均已统一携带 error_code，确保批量结果准确
-
-        每条记录独立 try-except，单条失败不影响其他记录。
-        复用 AssetService.create_asset() 单条创建逻辑。
 
         Returns:
             Dict[str, Any]: 批量创建结果
-                {
-                    "total": 3,
-                    "success_count": 2,
-                    "fail_count": 1,
-                    "success_items": [Asset, ...],
-                    "fail_items": [
-                        {
-                            "index": 2,
-                            "row_number": 5,
-                            "input_data": {...},
-                            "error_code": "DUPLICATE_ASSET_NAME",
-                            "error_message": "资产名称 'xxx' 已存在"
-                        }
-                    ]
-                }
         """
-        MAX_BATCH_SIZE = 100
-        if len(asset_data_list) > MAX_BATCH_SIZE:
-            raise AppValidationError(
-                detail=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条",
-                error_code="BATCH_SIZE_EXCEEDED"
+        def _create_item(idx: int, asset_data: Dict[str, Any]) -> Asset:
+            import copy
+            result = AssetService.create_asset(
+                asset_data=copy.deepcopy(asset_data),
+                operator_jobcode=operator_jobcode,
+                operator_name=operator_name,
             )
+            # create_asset 返回 List[Asset]，取第一条（批量创建时 purchase_number=1）
+            return result[0] if result else None
 
-        success_items: List[Asset] = []
-        fail_items: List[Dict[str, Any]] = []
-
-        for idx, asset_data in enumerate(asset_data_list):
-            try:
-                # 复用单条创建逻辑，传入字典
-                result = AssetService.create_asset(
-                    asset_data=asset_data,
-                    operator_jobcode=operator_jobcode,
-                    operator_name=operator_name,
-                )
-                success_items.extend(result)
-            except AppValidationError as e:
-                fail_items.append({
-                    "index": idx,
-                    "row_number": asset_data.get('row_number'),
-                    "input_data": asset_data,
-                    "error_code": e.error_code or "VALIDATION_ERROR",
-                    "error_message": str(e.detail)
-                })
-            except Exception:
-                fail_items.append({
-                    "index": idx,
-                    "row_number": asset_data.get('row_number'),
-                    "input_data": asset_data,
-                    "error_code": "INTERNAL_ERROR",
-                    "error_message": "服务器内部错误，请稍后重试"
-                })
-
-        return {
-            "total": len(asset_data_list),
-            "success_count": len(success_items),
-            "fail_count": len(fail_items),
-            "success_items": success_items,
-            "fail_items": fail_items
-        }
+        return BatchOperationMixin.batch_execute(
+            items=asset_data_list,
+            process_fn=_create_item,
+            max_batch_size=100,
+            use_transaction=False,  # create_asset 自身已有 @transaction.atomic
+        )
 
     @staticmethod
     def batch_delete_asset(

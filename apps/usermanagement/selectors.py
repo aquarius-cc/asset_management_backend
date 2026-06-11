@@ -235,7 +235,7 @@ class DepartmentSelector:
         Returns:
             部门列表
         """
-        return list(Department.objects.all())
+        return list(Department.objects.filter(is_deleted=False))
 
     @staticmethod
     def get_departments_ordered() -> QuerySet:
@@ -247,7 +247,7 @@ class DepartmentSelector:
         Returns:
             按sort_order排序的部门查询集
         """
-        return Department.objects.all().order_by('sort_order', 'department_code')
+        return Department.objects.filter(is_deleted=False).order_by('sort_order', 'department_code')
 
     @staticmethod
     def get_root_departments() -> QuerySet:
@@ -258,7 +258,7 @@ class DepartmentSelector:
             根部门查询集
         """
         return Department.objects.filter(
-            parent_code__isnull=True
+            parent_code__isnull=True,is_deleted=False
         ).order_by('sort_order', 'department_code')
 
     @staticmethod

@@ -50,7 +50,7 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
         """
         自定义权限：管理员可管理部门，普通用户只能查看
         """
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'batch_create', 'batch_delete', 'sort']:
             permission_classes = [permissions.IsAdminUser]
         else:
             permission_classes = [permissions.IsAuthenticated]
@@ -614,7 +614,7 @@ class EmployeeViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSet)
         """
         自定义权限：管理员可管理员工，普通用户只能查看
         """
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'batch_create', 'batch_delete', 'batch_sort']:
             permission_classes = [permissions.IsAdminUser]
         else:
             permission_classes = [permissions.IsAuthenticated]

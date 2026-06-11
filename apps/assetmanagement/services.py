@@ -1922,6 +1922,13 @@ class HardDiskSNService:
         asset_code_str = validated_data["asset_code"]
         disks = validated_data["disks"]
 
+        MAX_BATCH_SIZE = 100
+        if len(disks) > MAX_BATCH_SIZE:
+            raise AppValidationError(
+                detail=f"单次批量保存不能超过 {MAX_BATCH_SIZE} 条",
+                error_code="BATCH_SIZE_EXCEEDED"
+            )
+
         # 获取关联资产实例
         from apps.assetmanagement.selectors import AssetSelector
         asset = AssetSelector.get_asset_by_code(asset_code_str)

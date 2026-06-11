@@ -153,11 +153,11 @@ class EmployeeService:
         for jobcode in employee_jobcodes:
             try:
                 employee = EmployeeSelector.get_employee_by_jobcode(jobcode)
-                if not employee:
+                if not employee or employee.is_deleted:
                     fail_items.append({
                         "id": jobcode,
                         "error_code": "NOT_FOUND",
-                        "error_message": f"员工 {jobcode} 不存在"
+                        "error_message": f"员工 {jobcode} 不存在或已删除"
                     })
                     continue
 
@@ -399,8 +399,15 @@ class DepartmentService:
             int: 更新的记录数
 
         Raises:
-            ValidationError: 部门不存在
+            ValidationError: 部门不存在或批量大小超限
         """
+        MAX_BATCH_SIZE = 100
+        if len(items) > MAX_BATCH_SIZE:
+            raise ValidationError(
+                detail=f"单次批量排序不能超过 {MAX_BATCH_SIZE} 条",
+                error_code="BATCH_SIZE_EXCEEDED"
+            )
+
         updated_count = 0
 
         for item in items:
@@ -498,16 +505,16 @@ class DepartmentService:
         for dept_code in department_codes:
             try:
                 department = DepartmentSelector.get_department_by_code(dept_code)
-                if not department:
+                if not department or department.is_deleted:
                     fail_items.append({
                         "id": dept_code,
                         "error_code": "NOT_FOUND",
-                        "error_message": f"部门 {dept_code} 不存在"
+                        "error_message": f"部门 {dept_code} 不存在或已删除"
                     })
                     continue
 
-                # 检查下属员工
-                if Employee.objects.filter(employee_department=department).exists():
+                # 检查下属员工（排除已删除的）
+                if Employee.objects.filter(employee_department=department, is_deleted=False).exists():
                     fail_items.append({
                         "id": dept_code,
                         "error_code": "HAS_EMPLOYEES",
@@ -515,8 +522,8 @@ class DepartmentService:
                     })
                     continue
 
-                # 检查子部门
-                if Department.objects.filter(parent_code=dept_code).exists():
+                # 检查子部门（排除已删除的）
+                if Department.objects.filter(parent_code=dept_code, is_deleted=False).exists():
                     fail_items.append({
                         "id": dept_code,
                         "error_code": "HAS_CHILD_DEPARTMENTS",

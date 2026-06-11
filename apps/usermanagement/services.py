@@ -31,7 +31,8 @@ class EmployeeService:
             employee_jobcode=employee_data['employee_jobcode']
         ).exists():
             raise ValidationError(
-                detail=f"工号 {employee_data['employee_jobcode']} 已存在"
+                detail=f"工号 {employee_data['employee_jobcode']} 已存在",
+                error_code="DUPLICATE_EMPLOYEE_JOBCODE"
             )
 
         employee = Employee.objects.create(**employee_data)
@@ -62,7 +63,8 @@ class EmployeeService:
         valid_statuses = dict(Employee.EMPLOYEE_STATUS_CHOICES)
         if new_status not in valid_statuses:
             raise ValidationError(
-                detail=f'无效的员工状态: {new_status}，有效值为 {list(valid_statuses.keys())}'
+                detail=f'无效的员工状态: {new_status}，有效值为 {list(valid_statuses.keys())}',
+                error_code='INVALID_EMPLOYEE_STATUS'
             )
 
         employee.employee_status = new_status
@@ -75,12 +77,21 @@ class EmployeeService:
     ) -> Dict[str, Any]:
         """
         批量创建员工（逐条独立执行，返回详细结果）
+
+        【P0-优化】错误码映射机制：
+        - 单条创建方法(create_employee)中的验证异常均携带 error_code 属性
+        - 批量方法通过 e.error_code 直接读取，不再使用字符串匹配
+        - 若单条方法未设置 error_code，则兜底使用 "VALIDATION_ERROR"
+
         复用 EmployeeService.create_employee() 单条创建逻辑。
         使用 copy.deepcopy 避免原始数据被修改。
         """
         MAX_BATCH_SIZE = 100
         if len(employee_data_list) > MAX_BATCH_SIZE:
-            raise ValidationError(detail=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条")
+            raise ValidationError(
+                detail=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条",
+                error_code="BATCH_SIZE_EXCEEDED"
+            )
 
         success_items: List[Employee] = []
         fail_items: List[Dict[str, Any]] = []
@@ -96,7 +107,7 @@ class EmployeeService:
                     "index": idx,
                     "row_number": employee_data.get('row_number'),
                     "input_data": employee_data,
-                    "error_code": _map_employee_error_code(str(e.detail)),
+                    "error_code": e.error_code or "VALIDATION_ERROR",
                     "error_message": str(e.detail)
                 })
             except Exception:
@@ -131,7 +142,10 @@ class EmployeeService:
 
         MAX_BATCH_SIZE = 100
         if len(employee_jobcodes) > MAX_BATCH_SIZE:
-            raise ValidationError(detail=f"单次批量删除不能超过 {MAX_BATCH_SIZE} 条")
+            raise ValidationError(
+                detail=f"单次批量删除不能超过 {MAX_BATCH_SIZE} 条",
+                error_code="BATCH_SIZE_EXCEEDED"
+            )
 
         success_ids: List[str] = []
         fail_items: List[Dict[str, Any]] = []
@@ -210,7 +224,8 @@ class DepartmentService:
             department_code=dept_data['department_code']
         ).exists():
             raise ValidationError(
-                detail=f"部门编码 {dept_data['department_code']} 已存在"
+                detail=f"部门编码 {dept_data['department_code']} 已存在",
+                error_code="DUPLICATE_DEPARTMENT_CODE"
             )
 
         # 如果指定了父部门，验证并计算层级
@@ -219,13 +234,15 @@ class DepartmentService:
             parent = DepartmentSelector.get_department_by_code(parent_code)
             if not parent:
                 raise ValidationError(
-                    detail=f"上级部门 {parent_code} 不存在"
+                    detail=f"上级部门 {parent_code} 不存在",
+                    error_code="PARENT_DEPARTMENT_NOT_FOUND"
                 )
             # 计算层级
             dept_data['level'] = parent.level + 1
             if dept_data['level'] > MAX_DEPARTMENT_LEVEL:
                 raise ValidationError(
-                    detail=f"部门层级不能超过 {MAX_DEPARTMENT_LEVEL} 层"
+                    detail=f"部门层级不能超过 {MAX_DEPARTMENT_LEVEL} 层",
+                    error_code="DEPARTMENT_LEVEL_EXCEEDED"
                 )
         else:
             dept_data['level'] = 0
@@ -265,7 +282,10 @@ class DepartmentService:
         # 获取要移动的部门
         department = DepartmentSelector.get_department_by_code(department_code)
         if not department:
-            raise ValidationError(detail=f"部门 {department_code} 不存在")
+            raise ValidationError(
+                detail=f"部门 {department_code} 不存在",
+                error_code="DEPARTMENT_NOT_FOUND"
+            )
 
         # 如果目标父部门为 None，移动为根部门
         if target_parent_code is None:
@@ -282,17 +302,24 @@ class DepartmentService:
         # 验证目标父部门存在
         target_parent = DepartmentSelector.get_department_by_code(target_parent_code)
         if not target_parent:
-            raise ValidationError(detail=f"目标父部门 {target_parent_code} 不存在")
+            raise ValidationError(
+                detail=f"目标父部门 {target_parent_code} 不存在",
+                error_code="PARENT_DEPARTMENT_NOT_FOUND"
+            )
 
         # 检查循环引用：不能移动到自己
         if target_parent_code == department_code:
-            raise BusinessLogicError(detail="不能将部门移动到自己下面")
+            raise BusinessLogicError(
+                detail="不能将部门移动到自己下面",
+                error_code="CIRCULAR_REFERENCE"
+            )
 
         # 检查循环引用：不能移动到自己的子部门下
         descendants = department.get_all_descendants()
         if target_parent_code in descendants:
             raise BusinessLogicError(
-                detail="不能将部门移动到自己的子部门下面，这会形成循环引用"
+                detail="不能将部门移动到自己的子部门下面，这会形成循环引用",
+                error_code="CIRCULAR_REFERENCE"
             )
 
         # 计算新层级
@@ -305,7 +332,8 @@ class DepartmentService:
         # 验证层级约束
         if total_depth > MAX_DEPARTMENT_LEVEL:
             raise BusinessLogicError(
-                detail=f"移动后部门层级将超过 {MAX_DEPARTMENT_LEVEL} 层限制"
+                detail=f"移动后部门层级将超过 {MAX_DEPARTMENT_LEVEL} 层限制",
+                error_code="DEPARTMENT_LEVEL_EXCEEDED"
             )
 
         # 更新部门信息
@@ -395,12 +423,21 @@ class DepartmentService:
     ) -> Dict[str, Any]:
         """
         批量创建部门（逐条独立执行，返回详细结果）
+
+        【P0-优化】错误码映射机制：
+        - 单条创建方法(create_department)中的验证异常均携带 error_code 属性
+        - 批量方法通过 e.error_code 直接读取，不再使用字符串匹配
+        - 若单条方法未设置 error_code，则兜底使用 "VALIDATION_ERROR"
+
         复用 DepartmentService.create_department() 单条创建逻辑。
         使用 copy.deepcopy 避免原始数据被修改。
         """
         MAX_BATCH_SIZE = 100
         if len(dept_data_list) > MAX_BATCH_SIZE:
-            raise ValidationError(detail=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条")
+            raise ValidationError(
+                detail=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条",
+                error_code="BATCH_SIZE_EXCEEDED"
+            )
 
         success_items: List[Department] = []
         fail_items: List[Dict[str, Any]] = []
@@ -416,7 +453,7 @@ class DepartmentService:
                     "index": idx,
                     "row_number": dept_data.get('row_number'),
                     "input_data": dept_data,
-                    "error_code": _map_department_error_code(str(e.detail)),
+                    "error_code": e.error_code or "VALIDATION_ERROR",
                     "error_message": str(e.detail)
                 })
             except Exception:
@@ -450,7 +487,10 @@ class DepartmentService:
         """
         MAX_BATCH_SIZE = 100
         if len(department_codes) > MAX_BATCH_SIZE:
-            raise ValidationError(detail=f"单次批量删除不能超过 {MAX_BATCH_SIZE} 条")
+            raise ValidationError(
+                detail=f"单次批量删除不能超过 {MAX_BATCH_SIZE} 条",
+                error_code="BATCH_SIZE_EXCEEDED"
+            )
 
         success_ids: List[str] = []
         fail_items: List[Dict[str, Any]] = []
@@ -501,25 +541,3 @@ class DepartmentService:
             "success_ids": success_ids,
             "fail_items": fail_items
         }
-
-
-def _map_employee_error_code(error_detail: str) -> str:
-    """将员工错误详情映射为错误码"""
-    msg = str(error_detail).lower()
-    if "已存在" in msg and "工号" in msg:
-        return "DUPLICATE_EMPLOYEE_JOBCODE"
-    elif "已存在" in msg and "电话" in msg:
-        return "DUPLICATE_EMPLOYEE_PHONE"
-    return "VALIDATION_ERROR"
-
-
-def _map_department_error_code(error_detail: str) -> str:
-    """将部门错误详情映射为错误码"""
-    msg = str(error_detail).lower()
-    if "已存在" in msg:
-        return "DUPLICATE_DEPARTMENT_CODE"
-    elif "不存在" in msg and "上级" in msg:
-        return "PARENT_NOT_FOUND"
-    elif "层级" in msg:
-        return "LEVEL_EXCEEDED"
-    return "VALIDATION_ERROR"

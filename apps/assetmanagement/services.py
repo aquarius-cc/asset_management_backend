@@ -257,7 +257,10 @@ class AssetService:
         """
         asset = AssetSelector.get_asset_by_code(asset_code)
         if not asset:
-            raise AppValidationError(detail=f"资产 {asset_code} 不存在")
+            raise AppValidationError(
+                detail=f"资产 {asset_code} 不存在",
+                error_code="ASSET_NOT_FOUND"
+            )
 
         # 【AGENTS规范】记录变更前数据
         before_data = {}
@@ -275,7 +278,10 @@ class AssetService:
             if key in ASSET_UPDATE_ALLOWED_FIELDS:
                 setattr(asset, key, value)
             else:
-                raise AppValidationError(detail=f"不允许修改字段: {key}")
+                raise AppValidationError(
+                    detail=f"不允许修改字段: {key}",
+                    error_code="FIELD_NOT_ALLOWED"
+                )
 
         asset.save()
 
@@ -311,7 +317,10 @@ class AssetService:
         """
         asset = AssetSelector.get_asset_by_code(asset_code)
         if not asset:
-            raise AppValidationError(detail=f"资产 {asset_code} 不存在")
+            raise AppValidationError(
+                detail=f"资产 {asset_code} 不存在",
+                error_code="ASSET_NOT_FOUND"
+            )
 
         # 【AGENTS 规范 - 审计解耦】显式记录操作日志
         AuditLogger.log_asset_delete(
@@ -331,6 +340,12 @@ class AssetService:
     ) -> Dict[str, Any]:
         """
         批量创建资产（逐条独立执行，返回详细结果）
+
+        【P0-优化】错误码映射机制：
+        - 单条创建方法(create_asset)中的验证异常均携带 error_code 属性
+        - 批量方法通过 e.error_code 直接读取，不再使用字符串匹配
+        - 若单条方法未设置 error_code，则兜底使用 "VALIDATION_ERROR"
+        - 所有 AppValidationError 均已统一携带 error_code，确保批量结果准确
 
         每条记录独立 try-except，单条失败不影响其他记录。
         复用 AssetService.create_asset() 单条创建逻辑。
@@ -353,6 +368,13 @@ class AssetService:
                     ]
                 }
         """
+        MAX_BATCH_SIZE = 100
+        if len(asset_data_list) > MAX_BATCH_SIZE:
+            raise AppValidationError(
+                detail=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条",
+                error_code="BATCH_SIZE_EXCEEDED"
+            )
+
         success_items: List[Asset] = []
         fail_items: List[Dict[str, Any]] = []
 
@@ -366,12 +388,11 @@ class AssetService:
                 )
                 success_items.extend(result)
             except AppValidationError as e:
-                error_code = _map_asset_error_code(str(e.detail))
                 fail_items.append({
                     "index": idx,
                     "row_number": asset_data.get('row_number'),
                     "input_data": asset_data,
-                    "error_code": error_code,
+                    "error_code": e.error_code or "VALIDATION_ERROR",
                     "error_message": str(e.detail)
                 })
             except Exception:
@@ -421,6 +442,13 @@ class AssetService:
                     ]
                 }
         """
+        MAX_BATCH_SIZE = 100
+        if len(asset_codes) > MAX_BATCH_SIZE:
+            raise AppValidationError(
+                detail=f"单次批量删除不能超过 {MAX_BATCH_SIZE} 条",
+                error_code="BATCH_SIZE_EXCEEDED"
+            )
+
         success_ids: List[str] = []
         fail_items: List[Dict[str, Any]] = []
 
@@ -506,11 +534,17 @@ class AssetService:
         """
         valid_statuses = dict(Asset.ASSET_STATUS_CHOICES)
         if new_status not in valid_statuses:
-            raise AppValidationError(detail=f"无效的资产状态: {new_status}")
+            raise AppValidationError(
+                detail=f"无效的资产状态: {new_status}",
+                error_code="INVALID_ASSET_STATUS"
+            )
 
         asset = AssetSelector.get_asset_by_code(asset_code)
         if not asset:
-            raise AppValidationError(detail=f"资产 {asset_code} 不存在")
+            raise AppValidationError(
+                detail=f"资产 {asset_code} 不存在",
+                error_code="ASSET_NOT_FOUND"
+            )
 
         old_status = asset.asset_current_status
         asset.asset_current_status = new_status
@@ -534,7 +568,10 @@ class AssetService:
     def change_outasset_employee(asset_code:str,applicant_jobcode:str,manager_jobcode:str) -> Asset:
         asset = AssetSelector.get_asset_by_code(asset_code)
         if not asset:
-            raise AppValidationError(detail=f"资产 {asset_code} 不存在")
+            raise AppValidationError(
+                detail=f"资产 {asset_code} 不存在",
+                error_code="ASSET_NOT_FOUND"
+            )
 
         old_applicant = asset.asset_applicant
         old_manager = asset.asset_manager
@@ -574,11 +611,17 @@ class AssetService:
         """
         asset = AssetSelector.get_asset_by_code(asset_code)
         if not asset:
-            raise AppValidationError(detail=f"资产 {asset_code} 不存在")
+            raise AppValidationError(
+                detail=f"资产 {asset_code} 不存在",
+                error_code="ASSET_NOT_FOUND"
+            )
 
         storage = StorageSelector.get_storage_by_code(storage_code)
         if not storage:
-            raise AppValidationError(detail=f"仓库 {storage_code} 不存在")
+            raise AppValidationError(
+                detail=f"仓库 {storage_code} 不存在",
+                error_code="STORAGE_NOT_FOUND"
+            )
 
         old_storage = asset.asset_storage_code
         asset.asset_storage_code = storage
@@ -642,12 +685,16 @@ class OutAssetService:
         """
         asset = outasset_data.get('outasset_code')
         if not asset:
-            raise AppValidationError(detail="缺少资产编码")
+            raise AppValidationError(
+                detail="缺少资产编码",
+                error_code="MISSING_ASSET_CODE"
+            )
 
         # 业务验证：检查资产状态是否允许出库
         if asset.asset_current_status not in ['in_store', 'recycled_pending']:
             raise AppValidationError(
-                detail=f"资产当前状态为 {asset.asset_current_status}，不能出库"
+                detail=f"资产当前状态为 {asset.asset_current_status}，不能出库",
+                error_code="INVALID_ASSET_STATUS_FOR_OUT"
             )
 
         # 【AGENTS规范 - 取消出库支持】记录出库前资产状态
@@ -673,7 +720,10 @@ class OutAssetService:
         try:
             AssetFSM.outasset(asset)
         except InvalidTransitionError as e:
-            raise AppValidationError(detail=str(e))
+            raise AppValidationError(
+                detail=str(e),
+                error_code="INVALID_STATE_TRANSITION"
+            )
 
         # 【AGENTS 规范 - 去除冗余】outasset_applicant_jobcode/manager_jobcode/using_location 已删除
         # 这些字段现在统一存储在 Asset 模型中
@@ -732,14 +782,20 @@ class OutAssetService:
         """
         outasset = OutAssetSelector.get_outasset_by_record_code(outasset_recordcode)
         if not outasset:
-            raise AppValidationError(detail=f"出库记录 {outasset_recordcode} 不存在")
+            raise AppValidationError(
+                detail=f"出库记录 {outasset_recordcode} 不存在",
+                error_code="OUTASSET_NOT_FOUND"
+            )
 
         # 【修复 S9】字段白名单过滤，防止修改任意字段
         for key, value in update_data.items():
             if key in OUTASSET_UPDATE_ALLOWED_FIELDS:
                 setattr(outasset, key, value)
             else:
-                raise AppValidationError(detail=f"不允许修改字段: {key}")
+                raise AppValidationError(
+                    detail=f"不允许修改字段: {key}",
+                    error_code="FIELD_NOT_ALLOWED"
+                )
 
         outasset.save()
         return outasset
@@ -763,6 +819,11 @@ class OutAssetService:
         """
         批量创建出库记录（逐条独立执行，返回详细结果）
 
+        【P0-优化】错误码映射机制：
+        - 单条创建方法(create_outasset)中的验证异常均携带 error_code 属性
+        - 批量方法通过 e.error_code 直接读取，不再使用字符串匹配
+        - 若单条方法未设置 error_code，则兜底使用 "VALIDATION_ERROR"
+
         每条记录独立 try-except，单条失败不影响其他记录。
         复用 OutAssetService.create_outasset() 单条创建逻辑。
         使用字典深拷贝避免 create_outasset 内部的 pop 操作修改原始数据。
@@ -774,7 +835,10 @@ class OutAssetService:
 
         MAX_BATCH_SIZE = 100
         if len(outasset_data_list) > MAX_BATCH_SIZE:
-            raise AppValidationError(detail=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条")
+            raise AppValidationError(
+                detail=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条",
+                error_code="BATCH_SIZE_EXCEEDED"
+            )
 
         success_items: List[OutAsset] = []
         fail_items: List[Dict[str, Any]] = []
@@ -793,7 +857,7 @@ class OutAssetService:
                     "index": idx,
                     "row_number": outasset_data.get('row_number'),
                     "input_data": outasset_data,
-                    "error_code": _map_outasset_error_code(str(e.detail)),
+                    "error_code": e.error_code or "VALIDATION_ERROR",
                     "error_message": str(e.detail)
                 })
             except Exception:
@@ -832,7 +896,10 @@ class OutAssetService:
         """
         MAX_BATCH_SIZE = 100
         if len(outasset_recordcodes) > MAX_BATCH_SIZE:
-            raise AppValidationError(detail=f"单次批量删除不能超过 {MAX_BATCH_SIZE} 条")
+            raise AppValidationError(
+                detail=f"单次批量删除不能超过 {MAX_BATCH_SIZE} 条",
+                error_code="BATCH_SIZE_EXCEEDED"
+            )
 
         success_ids: List[str] = []
         fail_items: List[Dict[str, Any]] = []
@@ -891,28 +958,6 @@ class OutAssetService:
         }
 
 
-def _map_outasset_error_code(error_detail: str) -> str:
-    """将出库错误详情映射为错误码"""
-    msg = str(error_detail).lower()
-    if "状态" in msg:
-        return "STATUS_NOT_ALLOWED"
-    elif "不存在" in msg:
-        return "ASSET_NOT_FOUND"
-    elif "缺少" in msg:
-        return "MISSING_REQUIRED_FIELD"
-    return "VALIDATION_ERROR"
-
-
-def _map_recycle_error_code(error_detail: str) -> str:
-    """将回收错误详情映射为错误码"""
-    msg = str(error_detail).lower()
-    if "状态" in msg:
-        return "STATUS_NOT_ALLOWED"
-    elif "不存在" in msg:
-        return "OUTASSET_NOT_FOUND"
-    return "VALIDATION_ERROR"
-
-
 class RecycleAssetService:
     """
     回收资产管理服务
@@ -951,19 +996,26 @@ class RecycleAssetService:
 
         outasset_recordcode = recycle_data.get('outasset_recordcode')
         if not outasset_recordcode:
-            raise AppValidationError(detail="缺少出库记录编码")
+            raise AppValidationError(
+                detail="缺少出库记录编码",
+                error_code="MISSING_OUTASSET_RECORDCODE"
+            )
 
         outasset = OutAssetSelector.get_outasset_by_record_code(
             outasset_recordcode.outasset_recordcode
         )
         if not outasset:
-            raise AppValidationError(detail=f"出库记录 {outasset_recordcode} 不存在")
+            raise AppValidationError(
+                detail=f"出库记录 {outasset_recordcode} 不存在",
+                error_code="OUTASSET_NOT_FOUND"
+            )
 
         # 【AGENTS 规范 - 去除冗余】outasset_current_status 已删除，从 Asset 获取状态
         asset = outasset.outasset_code
         if asset.asset_current_status != 'in_use':
             raise AppValidationError(
-                detail=f"资产当前状态为 {asset.asset_current_status}，不能回收"
+                detail=f"资产当前状态为 {asset.asset_current_status}，不能回收",
+                error_code="INVALID_ASSET_STATUS_FOR_RECYCLE"
             )
 
         # 【读写分离】将前端传入的回收人映射到 operator_jobcode
@@ -986,7 +1038,10 @@ class RecycleAssetService:
         try:
             AssetFSM.recycle(asset)
         except InvalidTransitionError as e:
-            raise AppValidationError(detail=str(e))
+            raise AppValidationError(
+                detail=str(e),
+                error_code="INVALID_STATE_TRANSITION"
+            )
 
         # 【读写分离】回收后更新资产仓库编码
         if storage_obj:
@@ -1020,6 +1075,12 @@ class RecycleAssetService:
     ) -> Dict[str, Any]:
         """
         批量创建回收记录（逐条独立执行，返回详细结果）
+
+        【P0-优化】错误码映射机制：
+        - 单条创建方法(create_recycle_asset)中的验证异常均携带 error_code 属性
+        - 批量方法通过 e.error_code 直接读取，不再使用字符串匹配
+        - 若单条方法未设置 error_code，则兜底使用 "VALIDATION_ERROR"
+
         复用 RecycleAssetService.create_recycle_asset() 单条创建逻辑。
         使用 copy.deepcopy 避免原始数据被修改。
         """
@@ -1027,7 +1088,10 @@ class RecycleAssetService:
 
         MAX_BATCH_SIZE = 100
         if len(recycle_data_list) > MAX_BATCH_SIZE:
-            raise AppValidationError(detail=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条")
+            raise AppValidationError(
+                detail=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条",
+                error_code="BATCH_SIZE_EXCEEDED"
+            )
 
         success_items: List[RecycleAsset] = []
         fail_items: List[Dict[str, Any]] = []
@@ -1045,7 +1109,7 @@ class RecycleAssetService:
                     "index": idx,
                     "row_number": recycle_data.get('row_number'),
                     "input_data": recycle_data,
-                    "error_code": _map_recycle_error_code(str(e.detail)),
+                    "error_code": e.error_code or "VALIDATION_ERROR",
                     "error_message": str(e.detail)
                 })
             except Exception:
@@ -1080,7 +1144,10 @@ class RecycleAssetService:
         """
         MAX_BATCH_SIZE = 100
         if len(recycle_record_codes) > MAX_BATCH_SIZE:
-            raise AppValidationError(detail=f"单次批量删除不能超过 {MAX_BATCH_SIZE} 条")
+            raise AppValidationError(
+                detail=f"单次批量删除不能超过 {MAX_BATCH_SIZE} 条",
+                error_code="BATCH_SIZE_EXCEEDED"
+            )
 
         success_ids: List[str] = []
         fail_items: List[Dict[str, Any]] = []
@@ -1159,10 +1226,16 @@ class DamagedAssetService:
         """
         asset = damaged_data.get('damaged_asset_code')
         if not asset:
-            raise AppValidationError(detail="缺少资产编码")
+            raise AppValidationError(
+                detail="缺少资产编码",
+                error_code="MISSING_ASSET_CODE"
+            )
 
         if DamagedAssetSelector.exists_by_asset_code(asset):
-            raise AppValidationError(detail=f"资产 {asset.asset_code} 已存在待报废记录")
+            raise AppValidationError(
+                detail=f"资产 {asset.asset_code} 已存在待报废记录",
+                error_code="DUPLICATE_DAMAGED_RECORD"
+            )
 
         # 创建待报废记录
         damaged_asset = DamagedAsset.objects.create(**damaged_data)
@@ -1174,7 +1247,10 @@ class DamagedAssetService:
         try:
             AssetFSM.damaged(asset)
         except InvalidTransitionError as e:
-            raise AppValidationError(detail=str(e))
+            raise AppValidationError(
+                detail=str(e),
+                error_code="INVALID_STATE_TRANSITION"
+            )
 
         asset.save(update_fields=['asset_current_status'])
 
@@ -1220,10 +1296,16 @@ class DamagedAssetService:
         # 通过资产编码获取待报废记录
         damaged_asset = DamagedAssetSelector.get_damaged_asset_by_asset_code(damaged_asset_code)
         if not damaged_asset:
-            raise AppValidationError(detail=f"待报废记录 {damaged_asset_code} 不存在")
+            raise AppValidationError(
+                detail=f"待报废记录 {damaged_asset_code} 不存在",
+                error_code="DAMAGED_ASSET_NOT_FOUND"
+            )
 
         if damaged_asset.approval_status != 'pending':
-            raise AppValidationError(detail=f"当前状态 {damaged_asset.approval_status} 不允许审批")
+            raise AppValidationError(
+                detail=f"当前状态 {damaged_asset.approval_status} 不允许审批",
+                error_code="STATUS_NOT_ALLOWED"
+            )
 
         asset = damaged_asset.damaged_asset_code
 
@@ -1240,7 +1322,10 @@ class DamagedAssetService:
             try:
                 AssetFSM.approve(asset)
             except InvalidTransitionError as e:
-                raise AppValidationError(detail=str(e))
+                raise AppValidationError(
+                    detail=str(e),
+                    error_code="INVALID_STATE_TRANSITION"
+                )
 
             asset.save(update_fields=['asset_current_status'])
 
@@ -1294,10 +1379,16 @@ class DamagedAssetService:
         # 通过资产编码获取待报废记录
         damaged_asset = DamagedAssetSelector.get_damaged_asset_by_asset_code(damaged_asset_code)
         if not damaged_asset:
-            raise AppValidationError(detail=f"待报废记录 {damaged_asset_code} 不存在")
+            raise AppValidationError(
+                detail=f"待报废记录 {damaged_asset_code} 不存在",
+                error_code="DAMAGED_ASSET_NOT_FOUND"
+            )
 
         if damaged_asset.approval_status != 'pending':
-            raise AppValidationError(detail=f"当前状态 {damaged_asset.approval_status} 不允许拒绝")
+            raise AppValidationError(
+                detail=f"当前状态 {damaged_asset.approval_status} 不允许拒绝",
+                error_code="STATUS_NOT_ALLOWED"
+            )
 
         asset = damaged_asset.damaged_asset_code
 
@@ -1313,7 +1404,10 @@ class DamagedAssetService:
             try:
                 AssetFSM.reject(asset)
             except InvalidTransitionError as e:
-                raise AppValidationError(detail=str(e))
+                raise AppValidationError(
+                    detail=str(e),
+                    error_code="INVALID_STATE_TRANSITION"
+                )
 
             asset.save(update_fields=['asset_current_status'])
 
@@ -1354,12 +1448,16 @@ class DamagedAssetService:
         """
         damaged_asset = DamagedAssetSelector.get_damaged_asset_by_asset_code(damaged_asset_code)
         if not damaged_asset:
-            raise AppValidationError(detail=f"待报废记录 {damaged_asset_code} 不存在")
+            raise AppValidationError(
+                detail=f"待报废记录 {damaged_asset_code} 不存在",
+                error_code="DAMAGED_ASSET_NOT_FOUND"
+            )
 
         # 只允许取消待审批状态的申请
         if damaged_asset.approval_status != 'pending':
             raise AppValidationError(
-                detail=f"当前审批状态为 {damaged_asset.approval_status}，无法取消"
+                detail=f"当前审批状态为 {damaged_asset.approval_status}，无法取消",
+                error_code="STATUS_NOT_ALLOWED"
             )
 
         # 获取关联资产和出库记录
@@ -1374,7 +1472,10 @@ class DamagedAssetService:
             try:
                 AssetFSM.cancel_damaged(asset)
             except InvalidTransitionError as e:
-                raise AppValidationError(detail=str(e))
+                raise AppValidationError(
+                    detail=str(e),
+                    error_code="INVALID_STATE_TRANSITION"
+                )
 
             asset.save(update_fields=['asset_current_status'])
 
@@ -1433,10 +1534,16 @@ class WasteAssetService:
         """
         damaged_asset = waste_data.get('waste_asset_code')
         if not damaged_asset:
-            raise AppValidationError(detail="缺少待报废记录")
+            raise AppValidationError(
+                detail="缺少待报废记录",
+                error_code="MISSING_DAMAGED_ASSET"
+            )
 
         if damaged_asset.approval_status != 'approved':
-            raise AppValidationError(detail="待报废记录未通过审批，无法报废")
+            raise AppValidationError(
+                detail="待报废记录未通过审批，无法报废",
+                error_code="DAMAGED_ASSET_NOT_APPROVED"
+            )
 
         # 创建已报废记录
         waste_asset = WasteAsset.objects.create(**waste_data)
@@ -1450,7 +1557,10 @@ class WasteAssetService:
             try:
                 AssetFSM.approve(asset)
             except InvalidTransitionError as e:
-                raise AppValidationError(detail=str(e))
+                raise AppValidationError(
+                    detail=str(e),
+                    error_code="INVALID_STATE_TRANSITION"
+                )
 
             asset.save(update_fields=['asset_current_status'])
 
@@ -1494,7 +1604,8 @@ class WasteAssetService:
         # 校验待报废记录状态
         if damaged_asset.approval_status != 'approved':
             raise AppValidationError(
-                detail=f"待报废记录未审批通过，当前状态: {damaged_asset.approval_status}"
+                detail=f"待报废记录未审批通过，当前状态: {damaged_asset.approval_status}",
+                error_code="DAMAGED_ASSET_NOT_APPROVED"
             )
 
         asset = damaged_asset.damaged_asset_code
@@ -1502,7 +1613,10 @@ class WasteAssetService:
         # 校验是否已存在已报废记录（防止重复创建）
         existing_waste = WasteAssetSelector.get_waste_asset_by_asset_code(asset.asset_code)
         if existing_waste:
-            raise AppValidationError(detail=f"资产 {asset.asset_code} 已存在已报废记录")
+            raise AppValidationError(
+                detail=f"资产 {asset.asset_code} 已存在已报废记录",
+                error_code="DUPLICATE_WASTE_RECORD"
+            )
 
         # 准备已报废记录数据（从待报废记录映射字段）
         # 【AGENTS 规范 - 去除冗余】waste_asset_contract_code 已删除
@@ -1562,10 +1676,16 @@ class ContractService:
         """
         contract = ContractSelector.get_contract_by_code(contract_code)
         if not contract:
-            raise AppValidationError(detail=f"合同 {contract_code} 不存在")
+            raise AppValidationError(
+                detail=f"合同 {contract_code} 不存在",
+                error_code="CONTRACT_NOT_FOUND"
+            )
 
         if amount <= 0:
-            raise AppValidationError(detail="付款金额必须大于0")
+            raise AppValidationError(
+                detail="付款金额必须大于0",
+                error_code="INVALID_PAYMENT_AMOUNT"
+            )
 
         current_record = contract.contract_paid_record or ""
         # 【修复】使用 timezone.now() 替代 datetime.now()
@@ -1600,11 +1720,17 @@ class ContractService:
         """
         valid_statuses = dict(Contract.CONTRACT_SETTLEMENT_CHOICES)
         if status not in valid_statuses:
-            raise AppValidationError(detail=f"无效的结算状态: {status}")
+            raise AppValidationError(
+                detail=f"无效的结算状态: {status}",
+                error_code="INVALID_SETTLEMENT_STATUS"
+            )
 
         contract = ContractSelector.get_contract_by_code(contract_code)
         if not contract:
-            raise AppValidationError(detail=f"合同 {contract_code} 不存在")
+            raise AppValidationError(
+                detail=f"合同 {contract_code} 不存在",
+                error_code="CONTRACT_NOT_FOUND"
+            )
 
         contract.contract_settlment_status = status
         contract.save()
@@ -1649,10 +1775,16 @@ class StorageService:
 
         # 【AGENTS 规范 - P2-04】通过 Selector 层检查编码和名称唯一性，避免 Service 层直接调用 ORM
         if StorageSelector.exists_by_code(storage_code):
-            raise AppValidationError(detail=f"仓库编码 {storage_code} 已存在")
+            raise AppValidationError(
+                detail=f"仓库编码 {storage_code} 已存在",
+                error_code="DUPLICATE_STORAGE_CODE"
+            )
 
         if StorageSelector.exists_by_name(storage_name):
-            raise AppValidationError(detail=f"仓库名称 {storage_name} 已存在")
+            raise AppValidationError(
+                detail=f"仓库名称 {storage_name} 已存在",
+                error_code="DUPLICATE_STORAGE_NAME"
+            )
 
         storage = Storage.objects.create(**storage_data)
         return storage
@@ -1684,7 +1816,10 @@ class AssetTypeService:
 
         # 【AGENTS 规范 - P2-05】通过 Selector 层检查编码唯一性，避免 Service 层直接调用 ORM
         if AssetTypeSelector.exists_by_code(asset_type_code):
-            raise AppValidationError(detail=f"资产类型编码 {asset_type_code} 已存在")
+            raise AppValidationError(
+                detail=f"资产类型编码 {asset_type_code} 已存在",
+                error_code="DUPLICATE_ASSET_TYPE_CODE"
+            )
 
         asset_type = AssetType.objects.create(**asset_type_data)
         return asset_type
@@ -1743,7 +1878,10 @@ class HardDiskSNService:
         from apps.assetmanagement.selectors import AssetSelector
         asset = AssetSelector.get_asset_by_code(asset_code_str)
         if asset is None:
-            raise AppValidationError(detail=f"资产编码 '{asset_code_str}' 不存在")
+            raise AppValidationError(
+                detail=f"资产编码 '{asset_code_str}' 不存在",
+                error_code="ASSET_NOT_FOUND"
+            )
 
         created_count = 0
         updated_count = 0

@@ -1,11 +1,13 @@
 """
 用户管理服务层
 """
+import copy
+
 from django.db import transaction
 from typing import Optional, Dict, Any, List
 from core.exceptions import ValidationError, BusinessLogicError
 from .models import Employee, Department, MAX_DEPARTMENT_LEVEL
-from .selectors import DepartmentSelector
+from .selectors import DepartmentSelector, EmployeeSelector
 
 
 class EmployeeService:
@@ -76,8 +78,6 @@ class EmployeeService:
         复用 EmployeeService.create_employee() 单条创建逻辑。
         使用 copy.deepcopy 避免原始数据被修改。
         """
-        import copy
-
         MAX_BATCH_SIZE = 100
         if len(employee_data_list) > MAX_BATCH_SIZE:
             raise ValidationError(detail=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条")
@@ -125,9 +125,9 @@ class EmployeeService:
 
         前置校验：
         - 员工必须存在
-        - 员工不存在关联资产（作为申请人/保管人）
+        - 员工不存在关联出库记录（作为申请人/保管人）
         """
-        from apps.assetmanagement.models import Asset, OutAsset
+        from apps.assetmanagement.models import OutAsset
 
         MAX_BATCH_SIZE = 100
         if len(employee_jobcodes) > MAX_BATCH_SIZE:
@@ -398,8 +398,6 @@ class DepartmentService:
         复用 DepartmentService.create_department() 单条创建逻辑。
         使用 copy.deepcopy 避免原始数据被修改。
         """
-        import copy
-
         MAX_BATCH_SIZE = 100
         if len(dept_data_list) > MAX_BATCH_SIZE:
             raise ValidationError(detail=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条")
@@ -508,8 +506,10 @@ class DepartmentService:
 def _map_employee_error_code(error_detail: str) -> str:
     """将员工错误详情映射为错误码"""
     msg = str(error_detail).lower()
-    if "已存在" in msg:
+    if "已存在" in msg and "工号" in msg:
         return "DUPLICATE_EMPLOYEE_JOBCODE"
+    elif "已存在" in msg and "电话" in msg:
+        return "DUPLICATE_EMPLOYEE_PHONE"
     return "VALIDATION_ERROR"
 
 

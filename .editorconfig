@@ -1,0 +1,55 @@
+# ==================== EditorConfig ====================
+# 统一编辑器配置，确保跨编辑器的代码风格一致
+# https://editorconfig.org/
+
+# 根目录标识
+root = true
+
+# ==================== 通配符 ====================
+[*]
+# 字符编码
+charset = utf-8
+# 结尾换行符
+end_of_line = lf
+# 插入换行符
+insert_final_newline = true
+# 删除尾随空格
+trim_trailing_whitespace = true
+
+# ==================== Python 文件 ====================
+[*.py]
+# Python 文件使用 4 空格缩进
+indent_style = space
+indent_size = 4
+# 最大行长
+max_line_length = 120
+
+# ==================== Django 模板 ====================
+[{*.html,*.htm,*.djhtml}]
+indent_style = space
+indent_size = 4
+
+# ==================== CSS/SCSS 文件 ====================
+[*.{css,scss}]
+indent_style = space
+indent_size = 2
+
+# ==================== JavaScript/TypeScript ====================
+[*.{js,jsx,ts,tsx}]
+indent_style = space
+indent_size = 2
+
+# ==================== JSON/YAML 文件 ====================
+[*.{json,yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# ==================== Markdown 文件 ====================
+[*.md]
+# Markdown 不裁剪尾随空格（支持 Markdown 语法）
+trim_trailing_whitespace = false
+max_line_length = off
+
+# ==================== Makefile ====================
+[Makefile]
+indent_style = tab

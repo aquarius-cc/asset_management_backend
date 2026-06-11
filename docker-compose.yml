@@ -1,0 +1,117 @@
+# =============================================================================
+# Docker Compose 配置 - 资产管理系统开发/生产环境
+# =============================================================================
+# 使用方法：
+#   开发环境：docker-compose up -d
+#   生产环境：docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  # =============================================================================
+  # Django 应用服务
+  # =============================================================================
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # 【易错点】生产环境使用预构建镜像
+    # image: asset-management-backend:latest
+    container_name: asset-management-web
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # 数据库配置（连接 MySQL 服务）
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_NAME=${DB_NAME:-asset_management_backend}
+      - DB_USER=${DB_USER:-root}
+      - DB_PASSWORD=${DB_PASSWORD:-}
+      # Django 配置
+      - DJANGO_SETTINGS_MODULE=config.settings.production
+      # 【安全注意】生产环境必须设置强随机密钥
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - DEBUG=${DEBUG:-False}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1}
+    volumes:
+      # 静态文件挂载
+      - static_volume:/app/staticfiles
+      # 媒体文件挂载
+      - media_volume:/app/media
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - asset-network
+
+  # =============================================================================
+  # MySQL 数据库服务
+  # =============================================================================
+  mysql:
+    image: mysql:8.0
+    container_name: asset-management-mysql
+    restart: unless-stopped
+    environment:
+      # 【易错点】生产环境必须使用强密码！
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootpassword}
+      - MYSQL_DATABASE=${DB_NAME:-asset_management_backend}
+      - MYSQL_USER=${DB_USER:-asset_user}
+      - MYSQL_PASSWORD=${DB_PASSWORD:-assetpassword}
+    ports:
+      - "3306:3306"
+    volumes:
+      # 数据卷挂载（持久化数据）
+      - mysql_data:/var/lib/mysql
+      # 初始化脚本（可选）
+      # - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - asset-network
+
+  # =============================================================================
+  # Nginx 反向代理（可选，生产推荐）
+  # =============================================================================
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: asset-management-nginx
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+  #     - static_volume:/app/staticfiles:ro
+  #     - media_volume:/app/media:ro
+  #   depends_on:
+  #     - web
+  #   networks:
+  #     - asset-network
+
+# =============================================================================
+# 数据卷配置
+# =============================================================================
+volumes:
+  mysql_data:
+    driver: local
+  static_volume:
+    driver: local
+  media_volume:
+    driver: local
+
+# =============================================================================
+# 网络配置
+# =============================================================================
+networks:
+  asset-network:
+    driver: bridge

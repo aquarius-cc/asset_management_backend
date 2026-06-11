@@ -1,0 +1,11 @@
+-r base.txt
+
+# 测试框架与工具（按需添加）
+pytest
+pytest-django
+coverage
+factory-boy
+
+
+# 激活虚拟环境后，执行以下命令（批量安装所有依赖）
+# pip install -r requirements/dev.txt -i https://mirrors.aliyun.com/pypi/simple/

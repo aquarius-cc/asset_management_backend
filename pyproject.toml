@@ -1,0 +1,145 @@
+# ==================== 项目元数据和工具配置 ====================
+# pyproject.toml - Python 项目标准配置文件
+# https://packaging.python.org/en/latest/specifications/pyproject-toml/
+
+[build-system]
+# 构建系统要求
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# ==================== 项目信息 ====================
+[project]
+name = "asset-management-backend"
+version = "1.0.0"
+description = "企业级资产管理系统后端 API"
+readme = "README.md"
+# 许可证（与 LICENSE 文件对应）
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "Asset Management Team", email = "team@example.com"}
+]
+# 关键字
+keywords = ["django", "rest-api", "asset-management", "drf"]
+# 分类
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: Django :: 6.0",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business",
+]
+
+# 最小 Python 版本
+requires-python = ">=3.12"
+
+# 依赖（可与 requirements.txt 保持同步）
+dependencies = [
+    "Django==6.0.5",
+    "djangorestframework==3.16.0",
+    "django-cors-headers==4.7.0",
+    "django-filter==25.1",
+    "mysqlclient==2.2.7",
+    "pillow==11.3.0",
+    "requests==2.32.5",
+    "python-decouple==3.8",
+    "djangorestframework-simplejwt==5.5.1",
+    "PyJWT==2.10.1",
+    "drf-spectacular==0.28.0",
+    "drf-spectacular-sidecar==2025.1.24",
+]
+
+# 开发依赖
+[project.optional-dependencies]
+dev = [
+    "django-extensions==3.2.3",
+    "flake8>=7.0",
+    "mypy>=1.10",
+    "ruff>=0.4",
+    "pytest>=8.0",
+    "pytest-django>=4.8",
+    "pytest-cov>=4.1",
+]
+doc = [
+    "sphinx>=7.0",
+    "sphinx-rtd-theme>=2.0",
+]
+
+# ==================== 项目入口点 ====================
+[project.scripts]
+# 可执行命令（可选）
+# asset-mgmt = "apps.assetmanagement.manage:main"
+
+# ==================== 工具配置 ====================
+[tool.setuptools.packages.find]
+# 自动发现包
+where = ["."]
+include = ["apps*", "core*", "config*", "utils*"]
+exclude = ["tests*", "docs*"]
+
+# ==================== Ruff 配置 ====================
+# Ruff - 极速 Python Linter（替代 flake8/isort/black）
+[tool.ruff]
+# 目标 Python 版本
+target-version = "py312"
+
+# 行长度（与 .editorconfig 保持一致）
+line-length = 120
+
+# 启用规则组
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort (import 排序)
+    "B",     # flake8-bugbear
+    "C4",    # flake8-comprehensions
+    "UP",    # pyupgrade
+    "RUF",   # Ruff 特有规则
+]
+ignore = [
+    "E501",  # 行长度（由 line-length 控制）
+    "E203",  # 与 black 冲突
+]
+
+# 自动修复规则
+fixable = ["ALL"]
+unfixable = []
+
+# 排除目录
+exclude = [
+    ".git",
+    "__pycache__",
+    "*/migrations/*",
+    "*/venv/*",
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+]
+
+# ==================== Ruff Import 规则 ====================
+[tool.ruff.isort]
+# Import 排序配置
+force-single-line = false
+lines-after-imports = 2
+known-first-party = ["apps", "core", "config", "utils"]
+
+# ==================== MyPy 配置 ====================
+[tool.mypy]
+python_version = "3.12"
+# 严格模式
+strict = true
+# 检查隐藏文件
+check_untyped_defs = true
+# 忽略缺失导入
+ignore_missing_imports = true
+
+# 路径配置
+files = ["apps", "core", "config", "utils"]
+
+# 报告
+show_error_codes = true
+pretty = true

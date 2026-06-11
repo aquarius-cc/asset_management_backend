@@ -1,0 +1,64 @@
+                                 Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   Copyright (c) 2024-2025 Asset Management System
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+
+---
+
+## 资产管理系统 - 许可证说明
+
+本项目采用 **Apache License 2.0** 开源许可证。
+
+### 您可以
+
+- ✅ 免费使用本软件进行商业或非商业用途
+- ✅ 修改、复制、分发本软件
+- ✅ 申请专利授权
+
+### 您必须
+
+- 📋 在分发的软件中保留 Apache License 2.0 的副本
+- 📋 在代码中保留版权声明和许可证声明
+- 📋 明确标注对源代码的任何修改
+
+### 您不能
+
+- ❌ 使用本项目的商标或标识（除非获得明确授权）
+- ❌ 在没有适当法律声明的情况下分发本软件
+
+### 免责声明
+
+本软件按"原样"提供，不提供任何明示或暗示的保证，包括但不限于：
+- 对适销性、特定用途适用性的保证
+- 对不侵犯第三方权利的保证
+
+使用本软件的风险由您自行承担。在任何情况下，作者或版权持有人
+均不对因使用本软件而导致的任何索赔、损害或其他责任负责。
+
+---
+
+## 第三方组件许可证
+
+本项目使用的第三方组件：
+
+| 组件 | 许可证 | 用途 |
+|------|--------|------|
+| Django | BSD-3-Clause | Web 框架 |
+| DRF | BSD-3-Clause | REST API |
+| SimpleJWT | MIT | JWT 认证 |
+| drf-spectacular | BSD-2-Clause | API 文档 |
+
+详见各组件的许可证文件。

@@ -903,6 +903,16 @@ def _map_outasset_error_code(error_detail: str) -> str:
     return "VALIDATION_ERROR"
 
 
+def _map_recycle_error_code(error_detail: str) -> str:
+    """将回收错误详情映射为错误码"""
+    msg = str(error_detail).lower()
+    if "状态" in msg:
+        return "STATUS_NOT_ALLOWED"
+    elif "不存在" in msg:
+        return "OUTASSET_NOT_FOUND"
+    return "VALIDATION_ERROR"
+
+
 class RecycleAssetService:
     """
     回收资产管理服务
@@ -1001,6 +1011,118 @@ class RecycleAssetService:
         )
 
         return recycle_asset
+
+    @staticmethod
+    def batch_create_recycle_asset(
+        recycle_data_list: List[Dict[str, Any]],
+        operator_jobcode: Optional[str] = None,
+        operator_name: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        批量创建回收记录（逐条独立执行，返回详细结果）
+        复用 RecycleAssetService.create_recycle_asset() 单条创建逻辑。
+        使用 copy.deepcopy 避免原始数据被修改。
+        """
+        import copy
+
+        MAX_BATCH_SIZE = 100
+        if len(recycle_data_list) > MAX_BATCH_SIZE:
+            raise AppValidationError(detail=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条")
+
+        success_items: List[RecycleAsset] = []
+        fail_items: List[Dict[str, Any]] = []
+
+        for idx, recycle_data in enumerate(recycle_data_list):
+            try:
+                result = RecycleAssetService.create_recycle_asset(
+                    recycle_data=copy.deepcopy(recycle_data),
+                    operator_jobcode=operator_jobcode,
+                    operator_name=operator_name,
+                )
+                success_items.append(result)
+            except AppValidationError as e:
+                fail_items.append({
+                    "index": idx,
+                    "row_number": recycle_data.get('row_number'),
+                    "input_data": recycle_data,
+                    "error_code": _map_recycle_error_code(str(e.detail)),
+                    "error_message": str(e.detail)
+                })
+            except Exception:
+                fail_items.append({
+                    "index": idx,
+                    "row_number": recycle_data.get('row_number'),
+                    "input_data": recycle_data,
+                    "error_code": "INTERNAL_ERROR",
+                    "error_message": "服务器内部错误，请稍后重试"
+                })
+
+        return {
+            "total": len(recycle_data_list),
+            "success_count": len(success_items),
+            "fail_count": len(fail_items),
+            "success_items": success_items,
+            "fail_items": fail_items
+        }
+
+    @staticmethod
+    def batch_delete_recycle_asset(
+        recycle_record_codes: List[str],
+        operator_jobcode: Optional[str] = None,
+        operator_name: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        批量删除回收记录（软删除，逐条独立执行）
+
+        前置校验：
+        - 回收记录必须存在
+        - 关联资产当前状态必须为 recycled_pending
+        """
+        MAX_BATCH_SIZE = 100
+        if len(recycle_record_codes) > MAX_BATCH_SIZE:
+            raise AppValidationError(detail=f"单次批量删除不能超过 {MAX_BATCH_SIZE} 条")
+
+        success_ids: List[str] = []
+        fail_items: List[Dict[str, Any]] = []
+
+        for record_code in recycle_record_codes:
+            try:
+                recycle_asset = RecycleAssetSelector.get_recycle_asset_by_record_code(record_code)
+                if not recycle_asset:
+                    fail_items.append({
+                        "id": record_code,
+                        "error_code": "NOT_FOUND",
+                        "error_message": f"回收记录 {record_code} 不存在"
+                    })
+                    continue
+
+                asset = recycle_asset.recycle_asset_code
+                if asset.asset_current_status != 'recycled_pending':
+                    fail_items.append({
+                        "id": record_code,
+                        "error_code": "STATUS_NOT_ALLOWED",
+                        "error_message": f"关联资产当前状态为 {asset.asset_current_status}，不允许删除回收记录"
+                    })
+                    continue
+
+                # 软删除回收记录
+                recycle_asset.delete()
+                success_ids.append(record_code)
+
+            except Exception:
+                fail_items.append({
+                    "id": record_code,
+                    "error_code": "INTERNAL_ERROR",
+                    "error_message": "服务器内部错误，请稍后重试"
+                })
+
+        return {
+            "total": len(recycle_record_codes),
+            "success_count": len(success_ids),
+            "fail_count": len(fail_items),
+            "success_ids": success_ids,
+            "fail_items": fail_items
+        }
 
 
 class DamagedAssetService:

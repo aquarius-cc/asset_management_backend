@@ -74,6 +74,8 @@ from apps.assetmanagement.serializers import (
     OutAssetBatchCreateSerializer,
     OutAssetBatchDeleteSerializer,
     RecycleAssetSerializer,
+    RecycleAssetBatchCreateSerializer,
+    RecycleAssetBatchDeleteSerializer,
     DamagedAssetSerializer,
     WasteAssetSerializer,
     HardDiskSNSerializer,
@@ -1163,6 +1165,54 @@ class RecycleAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet):
 
         serializer = RecycleAssetSerializer(record)
         return success_response(data=serializer.data, message='查询成功')
+
+    @action(detail=False, methods=['post'], url_path='batch-create')
+    def batch_create(self, request):
+        """批量创建回收记录"""
+        serializer = RecycleAssetBatchCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        result = RecycleAssetService.batch_create_recycle_asset(
+            serializer.validated_data['items'],
+            operator_jobcode=request.user.auth_id,
+            operator_name=request.user.auth_username
+        )
+
+        success_serializer = RecycleAssetSerializer(result['success_items'], many=True)
+
+        return success_response(
+            data={
+                'total': result['total'],
+                'success_count': result['success_count'],
+                'fail_count': result['fail_count'],
+                'success_items': success_serializer.data,
+                'fail_items': result['fail_items']
+            },
+            message=f"批量回收完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条"
+        )
+
+    @action(detail=False, methods=['post'], url_path='batch-delete')
+    def batch_delete(self, request):
+        """批量删除回收记录"""
+        serializer = RecycleAssetBatchDeleteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        result = RecycleAssetService.batch_delete_recycle_asset(
+            serializer.validated_data['ids'],
+            operator_jobcode=request.user.auth_id,
+            operator_name=request.user.auth_username
+        )
+
+        return success_response(
+            data={
+                'total': result['total'],
+                'success_count': result['success_count'],
+                'fail_count': result['fail_count'],
+                'success_ids': result['success_ids'],
+                'fail_items': result['fail_items']
+            },
+            message=f"批量删除完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条"
+        )
 
 
 class DamagedAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet):

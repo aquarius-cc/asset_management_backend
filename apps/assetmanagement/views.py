@@ -398,7 +398,6 @@ class AssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet):
     ).prefetch_related(
         'harddisk_sns'  # 预取关联的硬盘序列号列表
     ).all()
-    permission_classes = [permissions.IsAuthenticated]
     pagination_class = CustomPageNumberPagination
 
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -406,6 +405,16 @@ class AssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet):
     ordering_fields = ['asset_code', 'asset_entry_date', 'asset_purchase_price', 'asset_name']
     ordering = ['-asset_entry_date']
     lookup_field = 'asset_code'
+
+    def get_permissions(self) -> list:
+        """
+        自定义权限：批量操作需要管理员权限
+        """
+        if self.action in ['batch_create', 'batch_delete']:
+            permission_classes = [permissions.IsAdminUser]
+        else:
+            permission_classes = [permissions.IsAuthenticated]
+        return [permission() for permission in permission_classes]
 
     def get_serializer_class(self) -> Type:
         if self.action == 'create':
@@ -749,7 +758,6 @@ class OutAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet):
         'outasset_code__asset_applicant_jobcode',
         'outasset_code__asset_manager_jobcode',
     ).all()
-    permission_classes = [permissions.IsAuthenticated]
     pagination_class = CustomPageNumberPagination
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     # 【AGENTS 规范 - 去除冗余】filterset_fields 改为通过 Asset FK 过滤
@@ -758,6 +766,16 @@ class OutAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet):
     ordering_fields = ['outasset_date']
     ordering = ['-outasset_date']
     lookup_field = 'outasset_recordcode'
+
+    def get_permissions(self) -> list:
+        """
+        自定义权限：批量操作需要管理员权限
+        """
+        if self.action in ['batch_create', 'batch_delete']:
+            permission_classes = [permissions.IsAdminUser]
+        else:
+            permission_classes = [permissions.IsAuthenticated]
+        return [permission() for permission in permission_classes]
 
     def get_serializer_class(self) -> Type:
         if self.action in ['retrieve', 'list']:
@@ -1056,6 +1074,16 @@ class RecycleAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet):
     ordering_fields = ['recycle_asset_date', 'recycle_record_code']
     ordering = ['-recycle_asset_date']
     lookup_field = 'outasset_recordcode'
+
+    def get_permissions(self) -> list:
+        """
+        自定义权限：批量操作需要管理员权限
+        """
+        if self.action in ['batch_create', 'batch_delete']:
+            permission_classes = [permissions.IsAdminUser]
+        else:
+            permission_classes = [permissions.IsAuthenticated]
+        return [permission() for permission in permission_classes]
 
     def get_queryset(self) -> QuerySet[RecycleAsset]:
         # 【AGENTS 规范 - 性能优化】列表页使用 for_list() 精简字段

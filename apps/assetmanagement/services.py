@@ -935,10 +935,41 @@ class OutAssetService:
                 # 软删除出库记录
                 outasset.delete()
 
-                # 恢复资产状态为 in_store
-                asset.asset_current_status = 'in_store'
-                asset.asset_storage_code = None
-                asset.save(update_fields=['asset_current_status'])
+                # 【P1-优化】根据出库前原始状态恢复资产状态
+                # outasset_previous_status 在 create_outasset 时记录，可能为:
+                # - 'in_store': 从在库状态出库，删除后恢复为在库
+                # - 'recycled_pending': 从回收待发放状态出库，删除后恢复为回收待发放
+                previous_status = outasset.outasset_previous_status or 'in_store'
+
+                # 【P1-优化】使用状态机处理状态变更，确保校验逻辑不被绕过
+                try:
+                    AssetFSM.cancel_outasset(asset, previous_status)
+                except InvalidTransitionError as e:
+                    fail_items.append({
+                        "id": recordcode,
+                        "error_code": "INVALID_STATE_TRANSITION",
+                        "error_message": str(e)
+                    })
+                    continue
+
+                # 清空出库时设置的关联字段
+                asset.asset_applicant_jobcode = None
+                asset.asset_manager_jobcode = None
+                asset.asset_using_location = None
+
+                update_fields = [
+                    'asset_current_status',
+                    'asset_applicant_jobcode',
+                    'asset_manager_jobcode',
+                    'asset_using_location',
+                ]
+                # 只有从 in_store 出库的才清空仓库编码
+                # 从 recycled_pending 出库的保持回收时的仓库编码
+                if previous_status == 'in_store':
+                    asset.asset_storage_code = None
+                    update_fields.append('asset_storage_code')
+
+                asset.save(update_fields=update_fields)
 
                 success_ids.append(recordcode)
 

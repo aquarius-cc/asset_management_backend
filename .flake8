@@ -1,0 +1,65 @@
+# ==================== Flake8 配置 ====================
+# Python 代码风格检查配置
+# 使用方法：flake8 .
+
+[flake8]
+# ==================== 基础设置 ====================
+# 最大行长（与 EditorConfig 保持一致）
+max-line-length = 120
+# 最大复杂度和函数/方法长度
+max-complexity = 10
+max-name-length = 79
+
+# ==================== 排除目录 ====================
+exclude =
+    .git,
+    __pycache__,
+    */migrations/*,
+    */venv/*,
+    .venv,
+    venv,
+    env,
+    build,
+    dist,
+    *.egg-info,
+    .tox,
+    .pytest_cache,
+    .mypy_cache,
+    node_modules
+
+# ==================== 忽略的错误 ====================
+# E203: 与 black 格式化冲突
+# W503: 与 black 格式化冲突
+# E501: 超过最大行长（由 max-line-length 控制）
+ignore =
+    E203,
+    W503,
+    E501,
+    # 特定错误码可在此添加
+    # F401: imported but unused
+    # F841: local variable assigned but never used
+
+# ==================== Per-file 规则 ====================
+per-file-ignores =
+    # 测试文件允许特定模式
+    __init__.py:F401,F403
+    # 迁移文件允许所有警告
+    */migrations/*:F401,F403,F811
+
+# ==================== 输出格式 ====================
+# 错误输出格式
+format = pygrade
+
+# 显示源代码上下文
+show-source = True
+
+# 统计错误数量
+statistics = True
+
+# ==================== 扩展插件 ====================
+# 建议安装并启用以下插件：
+# flake8-broken-line: 检查不规范的行延续
+# flake8-bugbear: 发现可能的 Bug
+# flake8-comprehensions: 优化推导式
+# flake8-import-conventions: 统一导入别名
+# mccabe: 检查圈复杂度

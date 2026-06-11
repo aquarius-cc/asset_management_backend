@@ -67,6 +67,122 @@ class EmployeeService:
         employee.save(update_fields=['employee_status'])
         return employee
 
+    @staticmethod
+    def batch_create_employee(
+        employee_data_list: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """
+        批量创建员工（逐条独立执行，返回详细结果）
+        复用 EmployeeService.create_employee() 单条创建逻辑。
+        使用 copy.deepcopy 避免原始数据被修改。
+        """
+        import copy
+
+        MAX_BATCH_SIZE = 100
+        if len(employee_data_list) > MAX_BATCH_SIZE:
+            raise ValidationError(detail=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条")
+
+        success_items: List[Employee] = []
+        fail_items: List[Dict[str, Any]] = []
+
+        for idx, employee_data in enumerate(employee_data_list):
+            try:
+                result = EmployeeService.create_employee(
+                    employee_data=copy.deepcopy(employee_data)
+                )
+                success_items.append(result)
+            except ValidationError as e:
+                fail_items.append({
+                    "index": idx,
+                    "row_number": employee_data.get('row_number'),
+                    "input_data": employee_data,
+                    "error_code": _map_employee_error_code(str(e.detail)),
+                    "error_message": str(e.detail)
+                })
+            except Exception:
+                fail_items.append({
+                    "index": idx,
+                    "row_number": employee_data.get('row_number'),
+                    "input_data": employee_data,
+                    "error_code": "INTERNAL_ERROR",
+                    "error_message": "服务器内部错误，请稍后重试"
+                })
+
+        return {
+            "total": len(employee_data_list),
+            "success_count": len(success_items),
+            "fail_count": len(fail_items),
+            "success_items": success_items,
+            "fail_items": fail_items
+        }
+
+    @staticmethod
+    def batch_delete_employee(
+        employee_jobcodes: List[str]
+    ) -> Dict[str, Any]:
+        """
+        批量删除员工（硬删除，逐条独立执行）
+
+        前置校验：
+        - 员工必须存在
+        - 员工不存在关联资产（作为申请人/保管人）
+        """
+        from apps.assetmanagement.models import Asset, OutAsset
+
+        MAX_BATCH_SIZE = 100
+        if len(employee_jobcodes) > MAX_BATCH_SIZE:
+            raise ValidationError(detail=f"单次批量删除不能超过 {MAX_BATCH_SIZE} 条")
+
+        success_ids: List[str] = []
+        fail_items: List[Dict[str, Any]] = []
+
+        for jobcode in employee_jobcodes:
+            try:
+                employee = EmployeeSelector.get_employee_by_jobcode(jobcode)
+                if not employee:
+                    fail_items.append({
+                        "id": jobcode,
+                        "error_code": "NOT_FOUND",
+                        "error_message": f"员工 {jobcode} 不存在"
+                    })
+                    continue
+
+                # 检查关联资产（作为申请人）
+                if OutAsset.objects.filter(outasset_applicant_jobcode=employee, is_deleted=False).exists():
+                    fail_items.append({
+                        "id": jobcode,
+                        "error_code": "HAS_RELATED_ASSETS",
+                        "error_message": "员工存在关联出库记录（申请人），不允许删除"
+                    })
+                    continue
+
+                # 检查关联资产（作为保管人）
+                if OutAsset.objects.filter(outasset_manager_jobcode=employee, is_deleted=False).exists():
+                    fail_items.append({
+                        "id": jobcode,
+                        "error_code": "HAS_RELATED_ASSETS",
+                        "error_message": "员工存在关联出库记录（保管人），不允许删除"
+                    })
+                    continue
+
+                employee.delete()
+                success_ids.append(jobcode)
+
+            except Exception:
+                fail_items.append({
+                    "id": jobcode,
+                    "error_code": "INTERNAL_ERROR",
+                    "error_message": "服务器内部错误，请稍后重试"
+                })
+
+        return {
+            "total": len(employee_jobcodes),
+            "success_count": len(success_ids),
+            "fail_count": len(fail_items),
+            "success_ids": success_ids,
+            "fail_items": fail_items
+        }
+
 
 class DepartmentService:
     """
@@ -272,3 +388,138 @@ class DepartmentService:
                 updated_count += 1
 
         return updated_count
+
+    @staticmethod
+    def batch_create_department(
+        dept_data_list: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """
+        批量创建部门（逐条独立执行，返回详细结果）
+        复用 DepartmentService.create_department() 单条创建逻辑。
+        使用 copy.deepcopy 避免原始数据被修改。
+        """
+        import copy
+
+        MAX_BATCH_SIZE = 100
+        if len(dept_data_list) > MAX_BATCH_SIZE:
+            raise ValidationError(detail=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条")
+
+        success_items: List[Department] = []
+        fail_items: List[Dict[str, Any]] = []
+
+        for idx, dept_data in enumerate(dept_data_list):
+            try:
+                result = DepartmentService.create_department(
+                    dept_data=copy.deepcopy(dept_data)
+                )
+                success_items.append(result)
+            except ValidationError as e:
+                fail_items.append({
+                    "index": idx,
+                    "row_number": dept_data.get('row_number'),
+                    "input_data": dept_data,
+                    "error_code": _map_department_error_code(str(e.detail)),
+                    "error_message": str(e.detail)
+                })
+            except Exception:
+                fail_items.append({
+                    "index": idx,
+                    "row_number": dept_data.get('row_number'),
+                    "input_data": dept_data,
+                    "error_code": "INTERNAL_ERROR",
+                    "error_message": "服务器内部错误，请稍后重试"
+                })
+
+        return {
+            "total": len(dept_data_list),
+            "success_count": len(success_items),
+            "fail_count": len(fail_items),
+            "success_items": success_items,
+            "fail_items": fail_items
+        }
+
+    @staticmethod
+    def batch_delete_department(
+        department_codes: List[str]
+    ) -> Dict[str, Any]:
+        """
+        批量删除部门（硬删除，逐条独立执行）
+
+        前置校验：
+        - 部门必须存在
+        - 部门下不存在员工
+        - 部门下不存在子部门
+        """
+        MAX_BATCH_SIZE = 100
+        if len(department_codes) > MAX_BATCH_SIZE:
+            raise ValidationError(detail=f"单次批量删除不能超过 {MAX_BATCH_SIZE} 条")
+
+        success_ids: List[str] = []
+        fail_items: List[Dict[str, Any]] = []
+
+        for dept_code in department_codes:
+            try:
+                department = DepartmentSelector.get_department_by_code(dept_code)
+                if not department:
+                    fail_items.append({
+                        "id": dept_code,
+                        "error_code": "NOT_FOUND",
+                        "error_message": f"部门 {dept_code} 不存在"
+                    })
+                    continue
+
+                # 检查下属员工
+                if Employee.objects.filter(employee_department=department).exists():
+                    fail_items.append({
+                        "id": dept_code,
+                        "error_code": "HAS_EMPLOYEES",
+                        "error_message": "部门下存在员工，不允许删除"
+                    })
+                    continue
+
+                # 检查子部门
+                if Department.objects.filter(parent_code=dept_code).exists():
+                    fail_items.append({
+                        "id": dept_code,
+                        "error_code": "HAS_CHILD_DEPARTMENTS",
+                        "error_message": "部门下存在子部门，不允许删除"
+                    })
+                    continue
+
+                department.delete()
+                success_ids.append(dept_code)
+
+            except Exception:
+                fail_items.append({
+                    "id": dept_code,
+                    "error_code": "INTERNAL_ERROR",
+                    "error_message": "服务器内部错误，请稍后重试"
+                })
+
+        return {
+            "total": len(department_codes),
+            "success_count": len(success_ids),
+            "fail_count": len(fail_items),
+            "success_ids": success_ids,
+            "fail_items": fail_items
+        }
+
+
+def _map_employee_error_code(error_detail: str) -> str:
+    """将员工错误详情映射为错误码"""
+    msg = str(error_detail).lower()
+    if "已存在" in msg:
+        return "DUPLICATE_EMPLOYEE_JOBCODE"
+    return "VALIDATION_ERROR"
+
+
+def _map_department_error_code(error_detail: str) -> str:
+    """将部门错误详情映射为错误码"""
+    msg = str(error_detail).lower()
+    if "已存在" in msg:
+        return "DUPLICATE_DEPARTMENT_CODE"
+    elif "不存在" in msg and "上级" in msg:
+        return "PARENT_NOT_FOUND"
+    elif "层级" in msg:
+        return "LEVEL_EXCEEDED"
+    return "VALIDATION_ERROR"

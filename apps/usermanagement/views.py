@@ -18,9 +18,13 @@ from .serializers import (
     DepartmentTreeSerializer,
     DepartmentMoveSerializer,
     DepartmentBatchSortSerializer,
+    DepartmentBatchCreateSerializer,
+    DepartmentBatchDeleteSerializer,
     EmployeeSerializer, EmployeeDetailSerializer,
     EmployeeCreateSerializer, EmployeeUpdateSerializer,
-    EmployeeSortSerializer
+    EmployeeSortSerializer,
+    EmployeeBatchCreateSerializer,
+    EmployeeBatchDeleteSerializer
 )
 from .selectors import DepartmentSelector, EmployeeSelector
 from .services import DepartmentService, EmployeeService
@@ -542,6 +546,50 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
         except Exception as e:
             return error_response(message=str(e))
 
+    @action(detail=False, methods=['post'], url_path='batch-create')
+    def batch_create(self, request):
+        """批量创建部门"""
+        serializer = DepartmentBatchCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        result = DepartmentService.batch_create_department(
+            serializer.validated_data['items']
+        )
+
+        success_serializer = DepartmentSerializer(result['success_items'], many=True)
+
+        return success_response(
+            data={
+                'total': result['total'],
+                'success_count': result['success_count'],
+                'fail_count': result['fail_count'],
+                'success_items': success_serializer.data,
+                'fail_items': result['fail_items']
+            },
+            message=f"批量创建完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条"
+        )
+
+    @action(detail=False, methods=['post'], url_path='batch-delete')
+    def batch_delete(self, request):
+        """批量删除部门"""
+        serializer = DepartmentBatchDeleteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        result = DepartmentService.batch_delete_department(
+            serializer.validated_data['ids']
+        )
+
+        return success_response(
+            data={
+                'total': result['total'],
+                'success_count': result['success_count'],
+                'fail_count': result['fail_count'],
+                'success_ids': result['success_ids'],
+                'fail_items': result['fail_items']
+            },
+            message=f"批量删除完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条"
+        )
+
 
 class EmployeeViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSet):
     """
@@ -608,6 +656,50 @@ class EmployeeViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSet)
             return success_response(data=serializer.data)
         except Exception as e:
             return error_response(message=str(e))
+
+    @action(detail=False, methods=['post'], url_path='batch-create')
+    def batch_create(self, request):
+        """批量创建员工"""
+        serializer = EmployeeBatchCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        result = EmployeeService.batch_create_employee(
+            serializer.validated_data['items']
+        )
+
+        success_serializer = EmployeeDetailSerializer(result['success_items'], many=True)
+
+        return success_response(
+            data={
+                'total': result['total'],
+                'success_count': result['success_count'],
+                'fail_count': result['fail_count'],
+                'success_items': success_serializer.data,
+                'fail_items': result['fail_items']
+            },
+            message=f"批量创建完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条"
+        )
+
+    @action(detail=False, methods=['post'], url_path='batch-delete')
+    def batch_delete(self, request):
+        """批量删除员工"""
+        serializer = EmployeeBatchDeleteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        result = EmployeeService.batch_delete_employee(
+            serializer.validated_data['ids']
+        )
+
+        return success_response(
+            data={
+                'total': result['total'],
+                'success_count': result['success_count'],
+                'fail_count': result['fail_count'],
+                'success_ids': result['success_ids'],
+                'fail_items': result['fail_items']
+            },
+            message=f"批量删除完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条"
+        )
 
     @extend_schema(
         parameters=[

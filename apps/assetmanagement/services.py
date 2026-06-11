@@ -754,6 +754,131 @@ class OutAssetService:
         """
         return OutAssetSelector.get_outasset_statistics()
 
+    @staticmethod
+    def batch_create_outasset(
+        outasset_data_list: List[Dict[str, Any]],
+        operator_jobcode: Optional[str] = None,
+        operator_name: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        批量创建出库记录（逐条独立执行，返回详细结果）
+        """
+        success_items: List[OutAsset] = []
+        fail_items: List[Dict[str, Any]] = []
+
+        for idx, outasset_data in enumerate(outasset_data_list):
+            try:
+                result = OutAssetService.create_outasset(
+                    outasset_data=outasset_data,
+                    operator_jobcode=operator_jobcode,
+                    operator_name=operator_name,
+                )
+                success_items.append(result)
+            except AppValidationError as e:
+                fail_items.append({
+                    "index": idx,
+                    "row_number": outasset_data.get('row_number'),
+                    "input_data": outasset_data,
+                    "error_code": _map_outasset_error_code(str(e.detail)),
+                    "error_message": str(e.detail)
+                })
+            except Exception:
+                fail_items.append({
+                    "index": idx,
+                    "row_number": outasset_data.get('row_number'),
+                    "input_data": outasset_data,
+                    "error_code": "INTERNAL_ERROR",
+                    "error_message": "服务器内部错误，请稍后重试"
+                })
+
+        return {
+            "total": len(outasset_data_list),
+            "success_count": len(success_items),
+            "fail_count": len(fail_items),
+            "success_items": success_items,
+            "fail_items": fail_items
+        }
+
+    @staticmethod
+    def batch_delete_outasset(
+        outasset_recordcodes: List[str],
+        operator_jobcode: Optional[str] = None,
+        operator_name: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        批量删除出库记录（软删除，逐条独立执行）
+
+        前置校验：
+        - 出库记录必须存在
+        - 关联资产当前状态必须为 in_use（已出库）
+        - 不存在关联回收记录
+        """
+        success_ids: List[str] = []
+        fail_items: List[Dict[str, Any]] = []
+
+        for recordcode in outasset_recordcodes:
+            try:
+                outasset = OutAssetSelector.get_outasset_by_record_code(recordcode)
+                if not outasset:
+                    fail_items.append({
+                        "id": recordcode,
+                        "error_code": "NOT_FOUND",
+                        "error_message": f"出库记录 {recordcode} 不存在"
+                    })
+                    continue
+
+                asset = outasset.outasset_code
+                if asset.asset_current_status != 'in_use':
+                    fail_items.append({
+                        "id": recordcode,
+                        "error_code": "STATUS_NOT_ALLOWED",
+                        "error_message": f"关联资产当前状态为 {asset.asset_current_status}，不允许删除出库记录"
+                    })
+                    continue
+
+                if RecycleAsset.objects.filter(recycle_outasset_code=outasset, is_deleted=False).exists():
+                    fail_items.append({
+                        "id": recordcode,
+                        "error_code": "HAS_RECYCLE_RECORDS",
+                        "error_message": "出库记录存在关联回收记录，不允许删除"
+                    })
+                    continue
+
+                # 软删除出库记录
+                outasset.delete()
+
+                # 恢复资产状态为 in_store
+                asset.asset_current_status = 'in_store'
+                asset.asset_storage_code = None  # 需要查询原始仓库，简化处理
+                asset.save(update_fields=['asset_current_status'])
+
+                success_ids.append(recordcode)
+
+            except Exception:
+                fail_items.append({
+                    "id": recordcode,
+                    "error_code": "INTERNAL_ERROR",
+                    "error_message": "服务器内部错误，请稍后重试"
+                })
+
+        return {
+            "total": len(outasset_recordcodes),
+            "success_count": len(success_ids),
+            "fail_count": len(fail_items),
+            "success_ids": success_ids,
+            "fail_items": fail_items
+        }
+
+
+def _map_outasset_error_code(error_detail: str) -> str:
+    """将出库错误详情映射为错误码"""
+    msg = str(error_detail).lower()
+    if "状态" in msg and "出库" in msg:
+        return "STATUS_NOT_ALLOWED"
+    elif "不存在" in msg:
+        return "ASSET_NOT_FOUND"
+    return "VALIDATION_ERROR"
+
 
 class RecycleAssetService:
     """

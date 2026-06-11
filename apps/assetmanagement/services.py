@@ -1756,6 +1756,46 @@ class ContractService:
         """
         return ContractSelector.get_contract_statistics()
 
+    @staticmethod
+    @transaction.atomic
+    def delete_contract(contract_code: str) -> None:
+        """
+        删除合同（软删除）
+
+        【P3-优化】提供单条删除方法，供视图层调用。
+
+        Args:
+            contract_code: 合同编码
+
+        Raises:
+            AppValidationError: 合同不存在时抛出
+        """
+        contract = ContractSelector.get_contract_by_code(contract_code)
+        if not contract or contract.is_deleted:
+            raise AppValidationError(
+                detail=f"合同 {contract_code} 不存在或已删除",
+                error_code="CONTRACT_NOT_FOUND"
+            )
+        contract.delete()
+
+    @staticmethod
+    def batch_delete_contract(
+        contract_codes: List[str]
+    ) -> Dict[str, Any]:
+        """
+        批量删除合同（软删除，逐条独立执行）
+
+        【P3-优化】使用 BatchOperationMixin.batch_delete_execute 复用公共框架。
+        """
+        def _delete_item(contract_code: str) -> None:
+            ContractService.delete_contract(contract_code)
+
+        return BatchOperationMixin.batch_delete_execute(
+            ids=contract_codes,
+            process_fn=_delete_item,
+            max_batch_size=100,
+        )
+
 
 class StorageService:
     """
@@ -1798,6 +1838,55 @@ class StorageService:
         storage = Storage.objects.create(**storage_data)
         return storage
 
+    @staticmethod
+    @transaction.atomic
+    def delete_storage(storage_code: str) -> None:
+        """
+        删除仓库（软删除）
+
+        【P3-优化】提供单条删除方法，供视图层调用。
+        前置校验：仓库下不存在关联资产（状态非已删除）。
+
+        Args:
+            storage_code: 仓库编码
+
+        Raises:
+            AppValidationError: 仓库不存在或存在关联资产时抛出
+        """
+        storage = StorageSelector.get_storage_by_code(storage_code)
+        if not storage or storage.is_deleted:
+            raise AppValidationError(
+                detail=f"仓库 {storage_code} 不存在或已删除",
+                error_code="STORAGE_NOT_FOUND"
+            )
+
+        # 检查关联资产
+        if Asset.objects.filter(asset_storage_code=storage, is_deleted=False).exists():
+            raise AppValidationError(
+                detail="仓库下存在关联资产，不允许删除",
+                error_code="HAS_RELATED_ASSETS"
+            )
+
+        storage.delete()
+
+    @staticmethod
+    def batch_delete_storage(
+        storage_codes: List[str]
+    ) -> Dict[str, Any]:
+        """
+        批量删除仓库（软删除，逐条独立执行）
+
+        【P3-优化】使用 BatchOperationMixin.batch_delete_execute 复用公共框架。
+        """
+        def _delete_item(storage_code: str) -> None:
+            StorageService.delete_storage(storage_code)
+
+        return BatchOperationMixin.batch_delete_execute(
+            ids=storage_codes,
+            process_fn=_delete_item,
+            max_batch_size=100,
+        )
+
 
 class AssetTypeService:
     """
@@ -1832,6 +1921,55 @@ class AssetTypeService:
 
         asset_type = AssetType.objects.create(**asset_type_data)
         return asset_type
+
+    @staticmethod
+    @transaction.atomic
+    def delete_asset_type(asset_type_code: str) -> None:
+        """
+        删除资产类型（软删除）
+
+        【P3-优化】提供单条删除方法，供视图层调用。
+        前置校验：资产类型下不存在关联资产（状态非已删除）。
+
+        Args:
+            asset_type_code: 资产类型编码
+
+        Raises:
+            AppValidationError: 资产类型不存在或存在关联资产时抛出
+        """
+        asset_type = AssetTypeSelector.get_asset_type_by_code(asset_type_code)
+        if not asset_type or asset_type.is_deleted:
+            raise AppValidationError(
+                detail=f"资产类型 {asset_type_code} 不存在或已删除",
+                error_code="ASSET_TYPE_NOT_FOUND"
+            )
+
+        # 检查关联资产
+        if Asset.objects.filter(asset_type_code=asset_type, is_deleted=False).exists():
+            raise AppValidationError(
+                detail="资产类型下存在关联资产，不允许删除",
+                error_code="HAS_RELATED_ASSETS"
+            )
+
+        asset_type.delete()
+
+    @staticmethod
+    def batch_delete_asset_type(
+        asset_type_codes: List[str]
+    ) -> Dict[str, Any]:
+        """
+        批量删除资产类型（软删除，逐条独立执行）
+
+        【P3-优化】使用 BatchOperationMixin.batch_delete_execute 复用公共框架。
+        """
+        def _delete_item(asset_type_code: str) -> None:
+            AssetTypeService.delete_asset_type(asset_type_code)
+
+        return BatchOperationMixin.batch_delete_execute(
+            ids=asset_type_codes,
+            process_fn=_delete_item,
+            max_batch_size=100,
+        )
 
 
 class HardDiskSNService:

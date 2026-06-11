@@ -906,73 +906,72 @@ class OutAssetService:
 
         for recordcode in outasset_recordcodes:
             try:
-                outasset = OutAssetSelector.get_outasset_by_record_code(recordcode)
-                if not outasset:
-                    fail_items.append({
-                        "id": recordcode,
-                        "error_code": "NOT_FOUND",
-                        "error_message": f"出库记录 {recordcode} 不存在"
-                    })
-                    continue
+                with transaction.atomic():
+                    outasset = OutAssetSelector.get_outasset_by_record_code(recordcode)
+                    if not outasset:
+                        fail_items.append({
+                            "id": recordcode,
+                            "error_code": "NOT_FOUND",
+                            "error_message": f"出库记录 {recordcode} 不存在"
+                        })
+                        continue
 
-                asset = outasset.outasset_code
-                if asset.asset_current_status != 'in_use':
-                    fail_items.append({
-                        "id": recordcode,
-                        "error_code": "STATUS_NOT_ALLOWED",
-                        "error_message": f"关联资产当前状态为 {asset.asset_current_status}，不允许删除出库记录"
-                    })
-                    continue
+                    asset = outasset.outasset_code
+                    if asset.asset_current_status != 'in_use':
+                        fail_items.append({
+                            "id": recordcode,
+                            "error_code": "STATUS_NOT_ALLOWED",
+                            "error_message": f"关联资产当前状态为 {asset.asset_current_status}，不允许删除出库记录"
+                        })
+                        continue
 
-                if RecycleAsset.objects.filter(recycle_outasset_code=outasset, is_deleted=False).exists():
-                    fail_items.append({
-                        "id": recordcode,
-                        "error_code": "HAS_RECYCLE_RECORDS",
-                        "error_message": "出库记录存在关联回收记录，不允许删除"
-                    })
-                    continue
+                    if RecycleAsset.objects.filter(recycle_outasset_code=outasset, is_deleted=False).exists():
+                        fail_items.append({
+                            "id": recordcode,
+                            "error_code": "HAS_RECYCLE_RECORDS",
+                            "error_message": "出库记录存在关联回收记录，不允许删除"
+                        })
+                        continue
 
-                # 软删除出库记录
-                outasset.delete()
+                    # 软删除出库记录
+                    outasset.delete()
 
-                # 【P1-优化】根据出库前原始状态恢复资产状态
-                # outasset_previous_status 在 create_outasset 时记录，可能为:
-                # - 'in_store': 从在库状态出库，删除后恢复为在库
-                # - 'recycled_pending': 从回收待发放状态出库，删除后恢复为回收待发放
-                previous_status = outasset.outasset_previous_status or 'in_store'
+                    # 【P1-优化】根据出库前原始状态恢复资产状态
+                    # outasset_previous_status 在 create_outasset 时记录，可能为:
+                    # - 'in_store': 从在库状态出库，删除后恢复为在库
+                    # - 'recycled_pending': 从回收待发放状态出库，删除后恢复为回收待发放
+                    previous_status = outasset.outasset_previous_status or 'in_store'
 
-                # 【P1-优化】使用状态机处理状态变更，确保校验逻辑不被绕过
-                try:
+                    # 【P1-优化】使用状态机处理状态变更，确保校验逻辑不被绕过
                     AssetFSM.cancel_outasset(asset, previous_status)
-                except InvalidTransitionError as e:
-                    fail_items.append({
-                        "id": recordcode,
-                        "error_code": "INVALID_STATE_TRANSITION",
-                        "error_message": str(e)
-                    })
-                    continue
 
-                # 清空出库时设置的关联字段
-                asset.asset_applicant_jobcode = None
-                asset.asset_manager_jobcode = None
-                asset.asset_using_location = None
+                    # 清空出库时设置的关联字段
+                    asset.asset_applicant_jobcode = None
+                    asset.asset_manager_jobcode = None
+                    asset.asset_using_location = None
 
-                update_fields = [
-                    'asset_current_status',
-                    'asset_applicant_jobcode',
-                    'asset_manager_jobcode',
-                    'asset_using_location',
-                ]
-                # 只有从 in_store 出库的才清空仓库编码
-                # 从 recycled_pending 出库的保持回收时的仓库编码
-                if previous_status == 'in_store':
-                    asset.asset_storage_code = None
-                    update_fields.append('asset_storage_code')
+                    update_fields = [
+                        'asset_current_status',
+                        'asset_applicant_jobcode',
+                        'asset_manager_jobcode',
+                        'asset_using_location',
+                    ]
+                    # 只有从 in_store 出库的才清空仓库编码
+                    # 从 recycled_pending 出库的保持回收时的仓库编码
+                    if previous_status == 'in_store':
+                        asset.asset_storage_code = None
+                        update_fields.append('asset_storage_code')
 
-                asset.save(update_fields=update_fields)
+                    asset.save(update_fields=update_fields)
 
                 success_ids.append(recordcode)
 
+            except InvalidTransitionError as e:
+                fail_items.append({
+                    "id": recordcode,
+                    "error_code": "INVALID_STATE_TRANSITION",
+                    "error_message": str(e)
+                })
             except Exception:
                 fail_items.append({
                     "id": recordcode,
@@ -1185,28 +1184,46 @@ class RecycleAssetService:
 
         for record_code in recycle_record_codes:
             try:
-                recycle_asset = RecycleAssetSelector.get_recycle_asset_by_record_code(record_code)
-                if not recycle_asset:
-                    fail_items.append({
-                        "id": record_code,
-                        "error_code": "NOT_FOUND",
-                        "error_message": f"回收记录 {record_code} 不存在"
-                    })
-                    continue
+                with transaction.atomic():
+                    recycle_asset = RecycleAssetSelector.get_recycle_asset_by_record_code(record_code)
+                    if not recycle_asset:
+                        fail_items.append({
+                            "id": record_code,
+                            "error_code": "NOT_FOUND",
+                            "error_message": f"回收记录 {record_code} 不存在"
+                        })
+                        continue
 
-                asset = recycle_asset.recycle_asset_code
-                if asset.asset_current_status != 'recycled_pending':
-                    fail_items.append({
-                        "id": record_code,
-                        "error_code": "STATUS_NOT_ALLOWED",
-                        "error_message": f"关联资产当前状态为 {asset.asset_current_status}，不允许删除回收记录"
-                    })
-                    continue
+                    asset = recycle_asset.recycle_asset_code
+                    if asset.asset_current_status != 'recycled_pending':
+                        fail_items.append({
+                            "id": record_code,
+                            "error_code": "STATUS_NOT_ALLOWED",
+                            "error_message": f"关联资产当前状态为 {asset.asset_current_status}，不允许删除回收记录"
+                        })
+                        continue
 
-                # 软删除回收记录
-                recycle_asset.delete()
+                    # 软删除回收记录
+                    recycle_asset.delete()
+
+                    # 【P1-优化】使用状态机回滚资产状态到 in_use
+                    AssetFSM.cancel_recycle(asset)
+
+                    # 清空回收时设置的入库人字段
+                    asset.asset_entry_person_jobcode = None
+                    asset.save(update_fields=[
+                        'asset_current_status',
+                        'asset_entry_person_jobcode',
+                    ])
+
                 success_ids.append(record_code)
 
+            except InvalidTransitionError as e:
+                fail_items.append({
+                    "id": record_code,
+                    "error_code": "INVALID_STATE_TRANSITION",
+                    "error_message": str(e)
+                })
             except Exception:
                 fail_items.append({
                     "id": record_code,

@@ -762,14 +762,28 @@ class OutAssetService:
     ) -> Dict[str, Any]:
         """
         批量创建出库记录（逐条独立执行，返回详细结果）
+
+        每条记录独立 try-except，单条失败不影响其他记录。
+        复用 OutAssetService.create_outasset() 单条创建逻辑。
+        使用字典深拷贝避免 create_outasset 内部的 pop 操作修改原始数据。
+
+        Returns:
+            Dict[str, Any]: 批量创建结果
         """
+        import copy
+
+        MAX_BATCH_SIZE = 100
+        if len(outasset_data_list) > MAX_BATCH_SIZE:
+            raise AppValidationError(detail=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条")
+
         success_items: List[OutAsset] = []
         fail_items: List[Dict[str, Any]] = []
 
         for idx, outasset_data in enumerate(outasset_data_list):
             try:
+                # 深拷贝字典，避免 create_outasset 内部的 pop 操作修改原始数据
                 result = OutAssetService.create_outasset(
-                    outasset_data=outasset_data,
+                    outasset_data=copy.deepcopy(outasset_data),
                     operator_jobcode=operator_jobcode,
                     operator_name=operator_name,
                 )
@@ -812,7 +826,14 @@ class OutAssetService:
         - 出库记录必须存在
         - 关联资产当前状态必须为 in_use（已出库）
         - 不存在关联回收记录
+
+        Returns:
+            Dict[str, Any]: 批量删除结果
         """
+        MAX_BATCH_SIZE = 100
+        if len(outasset_recordcodes) > MAX_BATCH_SIZE:
+            raise AppValidationError(detail=f"单次批量删除不能超过 {MAX_BATCH_SIZE} 条")
+
         success_ids: List[str] = []
         fail_items: List[Dict[str, Any]] = []
 
@@ -849,7 +870,7 @@ class OutAssetService:
 
                 # 恢复资产状态为 in_store
                 asset.asset_current_status = 'in_store'
-                asset.asset_storage_code = None  # 需要查询原始仓库，简化处理
+                asset.asset_storage_code = None
                 asset.save(update_fields=['asset_current_status'])
 
                 success_ids.append(recordcode)
@@ -873,10 +894,12 @@ class OutAssetService:
 def _map_outasset_error_code(error_detail: str) -> str:
     """将出库错误详情映射为错误码"""
     msg = str(error_detail).lower()
-    if "状态" in msg and "出库" in msg:
+    if "状态" in msg:
         return "STATUS_NOT_ALLOWED"
     elif "不存在" in msg:
         return "ASSET_NOT_FOUND"
+    elif "缺少" in msg:
+        return "MISSING_REQUIRED_FIELD"
     return "VALIDATION_ERROR"
 
 

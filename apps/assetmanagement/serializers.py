@@ -1923,3 +1923,67 @@ class AssetBatchDeleteSerializer(serializers.Serializer):
         if len(value) != len(set(value)):
             raise serializers.ValidationError("ids 列表中存在重复项")
         return value
+
+
+class OutAssetBatchItemSerializer(serializers.Serializer):
+    """单条出库记录批量创建数据校验"""
+    row_number = serializers.IntegerField(required=False, help_text="Excel 行号")
+    outasset_code = serializers.SlugRelatedField(
+        slug_field="asset_code",
+        queryset=Asset.objects.filter(is_deleted=False, asset_current_status='in_store'),
+        required=True
+    )
+    outasset_number = serializers.IntegerField(required=False, default=1, min_value=1)
+    outasset_date = serializers.DateField(required=False)
+    outasset_type = serializers.CharField(required=True)
+    outasset_description = serializers.CharField(required=False, allow_blank=True)
+    return_date = serializers.DateField(required=False, allow_null=True)
+    outasset_applicant_jobcode = serializers.SlugRelatedField(
+        slug_field="employee_jobcode",
+        queryset=get_employee_queryset(),
+        required=True,
+        write_only=True
+    )
+    outasset_manager_jobcode = serializers.SlugRelatedField(
+        slug_field="employee_jobcode",
+        queryset=get_employee_queryset(),
+        required=True,
+        write_only=True
+    )
+    outasset_using_location = serializers.CharField(required=True, write_only=True)
+
+
+class OutAssetBatchCreateSerializer(serializers.Serializer):
+    """批量创建出库记录请求校验"""
+    MAX_BATCH_SIZE = 100
+    items = OutAssetBatchItemSerializer(many=True, required=True)
+
+    def validate_items(self, value: List[Dict]) -> List[Dict]:
+        if len(value) > self.MAX_BATCH_SIZE:
+            raise serializers.ValidationError(
+                f"单次批量创建不能超过 {self.MAX_BATCH_SIZE} 条"
+            )
+        # 检查资产编码重复
+        asset_codes = [item['outasset_code'].asset_code for item in value]
+        if len(asset_codes) != len(set(asset_codes)):
+            raise serializers.ValidationError("提交记录中存在重复的资产编码")
+        return value
+
+
+class OutAssetBatchDeleteSerializer(serializers.Serializer):
+    """批量删除出库记录请求校验"""
+    MAX_BATCH_SIZE = 100
+    ids = serializers.ListField(
+        child=serializers.CharField(),
+        required=True,
+        help_text="出库记录编码列表"
+    )
+
+    def validate_ids(self, value: List[str]) -> List[str]:
+        if len(value) > self.MAX_BATCH_SIZE:
+            raise serializers.ValidationError(
+                f"单次批量删除不能超过 {self.MAX_BATCH_SIZE} 条"
+            )
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError("ids 列表中存在重复项")
+        return value

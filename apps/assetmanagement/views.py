@@ -71,6 +71,8 @@ from apps.assetmanagement.serializers import (
     AssetBatchDeleteSerializer,
     OutAssetSerializer,
     OutAssetDetailSerializer,
+    OutAssetBatchCreateSerializer,
+    OutAssetBatchDeleteSerializer,
     RecycleAssetSerializer,
     DamagedAssetSerializer,
     WasteAssetSerializer,
@@ -907,6 +909,54 @@ class OutAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet):
     def partial_update(self, request, *args, **kwargs):
         """【AGENTS 规范 - P3-40】部分更新出库记录，复用 update 逻辑"""
         return self.update(request, *args, **kwargs)
+
+    @action(detail=False, methods=['post'], url_path='batch-create')
+    def batch_create(self, request):
+        """批量创建出库记录"""
+        serializer = OutAssetBatchCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        result = OutAssetService.batch_create_outasset(
+            serializer.validated_data['items'],
+            operator_jobcode=request.user.auth_id,
+            operator_name=request.user.auth_username
+        )
+
+        success_serializer = OutAssetSerializer(result['success_items'], many=True)
+
+        return success_response(
+            data={
+                'total': result['total'],
+                'success_count': result['success_count'],
+                'fail_count': result['fail_count'],
+                'success_items': success_serializer.data,
+                'fail_items': result['fail_items']
+            },
+            message=f"批量出库完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条"
+        )
+
+    @action(detail=False, methods=['post'], url_path='batch-delete')
+    def batch_delete(self, request):
+        """批量删除出库记录"""
+        serializer = OutAssetBatchDeleteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        result = OutAssetService.batch_delete_outasset(
+            serializer.validated_data['ids'],
+            operator_jobcode=request.user.auth_id,
+            operator_name=request.user.auth_username
+        )
+
+        return success_response(
+            data={
+                'total': result['total'],
+                'success_count': result['success_count'],
+                'fail_count': result['fail_count'],
+                'success_ids': result['success_ids'],
+                'fail_items': result['fail_items']
+            },
+            message=f"批量删除完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条"
+        )
 
     @extend_schema(
         parameters=[OpenApiParameter(name='asset_code', type=OpenApiTypes.STR, location=OpenApiParameter.PATH, required=True)],

@@ -384,7 +384,7 @@ class EmployeeBatchCreateSerializer(serializers.Serializer):
     MAX_BATCH_SIZE = 100
     items = EmployeeBatchItemSerializer(many=True, required=True)
 
-    def validate_items(self, value: List[Dict]) -> List[Dict]:
+    def validate_items(self, value: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         if len(value) > self.MAX_BATCH_SIZE:
             raise serializers.ValidationError(
                 f"单次批量创建不能超过 {self.MAX_BATCH_SIZE} 条"
@@ -430,7 +430,7 @@ class DepartmentBatchCreateSerializer(serializers.Serializer):
     MAX_BATCH_SIZE = 100
     items = DepartmentBatchItemSerializer(many=True, required=True)
 
-    def validate_items(self, value: List[Dict]) -> List[Dict]:
+    def validate_items(self, value: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         if len(value) > self.MAX_BATCH_SIZE:
             raise serializers.ValidationError(
                 f"单次批量创建不能超过 {self.MAX_BATCH_SIZE} 条"

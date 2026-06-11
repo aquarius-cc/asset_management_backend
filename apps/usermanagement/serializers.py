@@ -360,3 +360,102 @@ class EmployeeBatchSortSerializer(serializers.Serializer):
         many=True,
         help_text="员工排序项列表"
     )
+
+
+class EmployeeBatchItemSerializer(serializers.Serializer):
+    """单条员工批量创建数据校验"""
+    row_number = serializers.IntegerField(required=False, help_text="Excel 行号")
+    employee_jobcode = serializers.CharField(required=True)
+    employee_name = serializers.CharField(required=True)
+    employee_status = serializers.CharField(required=False, default='active')
+    employee_department = serializers.SlugRelatedField(
+        slug_field="department_code",
+        queryset=Department.objects.all(),
+        required=False
+    )
+    employee_phone = serializers.CharField(required=False, allow_blank=True)
+    employee_location = serializers.CharField(required=False, allow_blank=True)
+    employee_description = serializers.CharField(required=False, allow_blank=True)
+    sort_order = serializers.IntegerField(required=False, default=0)
+
+
+class EmployeeBatchCreateSerializer(serializers.Serializer):
+    """批量创建员工请求校验"""
+    MAX_BATCH_SIZE = 100
+    items = EmployeeBatchItemSerializer(many=True, required=True)
+
+    def validate_items(self, value: List[Dict]) -> List[Dict]:
+        if len(value) > self.MAX_BATCH_SIZE:
+            raise serializers.ValidationError(
+                f"单次批量创建不能超过 {self.MAX_BATCH_SIZE} 条"
+            )
+        # 检查工号重复
+        jobcodes = [item['employee_jobcode'] for item in value]
+        if len(jobcodes) != len(set(jobcodes)):
+            raise serializers.ValidationError("提交记录中存在重复的员工工号")
+        return value
+
+
+class EmployeeBatchDeleteSerializer(serializers.Serializer):
+    """批量删除员工请求校验"""
+    MAX_BATCH_SIZE = 100
+    ids = serializers.ListField(
+        child=serializers.CharField(),
+        required=True,
+        help_text="员工工号列表"
+    )
+
+    def validate_ids(self, value: List[str]) -> List[str]:
+        if len(value) > self.MAX_BATCH_SIZE:
+            raise serializers.ValidationError(
+                f"单次批量删除不能超过 {self.MAX_BATCH_SIZE} 条"
+            )
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError("ids 列表中存在重复项")
+        return value
+
+
+class DepartmentBatchItemSerializer(serializers.Serializer):
+    """单条部门批量创建数据校验"""
+    row_number = serializers.IntegerField(required=False, help_text="Excel 行号")
+    department_code = serializers.CharField(required=True)
+    department_name = serializers.CharField(required=True)
+    department_information = serializers.CharField(required=False, allow_blank=True)
+    parent_code = serializers.CharField(required=False, allow_blank=True)
+    sort_order = serializers.IntegerField(required=False, default=0)
+
+
+class DepartmentBatchCreateSerializer(serializers.Serializer):
+    """批量创建部门请求校验"""
+    MAX_BATCH_SIZE = 100
+    items = DepartmentBatchItemSerializer(many=True, required=True)
+
+    def validate_items(self, value: List[Dict]) -> List[Dict]:
+        if len(value) > self.MAX_BATCH_SIZE:
+            raise serializers.ValidationError(
+                f"单次批量创建不能超过 {self.MAX_BATCH_SIZE} 条"
+            )
+        # 检查部门编码重复
+        codes = [item['department_code'] for item in value]
+        if len(codes) != len(set(codes)):
+            raise serializers.ValidationError("提交记录中存在重复的部门编码")
+        return value
+
+
+class DepartmentBatchDeleteSerializer(serializers.Serializer):
+    """批量删除部门请求校验"""
+    MAX_BATCH_SIZE = 100
+    ids = serializers.ListField(
+        child=serializers.CharField(),
+        required=True,
+        help_text="部门编码列表"
+    )
+
+    def validate_ids(self, value: List[str]) -> List[str]:
+        if len(value) > self.MAX_BATCH_SIZE:
+            raise serializers.ValidationError(
+                f"单次批量删除不能超过 {self.MAX_BATCH_SIZE} 条"
+            )
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError("ids 列表中存在重复项")
+        return value

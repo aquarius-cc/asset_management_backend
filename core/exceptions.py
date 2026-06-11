@@ -18,16 +18,22 @@ class AppValidationError(APIException):
     验证错误
 
     用于数据验证失败的场景，如参数格式错误、必填字段缺失等。
+    支持通过 error_code 参数携带业务错误码，供批量操作使用。
 
     【修复 S10】重命名为 AppValidationError，避免与 DRF 的 ValidationError 冲突。
 
     Example:
         raise AppValidationError('参数格式错误')
         raise AppValidationError(detail={'field': '错误信息'})
+        raise AppValidationError(detail='资产名称已存在', error_code='DUPLICATE_ASSET_NAME')
     """
     status_code = status.HTTP_400_BAD_REQUEST
     default_detail = '数据验证失败'
     default_code = 'validation_error'
+
+    def __init__(self, detail=None, code=None, error_code=None):
+        super().__init__(detail, code)
+        self.error_code = error_code
 
 
 class NotFoundError(APIException):
@@ -63,13 +69,19 @@ class BusinessLogicError(APIException):
     业务逻辑错误
 
     用于业务规则校验失败的场景，如库存不足、状态不允许等。
+    支持通过 error_code 参数携带业务错误码，供批量操作使用。
 
     Example:
         raise BusinessLogicError('库存不足，无法出库')
+        raise BusinessLogicError(detail='不能将部门移动到自己下面', error_code='CIRCULAR_REFERENCE')
     """
     status_code = status.HTTP_400_BAD_REQUEST
     default_detail = '业务逻辑错误'
     default_code = 'business_logic_error'
+
+    def __init__(self, detail=None, code=None, error_code=None):
+        super().__init__(detail, code)
+        self.error_code = error_code
 
 
 class ResourceConflictError(APIException):

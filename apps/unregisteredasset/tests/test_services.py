@@ -36,9 +36,9 @@ class TestUnregisteredAssetService:
             'asset_name': '未登记笔记本',
             'asset_brand': '测试品牌',
             'asset_specification': '测试规格',
-            'asset_type_code': asset_type,
+            'unregistered_asset_type': asset_type,
             'estimated_value': Decimal('5000.00'),
-            'target_storage_code': storage,
+            'unregistered_asset_storage': storage,
         }
 
         asset = UnregisteredAssetService.create(
@@ -60,7 +60,7 @@ class TestUnregisteredAssetService:
             'discovery_date': date(2024, 6, 1),
             'discovery_location': '办公室B',
             'asset_name': '无出库记录资产',
-            'target_storage_code': storage,
+            'unregistered_asset_storage': storage,
         }
 
         with pytest.raises(AppValidationError) as exc_info:
@@ -80,8 +80,8 @@ class TestUnregisteredAssetService:
             'discovery_date': date(2024, 6, 1),
             'discovery_location': '会议室A',
             'asset_name': '未登记资产',
-            'related_asset_code': existing_asset,
-            'target_storage_code': storage,
+            'related_asset': existing_asset,
+            'unregistered_asset_storage': storage,
         }
 
         with pytest.raises(AppValidationError) as exc_info:
@@ -156,16 +156,16 @@ class TestUnregisteredAssetService:
         result = UnregisteredAssetService.approve_and_handle(
             unregistered_code=unregistered_asset_s1.unregistered_code,
             handle_type='create_and_recycle',
-            approver_jobcode=admin_employee.employee_jobcode
+            approver=admin_employee.employee_jobcode
         )
 
         # 验证返回结果
         assert result['action'] == 'create_and_recycle'
         assert 'asset_code' in result
         assert 'recycle_id' in result
-        # 【AGENTS 规范 - 业务唯一编码】验证返回 recycle_record_code
-        assert 'recycle_record_code' in result
-        assert result['recycle_record_code'].startswith('RECYCLE-')
+        # 【AGENTS 规范 - 业务唯一编码】验证返回 recordcode
+        assert 'recordcode' in result
+        assert result['recordcode'].startswith('REC-')
 
         # 验证资产创建
         asset = Asset.objects.get(asset_code=result['asset_code'])
@@ -176,13 +176,13 @@ class TestUnregisteredAssetService:
         recycle = RecycleAsset.objects.get(id=result['recycle_id'])
         assert recycle.recycle_asset_code == asset
         # 【AGENTS 规范 - 业务唯一编码】验证回收记录编码格式和唯一性
-        assert recycle.recycle_record_code == result['recycle_record_code']
-        assert len(recycle.recycle_record_code) == 25  # RECYCLE-YYYYMMDD-XXXXXXXX
+        assert recycle.recordcode == result['recordcode']
+        assert len(recycle.recordcode) == 21  # REC-YYYYMMDD-XXXXXXXX
 
         # 验证未登记资产状态更新
         unregistered_asset_s1.refresh_from_db()
         assert unregistered_asset_s1.approval_status == 'approved'
-        assert unregistered_asset_s1.result_asset_code == asset
+        assert unregistered_asset_s1.result_asset == asset
 
     def test_approve_s1_create_and_damaged(self, unregistered_asset_s1, admin_employee):
         """
@@ -191,7 +191,7 @@ class TestUnregisteredAssetService:
         result = UnregisteredAssetService.approve_and_handle(
             unregistered_code=unregistered_asset_s1.unregistered_code,
             handle_type='create_and_damaged',
-            approver_jobcode=admin_employee.employee_jobcode
+            approver=admin_employee.employee_jobcode
         )
 
         assert result['action'] == 'create_and_damaged'
@@ -204,7 +204,7 @@ class TestUnregisteredAssetService:
 
         # 验证待报废记录
         damaged = DamagedAsset.objects.get(id=result['damaged_id'])
-        assert damaged.damaged_asset_code == asset
+        assert damaged.damaged_asset == asset
 
     def test_approve_s2_supplement_and_recycle(self, unregistered_asset_s2, admin_employee, existing_asset):
         """
@@ -213,17 +213,16 @@ class TestUnregisteredAssetService:
         result = UnregisteredAssetService.approve_and_handle(
             unregistered_code=unregistered_asset_s2.unregistered_code,
             handle_type='supplement_and_recycle',
-            approver_jobcode=admin_employee.employee_jobcode
+            approver=admin_employee.employee_jobcode
         )
 
         assert result['action'] == 'supplement_and_recycle'
         assert 'asset_code' in result
-        assert 'outasset_code' in result
-        assert 'recycle_id' in result
+        assert 'outasset_asset' in result
 
         # 验证出库记录创建
-        outasset = OutAsset.objects.get(outasset_recordcode=result['outasset_code'])
-        assert outasset.outasset_code == existing_asset
+        outasset = OutAsset.objects.get(recordcode=result['outasset_asset'])
+        assert outasset.outasset_asset == existing_asset
 
         # 验证资产状态更新
         existing_asset.refresh_from_db()
@@ -238,7 +237,7 @@ class TestUnregisteredAssetService:
         result = UnregisteredAssetService.approve_and_handle(
             unregistered_code=unregistered_asset_s3.unregistered_code,
             handle_type='correct_and_recycle',
-            approver_jobcode=admin_employee.employee_jobcode
+            approver=admin_employee.employee_jobcode
         )
 
         assert result['action'] == 'correct_and_recycle'
@@ -256,7 +255,7 @@ class TestUnregisteredAssetService:
         result = UnregisteredAssetService.approve_and_handle(
             unregistered_code=unregistered_asset_s1.unregistered_code,
             handle_type='reject',
-            approver_jobcode=admin_employee.employee_jobcode,
+            approver=admin_employee.employee_jobcode,
             approval_remark='测试拒绝'
         )
 
@@ -275,7 +274,7 @@ class TestUnregisteredAssetService:
             UnregisteredAssetService.approve_and_handle(
                 unregistered_code=approved_unregistered_asset.unregistered_code,
                 handle_type='create_and_recycle',
-                approver_jobcode=admin_employee.employee_jobcode
+                approver=admin_employee.employee_jobcode
             )
 
         assert '不允许审批' in str(exc_info.value.detail)
@@ -288,7 +287,7 @@ class TestUnregisteredAssetService:
             UnregisteredAssetService.approve_and_handle(
                 unregistered_code=unregistered_asset_s1.unregistered_code,
                 handle_type='supplement_and_recycle',  # S1 场景不支持
-                approver_jobcode=admin_employee.employee_jobcode
+                approver=admin_employee.employee_jobcode
             )
 
         assert '不支持处理方式' in str(exc_info.value.detail)

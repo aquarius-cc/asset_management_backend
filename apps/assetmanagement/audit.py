@@ -25,8 +25,9 @@ from functools import wraps
 from typing import Optional, Dict, Any, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
+from django.utils import timezone  # 【P2-33 修复】使用 timezone.now() 替代 datetime.now()
 
-from apps.assetmanagement.operation_log_service import OperationLogService
+from apps.assetmanagement.services.operation_log_service import OperationLogService
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,8 @@ class AuditContext:
     operator_jobcode: Optional[str] = None
     operator_name: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
-    _start_time: datetime = field(default_factory=datetime.now)
+    # 【P2-33 修复】使用 timezone.now() 替代 datetime.now()，兼容 USE_TZ=True
+    _start_time: datetime = field(default_factory=timezone.now)
     
     def __enter__(self):
         """进入上下文"""
@@ -58,7 +60,8 @@ class AuditContext:
     
     def __exit__(self, exc_type, exc_val, exc_tb):
         """退出上下文，记录结果"""
-        duration = (datetime.now() - self._start_time).total_seconds()
+        # 【P2-33 修复】使用 timezone.now() 替代 datetime.now()
+        duration = (timezone.now() - self._start_time).total_seconds()
         
         if exc_type is None:
             logger.info(
@@ -157,6 +160,7 @@ class AuditLogger:
     def log_asset_delete(
         asset_code: str,
         asset_name: str,
+        asset=None,
         operator_jobcode: Optional[str] = None,
         operator_name: Optional[str] = None
     ) -> bool:
@@ -165,6 +169,7 @@ class AuditLogger:
             OperationLogService.log_asset_delete,
             asset_code=asset_code,
             asset_name=asset_name,
+            asset=asset,
             operator_jobcode=operator_jobcode,
             operator_name=operator_name
         )
@@ -197,7 +202,7 @@ class AuditLogger:
     @staticmethod
     def log_asset_out(
         asset,
-        outasset_recordcode: str,
+        outrecordcode: str,
         operator_jobcode: Optional[str] = None,
         operator_name: Optional[str] = None
     ) -> bool:
@@ -205,7 +210,7 @@ class AuditLogger:
         return AuditLogger._safe_log(
             OperationLogService.log_asset_out,
             asset=asset,
-            outasset_recordcode=outasset_recordcode,
+            recordcode=outrecordcode,  # 【P0-17 修复】参数名与 OperationLogService 一致
             operator_jobcode=operator_jobcode,
             operator_name=operator_name
         )
@@ -213,7 +218,7 @@ class AuditLogger:
     @staticmethod
     def log_asset_recycle(
         asset,
-        recycle_record_code: str,
+        recordcode: str,
         operator_jobcode: Optional[str] = None,
         operator_name: Optional[str] = None
     ) -> bool:
@@ -221,7 +226,7 @@ class AuditLogger:
         return AuditLogger._safe_log(
             OperationLogService.log_asset_recycle,
             asset=asset,
-            recycle_record_code=recycle_record_code,
+            recordcode=recordcode,
             operator_jobcode=operator_jobcode,
             operator_name=operator_name
         )

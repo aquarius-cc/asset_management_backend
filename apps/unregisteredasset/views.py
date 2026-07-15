@@ -18,31 +18,30 @@
 - POST   /api/v1/unregistered-assets/{code}/approve/ 审批
 """
 
-from typing import Type, List
-
-from rest_framework import viewsets, status
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import NotFound, ValidationError
-
-from core.exceptions import AppValidationError
-from core.pagination import CustomPageNumberPagination
-from core.mixins import LoggingMixin, ResponseWrapperMixin
+from rest_framework.filters import OrderingFilter, SearchFilter
+from rest_framework.permissions import IsAdminUser, IsAuthenticated  # 【P0-03 修复】IsAdminUser 用于 get_permissions
+from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
-from utils.response_utils import success_response
-
-from .models import UnregisteredAsset
-from .selectors import UnregisteredAssetSelector
-from .services import UnregisteredAssetService
-from .serializers import (
-    UnregisteredAssetCreateSerializer,
-    UnregisteredAssetUpdateSerializer,
+from apps.unregisteredasset.models import UnregisteredAsset
+from apps.unregisteredasset.selectors import UnregisteredAssetSelector
+from apps.unregisteredasset.serializers import (
     UnregisteredAssetApproveSerializer,
-    UnregisteredAssetListSerializer,
+    UnregisteredAssetCreateSerializer,
     UnregisteredAssetDetailSerializer,
+    UnregisteredAssetListSerializer,
+    UnregisteredAssetUpdateSerializer,
 )
+from apps.unregisteredasset.services import UnregisteredAssetService
+from core.exceptions import AppValidationError
+from core.mixins import LoggingMixin, ResponseWrapperMixin
+from core.pagination import CustomPageNumberPagination
+from core.permissions import IsDeptManagerOrAbove
+from utils.response_utils import error_response, success_response
 
 
 class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet):
@@ -72,18 +71,23 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet)
     permission_classes = [IsAuthenticated]
 
     # filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ['scenario_type', 'approval_status', 'discovery_person_jobcode','related_asset_code']
-    ordering_fields = ['unregistered_code', 'asset_name']
-    ordering = ['-discovery_date']
-    lookup_field = 'unregistered_code'
-    # 查询参数映射
-    filter_mappings = {
-        'scenario_type': 'scenario_type',
-        'approval_status': 'approval_status',
-        'discovery_person': 'discovery_person_jobcode',
-    }
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ["scenario_type", "approval_status", "discovery_person", "related_asset"]
+    ordering_fields = ["unregistered_code", "asset_name"]
+    ordering = ["-discovery_date"]
+    lookup_field = "unregistered_code"
+    # 【P2-05 修复】移除未使用的 filter_mappings（DRF DjangoFilterBackend 已通过 filterset_fields 处理）
 
-    def get_serializer_class(self, action: str = None) -> Type:
+    def get_permissions(self):
+        if self.action in ["destroy", "batch_delete"]:
+            permission_classes = [IsAdminUser]
+        elif self.action == "approve":
+            permission_classes = [IsDeptManagerOrAbove]
+        else:
+            permission_classes = [IsAuthenticated]
+        return [permission() for permission in permission_classes]
+
+    def get_serializer_class(self, action: str = None) -> type:
         """
         根据动作返回对应的序列化器类
 
@@ -96,76 +100,14 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet)
         action = action or self.action
 
         serializer_map = {
-            'list': UnregisteredAssetListSerializer,
-            'retrieve': UnregisteredAssetDetailSerializer,
-            'create': UnregisteredAssetCreateSerializer,
-            'update': UnregisteredAssetUpdateSerializer,
-            'partial_update': UnregisteredAssetUpdateSerializer,
-            'approve': UnregisteredAssetApproveSerializer,
+            "list": UnregisteredAssetListSerializer,
+            "retrieve": UnregisteredAssetDetailSerializer,
+            "create": UnregisteredAssetCreateSerializer,
+            "update": UnregisteredAssetUpdateSerializer,
+            "partial_update": UnregisteredAssetUpdateSerializer,
+            "approve": UnregisteredAssetApproveSerializer,
         }
         return serializer_map.get(action, UnregisteredAssetListSerializer)
-
-    # def list(self, request) -> Response:
-    #     """
-    #     获取未登记资产列表
-
-    #     Query Parameters:
-    #         - scenario_type: 场景类型筛选
-    #         - approval_status: 审批状态筛选
-    #         - discovery_person: 发现人筛选
-
-    #     Returns:
-    #         Response: 序列化后的列表数据
-    #     """
-    #     # 获取查询参数
-    #     filters = {}
-    #     for param, field in self.filter_mappings.items():
-    #         value = request.query_params.get(param)
-    #         if value:
-    #             filters[field] = value
-
-    #     # 查询数据
-    #     queryset = UnregisteredAssetSelector.list_by_filters(**filters)
-
-    #     # 序列化
-    #     serializer = self.get_serializer_class()(
-    #         queryset,
-    #         many=True,
-    #         context={'request': request}
-    #     )
-
-    #     return success_response(
-    #         msg='success',
-    #         data = serializer.data
-    #     )
-
-    # def retrieve(self, request, pk: str = None) -> Response:
-    #     """
-    #     获取未登记资产详情
-
-    #     Args:
-    #         pk: 未登记资产编码
-
-    #     Returns:
-    #         Response: 序列化后的详情数据
-
-    #     Raises:
-    #         NotFound: 记录不存在时抛出
-    #     """
-    #     instance = UnregisteredAssetSelector.get_by_code(pk)
-    #     if not instance:
-    #         raise NotFound(detail=f'未登记资产 {pk} 不存在')
-
-    #     serializer = self.get_serializer_class()(
-    #         instance,
-    #         context={'request': request}
-    #     )
-
-    #     return Response({
-    #         'code': 200,
-    #         'msg': 'success',
-    #         'data': serializer.data
-    #     })
 
     def create(self, request) -> Response:
         """
@@ -176,6 +118,7 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet)
             - asset_name: 资产名称（必填）
             - discovery_date: 发现日期（必填）
             - discovery_location: 发现地点（必填）
+            - discovery_person: 发现人工号（可选，默认为当前用户）
             - 其他可选字段...
 
         Returns:
@@ -185,34 +128,46 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet)
         serializer.is_valid(raise_exception=True)
 
         try:
-            # 获取当前用户
-            operator_jobcode = request.user.employee_jobcode
-            operator_name = getattr(request.user, 'employee_name', None)
+            # 获取操作人工号：从请求数据中获取discovery_person
+            operator_jobcode = request.data.get("discovery_person")
+            if not operator_jobcode:
+                # 尝试从当前用户查找对应的Employee
+                from apps.usermanagement.models import Employee
+
+                try:
+                    # 假设auth_username与employee_jobcode有某种关联
+                    employee = Employee.objects.filter(
+                        employee_jobcode=getattr(request.user, "auth_username", None)
+                    ).first()
+                    if employee:
+                        operator_jobcode = employee.employee_jobcode
+                    else:
+                        # 如果找不到对应的Employee，使用auth_id（可能失败）
+                        operator_jobcode = request.user.auth_id
+                except Exception:
+                    operator_jobcode = request.user.auth_id
+
+            operator_name = getattr(request.user, "auth_username", None)
 
             # 创建记录
             instance = UnregisteredAssetService.create(
-                data=serializer.validated_data,
-                operator_jobcode=operator_jobcode,
-                operator_name=operator_name
+                data=serializer.validated_data, operator_jobcode=operator_jobcode, operator_name=operator_name
             )
 
             # 返回详情
-            detail_serializer = UnregisteredAssetDetailSerializer(
-                instance,
-                context={'request': request}
-            )
+            detail_serializer = UnregisteredAssetDetailSerializer(instance, context={"request": request})
 
-            return success_response(detail_serializer.data, status=status.HTTP_201_CREATED)
+            return success_response(detail_serializer.data)
 
         except AppValidationError as e:
             raise ValidationError(detail=e.detail)
 
-    def update(self, request, pk: str = None) -> Response:
+    def update(self, request, unregistered_code: str = None) -> Response:
         """
         更新未登记资产信息
 
         Args:
-            pk: 未登记资产编码
+            unregistered_code: 未登记资产编码
 
         Request Body:
             - 允许更新的字段（asset_name, asset_brand 等）
@@ -220,101 +175,226 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet)
         Returns:
             Response: 更新后的数据
         """
-        instance = UnregisteredAssetSelector.get_by_code(pk)
+        instance = UnregisteredAssetSelector.get_by_code(unregistered_code)
         if not instance:
-            raise NotFound(detail=f'未登记资产 {pk} 不存在')
+            raise NotFound(detail=f"未登记资产 {unregistered_code} 不存在")
 
         serializer = self.get_serializer_class()(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         try:
-            operator_jobcode = request.user.employee_jobcode
-            operator_name = getattr(request.user, 'employee_name', None)
+            operator_jobcode = request.user.auth_id
+            operator_name = getattr(request.user, "auth_username", None)
 
             updated = UnregisteredAssetService.update(
-                unregistered_code=pk,
+                unregistered_code=unregistered_code,
                 update_data=serializer.validated_data,
                 operator_jobcode=operator_jobcode,
-                operator_name=operator_name
+                operator_name=operator_name,
             )
 
-            detail_serializer = UnregisteredAssetDetailSerializer(
-                updated,
-                context={'request': request}
-            )
+            detail_serializer = UnregisteredAssetDetailSerializer(updated, context={"request": request})
 
             return success_response(detail_serializer.data)
 
         except AppValidationError as e:
             raise ValidationError(detail=e.detail)
 
-    def destroy(self, request, pk: str = None) -> Response:
+    def destroy(self, request, unregistered_code: str = None) -> Response:
         """
         删除未登记资产（软删除）
 
         Args:
-            pk: 未登记资产编码
+            unregistered_code: 未登记资产编码
 
         Returns:
             Response: 删除成功响应
         """
-        instance = UnregisteredAssetSelector.get_by_code(pk)
+        instance = UnregisteredAssetSelector.get_by_code(unregistered_code)
         if not instance:
-            raise NotFound(detail=f'未登记资产 {pk} 不存在')
+            raise NotFound(detail=f"未登记资产 {unregistered_code} 不存在")
 
         try:
-            operator_jobcode = request.user.employee_jobcode
-            operator_name = getattr(request.user, 'employee_name', None)
+            operator_jobcode = request.user.auth_id
+            operator_name = getattr(request.user, "auth_username", None)
 
             UnregisteredAssetService.delete(
-                unregistered_code=pk,
-                operator_jobcode=operator_jobcode,
-                operator_name=operator_name
+                unregistered_code=unregistered_code, operator_jobcode=operator_jobcode, operator_name=operator_name
             )
 
-            return success_response( None )
+            return success_response(None)
 
         except AppValidationError as e:
             raise ValidationError(detail=e.detail)
 
-    @action(detail=True, methods=['post'], url_path='approve')
-    def approve(self, request, pk: str = None) -> Response:
+    @action(detail=True, methods=["post"], url_path="approve")
+    def approve(self, request, unregistered_code: str = None) -> Response:
         """
         审批处理未登记资产
 
         Args:
-            pk: 未登记资产编码
+            unregistered_code: 未登记资产编码
 
         Request Body:
             - handle_type: 处理方式（必填）
+            - approver: 审批人工号（必填）
             - approval_remark: 审批备注（可选）
 
         Returns:
             Response: 处理结果
         """
-        instance = UnregisteredAssetSelector.get_by_code(pk)
+        instance = UnregisteredAssetSelector.get_by_code(unregistered_code)
         if not instance:
-            raise NotFound(detail=f'未登记资产 {pk} 不存在')
+            raise NotFound(detail=f"未登记资产 {unregistered_code} 不存在")
 
-        serializer = self.get_serializer_class('approve')(data=request.data)
+        serializer = self.get_serializer_class("approve")(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         try:
-            approver_jobcode = request.user.employee_jobcode
-            operator_name = getattr(request.user, 'employee_name', None)
+            # 优先从请求数据中获取审批人工号，否则使用当前用户的auth_id
+            approver = serializer.validated_data.get("approver") or request.user.auth_id
+            operator_name = getattr(request.user, "auth_username", None)
 
             result = UnregisteredAssetService.approve_and_handle(
-                unregistered_code=pk,
-                handle_type=serializer.validated_data['handle_type'],
-                approver_jobcode=approver_jobcode,
+                unregistered_code=unregistered_code,
+                handle_type=serializer.validated_data["handle_type"],
+                approver=approver,
                 operator_name=operator_name,
-                approval_remark=serializer.validated_data.get('approval_remark', '')
+                approval_remark=serializer.validated_data.get("approval_remark", ""),
             )
 
-            return success_response(
-                data = result,
-                msg='审批处理成功',
-            )
+            return success_response(result)
 
         except AppValidationError as e:
             raise ValidationError(detail=e.detail)
+
+    @action(detail=False, methods=["post"], url_path="batch-create")
+    def batch_create(self, request) -> Response:
+        """批量创建未登记资产"""
+        items = request.data.get("items", [])
+        if not items:
+            return error_response(data={"message": "请提供要创建的数据列表"}, status_code=status.HTTP_400_BAD_REQUEST)
+        if len(items) > 100:
+            return error_response(
+                data={"message": "单次批量创建不能超过 100 条"}, status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        success_items = []
+        fail_items = []
+        for idx, item in enumerate(items):
+            try:
+                serializer = UnregisteredAssetCreateSerializer(data=item)
+                serializer.is_valid(raise_exception=True)
+                instance = UnregisteredAssetService.create(
+                    data=serializer.validated_data,
+                    operator_jobcode=request.user.auth_id,
+                    operator_name=getattr(request.user, "auth_username", None),
+                )
+                success_items.append(UnregisteredAssetDetailSerializer(instance).data)
+            except Exception as e:
+                fail_items.append(
+                    {"index": idx, "error_code": "CREATE_FAILED", "error_message": str(e), "input_data": item}
+                )
+
+        return success_response(
+            data={
+                "total": len(items),
+                "success_count": len(success_items),
+                "fail_count": len(fail_items),
+                "success_items": success_items,
+                "fail_items": fail_items,
+            },
+            message=f"批量创建完成，成功 {len(success_items)} 条，失败 {len(fail_items)} 条",
+        )
+
+    @action(detail=False, methods=["post"], url_path="batch-delete")
+    def batch_delete(self, request) -> Response:
+        """
+        【新增】批量删除未登记资产（软删除）
+
+        接收前端提交的未登记资产编码列表，逐条删除。
+        仅允许删除待审批状态的记录。
+
+        请求格式：
+            POST /api/unregisteredassets/unregistered-assets/batch-delete/
+            {
+                "ids": ["UNR-20260601-ABC123", "UNR-20260602-DEF456"]
+            }
+
+        响应格式：
+            {
+                "code": 200,
+                "message": "批量删除成功",
+                "data": {
+                    "total": 2,
+                    "success_count": 1,
+                    "fail_count": 1,
+                    "success_ids": ["UNR-20260601-ABC123"],
+                    "fail_items": [{"id": "UNR-20260602-DEF456", "error_code": "...", "error_message": "..."}]
+                }
+            }
+        """
+        ids = request.data.get("ids", [])
+        if not ids:
+            return error_response(message="请提供要删除的 ID 列表", status_code=status.HTTP_400_BAD_REQUEST)
+
+        if len(ids) > 100:
+            return error_response(message="单次批量删除不能超过 100 条", status_code=status.HTTP_400_BAD_REQUEST)
+
+        success_ids = []
+        fail_items = []
+
+        for unregistered_code in ids:
+            try:
+                instance = UnregisteredAssetSelector.get_by_code(unregistered_code)
+                if not instance:
+                    fail_items.append(
+                        {
+                            "id": unregistered_code,
+                            "error_code": "NOT_FOUND",
+                            "error_message": f"未登记资产 {unregistered_code} 不存在",
+                        }
+                    )
+                    continue
+
+                # 仅允许删除待审批状态的记录
+                if instance.approval_status != "pending":
+                    fail_items.append(
+                        {
+                            "id": unregistered_code,
+                            "error_code": "STATUS_NOT_ALLOWED",
+                            "error_message": f"当前审批状态为 {instance.approval_status}，不允许删除",
+                        }
+                    )
+                    continue
+
+                UnregisteredAssetService.delete(
+                    unregistered_code=unregistered_code,
+                    operator_jobcode=request.user.auth_id,
+                    operator_name=getattr(request.user, "auth_username", None),
+                )
+                success_ids.append(unregistered_code)
+
+            except AppValidationError as e:
+                fail_items.append(
+                    {"id": unregistered_code, "error_code": "VALIDATION_ERROR", "error_message": str(e.detail)}
+                )
+            except Exception:
+                fail_items.append(
+                    {
+                        "id": unregistered_code,
+                        "error_code": "INTERNAL_ERROR",
+                        "error_message": "服务器内部错误，请稍后重试",
+                    }
+                )
+
+        return success_response(
+            data={
+                "total": len(ids),
+                "success_count": len(success_ids),
+                "fail_count": len(fail_items),
+                "success_ids": success_ids,
+                "fail_items": fail_items,
+            },
+            message=f"批量删除完成，成功 {len(success_ids)} 条，失败 {len(fail_items)} 条",
+        )

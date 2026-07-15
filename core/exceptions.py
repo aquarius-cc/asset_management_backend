@@ -9,8 +9,8 @@
 - ResourceConflictError: 资源冲突
 """
 
-from rest_framework.exceptions import APIException
 from rest_framework import status
+from rest_framework.exceptions import APIException
 
 
 class AppValidationError(APIException):
@@ -98,6 +98,9 @@ class ResourceConflictError(APIException):
     default_code = 'resource_conflict'
 
 
-# 【修复 S10】保留旧名称作为别名，保持向后兼容
+# 【P2-29 修复】保留旧名称作为别名，保持向后兼容
 # 但在新代码中应使用 AppValidationError
+# 注意：此别名与 rest_framework.exceptions.ValidationError 不同
+# AppValidationError: 自定义异常，error_code 属性用于错误码映射
+# DRF ValidationError: 框架异常，status_code=400，用于序列化器校验
 ValidationError = AppValidationError

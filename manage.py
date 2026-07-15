@@ -19,10 +19,6 @@ import os
 import sys
 from pathlib import Path
 
-# 【易错点】必须将 apps 目录添加到 Python 路径
-# 这样才能正确导入 Django 应用模块
-sys.path.insert(0, str(Path(__file__).resolve().parent / 'apps'))
-
 
 def main():
     """
@@ -33,7 +29,7 @@ def main():
     # 【易错点】默认使用 development 配置
     # 生产环境应使用：config.settings.production
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.development')
-    
+
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
@@ -44,7 +40,7 @@ def main():
             "  source venv/bin/activate  # Linux/macOS\n"
             "  venv\\Scripts\\activate     # Windows"
         ) from exc
-    
+
     execute_from_command_line(sys.argv)
 
 

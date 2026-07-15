@@ -1,7 +1,8 @@
 import json
-import sys
 from pathlib import Path
+
 from graphify.detect import detect
+
 
 def main():
     result = detect(Path('.'))

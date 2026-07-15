@@ -9,12 +9,12 @@
 """
 
 # from rest_framework.utils.urls import replace_query_param
-from rest_framework.pagination import PageNumberPagination
-from rest_framework.response import Response  # 👈 必须导入！
-from typing import Optional
 
-from utils.response_utils import success_response
+from rest_framework.pagination import PageNumberPagination
+
 from core.constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
+from utils.response_utils import success_response
+
 
 class CustomPageNumberPagination(PageNumberPagination):
     """
@@ -36,21 +36,28 @@ class CustomPageNumberPagination(PageNumberPagination):
 
     def paginate_queryset(
         self, queryset, request, view=None
-    ) -> Optional[object]:
+    ) -> object | None:
         """
         根据请求参数决定是否分页
 
         Returns:
             - 如果有分页参数 → 返回当前页的查询集
-            - 如果无分页参数 → 返回 None（不分页）
+            - 如果无分页参数 → 返回第一页（强制分页，防止大数据量内存溢出）
         """
-        # ✅ 检查是否有分页参数
+        # 【修复】无分页参数时默认返回第一页，而非全部数据
+        # 防止大数据量下内存溢出和响应超时
         page_param = request.query_params.get(self.page_query_param)
         page_size_param = request.query_params.get(self.page_size_query_param)
-        # 如果没有分页参数，返回 None（不分页）（视图层会手动包装）
+
+        # 【P2-28 修复】使用 DRF 的 replace_query_param 替代直接修改 _request.GET
+        # 避免依赖 Django 内部实现，兼容 ASGI/异步视图
         if not page_param and not page_size_param:
-            return None
-        # 有参数时，执行默认分页逻辑
+            from rest_framework.utils.urls import replace_query_param
+            request._full_path = replace_query_param(
+                request._request.get_full_path(), self.page_query_param, '1'
+            )
+
+        # 执行分页逻辑
         return super().paginate_queryset(queryset, request, view)
 
     def get_paginated_response(self, data):
@@ -59,8 +66,8 @@ class CustomPageNumberPagination(PageNumberPagination):
 
         响应格式：
         {
-            "code": 200,
-            "msg": "查询成功",
+            "code": 0,
+            "message": "查询成功",
             "data": {
                 "count": 100,           # 总记录数
                 "total_pages": 5,       # 总页数
@@ -90,8 +97,8 @@ class CustomPageNumberPagination(PageNumberPagination):
         return {
             'type': 'object',
             'properties': {
-                'code': {'type': 'integer', 'example': 200},
-                'msg': {'type': 'string', 'example': '查询成功'},
+                'code': {'type': 'integer', 'example': 0},
+                'message': {'type': 'string', 'example': '查询成功'},
                 'data': {
                     'type': 'object',
                     'properties': {

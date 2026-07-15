@@ -3,12 +3,11 @@
 
 提供项目中常用的字符串处理函数，包括随机字符串生成、敏感信息脱敏等功能。
 """
-import string
 import secrets
-from typing import Optional
+import string
 
 
-def generate_random_string(length: int = 8, chars: Optional[str] = None) -> str:
+def generate_random_string(length: int = 8, chars: str | None = None) -> str:
     """
     生成密码安全的随机字符串
 

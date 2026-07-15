@@ -24,12 +24,13 @@
     )
 """
 
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from django.db.models import QuerySet
 
+
 if TYPE_CHECKING:
-    from .models import UnregisteredAsset
+    from apps.unregisteredasset.models import UnregisteredAsset
 
 
 class UnregisteredAssetSelector:
@@ -63,7 +64,7 @@ class UnregisteredAssetSelector:
     """
 
     @staticmethod
-    def get_by_code(unregistered_code: str) -> Optional['UnregisteredAsset']:
+    def get_by_code(unregistered_code: str) -> Optional["UnregisteredAsset"]:
         """
         根据未登记资产编码获取记录
 
@@ -78,18 +79,15 @@ class UnregisteredAssetSelector:
             >>> if asset:
             ...     print(asset.asset_name)
         """
-        from .models import UnregisteredAsset
+        from apps.unregisteredasset.models import UnregisteredAsset
 
         try:
-            return UnregisteredAsset.objects.get(
-                unregistered_code=unregistered_code,
-                is_deleted=False
-            )
+            return UnregisteredAsset.objects.get(unregistered_code=unregistered_code, is_deleted=False)
         except UnregisteredAsset.DoesNotExist:
             return None
 
     @staticmethod
-    def get_by_id(asset_id: int) -> Optional['UnregisteredAsset']:
+    def get_by_id(asset_id: int) -> Optional["UnregisteredAsset"]:
         """
         根据 ID 获取未登记资产记录
 
@@ -102,24 +100,21 @@ class UnregisteredAssetSelector:
         Example:
             >>> asset = UnregisteredAssetSelector.get_by_id(1)
         """
-        from .models import UnregisteredAsset
+        from apps.unregisteredasset.models import UnregisteredAsset
 
         try:
-            return UnregisteredAsset.objects.get(
-                id=asset_id,
-                is_deleted=False
-            )
+            return UnregisteredAsset.objects.get(id=asset_id, is_deleted=False)
         except UnregisteredAsset.DoesNotExist:
             return None
 
     @staticmethod
     def list_by_filters(
-        scenario_type: Optional[str] = None,
-        approval_status: Optional[str] = None,
-        discovery_person_jobcode: Optional[str] = None,
-        handle_type: Optional[str] = None,
-        related_asset_code: Optional[str] = None
-    ) -> QuerySet['UnregisteredAsset']:
+        scenario_type: str | None = None,
+        approval_status: str | None = None,
+        discovery_person: str | None = None,
+        handle_type: str | None = None,
+        related_asset: str | None = None,
+    ) -> QuerySet["UnregisteredAsset"]:
         """
         根据条件筛选未登记资产列表
 
@@ -128,9 +123,9 @@ class UnregisteredAssetSelector:
         Args:
             scenario_type: 场景类型（s1_no_record/s2_no_outasset/s3_status_mismatch）
             approval_status: 审批状态（pending/approved/rejected）
-            discovery_person_jobcode: 发现人工号
+            discovery_person: 发现人工号
             handle_type: 处理方式
-            related_asset_code: 关联资产编码
+            related_asset: 关联资产编码
 
         Returns:
             QuerySet[UnregisteredAsset]: 筛选后的查询集
@@ -144,10 +139,10 @@ class UnregisteredAssetSelector:
             >>>
             >>> # 获取指定发现人的所有记录
             >>> my_assets = UnregisteredAssetSelector.list_by_filters(
-            ...     discovery_person_jobcode='EMP001'
+            ...     discovery_person='EMP001'
             ... )
         """
-        from .models import UnregisteredAsset
+        from apps.unregisteredasset.models import UnregisteredAsset
 
         queryset = UnregisteredAsset.objects.filter(is_deleted=False)
 
@@ -157,31 +152,26 @@ class UnregisteredAssetSelector:
         if approval_status:
             queryset = queryset.filter(approval_status=approval_status)
 
-        if discovery_person_jobcode:
-            queryset = queryset.filter(
-                discovery_person_jobcode=discovery_person_jobcode
-            )
+        if discovery_person:
+            queryset = queryset.filter(discovery_person__employee_jobcode=discovery_person)
 
         if handle_type:
             queryset = queryset.filter(handle_type=handle_type)
 
-        if related_asset_code:
-            queryset = queryset.filter(
-                related_asset_code=related_asset_code
-            )
+        if related_asset:
+            queryset = queryset.filter(related_asset=related_asset)
 
-        return queryset.order_by('-created_at')
+        return queryset.order_by("-created_at")
 
     @staticmethod
     def list_by_discovery_person(
-        discovery_person_jobcode: str,
-        approval_status: Optional[str] = None
-    ) -> QuerySet['UnregisteredAsset']:
+        discovery_person: str, approval_status: str | None = None
+    ) -> QuerySet["UnregisteredAsset"]:
         """
         获取指定发现人的未登记资产记录
 
         Args:
-            discovery_person_jobcode: 发现人工号
+            discovery_person: 发现人工号
             approval_status: 可选，筛选特定审批状态
 
         Returns:
@@ -190,17 +180,16 @@ class UnregisteredAssetSelector:
         Example:
             >>> # 获取某员工发现的所有待审批记录
             >>> pending = UnregisteredAssetSelector.list_by_discovery_person(
-            ...     discovery_person_jobcode='EMP001',
+            ...     discovery_person='EMP001',
             ...     approval_status='pending'
             ... )
         """
         return UnregisteredAssetSelector.list_by_filters(
-            discovery_person_jobcode=discovery_person_jobcode,
-            approval_status=approval_status
+            discovery_person=discovery_person, approval_status=approval_status
         )
 
     @staticmethod
-    def list_pending() -> QuerySet['UnregisteredAsset']:
+    def list_pending() -> QuerySet["UnregisteredAsset"]:
         """
         获取所有待审批的未登记资产记录
 
@@ -211,12 +200,10 @@ class UnregisteredAssetSelector:
             >>> pending_list = UnregisteredAssetSelector.list_pending()
             >>> print(f'有 {pending_list.count()} 条待审批记录')
         """
-        return UnregisteredAssetSelector.list_by_filters(
-            approval_status='pending'
-        )
+        return UnregisteredAssetSelector.list_by_filters(approval_status="pending")
 
     @staticmethod
-    def list_by_scenario(scenario_type: str) -> QuerySet['UnregisteredAsset']:
+    def list_by_scenario(scenario_type: str) -> QuerySet["UnregisteredAsset"]:
         """
         获取指定场景类型的未登记资产记录
 
@@ -230,9 +217,7 @@ class UnregisteredAssetSelector:
             >>> # 获取所有 S1 场景记录
             >>> s1_assets = UnregisteredAssetSelector.list_by_scenario('s1_no_record')
         """
-        return UnregisteredAssetSelector.list_by_filters(
-            scenario_type=scenario_type
-        )
+        return UnregisteredAssetSelector.list_by_filters(scenario_type=scenario_type)
 
     @staticmethod
     def exists_by_code(unregistered_code: str) -> bool:
@@ -249,9 +234,6 @@ class UnregisteredAssetSelector:
             >>> if UnregisteredAssetSelector.exists_by_code('UNR-20260526-ABC123'):
             ...     print('编码已存在')
         """
-        from .models import UnregisteredAsset
+        from apps.unregisteredasset.models import UnregisteredAsset
 
-        return UnregisteredAsset.objects.filter(
-            unregistered_code=unregistered_code,
-            is_deleted=False
-        ).exists()
+        return UnregisteredAsset.objects.filter(unregistered_code=unregistered_code, is_deleted=False).exists()

@@ -20,7 +20,9 @@
 
 import os
 import sys
+
 import django
+
 
 # 设置 Django 环境
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.development")
@@ -32,7 +34,6 @@ django.setup()
 
 from datetime import datetime
 from pathlib import Path
-from typing import List
 
 from django.db import connection, transaction
 
@@ -42,7 +43,7 @@ from django.db import connection, transaction
 # =============================================================================
 
 # 允许清空的业务表白名单（按依赖顺序排列，先清子表）
-ALLOWED_TABLES: List[str] = [
+ALLOWED_TABLES: list[str] = [
     # 审计日志（无强外键依赖）
     "am_asset_operation_log",
     # 未登记资产
@@ -77,7 +78,7 @@ ALLOWED_TABLES: List[str] = [
 ]
 
 # Django 系统表 - 绝对禁止清空
-PROTECTED_TABLES: List[str] = [
+PROTECTED_TABLES: list[str] = [
     "django_migrations",
     "django_content_type",
     "auth_permission",
@@ -110,7 +111,7 @@ def get_db_info() -> dict:
     }
 
 
-def list_all_tables() -> List[str]:
+def list_all_tables() -> list[str]:
     """列出数据库中所有用户表"""
     with connection.cursor() as cursor:
         cursor.execute("""
@@ -252,7 +253,7 @@ def main():
 
     # 1. 环境检查
     db_info = get_db_info()
-    print(f"\n【数据库信息】")
+    print("\n【数据库信息】")
     print(f"  数据库: {db_info['name']}")
     print(f"  主机:   {db_info['host']}:{db_info['port']}")
     print(f"  引擎:   {db_info['engine']}")
@@ -270,7 +271,7 @@ def main():
             print(f"    - {t}")
 
     # 3. 显示清空前数据量
-    print(f"\n【清空前数据量】")
+    print("\n【清空前数据量】")
     pre_counts = {}
     for table in ALLOWED_TABLES:
         if table in all_tables:
@@ -343,7 +344,7 @@ def main():
     print_summary(verify_results, "清空后验证结果")
 
     if backup_file:
-        print(f"\n【备份文件】")
+        print("\n【备份文件】")
         print(f"  {backup_file}")
         print(f"  恢复命令: mysql -u {db_info['user']} -p {db_info['name']} < {backup_file}")
 

@@ -14,10 +14,10 @@ Output:
 """
 
 import json
-import os
 import re
 import sys
 from pathlib import Path
+
 
 # ---------------------------------------------------------------------------
 # Regex patterns

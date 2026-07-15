@@ -5,20 +5,20 @@
 - LoggingMixin: 自动记录操作日志
 - GetSerializerClassMixin: 根据动作返回不同的序列化器
 - ResponseWrapperMixin: 统一响应格式
+- PaginateAndRespondMixin: 分页并返回统一响应
 """
 
 import logging
-from typing import Any, Type, Optional
-
-from rest_framework import status
-from rest_framework.response import Response
-from rest_framework.serializers import Serializer
-from rest_framework.exceptions import APIException
+from typing import Any
 
 from django.http import Http404
+from rest_framework import status
+from rest_framework.exceptions import APIException
+from rest_framework.response import Response
+from rest_framework.serializers import Serializer
 
-from utils.response_utils import success_response, error_response
-from core.exceptions import NotFoundError
+from utils.response_utils import error_response, success_response
+
 
 # 配置日志记录器
 logger = logging.getLogger(__name__)
@@ -65,10 +65,10 @@ class GetSerializerClassMixin:
                 'update': UpdateSerializer,
             }
     """
-    serializer_class: Optional[Type[Serializer]] = None
-    serializer_action_classes: dict[str, Type[Serializer]] = {}
+    serializer_class: type[Serializer] | None = None
+    serializer_action_classes: dict[str, type[Serializer]] = {}
 
-    def get_serializer_class(self) -> Type[Serializer]:
+    def get_serializer_class(self) -> type[Serializer]:
         """根据当前动作返回对应的序列化器"""
         if self.action in self.serializer_action_classes:
             return self.serializer_action_classes[self.action]
@@ -122,7 +122,7 @@ class ResponseWrapperMixin:
             return error_response(message='资源不存在或已被删除', status_code=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             # 【修复 S9】生产环境不返回详细错误，仅记录日志
-            logger.error(f"列表查询失败: {str(e)}", exc_info=True)
+            logger.error(f"列表查询失败: {e!s}", exc_info=True)
             return error_response(message='查询失败，请稍后重试', status_code=500)
 
     def create(self, request: Any, *args: Any, **kwargs: Any) -> Response:
@@ -148,7 +148,7 @@ class ResponseWrapperMixin:
             # 【修复 S9】让 DRF APIException 正常传播
             raise
         except Exception as e:
-            logger.error(f"创建资源失败: {str(e)}", exc_info=True)
+            logger.error(f"创建资源失败: {e!s}", exc_info=True)
             return error_response(message='创建失败，请稍后重试', status_code=500)
 
     def retrieve(self, request: Any, *args: Any, **kwargs: Any) -> Response:
@@ -171,7 +171,7 @@ class ResponseWrapperMixin:
             # 【修复 S9】让 DRF APIException 正常传播
             raise
         except Exception as e:
-            logger.error(f"获取详情失败: {str(e)}", exc_info=True)
+            logger.error(f"获取详情失败: {e!s}", exc_info=True)
             return error_response(message='查询失败，请稍后重试', status_code=500)
 
     def update(self, request: Any, *args: Any, **kwargs: Any) -> Response:
@@ -201,7 +201,7 @@ class ResponseWrapperMixin:
             # 【修复 S9】让 DRF APIException 正常传播
             raise
         except Exception as e:
-            logger.error(f"更新资源失败: {str(e)}", exc_info=True)
+            logger.error(f"更新资源失败: {e!s}", exc_info=True)
             return error_response(message='更新失败，请稍后重试', status_code=500)
 
     def destroy(self, request: Any, *args: Any, **kwargs: Any) -> Response:
@@ -232,5 +232,36 @@ class ResponseWrapperMixin:
             # 【修复 S9】让 DRF APIException 正常传播
             raise
         except Exception as e:
-            logger.error(f"删除资源失败: {str(e)}", exc_info=True)
+            logger.error(f"删除资源失败: {e!s}", exc_info=True)
             return error_response(message='删除失败，请稍后重试', status_code=500)
+
+
+class PaginateAndRespondMixin:
+    """
+    分页并返回统一响应 Mixin
+
+    提供通用的分页查询响应方法，支持有分页参数时分页，无参数时返回全部数据。
+
+    使用方式：
+        class MyViewSet(PaginateAndRespondMixin, ModelViewSet):
+            def some_action(self, request):
+                records = MyModel.objects.filter(...)
+                return self._paginate_and_respond(records)
+    """
+
+    def _paginate_and_respond(self, queryset):
+        """
+        分页并返回统一响应
+
+        Args:
+            queryset: 查询集
+
+        Returns:
+            Response: 分页响应或全部数据响应
+        """
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        return success_response(data=serializer.data)

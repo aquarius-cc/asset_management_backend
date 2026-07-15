@@ -15,4 +15,4 @@ Author: System
 Date: 2026-05-26
 """
 
-default_app_config = 'apps.unregisteredasset.apps.UnregisteredAssetConfig'
+default_app_config = "apps.unregisteredasset.apps.UnregisteredAssetConfig"

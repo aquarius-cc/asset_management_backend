@@ -1,11 +1,14 @@
 """
 用户管理数据库模型
 """
-from django.db import models
-from django.core.exceptions import ValidationError as DjangoValidationError
-from typing import TYPE_CHECKING, Optional
 
-from core.models import generate_recordcode
+from typing import TYPE_CHECKING
+
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import models
+
+from core.models import BaseModel
+
 
 if TYPE_CHECKING:
     from django.db.models import Manager
@@ -15,92 +18,65 @@ if TYPE_CHECKING:
 MAX_DEPARTMENT_LEVEL = 5
 
 
-# 兼容旧代码的模型别名 - 使用 proxy 模式
-# class Departmentdatabasetable(Department):
-#     """部门管理表（兼容旧代码）"""
-#     class Meta:
-#         proxy = True
-#         verbose_name = "部门管理(兼容)"
-#         verbose_name_plural = "部门管理(兼容)"
-
-
-class Department(models.Model):
+class Department(BaseModel):
     """
     部门管理表
 
     支持树形层级结构，最大层级限制为 6 层。
 
-    【字段说明】
-    - department_code: 部门唯一编码
-    - department_name: 部门名称
-    - parent_code: 上级部门编码，null 表示根部门
-    - level: 部门层级，0=根部门，1=一级部门...
-    - sort_order: 排序顺序，数字越小越靠前
+    树形关联设计（方案 D）：
+    - parent: ForeignKey(self) — 指向父级 recordcode，保证引用完整性
+    - path: CharField — 物化路径，如 /DEPT-001/IT-001/DEV-001，加速子孙查询
+    - parent_code: CharField — 旧字段，迁移完成后删除
 
-    【约束】
-    - 层级最大限制 6 层
-    - 不允许循环引用（A->B->A）
-    - 移动部门时需验证层级约束
+    继承 BaseModel 获得：recordcode、is_active、is_deleted、
+    created_at、updated_at、SoftDeleteManager、delete/restore/hard_delete。
     """
 
     if TYPE_CHECKING:
         objects: "Manager"
 
-    # 【软删除兼容-新增 recordcode】后端生成的全局唯一编码，用于外键引用
-    # 原因：外键需要数据库级无条件唯一约束，recordcode 永不重复
-    # 原业务编码改为条件唯一：仅 is_deleted=False 时唯一
-    recordcode = models.CharField(
-        max_length=32,
-        unique=True,
-        blank=True,
+    RECORDCODE_PREFIX = "DEPARTMENT"
+
+    department_code = models.CharField(max_length=20, verbose_name="部门编码", help_text="部门唯一标识编码")
+    department_name = models.CharField(max_length=100, verbose_name="部门名称", help_text="部门显示名称")
+    department_information = models.CharField(max_length=20, verbose_name="部门信息员", help_text="部门信息负责人")
+    parent = models.ForeignKey(
+        "self",
         null=True,
-        verbose_name="记录编码",
-        help_text="后端生成的全局唯一编码，用于外键引用"
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="children",
+        to_field="recordcode",
+        verbose_name="上级部门",
+        help_text="上级部门（FK 指向 recordcode），null 表示根部门",
     )
-    department_code = models.CharField(
-        max_length=20, verbose_name="部门编码",
-        help_text="部门唯一标识编码"
+    path = models.CharField(
+        max_length=500,
+        default="",
+        blank=True,
+        verbose_name="物化路径",
+        help_text="从根到当前节点的完整路径，如 /DEPT-001/IT-001/DEV-001",
     )
-    department_name = models.CharField(
-        max_length=100, verbose_name="部门名称",
-        help_text="部门显示名称"
-    )
-    department_information = models.CharField(
-        max_length=20, verbose_name="部门信息员",
-        help_text="部门信息负责人"
-    )
-    # 【新增】上级部门编码，支持树形结构
     parent_code = models.CharField(
         max_length=20,
         null=True,
         blank=True,
-        verbose_name="上级部门编码",
-        help_text="上级部门编码，null 表示根部门"
+        verbose_name="上级部门编码（旧）",
+        help_text="【已废弃】迁移完成后将删除，新代码请使用 parent FK",
     )
-    # 【新增】部门层级，0=根部门
     level = models.IntegerField(
-        default=0,
-        verbose_name="部门层级",
-        help_text="部门层级：0=根部门，1=一级部门，最大 6 层"
+        default=0, verbose_name="部门层级", help_text="部门层级：0=根部门，1=一级部门，最大 6 层"
     )
-    # 【AGENTS规范】添加排序字段，支持前端自定义显示顺序
     sort_order = models.IntegerField(
-        default=0, verbose_name="排序顺序",
-        help_text="数字越小排序越靠前，用于控制前端显示顺序"
-    )
-    # 【软删除兼容-新增 is_deleted】Department 不继承 BaseModel，需手动添加软删除字段
-    is_deleted = models.BooleanField(
-        default=False,
-        verbose_name='是否删除',
-        help_text='软删除标记'
+        default=0, verbose_name="排序顺序", help_text="数字越小排序越靠前，用于控制前端显示顺序"
     )
 
     class Meta:
         verbose_name = "部门管理"
         verbose_name_plural = "部门管理"
-        db_table = 'department_database_table'
-        ordering = ['sort_order', 'department_code']
-        # 【软删除兼容-条件唯一约束】仅未删除记录的业务编码唯一
+        db_table = "am_department"
+        ordering = ["sort_order", "department_code"]
         constraints = [
             models.UniqueConstraint(
                 fields=["department_code"],
@@ -114,174 +90,131 @@ class Department(models.Model):
             ),
         ]
         indexes = [
-            models.Index(fields=['parent_code'], name='idx_department_parent'),
-            models.Index(fields=['level'], name='idx_department_level'),
+            models.Index(fields=["parent"], name="idx_department_parent_fk"),
+            models.Index(fields=["path"], name="idx_department_path"),
+            models.Index(fields=["level"], name="idx_department_level"),
+            # 旧索引保留，迁移完成后删除
+            models.Index(fields=["parent_code"], name="idx_department_parent_old"),
         ]
-
-    def save(self, *args, **kwargs):
-        if not self.recordcode:
-            self.recordcode = generate_recordcode()
-        super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         return str(self.department_name)
 
+    def save(self, *args, **kwargs):
+        """保存时清除自身及所有祖先的后代缓存"""
+        from django.core.cache import cache
+        # 清除自身缓存
+        cache.delete(f"dept:{self.recordcode}:descendants")
+        # 清除所有祖先的缓存（因为后代列表可能变化）
+        if self.path:
+            parts = self.path.strip("/").split("/")
+            for i in range(1, len(parts)):
+                ancestor_path = "/".join(parts[:i])
+                try:
+                    ancestor = Department.objects.get(path=ancestor_path)
+                    cache.delete(f"dept:{ancestor.recordcode}:descendants")
+                except Department.DoesNotExist:
+                    pass
+        super().save(*args, **kwargs)
+
     def clean(self) -> None:
         """
         模型验证：检查层级约束和循环引用
-
-        Raises:
-            DjangoValidationError: 层级超过限制或存在循环引用
         """
         super().clean()
 
-        # 验证层级不超过最大限制
         if self.level > MAX_DEPARTMENT_LEVEL:
-            raise DjangoValidationError({
-                'level': f'部门层级不能超过 {MAX_DEPARTMENT_LEVEL} 层'
-            })
+            raise DjangoValidationError({"level": f"部门层级不能超过 {MAX_DEPARTMENT_LEVEL} 层"})
 
-        # 验证层级不为负数
         if self.level < 0:
-            raise DjangoValidationError({
-                'level': '部门层级不能为负数'
-            })
+            raise DjangoValidationError({"level": "部门层级不能为负数"})
 
-        # 验证 parent_code 存在性
-        if self.parent_code:
-            # 不能将自己设为自己的父部门
-            if self.parent_code == self.department_code:
-                raise DjangoValidationError({
-                    'parent_code': '不能将自己设为上级部门'
-                })
-
-            # 检查父部门是否存在
-            if not Department.objects.filter(
-                department_code=self.parent_code
-            ).exists():
-                raise DjangoValidationError({
-                    'parent_code': f'上级部门 {self.parent_code} 不存在'
-                })
+        if self.parent:
+            if self.parent_id == self.pk:
+                raise DjangoValidationError({"parent": "不能将自己设为上级部门"})
+            if not Department.objects.filter(pk=self.parent_id).exists():
+                raise DjangoValidationError({"parent": f"上级部门不存在"})
 
     def get_children(self) -> models.QuerySet:
-        """
-        获取当前部门的所有直接子部门
-
-        Returns:
-            QuerySet: 子部门查询集
-        """
-        return Department.objects.filter(parent_code=self.department_code)
+        """获取当前部门的所有直接子部门"""
+        return Department.objects.filter(parent=self)
 
     def get_employee_count(self) -> int:
-        """
-        获取当前部门的员工数量（仅直接关联的员工）
-
-        Returns:
-            int: 员工数量
-        """
-        return Employee.objects.filter(
-            employee_department=self
-        ).count()
+        """获取当前部门的员工数量（仅未删除的员工）"""
+        return Employee.objects.filter(employee_department=self).count()
 
     def get_all_descendants(self) -> list:
-        """
-        获取当前部门的所有后代部门（递归）
-
-        用于检查循环引用和层级计算。
-
-        Returns:
-            list: 所有后代部门的编码列表
-        """
-        descendants = []
-        children = self.get_children()
-
-        for child in children:
-            descendants.append(child.department_code)
-            descendants.extend(child.get_all_descendants())
-
-        return descendants
-
-    # 【软删除兼容-新增软删除方法】Department 不继承 BaseModel，需手动实现
-    # 原因：支持 is_deleted 字段的软删除逻辑
-    def delete(self, using=None, keep_parents=False):
-        """软删除：将 is_deleted 设置为 True"""
-        self.is_deleted = True
-        self.save(using=using)
-
-    def restore(self):
-        """恢复软删除的记录"""
-        self.is_deleted = False
-        self.save()
-
-    def hard_delete(self, using=None, keep_parents=False):
-        """硬删除：真正从数据库删除记录"""
-        super().delete(using=using, keep_parents=keep_parents)
+        """获取当前部门的所有后代部门（基于 path 查询，带缓存）"""
+        if not self.path:
+            return []
+        from django.core.cache import cache
+        cache_key = f"dept:{self.recordcode}:descendants"
+        result = cache.get(cache_key)
+        if result is not None:
+            return result
+        result = list(
+            Department.objects.filter(path__startswith=f"{self.path}/").values_list("department_code", flat=True)
+        )
+        cache.set(cache_key, result, timeout=300)  # 5 分钟缓存
+        return result
 
 
-class Employee(models.Model):
-    """员工管理表"""
-    EMPLOYEE_STATUS_CHOICES = [
-        ('active', '在职员工'),
-        ('left', '离职员工'),
-        ('retirement', '退休员工')
-    ]
+class EmployeeRole(models.TextChoices):
+    """系统角色枚举（RBAC 权限矩阵）"""
+    SYSTEM_ADMIN = "system_admin", "系统管理员"
+    DEPT_MANAGER = "dept_manager", "部门经理"
+    ASSET_ADMIN = "asset_admin", "资产管理员"
+    REGULAR_USER = "regular_user", "普通用户"
+    AUDITOR = "auditor", "审计员"
+
+
+class Employee(BaseModel):
+    """
+    员工管理表
+
+    继承 BaseModel 获得：recordcode、is_active、is_deleted、
+    created_at、updated_at、SoftDeleteManager、delete/restore/hard_delete。
+    """
+
+    EMPLOYEE_STATUS_CHOICES = [("active", "在职员工"), ("left", "离职员工"), ("retirement", "退休员工")]
 
     if TYPE_CHECKING:
         objects: "Manager"
 
-    # 【软删除兼容-新增 recordcode】后端生成的全局唯一编码，用于外键引用
-    # 原因：外键需要数据库级无条件唯一约束，recordcode 永不重复
-    # 原业务编码改为条件唯一：仅 is_deleted=False 时唯一
-    recordcode = models.CharField(
-        max_length=32,
-        unique=True,
-        blank=True,
-        null=True,
-        verbose_name="记录编码",
-        help_text="后端生成的全局唯一编码，用于外键引用"
+    RECORDCODE_PREFIX = "EMPLOYEE"
+
+    employee_jobcode = models.CharField(max_length=20, verbose_name="员工工号")
+    employee_name = models.CharField(max_length=100, verbose_name="员工名称")
+    role = models.CharField(
+        max_length=20,
+        choices=EmployeeRole.choices,
+        default=EmployeeRole.REGULAR_USER,
+        verbose_name="系统角色",
+        help_text="RBAC 角色：system_admin/dept_manager/asset_admin/regular_user/auditor",
     )
-    employee_jobcode = models.CharField(
-        max_length=20, verbose_name="员工工号")
-    employee_name = models.CharField(
-        max_length=100, verbose_name="员工名称")
     employee_status = models.CharField(
-        max_length=10,
-        choices=EMPLOYEE_STATUS_CHOICES,
-        default='active',
-        verbose_name="员工状态"
+        max_length=10, choices=EMPLOYEE_STATUS_CHOICES, default="active", verbose_name="员工状态"
     )
     employee_department = models.ForeignKey(
         Department,
-        to_field='recordcode',
-        on_delete=models.SET_DEFAULT,
+        to_field="recordcode",
+        on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        default='Error',
         verbose_name="所属部门",
-        help_text="所属部门（通过 recordcode 关联）"
+        help_text="所属部门（通过 recordcode 关联）",
     )
-    employee_phone = models.CharField(
-        max_length=15, verbose_name="员工电话")
+    employee_phone = models.CharField(max_length=15, verbose_name="员工电话")
     employee_location = models.CharField(max_length=100, verbose_name="员工位置")
-    employee_description = models.TextField(
-        blank=True, null=True, verbose_name="员工描述")
-    # 【AGENTS规范】添加排序字段，支持前端自定义显示顺序
+    employee_description = models.TextField(blank=True, null=True, verbose_name="员工描述")
     sort_order = models.IntegerField(
-        default=0, verbose_name="排序顺序",
-        help_text="数字越小排序越靠前，用于控制前端显示顺序"
-    )
-    # 【软删除兼容-新增 is_deleted】Employee 不继承 BaseModel，需手动添加软删除字段
-    is_deleted = models.BooleanField(
-        default=False,
-        verbose_name='是否删除',
-        help_text='软删除标记'
+        default=0, verbose_name="排序顺序", help_text="数字越小排序越靠前，用于控制前端显示顺序"
     )
 
     class Meta:
         verbose_name = "员工管理"
         verbose_name_plural = "员工管理"
-        db_table = 'user_database_table'
-        # 【软删除兼容-条件唯一约束】仅未删除记录的业务编码唯一
+        db_table = "am_employee"
         constraints = [
             models.UniqueConstraint(
                 fields=["employee_jobcode"],
@@ -295,67 +228,57 @@ class Employee(models.Model):
             ),
         ]
         indexes = [
-            models.Index(fields=['employee_jobcode']),
-            models.Index(fields=['employee_name']),
-            models.Index(fields=['sort_order']),  # 【AGENTS规范】排序字段索引
+            models.Index(fields=["employee_jobcode"]),
+            models.Index(fields=["employee_name"]),
+            models.Index(fields=["sort_order"]),
+            models.Index(fields=["employee_department"], name="idx_employee_department"),
         ]
-        ordering = ['sort_order', 'employee_jobcode']  # 按排序字段优先排序
-
-    def save(self, *args, **kwargs):
-        if not self.recordcode:
-            self.recordcode = generate_recordcode()
-        super().save(*args, **kwargs)
+        ordering = ["sort_order", "employee_jobcode"]
 
     def __str__(self) -> str:
         return str(self.employee_name)
 
-    # 【软删除兼容-新增软删除方法】Employee 不继承 BaseModel，需手动实现
-    # 原因：支持 is_deleted 字段的软删除逻辑
-    def delete(self, using=None, keep_parents=False):
-        """软删除：将 is_deleted 设置为 True"""
-        self.is_deleted = True
-        self.save(using=using)
+    def save(self, *args, **kwargs):
+        """保存时检测角色变更，若角色改变则黑名单当前 JWT Token"""
+        # 检测角色是否变更
+        if self.pk:
+            try:
+                old = Employee.objects.get(pk=self.pk)
+                role_changed = old.role != self.role
+            except Employee.DoesNotExist:
+                role_changed = False
+        else:
+            role_changed = False
 
-    def restore(self):
-        """恢复软删除的记录"""
-        self.is_deleted = False
-        self.save()
+        super().save(*args, **kwargs)
 
-    def hard_delete(self, using=None, keep_parents=False):
-        """硬删除：真正从数据库删除记录"""
-        super().delete(using=using, keep_parents=keep_parents)
+        # 角色变更后，黑名单该用户的所有 Refresh Token
+        if role_changed:
+            self._blacklist_user_tokens()
 
+    def _blacklist_user_tokens(self):
+        """黑名单该用户的所有 Refresh Token，强制重新登录"""
+        try:
+            from rest_framework_simplejwt.tokens import RefreshToken
+            from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
 
-# class Userdatabasetable(Employee):
-#     """
-#     员工管理表（兼容旧代码）
+            # 找到该用户的所有未过期 Refresh Token 并加入黑名单
+            outstanding = OutstandingToken.objects.filter(
+                user__auth_username=self.employee_jobcode,
+            )
+            blacklisted_count = 0
+            for token in outstanding:
+                _, created = BlacklistedToken.objects.get_or_create(token=token)
+                if created:
+                    blacklisted_count += 1
 
-#     此模型为兼容旧代码而保留，新代码应使用 Employee 模型。
-#     继承自 Employee 以保持数据兼容性。
-
-#     提供旧字段名的属性别名以保持向后兼容：
-#     - user_jobcode -> employee_jobcode
-#     - user_name -> employee_name
-#     """
-
-#     # 为旧字段名提供属性别名
-#     @property
-#     def user_jobcode(self):
-#         return self.employee_jobcode
-
-#     @user_jobcode.setter
-#     def user_jobcode(self, value):
-#         self.employee_jobcode = value
-
-#     @property
-#     def user_name(self):
-#         return self.employee_name
-
-#     @user_name.setter
-#     def user_name(self, value):
-#         self.employee_name = value
-
-#     class Meta:
-#         verbose_name = "员工管理(兼容)"
-#         verbose_name_plural = "员工管理(兼容)"
-#         proxy = True
+            if blacklisted_count > 0:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(
+                    f"角色变更：已黑名单 {blacklisted_count} 个 Token "
+                    f"(employee_jobcode={self.employee_jobcode})"
+                )
+        except Exception:
+            # Token 黑名单操作失败不影响业务
+            pass

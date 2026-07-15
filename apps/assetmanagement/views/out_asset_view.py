@@ -1,0 +1,338 @@
+"""
+出库资产管理视图集
+"""
+
+import logging
+
+from django.db.models import Q, QuerySet
+from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.openapi import OpenApiParameter
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
+from rest_framework import permissions, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.filters import OrderingFilter, SearchFilter
+from rest_framework.response import Response
+
+from core.exceptions import AppValidationError
+from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
+from core.pagination import CustomPageNumberPagination
+from core.permissions import IsAssetAdminOrAbove
+from utils.response_utils import error_response, success_response
+
+from apps.assetmanagement.models import OutAsset
+from apps.assetmanagement.selectors import AssetSelector, OutAssetSelector
+from apps.assetmanagement.serializers import (
+    OutAssetBatchCreateSerializer,
+    OutAssetBatchDeleteSerializer,
+    OutAssetCreateSerializer,
+    OutAssetDetailSerializer,
+    OutAssetListSerializer,
+    OutAssetUpdateSerializer,
+)
+from apps.assetmanagement.services import OutAssetService
+
+from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
+from ._export_mixin import ExportExcelMixin
+
+OUTASSET_STATUS_MAP = dict(OutAsset.OUTASSET_STATUS_CHOICES) if hasattr(OutAsset, 'OUTASSET_STATUS_CHOICES') else {}
+
+
+@extend_schema(tags=["出库管理"])
+class OutAssetViewSet(
+    RecordcodeLookupMixin,
+    AdminWritePermissionMixin,
+    ExportExcelMixin,
+    PaginateAndRespondMixin,
+    LoggingMixin,
+    ResponseWrapperMixin,
+    viewsets.ModelViewSet,
+):
+    queryset = OutAsset.objects.select_related(
+        "asset_recordcode",
+        "asset_recordcode__asset_type_recordcode",
+        "asset_recordcode__asset_contract_recordcode",
+        "asset_recordcode__asset_storage_recordcode",
+        "asset_recordcode__asset_applicant_recordcode",
+        "asset_recordcode__asset_manager_recordcode",
+    ).all()
+    pagination_class = CustomPageNumberPagination
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ["outasset_type"]
+    ordering_fields = ["outasset_date"]
+    ordering = ["-outasset_date"]
+    lookup_field = "recordcode"
+    admin_actions = [
+        "create", "update", "partial_update", "destroy",
+        "batch_create", "batch_delete",
+    ]
+
+    # 导出配置
+    export_columns = [
+        {"header": "资产编码", "field": "asset_recordcode__asset_code"},
+        {"header": "资产名称", "field": "asset_recordcode__asset_name"},
+        {"header": "出库类型", "field": "outasset_type"},
+        {"header": "出库日期", "field": "outasset_date"},
+        {"header": "品牌", "field": "asset_recordcode__asset_brand"},
+        {"header": "规格", "field": "asset_recordcode__asset_specification"},
+    ]
+    export_filename = "out_assets_export.xlsx"
+    export_sheet_name = "出库记录"
+
+    def get_permissions(self):
+        """RBAC: 写操作需 asset_admin+，读操作需认证"""
+        if self.action in ("create", "update", "partial_update", "destroy", "batch_create", "batch_delete"):
+            return [IsAssetAdminOrAbove()]
+        return [permissions.IsAuthenticated()]
+
+    def get_queryset(self) -> QuerySet[OutAsset]:
+        """RBAC 行级过滤 + 关键词搜索"""
+        if self.action == "list":
+            qs = OutAssetSelector.get_queryset_for_user(self.request.user)
+        else:
+            qs = OutAssetSelector.get_queryset_for_user(self.request.user).select_related(
+                "asset_recordcode",
+                "asset_recordcode__asset_type_recordcode",
+                "asset_recordcode__asset_contract_recordcode",
+                "asset_recordcode__asset_storage_recordcode",
+                "asset_recordcode__asset_applicant_recordcode",
+                "asset_recordcode__asset_manager_recordcode",
+            )
+
+        keyword = self.request.query_params.get("keyword", "").strip()
+        search_type = self.request.query_params.get("searchType", "all").lower()
+        status_filter = self.request.query_params.get("asset_current_status", "").strip()
+
+        if keyword:
+            asset_cond = Q(asset_recordcode__asset_code__icontains=keyword) | Q(
+                asset_recordcode__asset_name__icontains=keyword
+            )
+            user_cond = (
+                Q(asset_recordcode__asset_applicant_recordcode__employee_jobcode__icontains=keyword)
+                | Q(asset_recordcode__asset_applicant_recordcode__employee_name__icontains=keyword)
+                | Q(asset_recordcode__asset_manager_recordcode__employee_jobcode__icontains=keyword)
+                | Q(asset_recordcode__asset_manager_recordcode__employee_name__icontains=keyword)
+            )
+            if search_type == "asset":
+                qs = qs.filter(asset_cond)
+            elif search_type == "user":
+                qs = qs.filter(user_cond)
+            else:
+                qs = qs.filter(asset_cond | user_cond)
+
+        if status_filter:
+            qs = qs.filter(asset_recordcode__asset_current_status=status_filter)
+
+        return qs.order_by("-outasset_date")
+
+    def get_serializer_class(self) -> type:
+        if self.action == "list":
+            return OutAssetListSerializer
+        elif self.action == "recyclable":
+            return OutAssetListSerializer
+        elif self.action == "create":
+            return OutAssetCreateSerializer
+        elif self.action in ["update", "partial_update"]:
+            return OutAssetUpdateSerializer
+        return OutAssetDetailSerializer
+
+    @action(detail=False, methods=["get"], url_path="recyclable")
+    def recyclable(self, request):
+        filters = {}
+        keyword = request.query_params.get("search", "").strip()
+        if keyword:
+            filters["keyword"] = keyword
+            filters["search_type"] = request.query_params.get("searchType", "all").lower()
+
+        FILTER_PARAMS = [
+            "asset_code",
+            "asset_name",
+            "asset_specification",
+            "asset_brand",
+            "outasset_applicant_name",
+            "outasset_manager_name",
+            "department",
+            "department_code",
+            "employee_jobcode",
+        ]
+        for param in FILTER_PARAMS:
+            value = request.query_params.get(param, "").strip()
+            if value:
+                filters[param] = value
+
+        years = request.query_params.get("years")
+        if years and years.isdigit():
+            filters["years"] = int(years)
+
+        ordering = request.query_params.get("ordering", "").strip()
+        if ordering:
+            filters["ordering"] = ordering
+
+        queryset = OutAssetSelector.get_recyclable_outassets(filters if filters else None)
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return success_response(data=serializer.data)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return success_response(data={"count": queryset.count(), "results": serializer.data})
+
+    def create(self, request, *args, **kwargs):
+        data = request.data.copy()
+        data.pop("recordcode", None)
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            outasset = OutAssetService.create_outasset(serializer.validated_data)
+            return success_response(
+                data=OutAssetCreateSerializer(outasset).data, message="出库成功", status_code=status.HTTP_201_CREATED
+            )
+        except AppValidationError as e:
+            return error_response(message=str(e), status_code=400)
+        except Exception:
+            logging.exception("出库创建失败")
+            return error_response(message="出库失败，服务器内部错误", status_code=500)
+
+    def update(self, request, *args, **kwargs):
+        recordcode = self.kwargs.get("recordcode")
+        try:
+            outasset = OutAssetService.update_outasset(
+                recordcode=recordcode,
+                update_data=request.data,
+            )
+            return success_response(data=OutAssetDetailSerializer(outasset).data, message="更新成功")
+        except AppValidationError as e:
+            return error_response(message=str(e), status_code=400)
+        except Exception:
+            logging.exception("出库记录更新失败")
+            return error_response(message="更新失败，请稍后重试", status_code=500)
+
+    def partial_update(self, request, *args, **kwargs):
+        return self.update(request, *args, **kwargs)
+
+    @action(detail=False, methods=["post"], url_path="batch-create")
+    def batch_create(self, request):
+        serializer = OutAssetBatchCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = OutAssetService.batch_create_outasset(
+            serializer.validated_data["items"],
+            operator_jobcode=request.user.auth_id,
+            operator_name=request.user.auth_username,
+        )
+        success_serializer = OutAssetCreateSerializer(result["success_items"], many=True)
+        return success_response(
+            data={
+                "total": result["total"],
+                "success_count": result["success_count"],
+                "fail_count": result["fail_count"],
+                "success_items": success_serializer.data,
+                "fail_items": result["fail_items"],
+            },
+            message=f"批量出库完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条",
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            outasset = self.get_object()
+            result = OutAssetService.batch_delete_outasset(
+                recordcodes=[outasset.recordcode],
+                operator_jobcode=request.user.auth_id,
+                operator_name=request.user.auth_username,
+            )
+            if result["fail_count"] > 0:
+                fail_item = result["fail_items"][0]
+                return error_response(
+                    message=fail_item["error_message"], status_code=400, business_code=fail_item.get("error_code")
+                )
+            return success_response(message="删除成功")
+        except AppValidationError as e:
+            return error_response(message=str(e.detail), status_code=400)
+        except Exception:
+            logging.exception("删除失败")
+            return error_response(message="删除失败，请稍后重试", status_code=500)
+
+    @action(detail=False, methods=["post"], url_path="batch-delete")
+    def batch_delete(self, request):
+        serializer = OutAssetBatchDeleteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = OutAssetService.batch_delete_outasset(
+            serializer.validated_data["ids"],
+            operator_jobcode=request.user.auth_id,
+            operator_name=request.user.auth_username,
+        )
+        return success_response(
+            data={
+                "total": result["total"],
+                "success_count": result["success_count"],
+                "fail_count": result["fail_count"],
+                "success_ids": result["success_ids"],
+                "fail_items": result["fail_items"],
+            },
+            message=f"批量删除完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条",
+        )
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="asset_code", type=OpenApiTypes.STR, location=OpenApiParameter.PATH, required=True)
+        ],
+        responses={200: OutAssetListSerializer(many=True)},
+    )
+    @action(detail=False, methods=["get"], url_path="by-asset/(?P<asset_code>[^/.]+)")
+    def by_asset(self, request, asset_code=None) -> Response:
+        asset = AssetSelector.get_asset_by_code(asset_code)
+        if asset is None:
+            return error_response(message=f"资产 {asset_code} 不存在", status_code=404)
+        records = OutAssetSelector.get_outassets_by_asset(asset_code)
+        return self._paginate_and_respond(records)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="applicant_jobcode", type=OpenApiTypes.STR, location=OpenApiParameter.PATH, required=True
+            )
+        ],
+        responses={200: OutAssetDetailSerializer(many=True)},
+    )
+    @action(detail=False, methods=["get"], url_path="by-applicant/(?P<applicant_jobcode>[^/.]+)")
+    def by_applicant(self, request, applicant_jobcode=None) -> Response:
+        if not applicant_jobcode:
+            return error_response(message="请提供申请人工号", status_code=400)
+        records = OutAssetSelector.get_outassets_by_applicant(applicant_jobcode)
+        return self._paginate_and_respond(records)
+
+    @action(detail=True, methods=["post"], url_path="cancel", permission_classes=[IsAssetAdminOrAbove])
+    def cancel_outasset(self, request, recordcode=None):
+        """POST /out-assets/{recordcode}/cancel/ — 取消出库，恢复资产状态"""
+        outasset = self.get_object()
+        try:
+            result = OutAssetService.batch_delete_outasset(
+                recordcodes=[outasset.recordcode],
+                operator_jobcode=request.user.auth_id,
+                operator_name=request.user.auth_username,
+            )
+            if result["fail_count"] > 0:
+                fail_item = result["fail_items"][0]
+                return error_response(
+                    message=fail_item["error_message"], status_code=400, business_code=fail_item.get("error_code")
+                )
+            return success_response(message="取消出库成功，资产状态已恢复")
+        except AppValidationError as e:
+            return error_response(message=str(e), status_code=400)
+        except Exception:
+            logging.exception("取消出库失败")
+            return error_response(message="取消出库失败，请稍后重试", status_code=500)
+
+    @action(detail=False, methods=["get"])
+    def statistics(self, request) -> Response:
+        stats = OutAssetSelector.get_outasset_statistics()
+        return success_response(data=stats, message="查询成功")

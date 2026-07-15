@@ -16,11 +16,11 @@ Output:
 """
 
 import json
-import os
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
+
 
 # ---------------------------------------------------------------------------
 # Canonical type sets (must match core/src/types.ts)
@@ -340,7 +340,7 @@ def merge(root: Path) -> dict:
             "languages": ["markdown"],
             "frameworks": ["karpathy-wiki"],
             "description": f"Knowledge graph for {project_name}",
-            "analyzedAt": datetime.now(timezone.utc).isoformat(),
+            "analyzedAt": datetime.now(UTC).isoformat(),
             "gitCommitHash": "",
         },
         "nodes": list(nodes.values()),

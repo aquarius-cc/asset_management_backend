@@ -3,20 +3,21 @@
 
 提供用户数据的查询方法
 """
-from typing import Optional
+
 from django.db.models import QuerySet
-from .models import AuthUser
+
+from apps.authusermanagement.models import AuthUser
 
 
 class AuthUserSelector:
     """
     认证用户查询选择器
-    
+
     提供用户数据的查询方法
     """
 
     @staticmethod
-    def get_user_by_username(auth_username: str) -> Optional[AuthUser]:
+    def get_user_by_username(auth_username: str) -> AuthUser | None:
         """
         通过用户名获取激活用户
 
@@ -35,13 +36,13 @@ class AuthUserSelector:
             return None
 
     @staticmethod
-    def get_user_by_id(auth_id: int) -> Optional[AuthUser]:
+    def get_user_by_id(auth_id: int) -> AuthUser | None:
         """
         通过用户ID获取用户
-        
+
         Args:
             auth_id: 用户ID
-            
+
         Returns:
             Optional[AuthUser]: 用户实例或None
         """
@@ -54,7 +55,7 @@ class AuthUserSelector:
     def list_active_users() -> QuerySet[AuthUser]:
         """
         获取所有激活用户
-        
+
         Returns:
             QuerySet[AuthUser]: 激活用户查询集
         """
@@ -64,14 +65,14 @@ class AuthUserSelector:
     def list_all_users() -> QuerySet[AuthUser]:
         """
         获取所有用户
-        
+
         Returns:
             QuerySet[AuthUser]: 所有用户查询集
         """
         return AuthUser.objects.all()
 
     @staticmethod
-    def get_user_by_email(email: str) -> Optional[AuthUser]:
+    def get_user_by_email(email: str) -> AuthUser | None:
         """
         通过邮箱获取激活用户
 

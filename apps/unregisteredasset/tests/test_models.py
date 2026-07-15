@@ -8,9 +8,10 @@
 - 软删除功能
 """
 
-import pytest
 from datetime import date
 from decimal import Decimal
+
+import pytest
 
 from apps.unregisteredasset.models import UnregisteredAsset
 
@@ -26,91 +27,100 @@ class TestUnregisteredAssetModel:
         测试创建 S1 场景未登记资产
         """
         asset = UnregisteredAsset.objects.create(
-            scenario_type='s1_no_record',
+            scenario_type="s1_no_record",
             discovery_date=date(2024, 6, 1),
-            discovery_location='会议室A',
-            discovery_person_jobcode=employee,
-            asset_name='测试资产',
-            asset_brand='测试品牌',
-            asset_specification='测试规格',
-            asset_type_code=asset_type,
-            estimated_value=Decimal('5000.00'),
-            target_storage_code=storage
+            discovery_location="会议室A",
+            discovery_person=employee,
+            asset_name="测试资产",
+            asset_brand="测试品牌",
+            asset_specification="测试规格",
+            unregistered_asset_type=asset_type,
+            estimated_value=Decimal("5000.00"),
+            unregistered_asset_storage=storage,
         )
 
-        assert asset.unregistered_code.startswith('UNR-')
-        assert asset.scenario_type == 's1_no_record'
-        assert asset.asset_name == '测试资产'
-        assert asset.approval_status == 'pending'
-        assert asset.is_delete is False
+        assert asset.unregistered_code.startswith("UNR-")
+        assert asset.scenario_type == "s1_no_record"
+        assert asset.asset_name == "测试资产"
+        assert asset.approval_status == "pending"
+        assert asset.is_deleted is False
 
     def test_create_s2_scenario(self, employee, storage, existing_asset):
         """
         测试创建 S2 场景未登记资产（关联现有资产）
         """
         asset = UnregisteredAsset.objects.create(
-            scenario_type='s2_no_outasset',
+            scenario_type="s2_no_outasset",
             discovery_date=date(2024, 6, 1),
-            discovery_location='办公室B',
-            discovery_person_jobcode=employee,
-            asset_name='无出库记录资产',
-            related_asset_code=existing_asset,
-            target_storage_code=storage
+            discovery_location="办公室B",
+            discovery_person=employee,
+            asset_name="无出库记录资产",
+            related_asset=existing_asset,
+            unregistered_asset_storage=storage,
         )
 
-        assert asset.related_asset_code == existing_asset
-        assert asset.scenario_type == 's2_no_outasset'
+        assert asset.related_asset == existing_asset
+        assert asset.scenario_type == "s2_no_outasset"
 
     def test_code_auto_generation(self, employee, storage):
         """
         测试编码自动生成
         """
         asset = UnregisteredAsset.objects.create(
-            scenario_type='s1_no_record',
+            scenario_type="s1_no_record",
             discovery_date=date(2024, 6, 1),
-            discovery_location='测试地点',
-            discovery_person_jobcode=employee,
-            asset_name='测试资产',
-            target_storage_code=storage
+            discovery_location="测试地点",
+            discovery_person=employee,
+            asset_name="测试资产",
+            unregistered_asset_storage=storage,
         )
 
         # 验证编码格式：UNR-YYYYMMDD-XXXXXX
         assert len(asset.unregistered_code) == 19
-        assert asset.unregistered_code.startswith('UNR-')
+        assert asset.unregistered_code.startswith("UNR-")
         assert asset.unregistered_code[4:12].isdigit()  # 日期部分
 
-    def test_code_uniqueness(self, employee, storage):
+    def test_code_soft_delete_and_reuse(self, employee, storage):
         """
-        测试编码唯一性
-        """
-        from django.db import IntegrityError
+        测试软删除后可复用编码
 
+        【说明】MySQL不支持条件唯一约束，此测试验证软删除后的编码复用功能
+        """
         asset1 = UnregisteredAsset.objects.create(
-            scenario_type='s1_no_record',
+            scenario_type="s1_no_record",
             discovery_date=date(2024, 6, 1),
-            discovery_location='地点1',
-            discovery_person_jobcode=employee,
-            asset_name='资产1',
-            target_storage_code=storage
+            discovery_location="地点1",
+            discovery_person=employee,
+            asset_name="资产1",
+            unregistered_asset_storage=storage,
         )
 
-        # 手动设置相同编码应该失败
-        with pytest.raises(IntegrityError):
-            UnregisteredAsset.objects.create(
-                unregistered_code=asset1.unregistered_code,
-                scenario_type='s1_no_record',
-                discovery_date=date(2024, 6, 1),
-                discovery_location='地点2',
-                discovery_person_jobcode=employee,
-                asset_name='资产2',
-                target_storage_code=storage
-            )
+        # 记录编码
+        code = asset1.unregistered_code
+
+        # 软删除
+        asset1.is_deleted = True
+        asset1.save(update_fields=["is_deleted"])
+
+        # 创建相同编码的新记录（软删除后应允许）
+        asset2 = UnregisteredAsset.objects.create(
+            unregistered_code=code,
+            scenario_type="s1_no_record",
+            discovery_date=date(2024, 6, 1),
+            discovery_location="地点2",
+            discovery_person=employee,
+            asset_name="资产2",
+            unregistered_asset_storage=storage,
+        )
+
+        assert asset2.unregistered_code == code
+        assert asset2.asset_name == "资产2"
 
     def test_str_representation(self, unregistered_asset_s1):
         """
         测试字符串表示
         """
-        expected = f'{unregistered_asset_s1.asset_name}({unregistered_asset_s1.unregistered_code})'
+        expected = f"{unregistered_asset_s1.asset_name}({unregistered_asset_s1.unregistered_code})"
         assert str(unregistered_asset_s1) == expected
 
     def test_can_modify_pending_status(self, unregistered_asset_s1):
@@ -150,24 +160,24 @@ class TestUnregisteredAssetModel:
         # 但使用 all_objects 可以查询到
         assert UnregisteredAsset.all_objects.filter(unregistered_code=code).count() == 1
 
-        # 验证 is_delete 标记
+        # 验证 is_deleted 标记
         deleted = UnregisteredAsset.all_objects.get(unregistered_code=code)
-        assert deleted.is_delete is True
+        assert deleted.is_deleted is True
 
     def test_scenario_type_choices(self, employee, storage):
         """
         测试场景类型选项
         """
-        valid_scenarios = ['s1_no_record', 's2_no_outasset', 's3_status_mismatch']
+        valid_scenarios = ["s1_no_record", "s2_no_outasset", "s3_status_mismatch"]
 
         for scenario in valid_scenarios:
             asset = UnregisteredAsset.objects.create(
                 scenario_type=scenario,
                 discovery_date=date(2024, 6, 1),
-                discovery_location='测试地点',
-                discovery_person_jobcode=employee,
-                asset_name=f'资产-{scenario}',
-                target_storage_code=storage
+                discovery_location="测试地点",
+                discovery_person=employee,
+                asset_name=f"资产-{scenario}",
+                unregistered_asset_storage=storage,
             )
             assert asset.scenario_type == scenario
 
@@ -177,31 +187,31 @@ class TestUnregisteredAssetModel:
         """
         # pending 是默认值
         asset = UnregisteredAsset.objects.create(
-            scenario_type='s1_no_record',
+            scenario_type="s1_no_record",
             discovery_date=date(2024, 6, 1),
-            discovery_location='测试地点',
-            discovery_person_jobcode=employee,
-            asset_name='测试资产',
-            target_storage_code=storage
+            discovery_location="测试地点",
+            discovery_person=employee,
+            asset_name="测试资产",
+            unregistered_asset_storage=storage,
         )
-        assert asset.approval_status == 'pending'
+        assert asset.approval_status == "pending"
 
     def test_optional_fields(self, employee, storage):
         """
         测试可选字段可以为空
         """
         asset = UnregisteredAsset.objects.create(
-            scenario_type='s1_no_record',
+            scenario_type="s1_no_record",
             discovery_date=date(2024, 6, 1),
-            discovery_location='测试地点',
-            discovery_person_jobcode=employee,
-            asset_name='最小化资产'
+            discovery_location="测试地点",
+            discovery_person=employee,
+            asset_name="最小化资产",
             # 其他字段均为可选
         )
 
         assert asset.asset_brand is None
         assert asset.asset_specification is None
-        assert asset.asset_type_code is None
+        assert asset.unregistered_asset_type is None
         assert asset.estimated_value is None
-        assert asset.related_asset_code is None
-        assert asset.target_storage_code is None
+        assert asset.related_asset is None
+        assert asset.unregistered_asset_storage is None

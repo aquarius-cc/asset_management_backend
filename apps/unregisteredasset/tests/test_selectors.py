@@ -8,8 +8,9 @@
 - 存在性检查
 """
 
-import pytest
 from datetime import date
+
+import pytest
 
 from apps.unregisteredasset.models import UnregisteredAsset
 from apps.unregisteredasset.selectors import UnregisteredAssetSelector
@@ -25,9 +26,7 @@ class TestUnregisteredAssetSelector:
         """
         测试根据编码获取存在的记录
         """
-        result = UnregisteredAssetSelector.get_by_code(
-            unregistered_asset_s1.unregistered_code
-        )
+        result = UnregisteredAssetSelector.get_by_code(unregistered_asset_s1.unregistered_code)
 
         assert result is not None
         assert result.id == unregistered_asset_s1.id
@@ -36,7 +35,7 @@ class TestUnregisteredAssetSelector:
         """
         测试根据编码获取不存在的记录
         """
-        result = UnregisteredAssetSelector.get_by_code('UNR-NOTEXIST')
+        result = UnregisteredAssetSelector.get_by_code("UNR-NOTEXIST")
         assert result is None
 
     def test_get_by_code_soft_deleted(self, unregistered_asset_s1):
@@ -76,54 +75,43 @@ class TestUnregisteredAssetSelector:
         """
         测试按场景类型筛选
         """
-        queryset = UnregisteredAssetSelector.list_by_filters(
-            scenario_type='s1_no_record'
-        )
+        queryset = UnregisteredAssetSelector.list_by_filters(scenario_type="s1_no_record")
 
         assert queryset.count() == 1
-        assert queryset.first().scenario_type == 's1_no_record'
+        assert queryset.first().scenario_type == "s1_no_record"
 
     def test_list_by_filters_approval_status(self, unregistered_asset_s1, approved_unregistered_asset):
         """
         测试按审批状态筛选
         """
-        queryset = UnregisteredAssetSelector.list_by_filters(
-            approval_status='pending'
-        )
+        queryset = UnregisteredAssetSelector.list_by_filters(approval_status="pending")
 
         assert queryset.count() == 1
-        assert queryset.first().approval_status == 'pending'
+        assert queryset.first().approval_status == "pending"
 
     def test_list_by_filters_discovery_person(self, unregistered_asset_s1, employee):
         """
         测试按发现人筛选
         """
-        queryset = UnregisteredAssetSelector.list_by_filters(
-            discovery_person_jobcode=employee.employee_jobcode
-        )
+        queryset = UnregisteredAssetSelector.list_by_filters(discovery_person=employee.employee_jobcode)
 
         assert queryset.count() == 1
-        assert queryset.first().discovery_person_jobcode == employee
+        assert queryset.first().discovery_person == employee
 
     def test_list_by_filters_combined(self, unregistered_asset_s1, unregistered_asset_s2):
         """
         测试组合筛选条件
         """
-        queryset = UnregisteredAssetSelector.list_by_filters(
-            scenario_type='s1_no_record',
-            approval_status='pending'
-        )
+        queryset = UnregisteredAssetSelector.list_by_filters(scenario_type="s1_no_record", approval_status="pending")
 
         assert queryset.count() == 1
-        assert queryset.first().scenario_type == 's1_no_record'
+        assert queryset.first().scenario_type == "s1_no_record"
 
     def test_list_by_discovery_person(self, unregistered_asset_s1, employee):
         """
         测试按发现人获取列表
         """
-        queryset = UnregisteredAssetSelector.list_by_discovery_person(
-            discovery_person_jobcode=employee.employee_jobcode
-        )
+        queryset = UnregisteredAssetSelector.list_by_discovery_person(discovery_person=employee.employee_jobcode)
 
         assert queryset.count() == 1
 
@@ -132,12 +120,11 @@ class TestUnregisteredAssetSelector:
         测试按发现人和状态获取列表
         """
         queryset = UnregisteredAssetSelector.list_by_discovery_person(
-            discovery_person_jobcode=employee.employee_jobcode,
-            approval_status='pending'
+            discovery_person=employee.employee_jobcode, approval_status="pending"
         )
 
         assert queryset.count() == 1
-        assert queryset.first().approval_status == 'pending'
+        assert queryset.first().approval_status == "pending"
 
     def test_list_pending(self, unregistered_asset_s1, approved_unregistered_asset):
         """
@@ -146,31 +133,29 @@ class TestUnregisteredAssetSelector:
         queryset = UnregisteredAssetSelector.list_pending()
 
         assert queryset.count() == 1
-        assert queryset.first().approval_status == 'pending'
+        assert queryset.first().approval_status == "pending"
 
     def test_list_by_scenario(self, unregistered_asset_s1, unregistered_asset_s2):
         """
         测试按场景类型获取列表
         """
-        queryset = UnregisteredAssetSelector.list_by_scenario('s1_no_record')
+        queryset = UnregisteredAssetSelector.list_by_scenario("s1_no_record")
 
         assert queryset.count() == 1
-        assert queryset.first().scenario_type == 's1_no_record'
+        assert queryset.first().scenario_type == "s1_no_record"
 
     def test_exists_by_code_true(self, unregistered_asset_s1):
         """
         测试存在性检查 - 存在
         """
-        exists = UnregisteredAssetSelector.exists_by_code(
-            unregistered_asset_s1.unregistered_code
-        )
+        exists = UnregisteredAssetSelector.exists_by_code(unregistered_asset_s1.unregistered_code)
         assert exists is True
 
     def test_exists_by_code_false(self):
         """
         测试存在性检查 - 不存在
         """
-        exists = UnregisteredAssetSelector.exists_by_code('UNR-NOTEXIST')
+        exists = UnregisteredAssetSelector.exists_by_code("UNR-NOTEXIST")
         assert exists is False
 
     def test_exists_by_code_soft_deleted(self, unregistered_asset_s1):
@@ -189,21 +174,21 @@ class TestUnregisteredAssetSelector:
         """
         # 创建两个记录
         asset1 = UnregisteredAsset.objects.create(
-            scenario_type='s1_no_record',
+            scenario_type="s1_no_record",
             discovery_date=date(2024, 6, 1),
-            discovery_location='地点1',
-            discovery_person_jobcode=employee,
-            asset_name='资产1',
-            target_storage_code=storage
+            discovery_location="地点1",
+            discovery_person=employee,
+            asset_name="资产1",
+            unregistered_asset_storage=storage,
         )
 
         asset2 = UnregisteredAsset.objects.create(
-            scenario_type='s1_no_record',
+            scenario_type="s1_no_record",
             discovery_date=date(2024, 6, 2),
-            discovery_location='地点2',
-            discovery_person_jobcode=employee,
-            asset_name='资产2',
-            target_storage_code=storage
+            discovery_location="地点2",
+            discovery_person=employee,
+            asset_name="资产2",
+            unregistered_asset_storage=storage,
         )
 
         queryset = UnregisteredAssetSelector.list_by_filters()

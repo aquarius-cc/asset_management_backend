@@ -9,13 +9,14 @@
 - AuthUserManager: 自定义用户管理器
 """
 
+from typing import TYPE_CHECKING, Any
+
+from django.contrib.auth.hashers import check_password, make_password
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
-from django.contrib.auth.hashers import make_password, check_password
-from django.contrib.auth.models import BaseUserManager, AbstractBaseUser, PermissionsMixin
-from django.utils import timezone
-from typing import TYPE_CHECKING, Optional, Any
 
 from core.models import generate_recordcode
+
 
 if TYPE_CHECKING:
     from django.db.models import Manager
@@ -44,12 +45,7 @@ class AuthUserManager(BaseUserManager):
         """
         return self.get(**{f"{self.model.USERNAME_FIELD}__iexact": username})
 
-    def create_user(
-        self,
-        auth_username: str,
-        password: Optional[str] = None,
-        **extra_fields: Any
-    ) -> "AuthUser":
+    def create_user(self, auth_username: str, password: str | None = None, **extra_fields: Any) -> "AuthUser":
         """
         创建并保存一个普通用户
 
@@ -73,12 +69,7 @@ class AuthUserManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
-    def create_superuser(
-        self,
-        auth_username: str,
-        password: Optional[str] = None,
-        **extra_fields: Any
-    ) -> "AuthUser":
+    def create_superuser(self, auth_username: str, password: str | None = None, **extra_fields: Any) -> "AuthUser":
         """
         创建并保存一个超级用户
 
@@ -95,7 +86,7 @@ class AuthUserManager(BaseUserManager):
         """
         extra_fields.setdefault("auth_is_staff", True)
         extra_fields.setdefault("auth_is_active", True)
-        extra_fields.setdefault("is_superuser", True)   # ← 添加这一行, 确保超级用户有所有权限
+        extra_fields.setdefault("is_superuser", True)  # ← 添加这一行, 确保超级用户有所有权限
 
         if extra_fields.get("auth_is_staff") is not True:
             raise ValueError("超级用户必须设置 auth_is_staff=True")
@@ -116,64 +107,43 @@ class AuthUser(AbstractBaseUser, PermissionsMixin):
     if TYPE_CHECKING:
         objects: "Manager[AuthUser]"
 
-    auth_id = models.AutoField(
-        primary_key=True,
-        verbose_name="用户ID",
-        help_text="用户唯一标识"
-    )
+    auth_id = models.AutoField(primary_key=True, verbose_name="用户ID", help_text="用户唯一标识")
     # 【软删除兼容-新增 recordcode】后端生成的全局唯一编码，用于外键引用
     # 原因：外键需要数据库级无条件唯一约束，recordcode 永不重复
     # 原业务编码改为条件唯一：仅 auth_is_active=True 时唯一（AuthUser 使用 auth_is_active 作为有效状态标记）
     recordcode = models.CharField(
-        max_length=32,
+        max_length=64,
         unique=True,
         blank=True,
         null=True,
         verbose_name="记录编码",
-        help_text="后端生成的全局唯一编码，用于外键引用"
+        help_text="后端生成的全局唯一编码，用于外键引用",
     )
-    auth_username = models.CharField(
-        max_length=150,
-        verbose_name="用户名",
-        help_text="用户登录名，唯一标识"
-    )
-    email = models.EmailField(
-        max_length=254,
+    auth_username = models.CharField(max_length=150, verbose_name="用户名", help_text="用户登录名，唯一标识")
+    email = models.EmailField(max_length=254, blank=True, null=True, verbose_name="电子邮件", help_text="用户邮箱地址")
+    auth_is_active = models.BooleanField(default=True, verbose_name="是否激活", help_text="用户账户是否激活")
+    auth_is_staff = models.BooleanField(default=False, verbose_name="是否为员工", help_text="是否为后台管理员")
+    is_superuser = models.BooleanField(default=False, verbose_name="超级管理员", help_text="是否为超级管理员")
+    last_login = models.DateTimeField(blank=True, null=True, verbose_name="上次登录时间", help_text="用户最后一次登录时间")
+    auth_date_create = models.DateTimeField(auto_now_add=True, verbose_name="创建日期", help_text="用户创建时间")
+    auth_date_update = models.DateTimeField(auto_now=True, verbose_name="更新日期", help_text="用户信息更新时间")
+    auth_phone = models.CharField(max_length=15, verbose_name="联系电话", help_text="用户联系电话")
+    # 覆盖PermissionsMixin的groups和user_permissions字段，避免related_name冲突
+    groups = models.ManyToManyField(
+        "auth.Group",
+        verbose_name="groups",
         blank=True,
-        null=True,
-        verbose_name="电子邮件",
-        help_text="用户邮箱地址"
+        help_text="The groups this user belongs to. A user will get all permissions granted to each of their groups.",
+        related_name="authuser_set",
+        related_query_name="authuser",
     )
-    auth_is_active = models.BooleanField(
-        default=True,
-        verbose_name="是否激活",
-        help_text="用户账户是否激活"
-    )
-    auth_is_staff = models.BooleanField(
-        default=False,
-        verbose_name="是否为员工",
-        help_text="是否为后台管理员"
-    )
-    auth_date_create = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name="创建日期",
-        help_text="用户创建时间"
-    )
-    auth_date_update = models.DateTimeField(
-        auto_now=True,
-        verbose_name="更新日期",
-        help_text="用户信息更新时间"
-    )
-    auth_phone = models.CharField(
-        max_length=15,
-        verbose_name="联系电话",
-        help_text="用户联系电话"
-    )
-    last_login = models.DateTimeField(
+    user_permissions = models.ManyToManyField(
+        "auth.Permission",
+        verbose_name="user permissions",
         blank=True,
-        null=True,
-        verbose_name="上次登录时间",
-        help_text="用户最后一次登录时间"
+        help_text="Specific permissions for this user.",
+        related_name="authuser_set",
+        related_query_name="authuser",
     )
     # 【AGENTS规范】添加排序字段，支持前端自定义显示顺序
     # sort_order = models.IntegerField(
@@ -216,7 +186,7 @@ class AuthUser(AbstractBaseUser, PermissionsMixin):
             models.Index(fields=["auth_phone"]),
             # models.Index(fields=["sort_order"]),  # 【AGENTS规范】排序字段索引
         ]
-        ordering = [ 'auth_username']  # 按排序字段优先排序
+        ordering = ["auth_username"]  # 按排序字段优先排序
 
     def __str__(self) -> str:
         """返回用户名字符串表示"""
@@ -263,7 +233,7 @@ class AuthUser(AbstractBaseUser, PermissionsMixin):
         """硬删除：真正从数据库删除记录"""
         super().delete(using=using, keep_parents=keep_parents)
 
-    def set_password(self, raw_password: Optional[str]) -> None:
+    def set_password(self, raw_password: str | None) -> None:
         """
         设置密码（哈希后存储）
 
@@ -273,7 +243,7 @@ class AuthUser(AbstractBaseUser, PermissionsMixin):
         if raw_password:
             self.password = make_password(raw_password)
 
-    def check_password(self, raw_password: Optional[str]) -> bool:
+    def check_password(self, raw_password: str | None) -> bool:
         """
         检查密码是否正确
 

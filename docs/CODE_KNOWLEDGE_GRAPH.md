@@ -198,10 +198,10 @@ graph TB
 | **WasteAsset** | 核心实体 | 已报废资产 | `waste_asset_code`, `source_damaged_asset` |
 | **HardDiskSN** | 核心实体 | 硬盘序列号管理 | `harddisk_sn_code`, `asset_code`, `harddisk_status` |
 | **Storage** | 基础实体 | 仓库管理 | `storage_code`, `storage_type` |
-| **AssetType** | 基础实体 | 资产类型 | `asset_type_code`, `asset_type_category` |
+| **AssetType** | 基础实体 | 资产类型(树形结构) | `type_code`, `type_name`, `parent`(FK), `path` |
 | **Contract** | 基础实体 | 合同管理 | `contract_code`, `contract_settlment_status` |
 | **Employee** | 组织实体 | 员工管理 | `employee_jobcode`, `employee_status` |
-| **Department** | 组织实体 | 部门管理(树形结构) | `department_code`, `parent_code`, `level` |
+| **Department** | 组织实体 | 部门管理(树形结构) | `department_code`, `parent`(FK), `path`, `level` |
 | **AuthUser** | 认证实体 | 用户认证 | `auth_username`, `auth_is_staff`, `auth_is_active` |
 | **AssetOperationLog** | 审计实体 | 操作日志(只读) | `logging_id`, `operation_type`, `before_data`, `after_data` |
 
@@ -229,7 +229,7 @@ graph TB
 |-----------|------|---------|
 | **AssetSelector** | 资产查询 | `get_asset_by_code()`, `search_assets()`, `get_available_assets()` |
 | **OutAssetSelector** | 出库查询 | `get_outasset_by_record_code()`, `get_recyclable_outassets()` |
-| **RecycleAssetSelector** | 回收查询 | `get_recycle_assets_by_asset()`, `get_recycle_asset_by_outasset_code()` |
+| **RecycleAssetSelector** | 回收查询 | `get_recycle_assets_for_list()`, `get_recycle_assets_with_asset_details()`, `get_recycle_assets_by_asset()`, `get_recycle_asset_by_outasset_code()` |
 | **DamagedAssetSelector** | 待报废查询 | `get_damaged_asset_by_asset_code()`, `exists_by_asset_code()` |
 | **WasteAssetSelector** | 已报废查询 | `get_waste_asset_by_asset_code()`, `get_waste_assets_by_date_range()` |
 | **ContractSelector** | 合同查询 | `get_contract_by_code()`, `search_contracts()` |

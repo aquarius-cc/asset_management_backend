@@ -23,10 +23,14 @@
             )
 """
 
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+import logging
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from core.exceptions import AppValidationError
 
+
+logger = logging.getLogger(__name__)
 T = TypeVar('T')
 
 
@@ -45,12 +49,12 @@ class BatchOperationMixin:
     @classmethod
     def batch_execute(
         cls,
-        items: List[Any],
+        items: list[Any],
         process_fn: Callable[[int, Any], T],
-        max_batch_size: Optional[int] = None,
+        max_batch_size: int | None = None,
         use_transaction: bool = False,
         item_key: str = 'index',
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         批量执行通用框架
 
@@ -85,8 +89,8 @@ class BatchOperationMixin:
                 error_code="BATCH_SIZE_EXCEEDED"
             )
 
-        success_items: List[T] = []
-        fail_items: List[Dict[str, Any]] = []
+        success_items: list[T] = []
+        fail_items: list[dict[str, Any]] = []
 
         for idx, item in enumerate(items):
             try:
@@ -108,7 +112,9 @@ class BatchOperationMixin:
                     fail_item["row_number"] = item.get('row_number')
                     fail_item["input_data"] = item
                 fail_items.append(fail_item)
-            except Exception:
+            except Exception as e:
+                # 【P1-39 修复】记录异常日志，便于生产环境排查
+                logger.error(f"批量操作第 {idx} 条异常: {e}", exc_info=True)
                 fail_item = {
                     item_key: idx if item_key == 'index' else (item.get(item_key) if isinstance(item, dict) else item),
                     "error_code": "INTERNAL_ERROR",
@@ -130,10 +136,10 @@ class BatchOperationMixin:
     @classmethod
     def batch_delete_execute(
         cls,
-        ids: List[str],
+        ids: list[str],
         process_fn: Callable[[str], None],
-        max_batch_size: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        max_batch_size: int | None = None,
+    ) -> dict[str, Any]:
         """
         批量删除专用框架
 
@@ -166,8 +172,8 @@ class BatchOperationMixin:
                 error_code="BATCH_SIZE_EXCEEDED"
             )
 
-        success_ids: List[str] = []
-        fail_items: List[Dict[str, Any]] = []
+        success_ids: list[str] = []
+        fail_items: list[dict[str, Any]] = []
 
         for item_id in ids:
             try:
@@ -181,7 +187,9 @@ class BatchOperationMixin:
                     "error_code": e.error_code or "VALIDATION_ERROR",
                     "error_message": str(e.detail)
                 })
-            except Exception:
+            except Exception as e:
+                # 【P1-39 修复】记录异常日志，便于生产环境排查
+                logger.error(f"批量删除第 {item_id} 条异常: {e}", exc_info=True)
                 fail_items.append({
                     "id": item_id,
                     "error_code": "INTERNAL_ERROR",

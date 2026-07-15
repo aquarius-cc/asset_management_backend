@@ -32,6 +32,7 @@ from django.utils import timezone
 
 from core.models import BaseModel
 
+
 if TYPE_CHECKING:
     from django.db.models import Manager
 
@@ -62,6 +63,8 @@ class UnregisteredAsset(BaseModel):
         all_objects: 完整管理器（包含已删除）
     """
 
+    RECORDCODE_PREFIX = "UNREG"
+
     if TYPE_CHECKING:
         objects: "Manager"
 
@@ -70,116 +73,98 @@ class UnregisteredAsset(BaseModel):
     # ==========================================
     class ScenarioType(models.TextChoices):
         """不在账资产场景类型枚举"""
-        S1_NO_RECORD = 's1_no_record', '实物有系统无'
-        S2_NO_OUTASSET = 's2_no_outasset', '系统有无出库'
-        S3_STATUS_MISMATCH = 's3_status_mismatch', '状态异常'
+
+        S1_NO_RECORD = "s1_no_record", "实物有系统无"
+        S2_NO_OUTASSET = "s2_no_outasset", "系统有无出库"
+        S3_STATUS_MISMATCH = "s3_status_mismatch", "状态异常"
 
     # ==========================================
     # 处理方式定义
     # ==========================================
     class HandleType(models.TextChoices):
         """处理方式枚举"""
-        CREATE_AND_RECYCLE = 'create_and_recycle', '新建资产并回收'
-        CREATE_AND_DAMAGED = 'create_and_damaged', '新建资产并报废'
-        SUPPLEMENT_AND_RECYCLE = 'supplement_and_recycle', '补建记录并回收'
-        CORRECT_AND_RECYCLE = 'correct_and_recycle', '修正状态并回收'
-        REJECT = 'reject', '拒绝处理'
+
+        CREATE_AND_RECYCLE = "create_and_recycle", "新建资产并回收"
+        CREATE_AND_DAMAGED = "create_and_damaged", "新建资产并报废"
+        SUPPLEMENT_AND_RECYCLE = "supplement_and_recycle", "补建记录并回收"
+        CORRECT_AND_RECYCLE = "correct_and_recycle", "修正状态并回收"
+        REJECT = "reject", "拒绝处理"
 
     # ==========================================
     # 审批状态定义
     # ==========================================
     class ApprovalStatus(models.TextChoices):
         """审批状态枚举"""
-        PENDING = 'pending', '待审批'
-        APPROVED = 'approved', '已批准'
-        REJECTED = 'rejected', '已拒绝'
+
+        PENDING = "pending", "待审批"
+        APPROVED = "approved", "已批准"
+        REJECTED = "rejected", "已拒绝"
 
     # ==========================================
     # 基础信息（发现时采集）
     # ==========================================
     unregistered_code = models.CharField(
-        max_length=32,
-        unique=True,
-        verbose_name='未登记资产编码',
-        help_text='系统自动生成的唯一编码，格式：UNR-YYYYMMDD-XXXXXX'
+        max_length=32, verbose_name="未登记资产编码", help_text="系统自动生成的唯一编码，格式：UNR-YYYYMMDD-XXXXXX"
     )
+    version = models.IntegerField(default=1, verbose_name="版本号", help_text="记录版本号，每次修改自动递增")
     scenario_type = models.CharField(
         max_length=20,
         choices=ScenarioType.choices,
-        verbose_name='场景类型',
-        help_text='不在账资产的具体场景：S1实物有系统无/S2系统有无出库/S3状态异常'
+        verbose_name="场景类型",
+        help_text="不在账资产的具体场景：S1实物有系统无/S2系统有无出库/S3状态异常",
     )
-    discovery_date = models.DateField(
-        verbose_name='发现日期',
-        help_text='发现资产的日期'
-    )
-    discovery_location = models.CharField(
-        max_length=200,
-        verbose_name='发现地点',
-        help_text='资产发现的具体位置'
-    )
-    discovery_person_jobcode = models.ForeignKey(
-        'usermanagement.Employee',
-        to_field='recordcode',
+    discovery_date = models.DateField(verbose_name="发现日期", help_text="发现资产的日期")
+    discovery_location = models.CharField(max_length=200, verbose_name="发现地点", help_text="资产发现的具体位置")
+    discovery_person = models.ForeignKey(
+        "usermanagement.Employee",
+        to_field="recordcode",
         on_delete=models.DO_NOTHING,
-        related_name='unregistered_discovered',
-        verbose_name='发现人',
-        help_text='发现资产的人员工号（通过 recordcode 关联）'
+        related_name="unregistered_discovered",
+        verbose_name="发现人",
+        help_text="发现资产的人员工号（通过 recordcode 关联）",
     )
 
     # ==========================================
     # 资产信息（发现时采集）
     # ==========================================
-    asset_name = models.CharField(
-        max_length=100,
-        verbose_name='资产名称',
-        help_text='资产的名称'
-    )
+    asset_name = models.CharField(max_length=100, verbose_name="资产名称", help_text="资产的名称")
     asset_brand = models.CharField(
-        max_length=100,
-        blank=True,
-        null=True,
-        verbose_name='资产品牌',
-        help_text='资产的品牌（可选）'
+        max_length=100, blank=True, null=True, verbose_name="资产品牌", help_text="资产的品牌（可选）"
     )
     asset_specification = models.CharField(
-        max_length=100,
-        blank=True,
-        null=True,
-        verbose_name='资产规格',
-        help_text='资产的规格型号（可选）'
+        max_length=100, blank=True, null=True, verbose_name="资产规格", help_text="资产的规格型号（可选）"
     )
-    asset_type_code = models.ForeignKey(
-        'assetmanagement.AssetType',
-        to_field='recordcode',
+    unregistered_asset_type = models.ForeignKey(
+        "assetmanagement.AssetType",
+        to_field="recordcode",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='unregistered_assets',
-        verbose_name='资产类型',
-        help_text='资产的分类（可选，通过 recordcode 关联）'
+        related_name="unregistered_assets",
+        verbose_name="资产类型",
+        help_text="资产的分类（可选，通过 recordcode 关联）",
     )
     estimated_value = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         blank=True,
         null=True,
-        verbose_name='预估价值',
-        help_text='资产的预估价值（元，可选）'
+        verbose_name="预估价值",
+        help_text="资产的预估价值（元，可选）",
     )
 
     # ==========================================
     # 关联资产（S2/S3场景使用）
     # ==========================================
-    related_asset_code = models.ForeignKey(
-        'assetmanagement.Asset',
-        to_field='asset_recordcode',
+    related_asset = models.ForeignKey(
+        "assetmanagement.Asset",
+        to_field="recordcode",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='unregistered_records',
-        verbose_name='关联资产编码',
-        help_text='系统中已存在的资产编码（S2/S3场景必填，通过 asset_recordcode 关联）'
+        related_name="unregistered_records",
+        verbose_name="关联资产",
+        help_text="系统中已存在的资产（S2/S3场景必填，通过 recordcode 关联）",
     )
 
     # ==========================================
@@ -190,24 +175,21 @@ class UnregisteredAsset(BaseModel):
         choices=HandleType.choices,
         null=True,
         blank=True,
-        verbose_name='处理方式',
-        help_text='审批后选择的处理方式'
+        verbose_name="处理方式",
+        help_text="审批后选择的处理方式",
     )
-    target_storage_code = models.ForeignKey(
-        'assetmanagement.Storage',
-        to_field='recordcode',
+    unregistered_asset_storage = models.ForeignKey(
+        "assetmanagement.Storage",
+        to_field="recordcode",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='unregistered_targets',
-        verbose_name='目标仓库',
-        help_text='回收后存放的仓库（通过 recordcode 关联）'
+        related_name="unregistered_targets",
+        verbose_name="目标仓库",
+        help_text="回收后存放的仓库（通过 recordcode 关联）",
     )
     handle_description = models.TextField(
-        blank=True,
-        null=True,
-        verbose_name='处理说明',
-        help_text='处理的补充说明（可选）'
+        blank=True, null=True, verbose_name="处理说明", help_text="处理的补充说明（可选）"
     )
 
     # ==========================================
@@ -217,91 +199,88 @@ class UnregisteredAsset(BaseModel):
         max_length=20,
         choices=ApprovalStatus.choices,
         default=ApprovalStatus.PENDING,
-        verbose_name='审批状态',
-        help_text='审批的当前状态：待审批/已批准/已拒绝'
+        verbose_name="审批状态",
+        help_text="审批的当前状态：待审批/已批准/已拒绝",
     )
-    approver_jobcode = models.ForeignKey(
-        'usermanagement.Employee',
-        to_field='recordcode',
+    approver = models.ForeignKey(
+        "usermanagement.Employee",
+        to_field="recordcode",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='unregistered_approved',
-        verbose_name='审批人',
-        help_text='审批人的人员工号（通过 recordcode 关联）'
+        related_name="unregistered_approved",
+        verbose_name="审批人",
+        help_text="审批人的人员工号（通过 recordcode 关联）",
     )
-    approval_date = models.DateField(
-        blank=True,
-        null=True,
-        verbose_name='审批日期',
-        help_text='审批完成的日期'
-    )
+    approval_date = models.DateField(blank=True, null=True, verbose_name="审批日期", help_text="审批完成的日期")
     approval_remark = models.TextField(
-        blank=True,
-        null=True,
-        verbose_name='审批备注',
-        help_text='审批的备注说明（可选）'
+        blank=True, null=True, verbose_name="审批备注", help_text="审批的备注说明（可选）"
     )
 
     # ==========================================
     # 结果追踪（处理完成后填充）
     # ==========================================
-    result_asset_code = models.ForeignKey(
-        'assetmanagement.Asset',
-        to_field='asset_recordcode',
+    result_asset = models.ForeignKey(
+        "assetmanagement.Asset",
+        to_field="recordcode",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='unregistered_source',
-        verbose_name='结果资产编码',
-        help_text='处理后创建的资产编码（通过 asset_recordcode 关联）'
+        related_name="unregistered_source",
+        verbose_name="结果资产",
+        help_text="处理后创建的资产（通过 recordcode 关联）",
     )
-    result_recycle_code = models.ForeignKey(
-        'assetmanagement.RecycleAsset',
+    result_recycle_asset = models.ForeignKey(
+        "assetmanagement.RecycleAsset",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='unregistered_source',
-        verbose_name='结果回收记录',
-        help_text='处理后创建的回收记录'
+        related_name="unregistered_source",
+        verbose_name="结果回收记录",
+        help_text="处理后创建的回收记录",
     )
-    result_damaged_code = models.ForeignKey(
-        'assetmanagement.DamagedAsset',
+    result_damaged_asset = models.ForeignKey(
+        "assetmanagement.DamagedAsset",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='unregistered_source',
-        verbose_name='结果待报废记录',
-        help_text='处理后创建的待报废记录'
+        related_name="unregistered_source",
+        verbose_name="结果待报废记录",
+        help_text="处理后创建的待报废记录",
     )
 
     # ==========================================
     # 凭证附件（JSON格式存储文件路径列表）
     # ==========================================
     attachments = models.JSONField(
-        default=list,
-        blank=True,
-        verbose_name='附件列表',
-        help_text='照片/凭证文件路径列表（JSON数组格式）'
+        default=list, blank=True, verbose_name="附件列表", help_text="照片/凭证文件路径列表（JSON数组格式）"
     )
 
     class Meta:
         """模型元数据配置"""
-        verbose_name = '未登记资产管理'
-        verbose_name_plural = '未登记资产管理'
-        db_table = 'am_unregistered_asset'
-        ordering = ['-created_at']
+
+        verbose_name = "未登记资产管理"
+        verbose_name_plural = "未登记资产管理"
+        db_table = "am_unregistered_asset"
+        ordering = ["-created_at"]
         indexes = [
             # 按编码查询
-            models.Index(fields=['unregistered_code']),
+            models.Index(fields=["unregistered_code"]),
             # 按场景类型筛选
-            models.Index(fields=['scenario_type']),
+            models.Index(fields=["scenario_type"]),
             # 按审批状态筛选
-            models.Index(fields=['approval_status']),
+            models.Index(fields=["approval_status"]),
             # 按发现人查询
-            models.Index(fields=['discovery_person_jobcode']),
+            models.Index(fields=["discovery_person"]),
             # 复合索引：发现人 + 审批状态
-            models.Index(fields=['discovery_person_jobcode', 'approval_status']),
+            models.Index(fields=["discovery_person", "approval_status"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["unregistered_code"],
+                condition=models.Q(is_deleted=False),
+                name="unique_unregistered_code_when_not_deleted",
+            )
         ]
 
     def save(self, *args, **kwargs) -> None:
@@ -321,7 +300,7 @@ class UnregisteredAsset(BaseModel):
 
     def __str__(self) -> str:
         """返回模型的字符串表示"""
-        return f'{self.asset_name}({self.unregistered_code})'
+        return f"{self.asset_name}({self.unregistered_code})"
 
     @staticmethod
     def _generate_code() -> str:
@@ -335,14 +314,11 @@ class UnregisteredAsset(BaseModel):
             >>> UnregisteredAsset._generate_code()
             'UNR-20260526-A3B7K9'
         """
-        prefix = 'UNR'
-        date_str = timezone.now().strftime('%Y%m%d')
+        prefix = "UNR"
+        date_str = timezone.now().strftime("%Y%m%d")
         # 使用 secrets 生成安全的随机字符
-        random_suffix = ''.join(
-            secrets.choice(string.ascii_uppercase + string.digits)
-            for _ in range(6)
-        )
-        return f'{prefix}-{date_str}-{random_suffix}'
+        random_suffix = "".join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+        return f"{prefix}-{date_str}-{random_suffix}"
 
     def can_modify(self) -> bool:
         """

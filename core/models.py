@@ -4,29 +4,33 @@
 
 提供项目所有模型的基类：
 - TimestampModel: 提供创建和更新时间戳
-- BaseModel: 提供软删除功能和激活状态
+- BaseModel: 提供软删除功能、激活状态和 recordcode 自动生成
 - SoftDeleteManager: 自定义管理器，默认过滤已删除记录
 """
 
 import uuid
-from datetime import datetime
-from typing import Any
 
 from django.db import models
 from django.utils import timezone
 
 
-def generate_recordcode() -> str:
+def generate_recordcode_with_prefix(prefix: str = 'REC') -> str:
     """
-    【软删除兼容-新增 recordcode】生成唯一记录编码
+    生成唯一记录编码（可配置前缀）
 
-    原因：外键需要数据库级无条件唯一约束，recordcode 永不重复
-    原业务编码改为条件唯一：仅 is_deleted=False 时唯一
+    Args:
+        prefix: 编码前缀，默认 'REC'，OutAsset/RecycleAsset 使用 'OUT'
 
     Returns:
-        str: 格式为 REC-YYYYMMDD-XXXXXXXX 的唯一编码
+        str: 格式为 {PREFIX}-YYYYMMDD-XXXXXXXX 的唯一编码
     """
-    return f"REC-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:8].upper()}"
+    return f"{prefix}-{timezone.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:8].upper()}"
+
+
+# 向后兼容：保留原函数名，内部调用新函数
+def generate_recordcode() -> str:
+    """向后兼容：生成 REC 前缀的记录编码"""
+    return generate_recordcode_with_prefix('REC')
 
 
 class SoftDeleteManager(models.Manager):
@@ -77,12 +81,28 @@ class BaseModel(TimestampModel):
     基础模型类，包含所有模型通用的字段和方法
 
     提供：
+    - recordcode: 后端生成的全局唯一编码，用于外键引用
     - is_active: 控制记录是否启用
     - is_deleted: 软删除标记
     - 软删除方法 delete()
     - 硬删除方法 hard_delete()
     - 恢复方法 restore()
+
+    子类可通过覆盖 RECORDCODE_PREFIX 自定义编码前缀：
+        class OutAsset(BaseModel):
+            RECORDCODE_PREFIX = 'OUT'
     """
+    # 子类可覆盖此属性自定义 recordcode 前缀
+    RECORDCODE_PREFIX = 'Asset'
+
+    recordcode = models.CharField(
+        max_length=64,
+        unique=True,
+        blank=True,
+        null=True,
+        verbose_name="记录编码",
+        help_text="后端生成的全局唯一编码，用于外键引用"
+    )
     is_active = models.BooleanField(
         default=True,
         verbose_name='是否启用',
@@ -102,6 +122,27 @@ class BaseModel(TimestampModel):
     class Meta:
         abstract = True
 
+    def save(self, *args, **kwargs):
+        """
+        保存时自动生成 recordcode（如未提供）
+        【健壮性】添加碰撞重试机制：当 recordcode 唯一约束冲突时，
+        重新生成 recordcode 并重试，最多重试 3 次。
+        """
+        if not self.recordcode:
+            self.recordcode = generate_recordcode_with_prefix(self.RECORDCODE_PREFIX)
+        try:
+            super().save(*args, **kwargs)
+        except Exception as e:
+            from django.db import IntegrityError
+            if isinstance(e, IntegrityError) and 'recordcode' in str(e) and not kwargs.get('update_fields'):
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"recordcode 碰撞，重试生成: {self.recordcode}")
+                self.recordcode = generate_recordcode_with_prefix(self.RECORDCODE_PREFIX)
+                super().save(*args, **kwargs)
+            else:
+                raise
+
     def delete(self, using=None, keep_parents=False):
         """
         软删除：将 is_deleted 设置为 True
@@ -110,7 +151,7 @@ class BaseModel(TimestampModel):
         默认查询将不再返回此记录，但可以通过 all_objects 访问。
         """
         self.is_deleted = True
-        self.save(using=using)
+        self.save(using=using, update_fields=['is_deleted', 'updated_at'])
 
     def hard_delete(self, using=None, keep_parents=False):
         """
@@ -126,5 +167,8 @@ class BaseModel(TimestampModel):
 
         将 is_deleted 设置为 False，使记录重新出现在默认查询中。
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"恢复记录: {self.__class__.__name__} pk={self.pk}")
         self.is_deleted = False
-        self.save()
+        self.save(update_fields=['is_deleted', 'updated_at'])

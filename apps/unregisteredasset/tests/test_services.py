@@ -9,14 +9,15 @@
 - 异常处理
 """
 
-import pytest
 from datetime import date
 from decimal import Decimal
 
-from core.exceptions import AppValidationError
+import pytest
+
+from apps.assetmanagement.models import Asset, DamagedAsset, OutAsset, RecycleAsset
 from apps.unregisteredasset.models import UnregisteredAsset
 from apps.unregisteredasset.services import UnregisteredAssetService
-from apps.assetmanagement.models import Asset, RecycleAsset, DamagedAsset, OutAsset
+from core.exceptions import AppValidationError
 
 
 @pytest.mark.django_db
@@ -30,85 +31,76 @@ class TestUnregisteredAssetService:
         测试成功创建 S1 场景未登记资产
         """
         data = {
-            'scenario_type': 's1_no_record',
-            'discovery_date': date(2024, 6, 1),
-            'discovery_location': '会议室A',
-            'asset_name': '未登记笔记本',
-            'asset_brand': '测试品牌',
-            'asset_specification': '测试规格',
-            'unregistered_asset_type': asset_type,
-            'estimated_value': Decimal('5000.00'),
-            'unregistered_asset_storage': storage,
+            "scenario_type": "s1_no_record",
+            "discovery_date": date(2024, 6, 1),
+            "discovery_location": "会议室A",
+            "asset_name": "未登记笔记本",
+            "asset_brand": "测试品牌",
+            "asset_specification": "测试规格",
+            "unregistered_asset_type": asset_type,
+            "estimated_value": Decimal("5000.00"),
+            "unregistered_asset_storage": storage,
         }
 
-        asset = UnregisteredAssetService.create(
-            data=data,
-            operator_jobcode=employee.employee_jobcode
-        )
+        asset = UnregisteredAssetService.create(data=data, operator_jobcode=employee.employee_jobcode)
 
-        assert asset.scenario_type == 's1_no_record'
-        assert asset.asset_name == '未登记笔记本'
-        assert asset.approval_status == 'pending'
-        assert asset.unregistered_code.startswith('UNR-')
+        assert asset.scenario_type == "s1_no_record"
+        assert asset.asset_name == "未登记笔记本"
+        assert asset.approval_status == "pending"
+        assert asset.unregistered_code.startswith("UNR-")
 
     def test_create_s2_without_related_asset_fails(self, employee, storage):
         """
         测试 S2 场景不关联资产应该失败
         """
         data = {
-            'scenario_type': 's2_no_outasset',
-            'discovery_date': date(2024, 6, 1),
-            'discovery_location': '办公室B',
-            'asset_name': '无出库记录资产',
-            'unregistered_asset_storage': storage,
+            "scenario_type": "s2_no_outasset",
+            "discovery_date": date(2024, 6, 1),
+            "discovery_location": "办公室B",
+            "asset_name": "无出库记录资产",
+            "unregistered_asset_storage": storage,
         }
 
         with pytest.raises(AppValidationError) as exc_info:
-            UnregisteredAssetService.create(
-                data=data,
-                operator_jobcode=employee.employee_jobcode
-            )
+            UnregisteredAssetService.create(data=data, operator_jobcode=employee.employee_jobcode)
 
-        assert '必须关联现有资产' in str(exc_info.value.detail)
+        assert "必须关联现有资产" in str(exc_info.value.detail)
 
     def test_create_s1_with_related_asset_fails(self, employee, storage, existing_asset):
         """
         测试 S1 场景关联资产应该失败
         """
         data = {
-            'scenario_type': 's1_no_record',
-            'discovery_date': date(2024, 6, 1),
-            'discovery_location': '会议室A',
-            'asset_name': '未登记资产',
-            'related_asset': existing_asset,
-            'unregistered_asset_storage': storage,
+            "scenario_type": "s1_no_record",
+            "discovery_date": date(2024, 6, 1),
+            "discovery_location": "会议室A",
+            "asset_name": "未登记资产",
+            "related_asset": existing_asset,
+            "unregistered_asset_storage": storage,
         }
 
         with pytest.raises(AppValidationError) as exc_info:
-            UnregisteredAssetService.create(
-                data=data,
-                operator_jobcode=employee.employee_jobcode
-            )
+            UnregisteredAssetService.create(data=data, operator_jobcode=employee.employee_jobcode)
 
-        assert '不应关联现有资产' in str(exc_info.value.detail)
+        assert "不应关联现有资产" in str(exc_info.value.detail)
 
     def test_update_success(self, unregistered_asset_s1, employee):
         """
         测试成功更新未登记资产
         """
         update_data = {
-            'asset_name': '更新后的名称',
-            'asset_brand': '更新后的品牌',
+            "asset_name": "更新后的名称",
+            "asset_brand": "更新后的品牌",
         }
 
         updated = UnregisteredAssetService.update(
             unregistered_code=unregistered_asset_s1.unregistered_code,
             update_data=update_data,
-            operator_jobcode=employee.employee_jobcode
+            operator_jobcode=employee.employee_jobcode,
         )
 
-        assert updated.asset_name == '更新后的名称'
-        assert updated.asset_brand == '更新后的品牌'
+        assert updated.asset_name == "更新后的名称"
+        assert updated.asset_brand == "更新后的品牌"
 
     def test_update_approved_fails(self, approved_unregistered_asset, employee):
         """
@@ -117,11 +109,11 @@ class TestUnregisteredAssetService:
         with pytest.raises(AppValidationError) as exc_info:
             UnregisteredAssetService.update(
                 unregistered_code=approved_unregistered_asset.unregistered_code,
-                update_data={'asset_name': '新名称'},
-                operator_jobcode=employee.employee_jobcode
+                update_data={"asset_name": "新名称"},
+                operator_jobcode=employee.employee_jobcode,
             )
 
-        assert '不允许修改' in str(exc_info.value.detail)
+        assert "不允许修改" in str(exc_info.value.detail)
 
     def test_update_nonexistent_fails(self, employee):
         """
@@ -129,12 +121,12 @@ class TestUnregisteredAssetService:
         """
         with pytest.raises(AppValidationError) as exc_info:
             UnregisteredAssetService.update(
-                unregistered_code='UNR-NOTEXIST',
-                update_data={'asset_name': '新名称'},
-                operator_jobcode=employee.employee_jobcode
+                unregistered_code="UNR-NOTEXIST",
+                update_data={"asset_name": "新名称"},
+                operator_jobcode=employee.employee_jobcode,
             )
 
-        assert '不存在' in str(exc_info.value.detail)
+        assert "不存在" in str(exc_info.value.detail)
 
     def test_update_disallowed_field_fails(self, unregistered_asset_s1, employee):
         """
@@ -143,11 +135,11 @@ class TestUnregisteredAssetService:
         with pytest.raises(AppValidationError) as exc_info:
             UnregisteredAssetService.update(
                 unregistered_code=unregistered_asset_s1.unregistered_code,
-                update_data={'scenario_type': 's2_no_outasset'},  # 不允许修改
-                operator_jobcode=employee.employee_jobcode
+                update_data={"scenario_type": "s2_no_outasset"},  # 不允许修改
+                operator_jobcode=employee.employee_jobcode,
             )
 
-        assert '不允许修改字段' in str(exc_info.value.detail)
+        assert "不允许修改字段" in str(exc_info.value.detail)
 
     def test_approve_s1_create_and_recycle(self, unregistered_asset_s1, admin_employee, storage):
         """
@@ -155,33 +147,33 @@ class TestUnregisteredAssetService:
         """
         result = UnregisteredAssetService.approve_and_handle(
             unregistered_code=unregistered_asset_s1.unregistered_code,
-            handle_type='create_and_recycle',
-            approver=admin_employee.employee_jobcode
+            handle_type="create_and_recycle",
+            approver=admin_employee.employee_jobcode,
         )
 
         # 验证返回结果
-        assert result['action'] == 'create_and_recycle'
-        assert 'asset_code' in result
-        assert 'recycle_id' in result
+        assert result["action"] == "create_and_recycle"
+        assert "asset_code" in result
+        assert "recycle_id" in result
         # 【AGENTS 规范 - 业务唯一编码】验证返回 recordcode
-        assert 'recordcode' in result
-        assert result['recordcode'].startswith('REC-')
+        assert "recordcode" in result
+        assert result["recordcode"].startswith("RECYCLE-")
 
         # 验证资产创建
-        asset = Asset.objects.get(asset_code=result['asset_code'])
+        asset = Asset.objects.get(asset_code=result["asset_code"])
         assert asset.asset_name == unregistered_asset_s1.asset_name
-        assert asset.asset_current_status == 'recycled_pending'
+        assert asset.asset_current_status == "recycled_pending"
 
         # 验证回收记录创建
-        recycle = RecycleAsset.objects.get(id=result['recycle_id'])
-        assert recycle.recycle_asset_code == asset
+        recycle = RecycleAsset.objects.get(id=result["recycle_id"])
+        assert recycle.asset_recordcode == asset
         # 【AGENTS 规范 - 业务唯一编码】验证回收记录编码格式和唯一性
-        assert recycle.recordcode == result['recordcode']
-        assert len(recycle.recordcode) == 21  # REC-YYYYMMDD-XXXXXXXX
+        assert recycle.recordcode == result["recordcode"]
+        assert len(recycle.recordcode) == 25  # RECYCLE-YYYYMMDD-XXXXXXXX
 
         # 验证未登记资产状态更新
         unregistered_asset_s1.refresh_from_db()
-        assert unregistered_asset_s1.approval_status == 'approved'
+        assert unregistered_asset_s1.approval_status == "approved"
         assert unregistered_asset_s1.result_asset == asset
 
     def test_approve_s1_create_and_damaged(self, unregistered_asset_s1, admin_employee):
@@ -190,21 +182,21 @@ class TestUnregisteredAssetService:
         """
         result = UnregisteredAssetService.approve_and_handle(
             unregistered_code=unregistered_asset_s1.unregistered_code,
-            handle_type='create_and_damaged',
-            approver=admin_employee.employee_jobcode
+            handle_type="create_and_damaged",
+            approver=admin_employee.employee_jobcode,
         )
 
-        assert result['action'] == 'create_and_damaged'
-        assert 'asset_code' in result
-        assert 'damaged_id' in result
+        assert result["action"] == "create_and_damaged"
+        assert "asset_code" in result
+        assert "damaged_id" in result
 
         # 验证资产状态
-        asset = Asset.objects.get(asset_code=result['asset_code'])
-        assert asset.asset_current_status == 'damaged'
+        asset = Asset.objects.get(asset_code=result["asset_code"])
+        assert asset.asset_current_status == "damaged"
 
         # 验证待报废记录
-        damaged = DamagedAsset.objects.get(id=result['damaged_id'])
-        assert damaged.damaged_asset == asset
+        damaged = DamagedAsset.objects.get(id=result["damaged_id"])
+        assert damaged.asset_recordcode == asset
 
     def test_approve_s2_supplement_and_recycle(self, unregistered_asset_s2, admin_employee, existing_asset):
         """
@@ -212,21 +204,21 @@ class TestUnregisteredAssetService:
         """
         result = UnregisteredAssetService.approve_and_handle(
             unregistered_code=unregistered_asset_s2.unregistered_code,
-            handle_type='supplement_and_recycle',
-            approver=admin_employee.employee_jobcode
+            handle_type="supplement_and_recycle",
+            approver=admin_employee.employee_jobcode,
         )
 
-        assert result['action'] == 'supplement_and_recycle'
-        assert 'asset_code' in result
-        assert 'outasset_asset' in result
+        assert result["action"] == "supplement_and_recycle"
+        assert "asset_code" in result
+        assert "asset_recordcode" in result
 
         # 验证出库记录创建
-        outasset = OutAsset.objects.get(recordcode=result['outasset_asset'])
-        assert outasset.outasset_asset == existing_asset
+        outasset = OutAsset.objects.get(recordcode=result["asset_recordcode"])
+        assert outasset.asset_recordcode == existing_asset
 
         # 验证资产状态更新
         existing_asset.refresh_from_db()
-        assert existing_asset.asset_current_status == 'recycled_pending'
+        assert existing_asset.asset_current_status == "recycled_pending"
 
     def test_approve_s3_correct_and_recycle(self, unregistered_asset_s3, admin_employee, existing_asset):
         """
@@ -236,17 +228,17 @@ class TestUnregisteredAssetService:
 
         result = UnregisteredAssetService.approve_and_handle(
             unregistered_code=unregistered_asset_s3.unregistered_code,
-            handle_type='correct_and_recycle',
-            approver=admin_employee.employee_jobcode
+            handle_type="correct_and_recycle",
+            approver=admin_employee.employee_jobcode,
         )
 
-        assert result['action'] == 'correct_and_recycle'
-        assert result['old_status'] == old_status
-        assert 'recycle_id' in result
+        assert result["action"] == "correct_and_recycle"
+        assert result["old_status"] == old_status
+        assert "recycle_id" in result
 
         # 验证资产状态更新
         existing_asset.refresh_from_db()
-        assert existing_asset.asset_current_status == 'recycled_pending'
+        assert existing_asset.asset_current_status == "recycled_pending"
 
     def test_approve_reject(self, unregistered_asset_s1, admin_employee):
         """
@@ -254,17 +246,17 @@ class TestUnregisteredAssetService:
         """
         result = UnregisteredAssetService.approve_and_handle(
             unregistered_code=unregistered_asset_s1.unregistered_code,
-            handle_type='reject',
+            handle_type="reject",
             approver=admin_employee.employee_jobcode,
-            approval_remark='测试拒绝'
+            approval_remark="测试拒绝",
         )
 
-        assert result['action'] == 'reject'
+        assert result["action"] == "reject"
 
         # 验证状态更新
         unregistered_asset_s1.refresh_from_db()
-        assert unregistered_asset_s1.approval_status == 'rejected'
-        assert unregistered_asset_s1.approval_remark == '测试拒绝'
+        assert unregistered_asset_s1.approval_status == "rejected"
+        assert unregistered_asset_s1.approval_remark == "测试拒绝"
 
     def test_approve_non_pending_fails(self, approved_unregistered_asset, admin_employee):
         """
@@ -273,11 +265,11 @@ class TestUnregisteredAssetService:
         with pytest.raises(AppValidationError) as exc_info:
             UnregisteredAssetService.approve_and_handle(
                 unregistered_code=approved_unregistered_asset.unregistered_code,
-                handle_type='create_and_recycle',
-                approver=admin_employee.employee_jobcode
+                handle_type="create_and_recycle",
+                approver=admin_employee.employee_jobcode,
             )
 
-        assert '不允许审批' in str(exc_info.value.detail)
+        assert "不允许审批" in str(exc_info.value.detail)
 
     def test_approve_invalid_handle_type_fails(self, unregistered_asset_s1, admin_employee):
         """
@@ -286,11 +278,11 @@ class TestUnregisteredAssetService:
         with pytest.raises(AppValidationError) as exc_info:
             UnregisteredAssetService.approve_and_handle(
                 unregistered_code=unregistered_asset_s1.unregistered_code,
-                handle_type='supplement_and_recycle',  # S1 场景不支持
-                approver=admin_employee.employee_jobcode
+                handle_type="supplement_and_recycle",  # S1 场景不支持
+                approver=admin_employee.employee_jobcode,
             )
 
-        assert '不支持处理方式' in str(exc_info.value.detail)
+        assert "不支持处理方式" in str(exc_info.value.detail)
 
     def test_delete_success(self, unregistered_asset_s1, employee):
         """
@@ -298,10 +290,7 @@ class TestUnregisteredAssetService:
         """
         code = unregistered_asset_s1.unregistered_code
 
-        UnregisteredAssetService.delete(
-            unregistered_code=code,
-            operator_jobcode=employee.employee_jobcode
-        )
+        UnregisteredAssetService.delete(unregistered_code=code, operator_jobcode=employee.employee_jobcode)
 
         # 验证软删除
         assert UnregisteredAsset.objects.filter(unregistered_code=code).count() == 0
@@ -314,10 +303,10 @@ class TestUnregisteredAssetService:
         with pytest.raises(AppValidationError) as exc_info:
             UnregisteredAssetService.delete(
                 unregistered_code=approved_unregistered_asset.unregistered_code,
-                operator_jobcode=employee.employee_jobcode
+                operator_jobcode=employee.employee_jobcode,
             )
 
-        assert '不允许删除' in str(exc_info.value.detail)
+        assert "不允许删除" in str(exc_info.value.detail)
 
     def test_delete_nonexistent_fails(self, employee):
         """
@@ -325,8 +314,7 @@ class TestUnregisteredAssetService:
         """
         with pytest.raises(AppValidationError) as exc_info:
             UnregisteredAssetService.delete(
-                unregistered_code='UNR-NOTEXIST',
-                operator_jobcode=employee.employee_jobcode
+                unregistered_code="UNR-NOTEXIST", operator_jobcode=employee.employee_jobcode
             )
 
-        assert '不存在' in str(exc_info.value.detail)
+        assert "不存在" in str(exc_info.value.detail)

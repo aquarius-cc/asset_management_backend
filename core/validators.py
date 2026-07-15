@@ -10,7 +10,6 @@
 """
 
 import re
-from typing import Any
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 
@@ -80,11 +79,10 @@ def validate_id_card(value: str) -> str:
     return value
 
 
-def validate_positive_number(value: int) -> int:
+def validate_non_negative_number(value: int) -> int:
     """
-    验证正数
-
-    确保数值大于等于0。
+    【P2-32 修复】重命名：validate_positive_number → validate_non_negative_number
+    确保数值大于等于0（允许零值）。
     
     Args:
         value: 待验证的数值
@@ -96,5 +94,9 @@ def validate_positive_number(value: int) -> int:
         DjangoValidationError: 数值为负数时抛出
     """
     if value < 0:
-        raise DjangoValidationError('数值必须为正数')
+        raise DjangoValidationError('数值不能为负数')
     return value
+
+
+# 向后兼容别名
+validate_positive_number = validate_non_negative_number

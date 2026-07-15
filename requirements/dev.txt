@@ -28,10 +28,10 @@ drf-spectacular-sidecar==2025.1.24
 # watchdog
 
 # 测试框架
-# pytest-django
-# pytest
-# factory-boy
-# pytest-cov
+pytest-django
+pytest
+factory-boy
+pytest-cov
 
 # 类型检查
 # mypy

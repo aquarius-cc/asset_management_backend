@@ -30,37 +30,38 @@
 - assetmanagement.audit.AuditLogger: 审计日志
 """
 
+import logging
 import secrets
 import string
-import logging
-from typing import Dict, Any, Optional
 from decimal import Decimal
+from typing import Any
 
 from django.db import transaction
 from django.utils import timezone
 
-logger = logging.getLogger(__name__)
-
+from apps.unregisteredasset.models import UnregisteredAsset
+from apps.unregisteredasset.selectors import UnregisteredAssetSelector
 from core.exceptions import AppValidationError
 
-from .models import UnregisteredAsset
-from .selectors import UnregisteredAssetSelector
+logger = logging.getLogger(__name__)
 
 
 # ==========================================
 # 字段白名单：允许更新的字段
 # ==========================================
-UNREGISTERED_UPDATE_ALLOWED_FIELDS = frozenset([
-    'asset_name',
-    'asset_brand',
-    'asset_specification',
-    'unregistered_asset_type',
-    'estimated_value',
-    'discovery_location',
-    'unregistered_asset_storage',
-    'handle_description',
-    'attachments',
-])
+UNREGISTERED_UPDATE_ALLOWED_FIELDS = frozenset(
+    [
+        "asset_name",
+        "asset_brand",
+        "asset_specification",
+        "unregistered_asset_type",
+        "estimated_value",
+        "discovery_location",
+        "unregistered_asset_storage",
+        "handle_description",
+        "attachments",
+    ]
+)
 
 
 class UnregisteredAssetService:
@@ -88,7 +89,7 @@ class UnregisteredAssetService:
 
     Example:
         >>> from apps.unregisteredasset.services import UnregisteredAssetService
-        >>> 
+        >>>
         >>> # 创建申请
         >>> asset = UnregisteredAssetService.create({
         ...     'scenario_type': 's1_no_record',
@@ -96,7 +97,7 @@ class UnregisteredAssetService:
         ...     'discovery_date': '2026-05-26',
         ...     'discovery_location': '会议室A',
         ... }, operator_jobcode='EMP001')
-        >>> 
+        >>>
         >>> # 审批处理
         >>> result = UnregisteredAssetService.approve_and_handle(
         ...     unregistered_code='UNR-20260526-ABC123',
@@ -111,11 +112,7 @@ class UnregisteredAssetService:
 
     @staticmethod
     @transaction.atomic
-    def create(
-        data: Dict[str, Any],
-        operator_jobcode: str,
-        operator_name: Optional[str] = None
-    ) -> UnregisteredAsset:
+    def create(data: dict[str, Any], operator_jobcode: str, operator_name: str | None = None) -> UnregisteredAsset:
         """
         创建未登记资产申请
 
@@ -152,45 +149,39 @@ class UnregisteredAssetService:
             ... }, operator_jobcode='EMP001')
         """
         # 参数校验
-        scenario_type = data.get('scenario_type')
+        scenario_type = data.get("scenario_type")
         if not scenario_type:
-            raise AppValidationError(detail='场景类型不能为空')
+            raise AppValidationError(detail="场景类型不能为空")
 
         # S2/S3场景必须关联现有资产
-        related_asset = data.get('related_asset')
-        if scenario_type in ['s2_no_outasset', 's3_status_mismatch']:
+        related_asset = data.get("related_asset")
+        if scenario_type in ["s2_no_outasset", "s3_status_mismatch"]:
             if not related_asset:
-                raise AppValidationError(
-                    detail=f'{scenario_type}场景必须关联现有资产'
-                )
+                raise AppValidationError(detail=f"{scenario_type}场景必须关联现有资产")
 
         # S1场景不应关联现有资产
-        if scenario_type == 's1_no_record' and related_asset:
-            raise AppValidationError(
-                detail='S1场景不应关联现有资产'
-            )
+        if scenario_type == "s1_no_record" and related_asset:
+            raise AppValidationError(detail="S1场景不应关联现有资产")
 
         # 设置发现人
         from apps.usermanagement.models import Employee
-        try:
-            discovery_person = Employee.objects.get(
-                employee_jobcode=operator_jobcode
-            )
-        except Employee.DoesNotExist:
-            raise AppValidationError(detail=f'发现人 {operator_jobcode} 不存在')
 
-        data['discovery_person'] = discovery_person
+        try:
+            discovery_person = Employee.objects.get(employee_jobcode=operator_jobcode)
+        except Employee.DoesNotExist:
+            raise AppValidationError(detail=f"发现人 {operator_jobcode} 不存在")
+
+        data["discovery_person"] = discovery_person
 
         # 创建记录
         unregistered = UnregisteredAsset.objects.create(**data)
 
         # 记录审计日志（延迟导入，异常捕获）
         try:
-            from .audit_adapter import UnregisteredAssetAuditAdapter
+            from apps.unregisteredasset.audit_adapter import UnregisteredAssetAuditAdapter
+
             UnregisteredAssetAuditAdapter.log_create(
-                unregistered=unregistered,
-                operator_jobcode=operator_jobcode,
-                operator_name=operator_name
+                unregistered=unregistered, operator_jobcode=operator_jobcode, operator_name=operator_name
             )
         except Exception as e:
             # 【P2-10 修复】审计异常记录日志便于排查，但不影响主流程
@@ -201,10 +192,7 @@ class UnregisteredAssetService:
     @staticmethod
     @transaction.atomic
     def update(
-        unregistered_code: str,
-        update_data: Dict[str, Any],
-        operator_jobcode: str,
-        operator_name: Optional[str] = None
+        unregistered_code: str, update_data: dict[str, Any], operator_jobcode: str, operator_name: str | None = None
     ) -> UnregisteredAsset:
         """
         更新未登记资产信息
@@ -234,41 +222,38 @@ class UnregisteredAssetService:
         # 获取记录
         unregistered = UnregisteredAssetSelector.get_by_code(unregistered_code)
         if not unregistered:
-            raise AppValidationError(
-                detail=f'未登记资产 {unregistered_code} 不存在'
-            )
+            raise AppValidationError(detail=f"未登记资产 {unregistered_code} 不存在")
 
         # 校验状态
         if not unregistered.can_modify():
-            raise AppValidationError(
-                detail=f'当前状态 {unregistered.approval_status} 不允许修改'
-            )
+            raise AppValidationError(detail=f"当前状态 {unregistered.approval_status} 不允许修改")
 
         # 记录变更前数据
         before_data = {}
         for key in update_data.keys():
             if key in UNREGISTERED_UPDATE_ALLOWED_FIELDS:
                 value = getattr(unregistered, key)
-                before_data[key] = str(value) if hasattr(value, 'pk') else value
+                before_data[key] = str(value) if hasattr(value, "pk") else value
 
         # 字段白名单过滤
         for key, value in update_data.items():
             if key in UNREGISTERED_UPDATE_ALLOWED_FIELDS:
                 setattr(unregistered, key, value)
             else:
-                raise AppValidationError(detail=f'不允许修改字段: {key}')
+                raise AppValidationError(detail=f"不允许修改字段: {key}")
 
         unregistered.save()
 
         # 记录审计日志（延迟导入，异常捕获）
         try:
-            from .audit_adapter import UnregisteredAssetAuditAdapter
+            from apps.unregisteredasset.audit_adapter import UnregisteredAssetAuditAdapter
+
             UnregisteredAssetAuditAdapter.log_update(
                 unregistered=unregistered,
                 before_data=before_data,
                 after_data=update_data,
                 operator_jobcode=operator_jobcode,
-                operator_name=operator_name
+                operator_name=operator_name,
             )
         except Exception as e:
             # 【P2-10 修复】审计异常记录日志便于排查，但不影响主流程
@@ -282,9 +267,9 @@ class UnregisteredAssetService:
         unregistered_code: str,
         handle_type: str,
         approver: str,
-        operator_name: Optional[str] = None,
-        approval_remark: str = ''
-    ) -> Dict[str, Any]:
+        operator_name: str | None = None,
+        approval_remark: str = "",
+    ) -> dict[str, Any]:
         """
         审批并处理未登记资产
 
@@ -300,7 +285,12 @@ class UnregisteredAssetService:
 
         Args:
             unregistered_code: 未登记资产编码
-            handle_type: 处理方式（create_and_recycle/create_and_damaged/supplement_and_recycle/correct_and_recycle/reject）
+            handle_type: 处理方式
+                - create_and_recycle: 创建并回收
+                - create_and_damaged: 创建并报废
+                - supplement_and_recycle: 补建并回收
+                - correct_and_recycle: 修正并回收
+                - reject: 拒绝
             approver: 审批人工号
             operator_name: 审批人姓名（可选）
             approval_remark: 审批备注（可选）
@@ -327,25 +317,22 @@ class UnregisteredAssetService:
         # 获取记录
         unregistered = UnregisteredAssetSelector.get_by_code(unregistered_code)
         if not unregistered:
-            raise AppValidationError(
-                detail=f'未登记资产 {unregistered_code} 不存在'
-            )
+            raise AppValidationError(detail=f"未登记资产 {unregistered_code} 不存在")
 
         # 校验审批状态
         if unregistered.approval_status != UnregisteredAsset.ApprovalStatus.PENDING:
-            raise AppValidationError(
-                detail=f'当前状态 {unregistered.approval_status} 不允许审批'
-            )
+            raise AppValidationError(detail=f"当前状态 {unregistered.approval_status} 不允许审批")
 
         # 验证处理方式与场景匹配
         _validate_handle_type(unregistered.scenario_type, handle_type)
 
         # 设置审批信息
         from apps.usermanagement.models import Employee
+
         try:
             approver = Employee.objects.get(employee_jobcode=approver)
         except Employee.DoesNotExist:
-            raise AppValidationError(detail=f'审批人 {approver} 不存在')
+            raise AppValidationError(detail=f"审批人 {approver} 不存在")
 
         unregistered.handle_type = handle_type
         unregistered.approver = approver
@@ -355,23 +342,23 @@ class UnregisteredAssetService:
         result = {}
 
         # 根据处理方式执行不同逻辑
-        if handle_type == 'reject':
+        if handle_type == "reject":
             unregistered.approval_status = UnregisteredAsset.ApprovalStatus.REJECTED
-            result = {'action': 'reject'}
+            result = {"action": "reject"}
 
-        elif handle_type == 'create_and_recycle':
+        elif handle_type == "create_and_recycle":
             result = _handle_s1_create_and_recycle(unregistered, approver)
             unregistered.approval_status = UnregisteredAsset.ApprovalStatus.APPROVED
 
-        elif handle_type == 'create_and_damaged':
+        elif handle_type == "create_and_damaged":
             result = _handle_s1_create_and_damaged(unregistered, approver)
             unregistered.approval_status = UnregisteredAsset.ApprovalStatus.APPROVED
 
-        elif handle_type == 'supplement_and_recycle':
+        elif handle_type == "supplement_and_recycle":
             result = _handle_s2_supplement_and_recycle(unregistered, approver)
             unregistered.approval_status = UnregisteredAsset.ApprovalStatus.APPROVED
 
-        elif handle_type == 'correct_and_recycle':
+        elif handle_type == "correct_and_recycle":
             result = _handle_s3_correct_and_recycle(unregistered, approver)
             unregistered.approval_status = UnregisteredAsset.ApprovalStatus.APPROVED
 
@@ -379,13 +366,14 @@ class UnregisteredAssetService:
 
         # 记录审计日志（延迟导入，异常捕获）
         try:
-            from .audit_adapter import UnregisteredAssetAuditAdapter
+            from apps.unregisteredasset.audit_adapter import UnregisteredAssetAuditAdapter
+
             UnregisteredAssetAuditAdapter.log_approve(
                 unregistered=unregistered,
                 handle_type=handle_type,
                 result=result,
                 operator_jobcode=approver,
-                operator_name=operator_name
+                operator_name=operator_name,
             )
         except Exception as e:
             # 【P2-10 修复】审计异常记录日志便于排查，但不影响主流程
@@ -395,11 +383,7 @@ class UnregisteredAssetService:
 
     @staticmethod
     @transaction.atomic
-    def delete(
-        unregistered_code: str,
-        operator_jobcode: str,
-        operator_name: Optional[str] = None
-    ) -> None:
+    def delete(unregistered_code: str, operator_jobcode: str, operator_name: str | None = None) -> None:
         """
         删除未登记资产（软删除）
 
@@ -421,22 +405,17 @@ class UnregisteredAssetService:
         """
         unregistered = UnregisteredAssetSelector.get_by_code(unregistered_code)
         if not unregistered:
-            raise AppValidationError(
-                detail=f'未登记资产 {unregistered_code} 不存在'
-            )
+            raise AppValidationError(detail=f"未登记资产 {unregistered_code} 不存在")
 
         if not unregistered.can_delete():
-            raise AppValidationError(
-                detail=f'当前状态 {unregistered.approval_status} 不允许删除'
-            )
+            raise AppValidationError(detail=f"当前状态 {unregistered.approval_status} 不允许删除")
 
         # 记录审计日志（在删除前，延迟导入，异常捕获）
         try:
-            from .audit_adapter import UnregisteredAssetAuditAdapter
+            from apps.unregisteredasset.audit_adapter import UnregisteredAssetAuditAdapter
+
             UnregisteredAssetAuditAdapter.log_delete(
-                unregistered=unregistered,
-                operator_jobcode=operator_jobcode,
-                operator_name=operator_name
+                unregistered=unregistered, operator_jobcode=operator_jobcode, operator_name=operator_name
             )
         except Exception as e:
             # 【P2-10 修复】审计异常记录日志便于排查，但不影响主流程
@@ -450,6 +429,7 @@ class UnregisteredAssetService:
 # 内部辅助函数
 # ===================================================================
 
+
 def _validate_handle_type(scenario_type: str, handle_type: str) -> None:
     """
     验证处理方式与场景类型匹配
@@ -462,26 +442,15 @@ def _validate_handle_type(scenario_type: str, handle_type: str) -> None:
         AppValidationError: 不匹配时抛出
     """
     valid_mapping = {
-        's1_no_record': [
-            'create_and_recycle',
-            'create_and_damaged',
-            'reject'
-        ],
-        's2_no_outasset': [
-            'supplement_and_recycle',
-            'reject'
-        ],
-        's3_status_mismatch': [
-            'correct_and_recycle',
-            'reject'
-        ],
+        "s1_no_record": ["create_and_recycle", "create_and_damaged", "reject"],
+        "s2_no_outasset": ["supplement_and_recycle", "reject"],
+        "s3_status_mismatch": ["correct_and_recycle", "reject"],
     }
 
     valid_types = valid_mapping.get(scenario_type, [])
     if handle_type not in valid_types:
         raise AppValidationError(
-            detail=f'场景 {scenario_type} 不支持处理方式 {handle_type}，'
-            f'有效选项: {", ".join(valid_types)}'
+            detail=f"场景 {scenario_type} 不支持处理方式 {handle_type}，有效选项: {', '.join(valid_types)}"
         )
 
 
@@ -492,19 +461,13 @@ def _generate_asset_code() -> str:
     Returns:
         str: 格式为 AST-YYYYMMDD-XXXXXX 的唯一编码
     """
-    prefix = 'AST'
-    date_str = timezone.now().strftime('%Y%m%d')
-    random_suffix = ''.join(
-        secrets.choice(string.digits)
-        for _ in range(6)
-    )
-    return f'{prefix}-{date_str}-{random_suffix}'
+    prefix = "AST"
+    date_str = timezone.now().strftime("%Y%m%d")
+    random_suffix = "".join(secrets.choice(string.digits) for _ in range(6))
+    return f"{prefix}-{date_str}-{random_suffix}"
 
 
-def _handle_s1_create_and_recycle(
-    unregistered: UnregisteredAsset,
-    operator_jobcode: str
-) -> Dict[str, Any]:
+def _handle_s1_create_and_recycle(unregistered: UnregisteredAsset, operator_jobcode: str) -> dict[str, Any]:
     """
     S1场景：创建资产并回收入库
 
@@ -521,66 +484,62 @@ def _handle_s1_create_and_recycle(
     Returns:
         Dict[str, Any]: 处理结果
     """
-    from apps.assetmanagement.models import Asset, RecycleAsset
+    from apps.assetmanagement.models import Asset, OutAsset, RecycleAsset
     from apps.assetmanagement.state_machine import AssetFSM
-    from apps.assetmanagement.models import OutAsset
 
     # 1. 创建资产
     asset_data = {
-        'asset_code': _generate_asset_code(),
-        'asset_name': unregistered.asset_name,
-        'asset_brand': unregistered.asset_brand,
-        'asset_specification': unregistered.asset_specification,
-        'asset_type': unregistered.unregistered_asset_type,
-        'asset_purchase_price': unregistered.estimated_value or Decimal('0'),
-        'asset_purchase_date': unregistered.discovery_date,
-        'asset_entry_date': timezone.now().date(),
-        'asset_storage': unregistered.unregistered_asset_storage,
+        "asset_code": _generate_asset_code(),
+        "asset_name": unregistered.asset_name,
+        "asset_brand": unregistered.asset_brand,
+        "asset_specification": unregistered.asset_specification,
+        "asset_type_recordcode": unregistered.unregistered_asset_type,
+        "asset_purchase_price": unregistered.estimated_value or Decimal("0"),
+        "asset_purchase_date": unregistered.discovery_date,
+        "asset_entry_date": timezone.now().date(),
+        "asset_storage_recordcode": unregistered.unregistered_asset_storage,
     }
     asset = Asset.objects.create(**asset_data)
 
     # 2. 创建出库记录（S1场景需要先出库再回收）
     outasset_data = {
-        'outasset_asset': asset,
-        'outasset_number': 1,
-        'outasset_date': unregistered.discovery_date,
-        'outasset_type': 'receive',
-        'outasset_description': f'不在账资产出库，来源: {unregistered.unregistered_code}',
+        "asset_recordcode": asset,
+        "outasset_number": 1,
+        "outasset_date": unregistered.discovery_date,
+        "outasset_type": "receive",
+        "outasset_description": f"不在账资产出库，来源: {unregistered.unregistered_code}",
     }
     outasset = OutAsset.objects.create(**outasset_data)
 
     # 3. 设置状态为已回收待发放
     AssetFSM.unregistered_create_and_recycle(asset)
-    asset.save(update_fields=['asset_current_status'])
+    asset.save(update_fields=["asset_current_status"])
 
     # 4. 创建回收记录
     recycle_data = {
-        'recycle_outasset': outasset,
-        'recycle_asset_code': asset,
-        'recycle_asset_number': 1,
-        'operator_employee': operator_jobcode,
-        'recycle_asset_date': timezone.now().date(),
-        'recycle_asset_description': f'不在账资产回收，来源: {unregistered.unregistered_code}',
+        "outasset_recordcode": outasset,
+        "asset_recordcode": asset,
+        "recycle_asset_number": 1,
+        "operator_employee": operator_jobcode,
+        "recycle_asset_date": timezone.now().date(),
+        "recycle_asset_description": f"不在账资产回收，来源: {unregistered.unregistered_code}",
     }
-    recycle_asset = RecycleAsset.objects.create(**recycle_data)
+    asset_recordcode = RecycleAsset.objects.create(**recycle_data)
 
     # 4. 更新关联
     unregistered.result_asset = asset
-    unregistered.result_recycle_asset = recycle_asset
+    unregistered.result_asset_recordcode = asset_recordcode
 
     return {
-        'action': 'create_and_recycle',
-        'asset_code': asset.asset_code,
-        'recycle_id': recycle_asset.id,
+        "action": "create_and_recycle",
+        "asset_code": asset.asset_code,
+        "recycle_id": asset_recordcode.id,
         # 【AGENTS 规范 - 业务唯一编码】返回回收记录编码供前端使用
-        'recordcode': recycle_asset.recordcode,
+        "recordcode": asset_recordcode.recordcode,
     }
 
 
-def _handle_s1_create_and_damaged(
-    unregistered: UnregisteredAsset,
-    operator_jobcode: str
-) -> Dict[str, Any]:
+def _handle_s1_create_and_damaged(unregistered: UnregisteredAsset, operator_jobcode: str) -> dict[str, Any]:
     """
     S1场景：创建资产并进入待报废
 
@@ -602,47 +561,44 @@ def _handle_s1_create_and_damaged(
 
     # 1. 创建资产
     asset_data = {
-        'asset_code': _generate_asset_code(),
-        'asset_name': unregistered.asset_name,
-        'asset_brand': unregistered.asset_brand,
-        'asset_specification': unregistered.asset_specification,
-        'asset_type': unregistered.unregistered_asset_type,
-        'asset_purchase_price': unregistered.estimated_value or Decimal('0'),
-        'asset_purchase_date': unregistered.discovery_date,
-        'asset_entry_date': timezone.now().date(),
-        'asset_storage': unregistered.unregistered_asset_storage,
+        "asset_code": _generate_asset_code(),
+        "asset_name": unregistered.asset_name,
+        "asset_brand": unregistered.asset_brand,
+        "asset_specification": unregistered.asset_specification,
+        "asset_type_recordcode": unregistered.unregistered_asset_type,
+        "asset_purchase_price": unregistered.estimated_value or Decimal("0"),
+        "asset_purchase_date": unregistered.discovery_date,
+        "asset_entry_date": timezone.now().date(),
+        "asset_storage_recordcode": unregistered.unregistered_asset_storage,
     }
     asset = Asset.objects.create(**asset_data)
 
     # 2. 设置状态为待报废
     AssetFSM.unregistered_create_and_damaged(asset)
-    asset.save(update_fields=['asset_current_status'])
+    asset.save(update_fields=["asset_current_status"])
 
     # 3. 创建待报废记录
     damaged_data = {
-        'damaged_asset': asset,
-        'damaged_asset_number': 1,
-        'damaged_date': timezone.now().date(),
-        'approval_status': 'pending',
-        'damaged_asset_description': f'不在账资产待报废，来源: {unregistered.unregistered_code}',
+        "asset_recordcode": asset,
+        "damaged_asset_number": 1,
+        "damaged_date": timezone.now().date(),
+        "approval_status": "pending",
+        "damaged_asset_description": f"不在账资产待报废，来源: {unregistered.unregistered_code}",
     }
-    damaged_asset = DamagedAsset.objects.create(**damaged_data)
+    asset_recordcode = DamagedAsset.objects.create(**damaged_data)
 
     # 4. 更新关联
     unregistered.result_asset = asset
-    unregistered.result_damaged_asset = damaged_asset
+    unregistered.result_asset_recordcode = asset_recordcode
 
     return {
-        'action': 'create_and_damaged',
-        'asset_code': asset.asset_code,
-        'damaged_id': damaged_asset.id,
+        "action": "create_and_damaged",
+        "asset_code": asset.asset_code,
+        "damaged_id": asset_recordcode.id,
     }
 
 
-def _handle_s2_supplement_and_recycle(
-    unregistered: UnregisteredAsset,
-    operator_jobcode: str
-) -> Dict[str, Any]:
+def _handle_s2_supplement_and_recycle(unregistered: UnregisteredAsset, operator_jobcode: str) -> dict[str, Any]:
     """
     S2场景：补建出库记录并回收
 
@@ -664,53 +620,50 @@ def _handle_s2_supplement_and_recycle(
 
     asset = unregistered.related_asset
     if not asset:
-        raise AppValidationError(detail='S2场景必须有关联资产')
+        raise AppValidationError(detail="S2场景必须有关联资产")
 
     # 1. 补建出库记录
     outasset_data = {
-        'outasset_asset': asset,
-        'outasset_number': 1,
-        'outasset_date': unregistered.discovery_date,
-        'outasset_type': 'receive',
-        'outasset_description': f'补建出库记录，来源: {unregistered.unregistered_code}',
+        "asset_recordcode": asset,
+        "outasset_number": 1,
+        "outasset_date": unregistered.discovery_date,
+        "outasset_type": "receive",
+        "outasset_description": f"补建出库记录，来源: {unregistered.unregistered_code}",
     }
     outasset = OutAsset.objects.create(**outasset_data)
 
     # 2. 强制回收（使用 select_for_update 加锁）
     asset = Asset.objects.select_for_update().get(pk=asset.pk)
     AssetFSM.force_recycle_from_any(asset)
-    asset.asset_storage = unregistered.unregistered_asset_storage
-    asset.save(update_fields=['asset_current_status', 'asset_storage'])
+    asset.asset_storage_recordcode = unregistered.unregistered_asset_storage
+    asset.save(update_fields=["asset_current_status", "asset_storage_recordcode"])
 
     # 3. 创建回收记录
     recycle_data = {
-        'recycle_outasset': outasset,
-        'recycle_asset_code': asset,
-        'recycle_asset_number': 1,
-        'operator_employee': operator_jobcode,
-        'recycle_asset_date': timezone.now().date(),
-        'recycle_asset_description': f'不在账资产回收（补建出库），来源: {unregistered.unregistered_code}',
+        "outasset_recordcode": outasset,
+        "asset_recordcode": asset,
+        "recycle_asset_number": 1,
+        "operator_employee": operator_jobcode,
+        "recycle_asset_date": timezone.now().date(),
+        "recycle_asset_description": f"不在账资产回收（补建出库），来源: {unregistered.unregistered_code}",
     }
-    recycle_asset = RecycleAsset.objects.create(**recycle_data)
+    asset_recordcode = RecycleAsset.objects.create(**recycle_data)
 
     # 4. 更新关联
     unregistered.result_asset = asset
-    unregistered.result_recycle_asset = recycle_asset
+    unregistered.result_asset_recordcode = asset_recordcode
 
     return {
-        'action': 'supplement_and_recycle',
-        'asset_code': asset.asset_code,
-        'outasset_asset': outasset.recordcode,
-        'recycle_id': recycle_asset.id,
+        "action": "supplement_and_recycle",
+        "asset_code": asset.asset_code,
+        "asset_recordcode": outasset.recordcode,
+        "recycle_id": asset_recordcode.id,
         # 【AGENTS 规范 - 业务唯一编码】返回回收记录编码供前端使用
-        'recordcode': recycle_asset.recordcode,
+        "recordcode": asset_recordcode.recordcode,
     }
 
 
-def _handle_s3_correct_and_recycle(
-    unregistered: UnregisteredAsset,
-    operator_jobcode: str
-) -> Dict[str, Any]:
+def _handle_s3_correct_and_recycle(unregistered: UnregisteredAsset, operator_jobcode: str) -> dict[str, Any]:
     """
     S3场景：修正状态并回收
 
@@ -731,15 +684,15 @@ def _handle_s3_correct_and_recycle(
 
     asset = unregistered.related_asset
     if not asset:
-        raise AppValidationError(detail='S3场景必须有关联资产')
+        raise AppValidationError(detail="S3场景必须有关联资产")
 
     # 1. 创建出库记录（S3场景需要先出库再回收）
     outasset_data = {
-        'outasset_asset': asset,
-        'outasset_number': 1,
-        'outasset_date': unregistered.discovery_date,
-        'outasset_type': 'receive',
-        'outasset_description': f'不在账资产出库（状态修正），来源: {unregistered.unregistered_code}',
+        "asset_recordcode": asset,
+        "outasset_number": 1,
+        "outasset_date": unregistered.discovery_date,
+        "outasset_type": "receive",
+        "outasset_description": f"不在账资产出库（状态修正），来源: {unregistered.unregistered_code}",
     }
     outasset = OutAsset.objects.create(**outasset_data)
 
@@ -748,31 +701,34 @@ def _handle_s3_correct_and_recycle(
     old_status = asset.asset_current_status
 
     AssetFSM.force_recycle_from_any(asset)
-    asset.asset_storage = unregistered.unregistered_asset_storage
-    asset.save(update_fields=['asset_current_status', 'asset_storage'])
+    asset.asset_storage_recordcode = unregistered.unregistered_asset_storage
+    asset.save(update_fields=["asset_current_status", "asset_storage_recordcode"])
 
     # 3. 创建回收记录
     recycle_data = {
-        'recycle_outasset': outasset,
-        'recycle_asset_code': asset,
-        'recycle_asset_number': 1,
-        'operator_employee': operator_jobcode,
-        'recycle_asset_date': timezone.now().date(),
-        'recycle_asset_description': f'不在账资产回收（状态修正 {old_status}→recycled_pending），来源: {unregistered.unregistered_code}',
+        "outasset_recordcode": outasset,
+        "asset_recordcode": asset,
+        "recycle_asset_number": 1,
+        "operator_employee": operator_jobcode,
+        "recycle_asset_date": timezone.now().date(),
+        "recycle_asset_description": (
+            f"不在账资产回收（状态修正 {old_status}→recycled_pending），"
+            f"来源: {unregistered.unregistered_code}"
+        ),
     }
-    recycle_asset = RecycleAsset.objects.create(**recycle_data)
+    asset_recordcode = RecycleAsset.objects.create(**recycle_data)
 
     # 3. 更新关联
     unregistered.result_asset = asset
-    unregistered.result_recycle_asset = recycle_asset
+    unregistered.result_asset_recordcode = asset_recordcode
 
     return {
-        'action': 'correct_and_recycle',
-        'asset_code': asset.asset_code,
-        'old_status': old_status,
-        'recycle_id': recycle_asset.id,
+        "action": "correct_and_recycle",
+        "asset_code": asset.asset_code,
+        "old_status": old_status,
+        "recycle_id": asset_recordcode.id,
         # 【AGENTS 规范 - 业务唯一编码】返回回收记录编码供前端使用
-        'recordcode': recycle_asset.recordcode,
+        "recordcode": asset_recordcode.recordcode,
     }
 
 
@@ -780,11 +736,11 @@ def _handle_s3_correct_and_recycle(
 # 审计日志说明
 # ===================================================================
 # 所有审计日志通过 audit_adapter 模块记录
-# 导入路径: from .audit_adapter import UnregisteredAssetAuditAdapter
-# 
+# 导入路径: from apps.unregisteredasset.audit_adapter import UnregisteredAssetAuditAdapter
+#
 # 支持的操作类型：
 # - log_create(): 记录创建操作
-# - log_update(): 记录更新操作  
+# - log_update(): 记录更新操作
 # - log_approve(): 记录审批操作
 # - log_delete(): 记录删除操作
 #

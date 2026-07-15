@@ -12,7 +12,7 @@
 
 使用方式:
     from apps.assetmanagement.state_machine import AssetFSM
-    
+
     # 在Service层调用
     with transaction.atomic():
         asset = Asset.objects.select_for_update().get(pk=asset.pk)
@@ -20,6 +20,7 @@
         asset.save()
 """
 
-from .core import AssetFSM, AssetState, InvalidTransitionError
+from apps.assetmanagement.state_machine.core import AssetFSM, AssetState, InvalidTransitionError
 
-__all__ = ['AssetFSM', 'AssetState', 'InvalidTransitionError']
+
+__all__ = ["AssetFSM", "AssetState", "InvalidTransitionError"]

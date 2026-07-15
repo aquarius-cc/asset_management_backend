@@ -40,6 +40,9 @@ plaintext
 ┌─────────────────────┴───────────────────────────────────┐
 │              Core 基础层 (公共支撑)               │
 │  • BaseModel：软删除、时间戳、基础字段        │
+│  • AuditLog：通用审计日志模型（非资产操作）    │
+│  • GenericAuditService：通用审计日志服务       │
+│  • RequestContextMiddleware：请求上下文（IP等） │
 │  • 全局异常处理、权限基类、审计工具基类        │
 └─────────────────────┬───────────────────────────────────┘
                       │
@@ -68,6 +71,8 @@ plaintext
 | `assetmanagement`    | 资产全生命周期管理：档案、入库、出库、领用、外借、报废、盘点、调拨；维护资产状态机；生成审计日志 | 仅依赖 `core`、`utils`；需用户 / 组织数据时，**只能调用 `authusermanagement`/`usermanagement` 暴露的 Service 接口，禁止直接导入其 Model** |
 | `authusermanagement` | 认证、授权、JWT 管理、全局权限策略、角色定义；支持 SSO 扩展               | 可依赖 `core`、`utils`、`usermanagement`（获取用户 / 组织数据）                                                           |
 | `usermanagement`     | 用户、部门、组织架构管理；为数据行级隔离提供组织关系支撑                     | 仅依赖 `core`、`utils`                                                                                         |
+| `unregisteredasset`  | 未登记资产管理：不在账资产的发现、核实、处理全流程                              | 依赖 `core`、`utils`；跨应用引用 `assetmanagement`/`usermanagement` 模型（通过字符串引用）                                             |
+| `dashboard`          | 仪表盘统计、概览数据                                    | 依赖 `assetmanagement` 的 Selector 层                                                                        |
 
 **路由规则**：各 App 内部定义 `urls.py`，在 `config/urls.py` 中通过 `include` 聚合，统一挂载至 `/api/v1/` 等版本路径下。
 
@@ -75,20 +80,21 @@ plaintext
 
 表格
 
-| 文件               | 核心职责                       | 强制约束（🔴 红线）                                                                                                                                                                                                                                                                                | 依赖方向                                                                             |
+| 文件/目录               | 核心职责                       | 强制约束（🔴 红线）                                                                                                                                                                                                                                                                                | 依赖方向                                                                             |
 | ---------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| `models.py`      | 定义数据模型、表结构、字段约束            | 1. 必须继承 `core.models.BaseModel`<br><br>2. 所有字段加 `verbose_name` 中文注释<br><br>3. 表名以 `am_` 为前缀（资产模块）<br><br>4. 资产模型必须含全局唯一 `asset_code` 字段<br><br>5. 默认管理器必须过滤 `is_delete=False`                                                                                                              | 仅依赖 `core`、`utils`，无其他内部依赖                                                       |
-| `serializers.py` | DRF 序列化、数据校验、数据转换          | 1. 必须区分**创建、更新、列表、详情**四种序列化器<br><br>2. 复杂业务校验（如状态流转前置校验）必须在此层完成<br><br>3. 敏感字段需设置 `write_only=True` 或脱敏                                                                                                                                                                                    | 仅依赖 `models.py`、`core`、`utils`                                                   |
-| `services.py`    | **写操作**（增、删、改）业务逻辑         | 1. 所有写函数必须加 `@transaction.atomic` 事务注解<br><br>2. 必须同步生成审计日志<br><br>3. 必须实现幂等性（防止重复提交）<br><br>4. 禁止直接返回 HttpResponse，仅返回数据对象                                                                                                                                                                | 依赖 `models.py`、`serializers.py`、`signals.py`（间接）、`core`、`utils`                  |
-| `selectors.py`   | **读操作**（查询、统计、导出）业务逻辑      | 1. 纯查询，**禁止修改任何数据状态**<br><br>2. 必须优化 N+1 查询（使用 `select_related`/`prefetch_related`）<br><br>3. 默认必须加**数据权限过滤**（行级隔离）                                                                                                                                                                        | 依赖 `models.py`、`core`、`utils`                                                    |
-| `signals.py`     | 非核心后置任务（审计日志、状态同步）         | 1. 仅允许使用 `post_save`/`post_delete` 信号<br><br>2. 必须判断 `created` 区分新增 / 更新<br><br>3. 必须全量 `try-except` 捕获异常，**禁止影响主流程**<br><br>4. 严禁在信号中写核心业务逻辑（如修改库存、状态）                                                                                                                                    | 依赖 `models.py`、`core`、`utils`                                                    |
-| `views.py`       | HTTP 协议层处理（请求接收、权限校验、响应返回） | 1. 优先使用 `ModelViewSet`/`GenericViewSet`<br><br>2. 必须显式配置 `authentication_classes`/`permission_classes`<br><br>3. 重写 `get_queryset` 实现**行级数据隔离**<br><br>4. 所有对象级操作必须执行 `check_object_permissions`<br><br>5. 仅调用 `Service`/`Selector`，**禁止在视图中写业务逻辑**<br><br>6. 必须加 `drf-spectacular` 接口文档注解 | 依赖 `services.py`、`selectors.py`、`serializers.py`、`permissions.py`、`core`、`utils` |
+| `models/`        | 按模型拆分的数据模型包（每个模型独立文件）<br>含 `__init__.py` 统一导出 | 1. 每个模型文件必须继承 `core.models.BaseModel`<br>2. `__init__.py` 统一导出所有模型，外部只从包导入<br>3. QuerySet 类内联到对应模型文件 | 仅依赖 `core`、`utils`、`usermanagement.models` |
+| `serializers/`   | 按业务域拆分的序列化器包            | 1. 每个模型必须区分 **List/Create/Update/Detail** 四种序列化器<br>2. 复杂业务校验必须在此层完成<br>3. 敏感字段需设置 `write_only=True`                                                                                                                                                                                    | 仅依赖 `models/`、`core`、`utils`                                                   |
+| `services/`      | 按业务域拆分的**写操作**服务包       | 1. 所有写函数必须加 `@transaction.atomic` 事务注解<br>2. 必须同步生成审计日志<br>3. 必须实现幂等性<br>4. 禁止直接返回 HttpResponse，仅返回数据对象                                                                                                                                                                | 依赖 `models/`、`core`、`utils`                  |
+| `selectors/`     | 按业务域拆分的**读操作**查询包       | 1. 纯查询，**禁止修改任何数据状态**<br>2. 必须优化 N+1 查询<br>3. 默认必须加**数据权限过滤**                                                                                                                                                                        | 依赖 `models/`、`core`、`utils`                                                    |
+| `views.py`       | HTTP 协议层处理（请求接收、权限校验、响应返回） | 1. 优先使用 `ModelViewSet`/`GenericViewSet`<br>2. 必须显式配置 `authentication_classes`/`permission_classes`<br>3. 重写 `get_queryset` 实现**行级数据隔离**<br>4. 仅调用 `Service`/`Selector`，**禁止在视图中写业务逻辑**<br>5. 必须加 `drf-spectacular` 接口文档注解 | 依赖 `services/`、`selectors/`、`serializers/`、`permissions.py`、`core`、`utils` |
 | `permissions.py` | 自定义业务权限类                   | 实现对象级 `check_object_permissions`，禁止越权访问                                                                                                                                                                                                                                                    | 依赖 `core`、`utils`                                                                |
 | `urls.py`        | 路由定义                       | 挂载 ViewSet，定义接口路径，统一版本前缀                                                                                                                                                                                                                                                                   | 依赖 `views.py`                                                                    |
 
+> **目录结构（当前实际）**：`models/`（13 个模型文件）、`serializers/`（7 个序列化器文件）、`selectors/`（6 个选择器文件）、`services/`（11 个服务文件），另有旧的单文件兼容层（`models.py`/`serializers.py`/`selectors.py`）保持向后兼容导入。
+
 **依赖方向（🔴 绝对禁止反向 / 循环）**：
 
-`Model` → `Signals` → `Serializer` → `Service/Selector` → `View`
+`Model` → `Serializer` → `Service/Selector` → `View`
 
 ### 2.3 `core/` – 公共基础层（全局支撑）
 
@@ -96,7 +102,7 @@ plaintext
 
 | 组件          | 核心说明                                                                                                                                          | 约束                              |
 | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| `BaseModel` | 所有业务模型的基类，提供：<br><br>- `id`（主键）<br><br>- `create_time`/`update_time`（自动时间戳）<br><br>- `is_delete`（软删除标记）<br><br>重写 `save()`/`delete()` 实现软删除逻辑 | 所有业务模型必须继承，禁止重复定义公共字段           |
+| `BaseModel` | 所有业务模型的基类，提供：<br><br>- `recordcode`（全局唯一编码，用于外键引用）<br><br>- `created_at`/`updated_at`（自动时间戳）<br><br>- `is_active`（激活标记）<br><br>- `is_deleted`（软删除标记）<br><br>重写 `save()`/`delete()` 实现软删除逻辑和 recordcode 自动生成 | 所有 `assetmanagement` 模型必须继承。`Department`、`Employee`、`AssetOperationLog` 不继承此基类（直接继承 `models.Model`）           |
 | 全局异常类       | 自定义业务异常（如 `AssetStatusError`、`PermissionDeniedError`）                                                                                         | 由全局 DRF 异常处理器统一转换为标准响应格式        |
 | 工具基类        | 分页基类、审计日志帮助函数、权限基类等                                                                                                                           | 可被各 App 继承或调用，禁止在 `core` 中写业务逻辑 |
 
@@ -110,14 +116,15 @@ plaintext
 
 ### 3.1 读写分离：Service / Selector 分层
 
-✅ **决策**：将数据库写操作（增删改）与读操作（查询）彻底分离，分别放入 `services.py` 和 `selectors.py`。
+✅ **决策**：将数据库写操作（增删改）与读操作（查询）彻底分离，分别放入 `services/` 包和 `selectors/` 包（按业务域拆分为独立文件）。
 
 💡 **原因**：降低代码副作用，便于测试（读操作无需事务）、优化（读操作可单独优化索引 / 缓存），避免 AI 或新人混淆读写逻辑。
 
 🔨 **执行规则**：
 
-- `services.py`：仅写操作，必须带 `@transaction.atomic`，返回修改后的数据对象。
-- `selectors.py`：纯读操作，禁止调用任何写函数，禁止修改数据。
+- `services/`：仅写操作，必须带 `@transaction.atomic`，返回修改后的数据对象。按业务域拆分（asset_service.py、out_asset_service.py 等），`__init__.py` 统一导出。
+- `selectors/`：纯读操作，禁止调用任何写函数，禁止修改数据。按业务域拆分（asset_selector.py、outasset_selector.py 等）。
+- 旧的 `services.py` / `selectors.py` 单文件保留作为向后兼容导入层。
 
 ### 3.2 软删除与 BaseModel 基类
 
@@ -128,30 +135,34 @@ plaintext
 🔨 **执行规则**：
 
 - 所有模型继承 `core.models.BaseModel`。
-- 默认管理器自动过滤 `is_delete=False`，查询已删除数据需手动显式包含。
+- 默认管理器自动过滤 `is_deleted=False`，查询已删除数据需手动显式包含。
 
-### 3.3 资产编码全局唯一且不可变
+### 3.3 资产编码与记录编码
 
-✅ **决策**：`assetmanagement.Asset` 模型的 `asset_code` 字段全局唯一、不可修改。
+✅ **决策**：`Asset` 模型使用双重编码体系：
 
-💡 **原因**：对接外部系统（如财务、OA）及内部流程需要唯一标识，业务规则不允许资产编码变更。
+- `recordcode`：BaseModel 提供的全局唯一编码，作为外键引用目标（如 `AssetType`、`Storage`、`Employee` 等的 FK `to_field`）。
+- `asset_code`：业务资产编码，全局唯一、不可修改，用于前端展示和对外对接。
+
+💡 **原因**：`recordcode` 解决外键在软删除后仍能唯一引用的问题，`asset_code` 满足业务展示和外部系统对接需求。
 
 🔨 **执行规则**：
 
-- 字段定义：`asset_code = models.CharField(unique=True, editable=False, max_length=50, verbose_name="资产编码")`。
-- 编码生成：在 `Service` 层的事务内通过工具函数生成，确保唯一性。
+- `recordcode`：在 BaseModel `save()` 中自动生成（Asset 使用 `Entry` 前缀），不可手动修改。
+- `asset_code`：定义为 `CharField(unique=True, editable=False)`，在 Service 层事务内通过工具函数生成。
+- 所有外键 `to_field` 必须指向 `recordcode`，禁止指向业务编码。
 
 ### 3.4 审计日志非侵入式记录
 
-✅ **决策**：通过信号 + Service 补充的方式记录审计日志，不嵌套在核心业务代码中。
+✅ **决策**：审计日志通过 Service 层显式调用 `AssetOperationLog` 记录，不使用 Django 信号。
 
-💡 **原因**：避免核心业务代码被审计逻辑污染，降低耦合，便于维护。
+💡 **原因**：避免信号机制的隐式耦合，审计日志的写入时机和内容完全由 Service 层控制，更易测试和维护。
 
 🔨 **执行规则**：
 
-- 基础变更：通过 `signals.post_save`/`post_delete` 监听核心模型变更，自动记录快照。
-- 复杂关联变更：在 `Service` 层显式调用审计工具函数记录，但 Service 不关心日志的具体存储实现。
-- 信号必须全量捕获异常，禁止影响主流程。
+- 所有资产核心数据变更（创建、出库、回收、报废等）必须在 Service 层显式调用审计工具函数写入 `AssetOperationLog`。
+- `AssetOperationLog` 是只读表，不允许修改和删除。
+- 信号机制（`signals.py`）已移除，禁止使用 `post_save`/`post_delete` 信号写审计日志。
 
 ### 3.5 强制类型标注与静态检查
 
@@ -260,3 +271,4 @@ plaintext
 4. **用户引用必须通过 request.user**：任何对当前用户的引用，必须通过 `request.user` 获取，**严禁从数据库全局查询用户、硬编码用户 ID**。
 5. **审计日志不可遗漏**：任何资产核心数据的变更，必须同步生成审计日志，**禁止无审计留痕的变更**。
 6. **必须通过自检清单**：代码提交前必须对照 `AGENTS.md` 的提交前自检清单全量勾选，**禁止跳过自检**。
+7. **Department/Employee 现已继承 BaseModel**：与 `assetmanagement` 模型一致，统一使用 `SoftDeleteManager`、`recordcode`、`is_active`、`created_at`/`updated_at`。`AssetOperationLog` 不继承 BaseModel，是只读表。

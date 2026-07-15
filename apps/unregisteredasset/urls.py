@@ -19,21 +19,17 @@
 
 from rest_framework.routers import DefaultRouter
 
-from .views import UnregisteredAssetViewSet
+from apps.unregisteredasset.views import UnregisteredAssetViewSet
 
 
-app_name = 'unregisteredasset'
+app_name = "unregisteredasset"
 
 # 创建路由器
 router = DefaultRouter()
 
 # 注册视图集
 # lookup 参数指定 URL 中的参数名，这里使用 unregistered_code 作为 lookup field
-router.register(
-    r'unregistered-assets',
-    UnregisteredAssetViewSet,
-    basename='unregisteredasset'
-)
+router.register(r"unregistered-assets", UnregisteredAssetViewSet, basename="unregisteredasset")
 
 # URL 模式
 urlpatterns = router.urls

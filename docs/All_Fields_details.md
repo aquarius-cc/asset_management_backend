@@ -29,6 +29,28 @@ models.Model
               ├── DamagedAsset
               ├── WasteAsset
               ├── HardDiskSN
+              ├── UnregisteredAsset
+              ├── Department
+              └── Employee
+
+models.Model
+  └── AssetOperationLog（不继承BaseModel，只读表）
+
+AbstractBaseUser + PermissionsMixin
+  └── AuthUser
+```
+models.Model
+  └── TimestampModel (abstract)
+        └── BaseModel (abstract)
+              ├── Storage
+              ├── AssetType
+              ├── Contract
+              ├── Asset
+              ├── OutAsset
+              ├── RecycleAsset
+              ├── DamagedAsset
+              ├── WasteAsset
+              ├── HardDiskSN
               └── UnregisteredAsset
 
 models.Model
@@ -96,7 +118,7 @@ AbstractBaseUser + PermissionsMixin
 | `recordcode` | CharField | `max_length=32, unique=True, blank=True, null=True` | 后端生成的全局唯一编码 |
 | `contract_code` | CharField | `max_length=20` | 合同唯一编码 |
 | `contract_name` | CharField | `max_length=100` | 合同名称 |
-| `contract_type` | CharField | `max_length=50, choices=CONTRACT_TYPE_CHOICES, default="purchase", blank=True, null=True` | 合同类型 |
+| `contract_type` | CharField | `max_length=30, choices=CONTRACT_TYPE_CHOICES, default="tender_procurement", blank=True, null=True` | 合同类型 |
 | `contract_price` | DecimalField | `max_digits=10, decimal_places=2` | 合同总金额（元） |
 | `contract_supplier` | CharField | `max_length=100` | 合同供应商 |
 | `contract_signing_date` | DateField | | 合同签署日期 |
@@ -109,7 +131,7 @@ AbstractBaseUser + PermissionsMixin
 | `contract_paid_price` | DecimalField | `max_digits=10, decimal_places=2, default=0.00, blank=True, null=True` | 累计已付金额 |
 | `contract_paid_record` | TextField | `blank=True, null=True` | 付款记录 |
 
-**Choices**: `CONTRACT_TYPE_CHOICES = [("purchase", "采购合同"), ("service", "服务合同"), ("information_construction", "信息化建设合同"), ("direct_procurement", "直接采购合同")]`
+**Choices**: `CONTRACT_TYPE_CHOICES = [("tender_procurement", "招标采购合同"), ("service", "服务合同"), ("information_construction", "信息化建设合同"), ("direct_procurement", "直接采购合同")]`
 
 **Choices**: `CONTRACT_SETTLEMENT_CHOICES = [("pending", "待结算"), ("settled", "已结算")]`
 
@@ -187,6 +209,7 @@ AbstractBaseUser + PermissionsMixin
 | `recycle_asset_code` | **ForeignKey** | → Asset, `to_field="recordcode"`, `related_name="recycle_assets"`, `on_delete=PROTECT` | 回收的资产 |
 | `recycle_asset_number` | IntegerField | `default=1` | 回收数量 |
 | `operator_employee` | **ForeignKey** | → Employee, `to_field="recordcode"`, `related_name="recycle_assets_operator"`, `on_delete=SET_NULL`, `null=True, blank=True` | 操作人 |
+| `recycle_type` | CharField | `max_length=50, blank=True, null=True` | 回收类型/原因 |
 | `recycle_asset_date` | DateField | | 回收日期 |
 | `recycle_asset_description` | TextField | `blank=True, null=True` | 回收说明 |
 
@@ -225,20 +248,24 @@ AbstractBaseUser + PermissionsMixin
 
 ### 9. HardDiskSN（硬盘序列号管理）
 
-**db_table**: `am_hard_disk_sn` | **继承**: `BaseModel`
+**db_table**: `am_hard_disk_sn` | **继承**: `BaseModel` | **RECORDCODE_PREFIX**: `HDSN`
 
 | 字段名 | 字段类型 | 参数 | 说明 |
-|--------|---------|------|------|
-| `recordcode` | CharField | `max_length=32, unique=True, blank=True, null=True` | 后端生成的全局唯一编码 |
-| `harddisksn_asset` | **ForeignKey** | → Asset, `to_field="recordcode"`, `related_name="harddisk_sns"`, `on_delete=CASCADE` | 关联资产 |
-| `harddisk_number` | IntegerField | | 硬盘数量 |
-| `harddisk_no` | IntegerField | `default=1` | 硬盘序号 |
-| `harddisk_sn_code` | CharField | `max_length=100, unique=True` | 硬盘序列号 |
-| `harddisk_type` | CharField | `max_length=100, choices=[("HDD","HDD"),("SSD","SSD"),("NVMe","NVMe"),("Other","Other")], default="HDD", blank=True, null=True` | 硬盘类型 |
-| `harddisk_sn_description` | TextField | `blank=True, null=True` | 硬盘描述 |
-| `harddisk_status` | CharField | `max_length=10, choices=HARDDISK_STATUS_CHOICES, default="active"` | 硬盘状态 |
+|:---|:---|:---|:---|
+| `recordcode` | CharField | `max_length=64, unique=True, blank=True, null=True` | 后端生成的全局唯一编码 |
+| `asset_recordcode` | **ForeignKey** | → Asset, `to_field="recordcode"`, `related_name="harddisk_sns"`, `on_delete=PROTECT` | 关联资产 |
+| `harddisk_sn_code` | CharField | `max_length=100` | 硬盘序列号 |
+| `harddisk_type` | CharField | `max_length=20, choices=HARDDISK_TYPE_CHOICES, default="HDD", blank=True` | 硬盘类型 |
+| `harddisk_capacity` | CharField | `max_length=20, default="", blank=True` | 硬盘容量 |
+| `harddisk_status` | CharField | `max_length=20, choices=HARDDISK_STATUS_CHOICES, default="active"` | 硬盘状态 |
+| `harddisk_description` | TextField | `blank=True, default=""` | 补充说明 |
+| `version` | IntegerField | `default=1` | 乐观锁版本号 |
 
-**Choices**: `HARDDISK_STATUS_CHOICES = [("active", "正常"), ("repair", "维修"), ("scrap", "报废"), ("lost", "丢失"), ("damaged", "损坏")]`
+**Choices**:
+- `HARDDISK_TYPE_CHOICES = [("HDD", "HDD"), ("SSD", "SSD"), ("NVMe", "NVMe"), ("Other", "其他")]`
+- `HARDDISK_STATUS_CHOICES = [("active", "正常"), ("repair", "维修"), ("scrap", "报废"), ("lost", "丢失"), ("damaged", "损坏")]`
+
+**约束**: `UNIQUE(harddisk_sn_code)` where `is_deleted=False`
 
 ---
 
@@ -261,15 +288,39 @@ AbstractBaseUser + PermissionsMixin
 | `related_record_type` | CharField | `max_length=20, blank=True, null=True` | 关联记录类型 |
 | `ip_address` | GenericIPAddressField | `blank=True, null=True` | 操作IP |
 
-**Choices**: `OPERATION_TYPE_CHOICES = [("create","创建"),("update","更新"),("delete","删除"),("out","出库"),("recycle","回收"),("damaged","待报废"),("waste","已报废"),("approve","审批"),("transfer","转移")]`
+**Choices**: `OPERATION_TYPE_CHOICES = [("create","创建"),("update","更新"),("delete","删除"),("out","出库"),("recycle","回收"),("damaged","待报废"),("waste","已报废"),("approve","审批"),("transfer","转移"),("state_change","状态变更")]`
 
 **特殊约束**: `save()` 中若已存在记录则抛 `PermissionError` 阻止更新；`delete()` 直接抛 `PermissionError` 阻止删除。
 
 ---
 
+### 11. AuditLog（通用审计日志 — 只读表）
+
+**db_table**: `core_audit_log` | **继承**: `models.Model` | **ordering**: `["-operation_time"]`
+
+用于记录非资产操作的审计日志（部门、员工、用户、未登记资产等）。
+
+| 字段名 | 字段类型 | 参数 | 说明 |
+|--------|---------|------|------|
+| `record_code` | CharField | `max_length=64, db_index=True` | 被操作记录的唯一编码 |
+| `app_label` | CharField | `max_length=50, db_index=True` | 操作所属应用 |
+| `operation_type` | CharField | `max_length=20, choices=OPERATION_TYPE_CHOICES, db_index=True` | 操作类型 |
+| `logging_id` | CharField | `max_length=50, unique=True, db_index=True, blank=True` | 日志唯一标识 |
+| `operation_time` | DateTimeField | `auto_now_add=True, db_index=True` | 操作时间 |
+| `operator_jobcode` | CharField | `max_length=20, blank=True, null=True` | 操作人工号 |
+| `operator_name` | CharField | `max_length=100, blank=True, null=True` | 操作人姓名 |
+| `before_data` | JSONField | `blank=True, null=True` | 变更前数据 |
+| `after_data` | JSONField | `blank=True, null=True` | 变更后数据 |
+| `description` | TextField | | 操作描述 |
+| `ip_address` | GenericIPAddressField | `blank=True, null=True` | 操作IP |
+
+**Choices**: `OPERATION_TYPE_CHOICES = [("create","创建"),("update","更新"),("delete","删除"),("approve","审批"),("login","登录"),("logout","登出"),("permission_change","权限变更"),("state_change","状态变更")]`
+
+---
+
 ### 11. Department（部门管理）
 
-**db_table**: `department_database_table` | **继承**: `models.Model`（不继承BaseModel） | **ordering**: `['sort_order', 'department_code']`
+**db_table**: `department_database_table` | **继承**: `BaseModel` | **ordering**: `['sort_order', 'department_code']`
 
 | 字段名 | 字段类型 | 参数 | 说明 |
 |--------|---------|------|------|
@@ -280,13 +331,16 @@ AbstractBaseUser + PermissionsMixin
 | `parent_code` | CharField | `max_length=20, null=True, blank=True` | 上级部门编码 |
 | `level` | IntegerField | `default=0` | 部门层级 |
 | `sort_order` | IntegerField | `default=0` | 排序顺序 |
+| `is_active` | BooleanField | `default=True` | 是否启用 |
 | `is_deleted` | BooleanField | `default=False` | 软删除标记 |
+| `created_at` | DateTimeField | `auto_now_add=True` | 创建时间 |
+| `updated_at` | DateTimeField | `auto_now=True` | 更新时间 |
 
 ---
 
 ### 12. Employee（员工管理）
 
-**db_table**: `user_database_table` | **继承**: `models.Model`（不继承BaseModel） | **ordering**: `['sort_order', 'employee_jobcode']`
+**db_table**: `user_database_table` | **继承**: `BaseModel` | **ordering**: `['sort_order', 'employee_jobcode']`
 
 | 字段名 | 字段类型 | 参数 | 说明 |
 |--------|---------|------|------|
@@ -299,7 +353,10 @@ AbstractBaseUser + PermissionsMixin
 | `employee_location` | CharField | `max_length=100` | 员工位置 |
 | `employee_description` | TextField | `blank=True, null=True` | 员工描述 |
 | `sort_order` | IntegerField | `default=0` | 排序顺序 |
+| `is_active` | BooleanField | `default=True` | 是否启用 |
 | `is_deleted` | BooleanField | `default=False` | 软删除标记 |
+| `created_at` | DateTimeField | `auto_now_add=True` | 创建时间 |
+| `updated_at` | DateTimeField | `auto_now=True` | 更新时间 |
 
 **Choices**: `EMPLOYEE_STATUS_CHOICES = [('active', '在职员工'), ('left', '离职员工'), ('retirement', '退休员工')]`
 
@@ -374,7 +431,7 @@ AbstractBaseUser + PermissionsMixin
 | DamagedAsset | approver | Employee | recordcode | SET_NULL |
 | WasteAsset | waste_asset | Asset | recordcode | DO_NOTHING (OneToOne) |
 | WasteAsset | waste_damaged_asset | DamagedAsset | id | DO_NOTHING (OneToOne) |
-| HardDiskSN | harddisksn_asset | Asset | recordcode | CASCADE |
+| HardDiskSN | asset_recordcode | Asset | recordcode | PROTECT |
 | Employee | employee_department | Department | recordcode | SET_NULL |
 | UnregisteredAsset | discovery_person | Employee | recordcode | DO_NOTHING |
 | UnregisteredAsset | unregistered_asset_type | AssetType | recordcode | SET_NULL |
@@ -454,9 +511,9 @@ AbstractBaseUser + PermissionsMixin
 
 #### RecycleAssetSerializer
 - **模型**: RecycleAsset | **继承**: ModelSerializer
-- **字段**: id, recordcode, recycle_asset_date, recycle_asset_code(FK), recycle_outasset(SlugRelated, slug_field="recordcode"), recycle_asset_number, is_active
+- **字段**: id, recordcode, recycle_asset_date, recycle_asset_code(FK), recycle_outasset(SlugRelated, slug_field="recordcode"), recycle_asset_number, recycle_type, is_active
 - **额外只读字段**: recycle_asset_name, storage_name, storage_code, using_person_name, recycle_person_name, using_person_jobcode, recycle_person_jobcode
-- **write_only字段**: recycle_asset_recycle_person_jobcode(SlugRelated), recycle_asset_storage_code(SlugRelated)
+- **write_only字段**: recycle_asset_recycle_person_jobcode(SlugRelated), recycle_asset_storage(SlugRelated)
 
 #### DamagedAssetSerializer
 - **模型**: DamagedAsset | **继承**: ModelSerializer
@@ -505,7 +562,7 @@ AbstractBaseUser + PermissionsMixin
 
 #### RecycleAssetBatchCreateSerializer / RecycleAssetBatchDeleteSerializer
 - **继承**: Serializer
-- **字段**: items(RecycleAssetBatchItemSerializer) / ids
+- **字段**: items(RecycleAssetBatchItemSerializer), recycle_asset_storage(SlugRelated, optional), recycle_asset_recycle_person_jobcode(SlugRelated, optional) / ids
 
 #### OutAssetBatchCreateSerializer / OutAssetBatchDeleteSerializer
 - **继承**: Serializer
@@ -539,8 +596,8 @@ AbstractBaseUser + PermissionsMixin
 
 #### EmployeeSerializer
 - **模型**: Employee | **继承**: ModelSerializer
-- **所有字段**: read_only
-- **额外声明字段**: employee_department_code(SlugRelated, slug_field='department_code'), employee_department_name(SlugRelated, slug_field='department_name'), employee_department_level(IntegerField, source='employee_department.level')
+- **字段**: id, recordcode, employee_jobcode, employee_name, employee_status, employee_department_code(SlugRelated), employee_department_name(SlugRelated), employee_department_level(IntegerField, source='employee_department.level'), employee_phone, employee_location, employee_description, sort_order, is_deleted
+- **注意**: Employee 不继承 BaseModel，没有 is_active/created_at/updated_at 字段
 
 #### EmployeeDetailSerializer
 - **模型**: Employee | **继承**: ModelSerializer
@@ -739,7 +796,7 @@ AbstractBaseUser + PermissionsMixin
 | DELETE | `/api/assets/recycle-assets/{recordcode}/` | 删除 | path: recordcode | message | IsAdminUser |
 | GET | `/api/assets/recycle-assets/by-asset/{recycle_asset_code}/` | 按资产查 | path: recycle_asset_code | RecycleAssetSerializer(分页) | IsAuthenticated |
 | GET | `/api/assets/recycle-assets/by-outasset/{recordcode}/` | 按出库记录查 | path: recordcode | RecycleAssetSerializer | IsAuthenticated |
-| POST | `/api/assets/recycle-assets/batch-create/` | 批量创建 | body: {items: [...]} | {total, success_items, fail_items} | IsAdminUser |
+| POST | `/api/assets/recycle-assets/batch-create/` | 批量创建 | body: {items: [...], recycle_asset_storage, recycle_asset_recycle_person_jobcode} | {total, success_items, fail_items} | IsAdminUser |
 | POST | `/api/assets/recycle-assets/batch-delete/` | 批量删除 | body: {ids: [...]} | {total, success_count, ...} | IsAdminUser |
 
 ---

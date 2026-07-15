@@ -1,10 +1,11 @@
 """
 Django base settings for asset_management project.
 """
-import os
-from pathlib import Path
-from decouple import config
 from datetime import timedelta
+from pathlib import Path
+
+from decouple import config
+
 
 # 项目根目录（asset_management_backend/）
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -31,6 +32,7 @@ else:
 AUTH_USER_MODEL = 'authusermanagement.AuthUser'
 
 INSTALLED_APPS = [
+    'daphne',  # 必须在最前面，启用 ASGI 模式支持 WebSocket
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -46,8 +48,9 @@ INSTALLED_APPS = [
     'drf_spectacular_sidecar',
     'corsheaders',
     'django_filters',
-    # 【修复】django_extensions 仅在 DEBUG=True 时加载
-    'django_extensions' if DEBUG else 'django_extensions',
+    # 【P1-38 修复】移除无意义的条件判断，始终加载 django_extensions
+    'django_extensions',
+    'channels',  # P1-8 WebSocket 实时通知
 
     # Core app
     'core',
@@ -57,6 +60,7 @@ INSTALLED_APPS = [
     'apps.assetmanagement',
     'apps.authusermanagement',
     'apps.unregisteredasset',  # 未登记资产管理
+    'apps.notification',  # P1-8 通知服务
 ]
 
 MIDDLEWARE = [
@@ -64,6 +68,7 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'core.request_context.RequestContextMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -101,7 +106,8 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': config('DB_NAME', default='asset_management_backend'),
         'USER': config('DB_USER', default='root'),
-        'PASSWORD': config('DB_PASSWORD', default='***'),
+        # 【P2-30 修复】默认值改为 None，生产环境必须配置，避免用占位符连接数据库
+        'PASSWORD': config('DB_PASSWORD', default=None),
         'HOST': config('DB_HOST', default='localhost'),
         'PORT': config('DB_PORT', default='3306'),
         'OPTIONS': {
@@ -123,6 +129,7 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+    {'NAME': 'core.password_validators.ComplexPasswordValidator'},
 ]
 
 LANGUAGE_CODE = 'zh-hans'
@@ -157,12 +164,24 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.JSONRenderer',
     ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    # 【修复】全局异常处理器，统一异常响应格式
+    'EXCEPTION_HANDLER': 'core.exception_handler.custom_exception_handler',
+    # 【修复】全局速率限制，防止暴力破解和滥用
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '20/minute',
+        'user': '100/minute',
+        'register': '5/minute',
+    },
 }
 
 # Simple JWT
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=2),
-    'REFRESH_TOKEN_LIFETIME': timedelta(hours=12),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     # 【修复】JWT 配置统一：启用 refresh token 轮换
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
@@ -193,10 +212,6 @@ if CORS_ALLOWED_ORIGINS:
 else:
     CORS_ALLOWED_ORIGINS = []
 
-# 生产环境强制关闭所有跨域（除非 DEBUG=True）
-if not DEBUG and ALLOWED_HOSTS:
-    CORS_ALLOWED_ORIGINS = []
-
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
     'accept', 'accept-encoding', 'authorization', 'content-type',
@@ -211,13 +226,17 @@ LOGGING = {
     'formatters': {
         'verbose': {'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}', 'style': '{'},
         'simple': {'format': '{levelname} {message}', 'style': '{'},
+        'json': {'()': 'core.json_formatter.StructuredJSONFormatter'},
     },
     'handlers': {
         'file': {
             'level': 'INFO',
-            'class': 'logging.FileHandler',
+            # 【修复】使用 RotatingFileHandler 替代 FileHandler，支持日志轮转
+            'class': 'logging.handlers.RotatingFileHandler',
             'filename': BASE_DIR / 'django.log',
-            'formatter': 'verbose',
+            'maxBytes': 1024 * 1024 * 10,  # 10MB
+            'backupCount': 5,
+            'formatter': 'json',
         },
         'console': {
             'level': 'DEBUG',
@@ -269,4 +288,21 @@ SPECTACULAR_SETTINGS = {
     },
     # 【修复】开发环境显示 schema 警告
     "WARNINGS": True if DEBUG else False,
+}
+
+# 【修复 auth.W004】auth_username 使用条件唯一约束(仅激活用户唯一)，
+# 软删除场景下允许已删除用户保留用户名，因此抑制该警告
+SILENCED_SYSTEM_CHECKS = ['auth.W004']
+
+# ============================
+# P1-8 WebSocket 通道层配置
+# 开发环境使用 InMemoryChannelLayer（无需 Redis）
+# 生产环境切换为 RedisChannelLayer
+# ============================
+ASGI_APPLICATION = 'config.asgi.application'
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
 }

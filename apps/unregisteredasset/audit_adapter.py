@@ -16,25 +16,26 @@
 
 【使用方式】
     from .audit_adapter import UnregisteredAssetAuditAdapter
-    
+
     # 记录创建
     UnregisteredAssetAuditAdapter.log_create(unregistered, operator_jobcode)
-    
+
     # 记录更新
     UnregisteredAssetAuditAdapter.log_update(unregistered, before_data, after_data, operator_jobcode)
-    
+
     # 记录审批
     UnregisteredAssetAuditAdapter.log_approve(unregistered, handle_type, result, operator_jobcode)
-    
+
     # 记录删除
     UnregisteredAssetAuditAdapter.log_delete(unregistered, operator_jobcode)
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import TYPE_CHECKING, Any  # 【P1-34 修复】添加 TYPE_CHECKING 导入
+
 
 if TYPE_CHECKING:
-    from .models import UnregisteredAsset
+    from apps.unregisteredasset.models import UnregisteredAsset
 
 # 获取日志记录器
 logger = logging.getLogger(__name__)
@@ -58,13 +59,13 @@ class UnregisteredAssetAuditAdapter:
 
     Example:
         >>> from apps.unregisteredasset.audit_adapter import UnregisteredAssetAuditAdapter
-        >>> 
+        >>>
         >>> # 记录创建
         >>> UnregisteredAssetAuditAdapter.log_create(unregistered, 'EMP001')
-        >>> 
+        >>>
         >>> # 记录审批
         >>> UnregisteredAssetAuditAdapter.log_approve(
-        ...     unregistered, 
+        ...     unregistered,
         ...     'create_and_recycle',
         ...     {'asset_code': 'AST001'},
         ...     'ADMIN001'
@@ -72,11 +73,7 @@ class UnregisteredAssetAuditAdapter:
     """
 
     @staticmethod
-    def log_create(
-        unregistered: 'UnregisteredAsset',
-        operator_jobcode: str,
-        operator_name: Optional[str] = None
-    ) -> None:
+    def log_create(unregistered: "UnregisteredAsset", operator_jobcode: str, operator_name: str | None = None) -> None:
         """
         记录未登记资产创建操作
 
@@ -92,32 +89,32 @@ class UnregisteredAssetAuditAdapter:
             >>> UnregisteredAssetAuditAdapter.log_create(unregistered, 'EMP001')
         """
         try:
-            from apps.assetmanagement.operation_log_service import OperationLogService
+            from apps.assetmanagement.services.operation_log_service import OperationLogService
 
             OperationLogService.log_operation(
                 asset_code=unregistered.unregistered_code,
-                operation_type='create',
-                description=f'创建未登记资产: {unregistered.asset_name}',
+                operation_type="create",
+                description=f"创建未登记资产: {unregistered.asset_name}",
                 operator_jobcode=operator_jobcode,
                 operator_name=operator_name,
                 after_data={
-                    'unregistered_code': unregistered.unregistered_code,
-                    'scenario_type': unregistered.scenario_type,
-                    'asset_name': unregistered.asset_name,
-                    'discovery_location': unregistered.discovery_location,
-                }
+                    "unregistered_code": unregistered.unregistered_code,
+                    "scenario_type": unregistered.scenario_type,
+                    "asset_name": unregistered.asset_name,
+                    "discovery_location": unregistered.discovery_location,
+                },
             )
         except Exception as e:
             # 记录日志异常，不影响主流程
-            logger.error(f'记录未登记资产创建日志失败: {e}', exc_info=True)
+            logger.error(f"记录未登记资产创建日志失败: {e}", exc_info=True)
 
     @staticmethod
     def log_update(
-        unregistered: 'UnregisteredAsset',
-        before_data: Dict[str, Any],
-        after_data: Dict[str, Any],
+        unregistered: "UnregisteredAsset",
+        before_data: dict[str, Any],
+        after_data: dict[str, Any],
         operator_jobcode: str,
-        operator_name: Optional[str] = None
+        operator_name: str | None = None,
     ) -> None:
         """
         记录未登记资产更新操作
@@ -141,27 +138,27 @@ class UnregisteredAssetAuditAdapter:
             ... )
         """
         try:
-            from apps.assetmanagement.operation_log_service import OperationLogService
+            from apps.assetmanagement.services.operation_log_service import OperationLogService
 
             OperationLogService.log_operation(
                 asset_code=unregistered.unregistered_code,
-                operation_type='update',
-                description=f'更新未登记资产: {unregistered.asset_name}',
+                operation_type="update",
+                description=f"更新未登记资产: {unregistered.asset_name}",
                 operator_jobcode=operator_jobcode,
                 operator_name=operator_name,
                 before_data=before_data,
-                after_data=after_data
+                after_data=after_data,
             )
         except Exception as e:
-            logger.error(f'记录未登记资产更新日志失败: {e}', exc_info=True)
+            logger.error(f"记录未登记资产更新日志失败: {e}", exc_info=True)
 
     @staticmethod
     def log_approve(
-        unregistered: 'UnregisteredAsset',
+        unregistered: "UnregisteredAsset",
         handle_type: str,
-        result: Dict[str, Any],
+        result: dict[str, Any],
         operator_jobcode: str,
-        operator_name: Optional[str] = None
+        operator_name: str | None = None,
     ) -> None:
         """
         记录未登记资产审批操作
@@ -185,37 +182,33 @@ class UnregisteredAssetAuditAdapter:
             ... )
         """
         try:
-            from apps.assetmanagement.operation_log_service import OperationLogService
+            from apps.assetmanagement.services.operation_log_service import OperationLogService
 
-            description = f'审批未登记资产: {handle_type}'
-            if result.get('asset_code'):
-                description += f', 创建资产: {result["asset_code"]}'
+            description = f"审批未登记资产: {handle_type}"
+            if result.get("asset_code"):
+                description += f", 创建资产: {result['asset_code']}"
 
             OperationLogService.log_operation(
-                asset_code=result.get('asset_code', unregistered.unregistered_code),
-                operation_type='approve',
+                asset_code=result.get("asset_code", unregistered.unregistered_code),
+                operation_type="approve",
                 description=description,
                 operator_jobcode=operator_jobcode,
                 operator_name=operator_name,
                 before_data={
-                    'approval_status': 'pending',
-                    'unregistered_code': unregistered.unregistered_code,
+                    "approval_status": "pending",
+                    "unregistered_code": unregistered.unregistered_code,
                 },
                 after_data={
-                    'approval_status': unregistered.approval_status,
-                    'handle_type': handle_type,
-                    'result': result,
-                }
+                    "approval_status": unregistered.approval_status,
+                    "handle_type": handle_type,
+                    "result": result,
+                },
             )
         except Exception as e:
-            logger.error(f'记录未登记资产审批日志失败: {e}', exc_info=True)
+            logger.error(f"记录未登记资产审批日志失败: {e}", exc_info=True)
 
     @staticmethod
-    def log_delete(
-        unregistered: 'UnregisteredAsset',
-        operator_jobcode: str,
-        operator_name: Optional[str] = None
-    ) -> None:
+    def log_delete(unregistered: "UnregisteredAsset", operator_jobcode: str, operator_name: str | None = None) -> None:
         """
         记录未登记资产删除操作
 
@@ -231,19 +224,19 @@ class UnregisteredAssetAuditAdapter:
             >>> UnregisteredAssetAuditAdapter.log_delete(unregistered, 'EMP001')
         """
         try:
-            from apps.assetmanagement.operation_log_service import OperationLogService
+            from apps.assetmanagement.services.operation_log_service import OperationLogService
 
             OperationLogService.log_operation(
                 asset_code=unregistered.unregistered_code,
-                operation_type='delete',
-                description=f'删除未登记资产: {unregistered.asset_name}',
+                operation_type="delete",
+                description=f"删除未登记资产: {unregistered.asset_name}",
                 operator_jobcode=operator_jobcode,
                 operator_name=operator_name,
                 before_data={
-                    'unregistered_code': unregistered.unregistered_code,
-                    'asset_name': unregistered.asset_name,
-                    'approval_status': unregistered.approval_status,
-                }
+                    "unregistered_code": unregistered.unregistered_code,
+                    "asset_name": unregistered.asset_name,
+                    "approval_status": unregistered.approval_status,
+                },
             )
         except Exception as e:
-            logger.error(f'记录未登记资产删除日志失败: {e}', exc_info=True)
+            logger.error(f"记录未登记资产删除日志失败: {e}", exc_info=True)

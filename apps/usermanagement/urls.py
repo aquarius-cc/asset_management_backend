@@ -1,14 +1,17 @@
 """
 用户管理URL配置
 """
-from django.urls import path, include
+
+from django.urls import include, path
 from rest_framework.routers import DefaultRouter
-from .views import DepartmentViewSet, EmployeeViewSet
+
+from apps.usermanagement.views import DepartmentViewSet, EmployeeViewSet
+
 
 router = DefaultRouter()
-router.register(prefix='departments', viewset=DepartmentViewSet, basename='departments')
-router.register(prefix='employees', viewset=EmployeeViewSet, basename='employees')
+router.register(prefix="departments", viewset=DepartmentViewSet, basename="departments")
+router.register(prefix="employees", viewset=EmployeeViewSet, basename="employees")
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path("", include(router.urls)),
 ]

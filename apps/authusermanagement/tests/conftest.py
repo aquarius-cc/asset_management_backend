@@ -5,7 +5,8 @@
 
 import pytest
 from rest_framework.test import APIClient
-from authusermanagement.models import AuthUser
+
+from apps.authusermanagement.models import AuthUser
 
 
 @pytest.fixture
@@ -17,9 +18,4 @@ def api_client():
 @pytest.fixture
 def auth_user(db):
     """认证测试用户"""
-    return AuthUser.objects.create_user(
-        username='testuser',
-        password='testpass123',
-        auth_jobcode='AU001',
-        auth_name='测试用户'
-    )
+    return AuthUser.objects.create_user(auth_username="testuser", password="testpass123", auth_phone="13800138000")

@@ -14,21 +14,17 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django.contrib import admin
-from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.contrib import admin
 from django.http import JsonResponse
-from rest_framework_simplejwt.views import (
-    TokenObtainPairView,  # 获取令牌 分离Token令牌模式
-    TokenRefreshView,     # 刷新令牌
-    TokenVerifyView,      # 验证令牌
-)
+from django.urls import include, path
+
 # 新增：导入 drf-spectacular 的核心视图类（关键修复）
 from drf_spectacular.views import (
     SpectacularAPIView,
-    SpectacularSwaggerView,
     SpectacularRedocView,
+    SpectacularSwaggerView,
 )
 
 
@@ -42,33 +38,94 @@ def api_root(request):
         'message': '资产管理系统 API',
         'version': '1.0.0',
         'docs': {
-            'swagger': '/api/swagger/',
-            'redoc': '/api/redoc/',
-            'schema': '/api/schema/',
+            'swagger': '/api/v1/swagger/',
+            'redoc': '/api/v1/redoc/',
+            'schema': '/api/v1/schema/',
         },
-        'admin': '/admin/'  # 不直接暴露，但可以通过文档找到
+        'admin': '/admin/'
     })
+
+
+def health_check(request):
+    """
+    健康检查接口（OC-6 落地）
+
+    用于监控系统状态，检查数据库连接是否正常。
+    """
+    from django.db import connection
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+        db_status = 'healthy'
+    except Exception:
+        db_status = 'unhealthy'
+
+    return JsonResponse({
+        'status': 'ok',
+        'database': db_status,
+        'version': '1.0.0',
+    })
+
+
+def ready_check(request):
+    """
+    就绪检查接口（OC-6 落地）
+
+    检查服务是否可以接受请求。
+    用于 Kubernetes readiness probe 和监控系统。
+    """
+    from django.db import connection
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+        db_status = 'connected'
+    except Exception as e:
+        db_status = f'error: {str(e)}'
+
+    is_ready = db_status == 'connected'
+
+    return JsonResponse({
+        'status': 'ready' if is_ready else 'not_ready',
+        'service': 'asset-management-backend',
+        'checks': {
+            'database': db_status,
+        },
+    }, status=200 if is_ready else 503)
 
 
 urlpatterns = [
     # 【修复 H10】根路径返回 API 信息，不暴露 admin 入口
     path('', api_root, name='api-root'),
     path('admin/', admin.site.urls),
+    # 健康检查接口（OC-6 落地）
+    path('health/', health_check, name='health-check'),
+    path('ready/', ready_check, name='ready-check'),
 
-    path(route='api/auth/', view=include('apps.authusermanagement.urls')),
+    # ==================== API v1 路由（主路径） ====================
+    path('api/v1/auth/', include('apps.authusermanagement.urls')),
+    path('api/v1/users/', include('apps.usermanagement.urls')),
+    path('api/v1/assets/', include('apps.assetmanagement.urls')),
+    path('api/v1/unregisteredassets/', include('apps.unregisteredasset.urls')),
+    path('api/v1/dashboard/', include('apps.assetmanagement.dashboard_urls')),
+    path('api/v1/', include('core.audit_log_urls')),
+    path('api/v1/notifications/', include('apps.notification.urls')),
+
+    # ==================== API v1 文档路由 ====================
+    path('api/v1/schema/', SpectacularAPIView.as_view(), name='schema-v1'),
+    path('api/v1/swagger/', SpectacularSwaggerView.as_view(url_name='schema-v1'), name='swagger-ui-v1'),
+    path('api/v1/redoc/', SpectacularRedocView.as_view(url_name='schema-v1'), name='redoc-v1'),
+
+    # ==================== 向后兼容：旧 /api/ 前缀（保留过渡期） ====================
+    path('api/auth/', include('apps.authusermanagement.urls')),
     path('api/users/', include('apps.usermanagement.urls')),
     path('api/assets/', include('apps.assetmanagement.urls')),
-    path('api/unregisteredassets/', include('apps.unregisteredasset.urls')),  # 未登记资产管理
-    path('api/dashboard/', include('apps.assetmanagement.dashboard_urls')),  # 仪表盘专用路由
-
-    # drf-spectacular 文档路由（核心）
-    path('api/schema/', SpectacularAPIView.as_view(),
-         name='schema'),  # 生成 schema 数据（JSON/YAML）
-    path('api/swagger/', SpectacularSwaggerView.as_view(url_name='schema'),
-         name='swagger-ui'),  # Swagger UI
-    path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'),
-         name='redoc'),  # ReDoc UI
-
+    path('api/unregisteredassets/', include('apps.unregisteredasset.urls')),
+    path('api/dashboard/', include('apps.assetmanagement.dashboard_urls')),
+    path('api/', include('core.audit_log_urls')),
+    path('api/notifications/', include('apps.notification.urls')),
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/swagger/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 ]
 
 # 在开发环境中提供媒体文件服务

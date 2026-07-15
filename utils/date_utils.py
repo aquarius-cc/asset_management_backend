@@ -3,14 +3,13 @@
 日期工具函数
 """
 
-from datetime import datetime, timedelta, date
-from typing import Tuple, Optional
+from datetime import date, datetime, timedelta
 
 
 def format_date(
-    date_obj: Optional[datetime.date],
+    date_obj: date | None,
     format_str: str = '%Y-%m-%d'
-) -> Optional[str]:
+) -> str | None:
     """
     格式化日期对象为字符串
     
@@ -23,7 +22,7 @@ def format_date(
     """
     if date_obj is None:
         return None
-    
+
     if isinstance(date_obj, datetime):
         return date_obj.strftime(format_str)
     elif isinstance(date_obj, date):
@@ -34,7 +33,7 @@ def format_date(
 def parse_date(
     date_str: str,
     format_str: str = '%Y-%m-%d'
-) -> Optional[date]:
+) -> date | None:
     """
     解析日期字符串为日期对象
     
@@ -47,7 +46,7 @@ def parse_date(
     """
     if not date_str:
         return None
-    
+
     try:
         return datetime.strptime(date_str, format_str).date()
     except (ValueError, TypeError):
@@ -73,8 +72,8 @@ def get_date_range(
 
 
 def get_week_start_end(
-    target_date: Optional[date] = None
-) -> Tuple[date, date]:
+    target_date: date | None = None
+) -> tuple[date, date]:
     """
     获取指定日期所在周的开始和结束日期
     
@@ -86,18 +85,18 @@ def get_week_start_end(
     """
     if target_date is None:
         target_date = date.today()
-    
+
     # 周一为一周的开始
     start = target_date - timedelta(days=target_date.weekday())
     end = start + timedelta(days=6)
-    
+
     return start, end
 
 
 def get_month_start_end(
     year: int,
     month: int
-) -> Tuple[date, date]:
+) -> tuple[date, date]:
     """
     获取指定月份的开始和结束日期
     
@@ -110,11 +109,11 @@ def get_month_start_end(
     """
     # 月份开始
     start = date(year, month, 1)
-    
+
     # 月份结束（下一月第一天减一天）
     if month == 12:
         end = date(year + 1, 1, 1) - timedelta(days=1)
     else:
         end = date(year, month + 1, 1) - timedelta(days=1)
-    
+
     return start, end

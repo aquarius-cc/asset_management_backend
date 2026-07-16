@@ -51,6 +51,20 @@ class DamagedAsset(BaseModel):
 
     RECORDCODE_PREFIX = "DAMAGED"
 
+    class ApprovalStatus(models.TextChoices):
+        PENDING = "pending", "待审批"
+        APPROVED = "approved", "已批准"
+        REJECTED = "rejected", "已拒绝"
+
+    class OriginalStatus(models.TextChoices):
+        """进入damaged前的资产状态"""
+        IN_STORE = "in_store", "在库"
+        IN_USE = "in_use", "在用"
+        RECYCLED_PENDING = "recycled_pending", "已回收待发放"
+        BROKEN = "broken", "已损坏"
+        REPAIRING = "repairing", "维修中"
+        LOST = "lost", "已遗失"
+
     asset_recordcode = models.OneToOneField(
         Asset,
         to_field="recordcode",
@@ -67,12 +81,8 @@ class DamagedAsset(BaseModel):
     )
     approval_status = models.CharField(
         max_length=20,
-        default="pending",
-        choices=[
-            ("pending", "待审批"),
-            ("approved", "已批准"),
-            ("rejected", "已拒绝"),
-        ],
+        default=ApprovalStatus.PENDING,
+        choices=ApprovalStatus.choices,
         verbose_name="报废审批状态",
         help_text="审批状态：待审批/已批准/已拒绝",
     )
@@ -91,6 +101,7 @@ class DamagedAsset(BaseModel):
     )
     original_status = models.CharField(
         max_length=20,
+        choices=OriginalStatus.choices,
         verbose_name="原状态",
         blank=True,
         null=True,

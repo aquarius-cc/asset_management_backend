@@ -70,6 +70,10 @@ class RecycleAssetListSerializer(serializers.ModelSerializer):
             "using_person_name",
             "recycle_asset_number",
             "recycle_type",
+            "is_broken",
+            "broken_reason",
+            "is_lost",
+            "lost_reason",
             "is_active",
         ]
         read_only_fields = fields
@@ -102,13 +106,26 @@ class RecycleAssetCreateSerializer(serializers.ModelSerializer):
             "recycle_asset_description",
             "recycle_asset_number",
             "recycle_type",
+            "is_broken",
+            "broken_reason",
+            "is_lost",
+            "lost_reason",
             "is_active",
         ]
         extra_kwargs = {
             "recycle_asset_number": {"required": False, "default": 1},
             "recycle_asset_date": {"required": True},
             "recycle_type": {"required": True},
+            "is_broken": {"required": False, "default": False},
+            "broken_reason": {"required": False, "max_length": 100},
+            "is_lost": {"required": False, "default": False},
+            "lost_reason": {"required": False, "max_length": 100},
         }
+
+    def validate(self, attrs):
+        if attrs.get("is_broken") and attrs.get("is_lost"):
+            raise serializers.ValidationError("is_broken 和 is_lost 不能同时为 True")
+        return attrs
 
     def create(self, validated_data):
         validated_data.pop("recycle_asset_recycle_person_jobcode", None)

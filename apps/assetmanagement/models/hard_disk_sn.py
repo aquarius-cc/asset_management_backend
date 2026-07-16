@@ -27,20 +27,22 @@ class HardDiskSN(BaseModel):
 
     RECORDCODE_PREFIX = "HDSN"
 
-    HARDDISK_TYPE_CHOICES = [
-        ("HDD", "HDD"),
-        ("SSD", "SSD"),
-        ("NVMe", "NVMe"),
-        ("Other", "其他"),
-    ]
+    class HarddiskType(models.TextChoices):
+        HDD = "HDD", "HDD"
+        SSD = "SSD", "SSD"
+        NVME = "NVMe", "NVMe"
+        OTHER = "Other", "其他"
 
-    HARDDISK_STATUS_CHOICES = [
-        ("active", "正常"),
-        ("repair", "维修"),
-        ("scrap", "报废"),
-        ("lost", "丢失"),
-        ("damaged", "损坏"),
-    ]
+    class HarddiskStatus(models.TextChoices):
+        ACTIVE = "active", "正常"
+        REPAIR = "repair", "维修"
+        SCRAP = "scrap", "报废"
+        LOST = "lost", "丢失"
+        DAMAGED = "damaged", "损坏"
+
+    # 向后兼容
+    HARDDISK_TYPE_CHOICES = HarddiskType.choices
+    HARDDISK_STATUS_CHOICES = HarddiskStatus.choices
 
     asset_recordcode = models.ForeignKey(
         Asset,
@@ -55,8 +57,8 @@ class HardDiskSN(BaseModel):
     )
     harddisk_type = models.CharField(
         max_length=20,
-        choices=HARDDISK_TYPE_CHOICES,
-        default="HDD",
+        choices=HarddiskType.choices,
+        default=HarddiskType.HDD,
         blank=True,
         verbose_name="硬盘类型",
         help_text="硬盘类型：HDD/SSD/NVMe/Other",
@@ -70,8 +72,8 @@ class HardDiskSN(BaseModel):
     )
     harddisk_status = models.CharField(
         max_length=20,
-        choices=HARDDISK_STATUS_CHOICES,
-        default="active",
+        choices=HarddiskStatus.choices,
+        default=HarddiskStatus.ACTIVE,
         verbose_name="硬盘状态",
         help_text="硬盘状态：正常/维修/报废/丢失/损坏",
     )

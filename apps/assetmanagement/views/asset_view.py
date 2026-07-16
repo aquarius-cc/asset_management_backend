@@ -58,7 +58,12 @@ class AssetViewSet(
     )
     pagination_class = CustomPageNumberPagination
     lookup_field = "recordcode"
-    admin_actions = ["create", "update", "partial_update", "destroy", "batch_create", "batch_delete"]
+    admin_actions = [
+        "create", "update", "partial_update", "destroy",
+        "batch_create", "batch_delete",
+        "change_status", "change_outasset_employee",
+        "found_and_return", "repair", "repair_done", "repair_failed",
+    ]
 
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ["asset_current_status", "asset_type_recordcode", "asset_storage_recordcode"]
@@ -83,7 +88,7 @@ class AssetViewSet(
 
     def get_permissions(self):
         """RBAC: 写操作需 asset_admin+，读操作需认证"""
-        if self.action in ("create", "update", "partial_update", "destroy", "batch_create", "batch_delete"):
+        if self.action in self.admin_actions:
             return [IsAssetAdminOrAbove()]
         return [permissions.IsAuthenticated()]
 

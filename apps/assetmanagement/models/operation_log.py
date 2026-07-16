@@ -38,8 +38,18 @@ class AssetStateLog(BaseModel):
         verbose_name="关联资产",
         help_text="关联的资产唯一标识码",
     )
-    from_state = models.CharField(max_length=20, verbose_name="变更前状态", help_text="变更前的资产状态")
-    to_state = models.CharField(max_length=20, verbose_name="变更后状态", help_text="变更后的资产状态")
+    from_state = models.CharField(
+        max_length=20,
+        choices=Asset.AssetStatus.choices,
+        verbose_name="变更前状态",
+        help_text="变更前的资产状态",
+    )
+    to_state = models.CharField(
+        max_length=20,
+        choices=Asset.AssetStatus.choices,
+        verbose_name="变更后状态",
+        help_text="变更后的资产状态",
+    )
     operator_employee = models.ForeignKey(
         Employee,
         to_field="recordcode",
@@ -109,24 +119,27 @@ class AssetOperationLog(models.Model):
     if TYPE_CHECKING:
         objects: "Manager"
 
-    OPERATION_TYPE_CHOICES = [
-        ("create", "创建"),
-        ("update", "更新"),
-        ("delete", "删除"),
-        ("out", "出库"),
-        ("recycle", "回收"),
-        ("broken", "已损坏"),
-        ("lost", "已遗失"),
-        ("found", "找回"),
-        ("damaged", "待报废"),
-        ("waste", "已报废"),
-        ("repair", "送修"),
-        ("repair_done", "维修完成"),
-        ("repair_failed", "维修失败"),
-        ("approve", "审批"),
-        ("transfer", "转移"),
-        ("state_change", "状态变更"),
-    ]
+    class OperationType(models.TextChoices):
+        """操作类型"""
+        CREATE = "create", "创建"
+        UPDATE = "update", "更新"
+        DELETE = "delete", "删除"
+        OUT = "out", "出库"
+        RECYCLE = "recycle", "回收"
+        BROKEN = "broken", "已损坏"
+        LOST = "lost", "已遗失"
+        FOUND = "found", "找回"
+        DAMAGED = "damaged", "待报废"
+        WASTE = "waste", "已报废"
+        REPAIR = "repair", "送修"
+        REPAIR_DONE = "repair_done", "维修完成"
+        REPAIR_FAILED = "repair_failed", "维修失败"
+        APPROVE = "approve", "审批"
+        TRANSFER = "transfer", "转移"
+        STATE_CHANGE = "state_change", "状态变更"
+
+    # 向后兼容
+    OPERATION_TYPE_CHOICES = OperationType.choices
 
     asset_code = models.CharField(max_length=64, verbose_name="资产编码", db_index=True, help_text="关联的资产编码")
     asset_name = models.CharField(
@@ -136,7 +149,7 @@ class AssetOperationLog(models.Model):
         max_length=100, verbose_name="资产规格", null=True, blank=True, help_text="资产规格（冗余存储）"
     )
     operation_type = models.CharField(
-        max_length=20, choices=OPERATION_TYPE_CHOICES, verbose_name="操作类型", db_index=True, help_text="操作类型"
+        max_length=20, choices=OperationType.choices, verbose_name="操作类型", db_index=True, help_text="操作类型"
     )
     logging_id = models.CharField(
         max_length=50,

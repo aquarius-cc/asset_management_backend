@@ -51,6 +51,12 @@ class RecycleAsset(BaseModel):
 
     RECORDCODE_PREFIX = "RECYCLE"
 
+    class RecycleType(models.TextChoices):
+        """回收类型"""
+        NORMAL = "normal", "正常回收"
+        ABNORMAL = "abnormal", "异常回收"
+        OTHER = "other", "其他"
+
     outasset_recordcode = models.OneToOneField(
         OutAsset,
         to_field="recordcode",
@@ -79,9 +85,21 @@ class RecycleAsset(BaseModel):
         help_text="办理回收操作的人员工号（通过 recordcode 关联）",
     )
     recycle_type = models.CharField(
-        verbose_name="回收类型", max_length=50, blank=True, null=True, help_text="回收原因/类型"
+        verbose_name="回收类型", max_length=50, choices=RecycleType.choices, blank=True, null=True, help_text="回收原因/类型"
     )
     recycle_asset_date = models.DateField(verbose_name="回收日期", help_text="资产回收的日期")
+    is_broken = models.BooleanField(
+        default=False, verbose_name="回收时发现损坏", help_text="回收时是否发现资产损坏"
+    )
+    broken_reason = models.CharField(
+        max_length=100, blank=True, null=True, verbose_name="损坏原因", help_text="回收时发现损坏的原因"
+    )
+    is_lost = models.BooleanField(
+        default=False, verbose_name="回收时发现遗失", help_text="回收时是否发现资产遗失"
+    )
+    lost_reason = models.CharField(
+        max_length=100, blank=True, null=True, verbose_name="遗失原因", help_text="回收时发现遗失的原因"
+    )
     recycle_asset_description = models.TextField(
         verbose_name="回收资产描述", blank=True, null=True, help_text="回收的补充说明"
     )

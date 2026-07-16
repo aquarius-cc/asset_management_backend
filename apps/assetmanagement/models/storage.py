@@ -26,12 +26,15 @@ class Storage(BaseModel):
 
     RECORDCODE_PREFIX = "STORAGE"
 
-    STORAGE_TYPE_CHOICES = [
-        ("newasset", "新货仓库"),
-        ("recycle", "回收仓库"),
-        ("broken", "损坏存放出库"),
-        ("damaged", "待报废仓库"),
-    ]
+    class StorageType(models.TextChoices):
+        """仓库类型"""
+        NEW_ASSET = "newasset", "新货仓库"
+        RECYCLE = "recycle", "回收仓库"
+        BROKEN = "broken", "损坏存放出库"
+        DAMAGED = "damaged", "待报废仓库"
+
+    # 向后兼容
+    STORAGE_TYPE_CHOICES = StorageType.choices
 
     storage_code = models.CharField(max_length=30, verbose_name="仓库编码", help_text="仓库唯一编码，用于业务关联")
     storage_name = models.CharField(max_length=100, verbose_name="仓库名称", help_text="仓库名称，用户可见的展示名称")
@@ -39,7 +42,7 @@ class Storage(BaseModel):
     storage_type = models.CharField(
         max_length=50,
         choices=STORAGE_TYPE_CHOICES,
-        default="newasset",
+        default=StorageType.NEW_ASSET,
         verbose_name="仓库类型",
         blank=True,
         null=True,

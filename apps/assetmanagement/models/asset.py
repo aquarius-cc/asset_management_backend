@@ -97,6 +97,19 @@ class Asset(BaseModel):
         DAMAGED = "damaged", "待报废"
         SCRAPPED = "scrapped", "已报废"
 
+    class UsageType(models.TextChoices):
+        """资产使用性质"""
+        NEW = "new", "全新"
+        USED = "used", "二手"
+        REFURBISHED = "refurbished", "翻新"
+
+    class PhysicalGrade(models.TextChoices):
+        """资产物理成色"""
+        EXCELLENT = "excellent", "全新"
+        GOOD = "good", "良好"
+        FAIR = "fair", "一般"
+        POOR = "poor", "较差"
+
     ASSET_STATUS_CHOICES = AssetStatus.choices
 
     asset_code = models.CharField(
@@ -184,10 +197,18 @@ class Asset(BaseModel):
         max_length=100, verbose_name="资产使用地点", blank=True, null=True, help_text="资产使用的地点"
     )
     usage_type = models.CharField(
-        max_length=20, default="new", verbose_name="使用性质", help_text="资产使用性质：new/used/refurbished"
+        max_length=20,
+        choices=UsageType.choices,
+        default=UsageType.NEW,
+        verbose_name="使用性质",
+        help_text="资产使用性质：全新/二手/翻新",
     )
     physical_grade = models.CharField(
-        max_length=20, default="good", verbose_name="物理成色", help_text="资产物理成色：excellent/good/fair/poor"
+        max_length=20,
+        choices=PhysicalGrade.choices,
+        default=PhysicalGrade.GOOD,
+        verbose_name="物理成色",
+        help_text="资产物理成色：全新/良好/一般/较差",
     )
     qr_code = models.CharField(
         max_length=200,
@@ -199,7 +220,7 @@ class Asset(BaseModel):
     asset_current_status = models.CharField(
         max_length=20,
         choices=ASSET_STATUS_CHOICES,
-        default="in_store",
+        default=AssetStatus.IN_STORE,
         verbose_name="资产当前状态",
         db_index=True,
         help_text="资产状态：在库/已回收待发放/在用/已损坏/维修中/已遗失/待报废/已报废",

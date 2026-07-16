@@ -59,10 +59,18 @@ class OutAsset(BaseModel):
     if TYPE_CHECKING:
         objects: "Manager"
 
-    OUTASSET_TYPE_CHOICES = [
-        ("receive", "领用"),
-        ("borrow", "借用"),
-    ]
+    class OutassetType(models.TextChoices):
+        """出库类型"""
+        RECEIVE = "receive", "领用"
+        BORROW = "borrow", "借用"
+
+    class OutassetPreviousStatus(models.TextChoices):
+        IN_STORE = "in_store", "在库"
+        RECYCLED_PENDING = "recycled_pending", "已回收待发放"
+
+    # 向后兼容
+    OUTASSET_TYPE_CHOICES = OutassetType.choices
+    OUTASSET_STATUS_CHOICES = OutassetPreviousStatus.choices
 
     RECORDCODE_PREFIX = "OUTASSET"
 
@@ -79,11 +87,8 @@ class OutAsset(BaseModel):
     outasset_number = models.IntegerField(verbose_name="出库数量", default=1, help_text="出库的资产数量")
     outasset_previous_status = models.CharField(
         max_length=20,
-        choices=[
-            ("in_store", "在库"),
-            ("recycled_pending", "已回收待发放"),
-        ],
-        default="in_store",
+        choices=OutassetPreviousStatus.choices,
+        default=OutassetPreviousStatus.IN_STORE,
         null=True,
         blank=True,
         verbose_name="出库前资产状态",
@@ -95,8 +100,8 @@ class OutAsset(BaseModel):
     outasset_date = models.DateField(verbose_name="出库日期", default=timezone.now, help_text="资产出库的日期")
     outasset_type = models.CharField(
         max_length=50,
-        choices=OUTASSET_TYPE_CHOICES,
-        default="receive",
+        choices=OutassetType.choices,
+        default=OutassetType.RECEIVE,
         verbose_name="出库类型",
         blank=True,
         null=True,

@@ -144,11 +144,11 @@ class TestOutAssetDeleteClearFields(TestCase):
         }
         self.outasset = OutAssetService.create_outasset(outasset_data)
 
-    def test_delete_outasset_clears_applicant_manager_location(self):
+    def test_delete_outasset_restores_applicant_manager_location(self):
         """
-        测试删除出库记录时清空申请人、保管人、使用地点
+        测试删除出库记录时从快照恢复申请人、保管人、使用地点
 
-        【P0 修复】删除出库记录后 asset_applicant、asset_manager、asset_using_location 应被清空
+        【BE-C2 修复】删除出库记录后 asset_applicant、asset_manager、asset_using_location 应从快照恢复
         """
         # 验证出库后字段有值
         self.asset.refresh_from_db()
@@ -172,7 +172,10 @@ class TestOutAssetDeleteClearFields(TestCase):
         self.asset.refresh_from_db()
         self.assertEqual(self.asset.asset_current_status, "in_store", "删除出库记录后状态应恢复为 in_store")
 
-        # 【P0 修复】验证字段被清空
-        self.assertIsNone(self.asset.asset_applicant_recordcode, "删除出库记录后 asset_applicant_recordcode 应被清空")
-        self.assertIsNone(self.asset.asset_manager_recordcode, "删除出库记录后 asset_manager_recordcode 应被清空")
-        self.assertIsNone(self.asset.asset_using_location, "删除出库记录后 asset_using_location 应被清空")
+        # 【BE-C2 修复】验证字段从快照恢复（而非清空）
+        self.assertEqual(self.asset.asset_applicant_recordcode, self.user,
+                         "删除出库记录后 asset_applicant_recordcode 应从快照恢复")
+        self.assertEqual(self.asset.asset_manager_recordcode, self.user,
+                         "删除出库记录后 asset_manager_recordcode 应从快照恢复")
+        self.assertEqual(self.asset.asset_using_location, "测试使用地点",
+                         "删除出库记录后 asset_using_location 应从快照恢复")

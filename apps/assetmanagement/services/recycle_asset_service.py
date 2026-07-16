@@ -10,7 +10,7 @@ from typing import Any
 from django.db import transaction
 
 from apps.assetmanagement.audit import AuditLogger
-from apps.assetmanagement.models import Asset, RecycleAsset, Storage
+from apps.assetmanagement.models import Asset, BrokenAsset, LostAsset, RecycleAsset, Storage
 from apps.assetmanagement.selectors import OutAssetSelector, RecycleAssetSelector
 from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
 from apps.usermanagement.models import Employee
@@ -85,43 +85,139 @@ class RecycleAssetService:
             if operator_employee:
                 recycle_data["operator_employee"] = operator_employee
 
+        is_broken = recycle_data.pop("is_broken", False)
+        broken_reason = recycle_data.pop("broken_reason", "")
+        is_lost = recycle_data.pop("is_lost", False)
+        lost_reason = recycle_data.pop("lost_reason", "")
+
         recycle_asset = RecycleAsset.objects.create(**recycle_data)
 
         asset = Asset.objects.select_for_update().get(pk=asset.pk)
 
-        try:
-            AssetFSM.recycle(asset)
-        except InvalidTransitionError as e:
-            raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
+        # AC-32/AC-33: 回收时标记损坏/遗失
+        if is_broken:
+            # 回收 → recycled_pending → broken
+            try:
+                AssetFSM.recycle(asset)
+            except InvalidTransitionError as e:
+                raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
 
-        if storage_obj:
-            asset.asset_storage_recordcode = storage_obj
-        if recycle_person_obj:
-            asset.asset_entry_person_recordcode = recycle_person_obj
+            # 更新资产字段
+            if storage_obj:
+                asset.asset_storage_recordcode = storage_obj
+            if recycle_person_obj:
+                asset.asset_entry_person_recordcode = recycle_person_obj
+            asset.asset_applicant_recordcode = None
+            asset.asset_manager_recordcode = None
+            asset.asset_using_location = None
+            asset.save(update_fields=[
+                "asset_current_status", "asset_applicant_recordcode",
+                "asset_manager_recordcode", "asset_using_location",
+                "asset_storage_recordcode", "asset_entry_person_recordcode",
+            ])
 
-        asset.asset_applicant_recordcode = None
-        asset.asset_manager_recordcode = None
-        asset.asset_using_location = None
+            # 标记损坏
+            try:
+                AssetFSM.mark_broken(asset)
+            except InvalidTransitionError as e:
+                raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
+            asset.save(update_fields=["asset_current_status"])
 
-        update_fields = [
-            "asset_current_status",
-            "asset_applicant_recordcode",
-            "asset_manager_recordcode",
-            "asset_using_location",
-        ]
-        if storage_obj:
-            update_fields.append("asset_storage_recordcode")
-        if recycle_person_obj:
-            update_fields.append("asset_entry_person_recordcode")
+            # 创建 BrokenAsset 记录
+            BrokenAsset.objects.create(
+                asset_recordcode=asset,
+                broken_date=recycle_asset.recycle_asset_date,
+                broken_reason=broken_reason or "回收时发现损坏",
+                broken_description=f"回收时发现损坏，回收记录: {recycle_asset.recordcode}",
+                operator_employee=recycle_person_obj,
+            )
 
-        asset.save(update_fields=update_fields)
+            AuditLogger.log_asset_recycle(
+                asset=asset,
+                recordcode=recycle_asset.recordcode,
+                operator_jobcode=operator_jobcode or recycle_data.get("operator_employee"),
+                operator_name=operator_name or recycle_data.get("asset_entry_person_name"),
+            )
 
-        AuditLogger.log_asset_recycle(
-            asset=asset,
-            recordcode=recycle_asset.recordcode,
-            operator_jobcode=operator_jobcode or recycle_data.get("operator_employee"),
-            operator_name=operator_name or recycle_data.get("asset_entry_person_name"),
-        )
+        elif is_lost:
+            # 回收 → recycled_pending → lost
+            try:
+                AssetFSM.recycle(asset)
+            except InvalidTransitionError as e:
+                raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
+
+            # 更新资产字段
+            if storage_obj:
+                asset.asset_storage_recordcode = storage_obj
+            if recycle_person_obj:
+                asset.asset_entry_person_recordcode = recycle_person_obj
+            asset.asset_applicant_recordcode = None
+            asset.asset_manager_recordcode = None
+            asset.asset_using_location = None
+            asset.save(update_fields=[
+                "asset_current_status", "asset_applicant_recordcode",
+                "asset_manager_recordcode", "asset_using_location",
+                "asset_storage_recordcode", "asset_entry_person_recordcode",
+            ])
+
+            # 标记遗失
+            try:
+                AssetFSM.mark_lost(asset)
+            except InvalidTransitionError as e:
+                raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
+            asset.save(update_fields=["asset_current_status"])
+
+            # 创建 LostAsset 记录
+            LostAsset.objects.create(
+                asset_recordcode=asset,
+                lost_date=recycle_asset.recycle_asset_date,
+                lost_reason=lost_reason or "回收时发现遗失",
+                lost_description=f"回收时发现遗失，回收记录: {recycle_asset.recordcode}",
+                operator_employee=recycle_person_obj,
+            )
+
+            AuditLogger.log_asset_recycle(
+                asset=asset,
+                recordcode=recycle_asset.recordcode,
+                operator_jobcode=operator_jobcode or recycle_data.get("operator_employee"),
+                operator_name=operator_name or recycle_data.get("asset_entry_person_name"),
+            )
+
+        else:
+            # 正常回收（无损坏/遗失标记）
+            try:
+                AssetFSM.recycle(asset)
+            except InvalidTransitionError as e:
+                raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
+
+            if storage_obj:
+                asset.asset_storage_recordcode = storage_obj
+            if recycle_person_obj:
+                asset.asset_entry_person_recordcode = recycle_person_obj
+
+            asset.asset_applicant_recordcode = None
+            asset.asset_manager_recordcode = None
+            asset.asset_using_location = None
+
+            update_fields = [
+                "asset_current_status",
+                "asset_applicant_recordcode",
+                "asset_manager_recordcode",
+                "asset_using_location",
+            ]
+            if storage_obj:
+                update_fields.append("asset_storage_recordcode")
+            if recycle_person_obj:
+                update_fields.append("asset_entry_person_recordcode")
+
+            asset.save(update_fields=update_fields)
+
+            AuditLogger.log_asset_recycle(
+                asset=asset,
+                recordcode=recycle_asset.recordcode,
+                operator_jobcode=operator_jobcode or recycle_data.get("operator_employee"),
+                operator_name=operator_name or recycle_data.get("asset_entry_person_name"),
+            )
 
         return recycle_asset
 
@@ -182,74 +278,48 @@ class RecycleAssetService:
     def batch_delete_recycle_asset(
         recordcodes: list[str], operator_jobcode: str | None = None, operator_name: str | None = None
     ) -> dict[str, Any]:
-        MAX_BATCH_SIZE = 100
-        if len(recordcodes) > MAX_BATCH_SIZE:
-            raise AppValidationError(
-                detail=f"单次批量删除不能超过 {MAX_BATCH_SIZE} 条", error_code="BATCH_SIZE_EXCEEDED"
-            )
+        from core.batch_mixins import BatchOperationMixin
 
-        success_ids: list[str] = []
-        fail_items: list[dict[str, Any]] = []
+        def _delete_one(record_code: str) -> None:
+            recycle_asset = RecycleAsset.objects.select_for_update().filter(
+                recordcode=record_code, is_deleted=False
+            ).first()
+            if not recycle_asset:
+                raise AppValidationError(detail=f"回收记录 {record_code} 不存在", error_code="NOT_FOUND")
 
-        for record_code in recordcodes:
+            asset = Asset.objects.select_for_update().get(pk=recycle_asset.asset_recordcode.pk)
+            if asset.asset_current_status != "recycled_pending":
+                raise AppValidationError(
+                    detail=f"关联资产当前状态为 {asset.asset_current_status}，不允许删除回收记录",
+                    error_code="STATUS_NOT_ALLOWED",
+                )
+            # 保存关联的出库记录信息，用于恢复资产字段
+            outasset = OutAsset.objects.filter(
+                recordcode=recycle_asset.outasset_recordcode_id, is_deleted=False
+            ).first()
+
+            recycle_asset.delete()
+
             try:
-                with transaction.atomic():
-                    recycle_asset = (
-                        RecycleAsset.objects.select_for_update()
-                        .filter(recordcode=record_code, is_deleted=False)
-                        .first()
-                    )
-                    if not recycle_asset:
-                        fail_items.append(
-                            {
-                                "id": record_code,
-                                "error_code": "NOT_FOUND",
-                                "error_message": f"回收记录 {record_code} 不存在",
-                            }
-                        )
-                        continue
-
-                    asset = Asset.objects.select_for_update().get(pk=recycle_asset.asset_recordcode.pk)
-                    if asset.asset_current_status != "recycled_pending":
-                        fail_items.append(
-                            {
-                                "id": record_code,
-                                "error_code": "STATUS_NOT_ALLOWED",
-                                "error_message": f"关联资产当前状态为 {asset.asset_current_status}，不允许删除回收记录",
-                            }
-                        )
-                        continue
-
-                    recycle_asset.delete()
-
-                    AssetFSM.cancel_recycle(asset)
-
-                    asset.asset_entry_person_recordcode = None
-                    asset.save(
-                        update_fields=[
-                            "asset_current_status",
-                            "asset_entry_person_recordcode",
-                        ]
-                    )
-
-                success_ids.append(record_code)
-
+                AssetFSM.cancel_recycle(asset)
             except InvalidTransitionError as e:
-                fail_items.append(
-                    {"id": record_code, "error_code": "INVALID_STATE_TRANSITION", "error_message": str(e)}
-                )
-            except Exception:
-                fail_items.append(
-                    {"id": record_code, "error_code": "INTERNAL_ERROR", "error_message": "服务器内部错误，请稍后重试"}
-                )
+                raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
 
-        return {
-            "total": len(recordcodes),
-            "success_count": len(success_ids),
-            "fail_count": len(fail_items),
-            "success_ids": success_ids,
-            "fail_items": fail_items,
-        }
+            # 恢复资产的申请人、保管人、使用地点（从出库记录恢复）
+            update_fields = ["asset_current_status"]
+            if outasset:
+                if outasset.outasset_applicant_recordcode:
+                    asset.asset_applicant_recordcode = outasset.outasset_applicant_recordcode
+                    update_fields.append("asset_applicant_recordcode")
+                if outasset.outasset_manager_recordcode:
+                    asset.asset_manager_recordcode = outasset.outasset_manager_recordcode
+                    update_fields.append("asset_manager_recordcode")
+                if outasset.outasset_using_location:
+                    asset.asset_using_location = outasset.outasset_using_location
+                    update_fields.append("asset_using_location")
+            asset.save(update_fields=update_fields)
+
+        return BatchOperationMixin.batch_delete_execute(ids=recordcodes, process_fn=_delete_one)
 
     @staticmethod
     @transaction.atomic

@@ -26,37 +26,39 @@ class Contract(BaseModel):
 
     RECORDCODE_PREFIX = "CONTRACT"
 
-    CONTRACT_TYPE_CHOICES = [
-        ("tender_procurement", "招标采购合同"),
-        ("service", "服务合同"),
-        ("information_construction", "信息化建设合同"),
-        ("direct_procurement", "直接采购合同"),
-    ]
+    class ContractType(models.TextChoices):
+        TENDER_PROCUREMENT = "tender_procurement", "招标采购合同"
+        SERVICE = "service", "服务合同"
+        INFORMATION_CONSTRUCTION = "information_construction", "信息化建设合同"
+        DIRECT_PROCUREMENT = "direct_procurement", "直接采购合同"
 
-    CONTRACT_STATUS_CHOICES = [
-        ("purchasing", "供货中"),
-        ("purchase_finished", "供货完成"),
-        ("receive_check", "到货验收"),
-        ("initial_check", "初步验收"),
-        ("project_settlement", "结算中"),
-        ("settlement_done", "结算完成"),
-        ("final_check", "最终验收"),
-        ("project_finished", "项目结束"),
-    ]
+    class ContractStatus(models.TextChoices):
+        PURCHASING = "purchasing", "供货中"
+        PURCHASE_FINISHED = "purchase_finished", "供货完成"
+        RECEIVE_CHECK = "receive_check", "到货验收"
+        INITIAL_CHECK = "initial_check", "初步验收"
+        PROJECT_SETTLEMENT = "project_settlement", "结算中"
+        SETTLEMENT_DONE = "settlement_done", "结算完成"
+        FINAL_CHECK = "final_check", "最终验收"
+        PROJECT_FINISHED = "project_finished", "项目结束"
 
-    PROJECT_CHANGE_TYPE_CHOICES = [
-        ("equipment_increase", "设备增加变更"),
-        ("equipment_decrease", "设备减少变更"),
-        ("model_change_only", "只涉及型号变更"),
-        ("quantity_increase_with_model", "设备数量增加和型号变更"),
-        ("quantity_decrease_with_model", "设备数量减少和型号变更"),
-    ]
+    class ProjectChangeType(models.TextChoices):
+        EQUIPMENT_INCREASE = "equipment_increase", "设备增加变更"
+        EQUIPMENT_DECREASE = "equipment_decrease", "设备减少变更"
+        MODEL_CHANGE_ONLY = "model_change_only", "只涉及型号变更"
+        QUANTITY_INCREASE_WITH_MODEL = "quantity_increase_with_model", "设备数量增加和型号变更"
+        QUANTITY_DECREASE_WITH_MODEL = "quantity_decrease_with_model", "设备数量减少和型号变更"
+
+    # 向后兼容：保留旧名称作为类属性
+    CONTRACT_TYPE_CHOICES = ContractType.choices
+    CONTRACT_STATUS_CHOICES = ContractStatus.choices
+    PROJECT_CHANGE_TYPE_CHOICES = ProjectChangeType.choices
 
     contract_code = models.CharField(max_length=50, verbose_name="合同编号", help_text="合同唯一编码")
     contract_name = models.CharField(max_length=200, verbose_name="合同名称", help_text="合同的完整名称")
     contract_type = models.CharField(
         max_length=30,
-        choices=CONTRACT_TYPE_CHOICES,
+        choices=ContractType.choices,
         verbose_name="合同类型",
         blank=True,
         null=True,
@@ -74,15 +76,15 @@ class Contract(BaseModel):
     contract_end_date = models.DateField(verbose_name="合同结束日期", blank=True, null=True, help_text="合同结束日期")
     contract_status = models.CharField(
         max_length=20,
-        choices=CONTRACT_STATUS_CHOICES,
-        default="purchasing",
+        choices=ContractStatus.choices,
+        default=ContractStatus.PURCHASING,
         verbose_name="合同状态",
         help_text="合同状态：供货中/供货完成/到货验收/初步验收/结算中/结算完成/最终验收/项目结束",
     )
     project_change = models.BooleanField(default=False, verbose_name="项目变更", help_text="是否存在项目变更")
     project_change_type = models.CharField(
         max_length=50,
-        choices=PROJECT_CHANGE_TYPE_CHOICES,
+        choices=ProjectChangeType.choices,
         verbose_name="变更类型",
         blank=True,
         null=True,

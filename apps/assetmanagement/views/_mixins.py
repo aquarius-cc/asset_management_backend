@@ -46,7 +46,10 @@ class AdminWritePermissionMixin:
 
     子类可通过 admin_actions 类属性扩展需管理员权限的操作列表。
     """
-    admin_actions = ["create", "update", "partial_update", "destroy"]
+    admin_actions = [
+        "create", "update", "partial_update", "destroy",
+        "change_status", "change_outasset_employee",
+    ]
 
     def get_permissions(self):
         if self.action in self.admin_actions:

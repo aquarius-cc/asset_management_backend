@@ -30,6 +30,11 @@ class RepairAsset(BaseModel):
     if TYPE_CHECKING:
         objects: "Manager"
 
+    class RepairStatus(models.TextChoices):
+        IN_PROGRESS = "in_progress", "维修中"
+        COMPLETED = "completed", "已完成"
+        FAILED = "failed", "维修失败"
+
     asset_recordcode = models.ForeignKey(
         Asset,
         to_field="recordcode",
@@ -45,8 +50,8 @@ class RepairAsset(BaseModel):
     actual_return_date = models.DateField(null=True, blank=True, verbose_name="实际完成日期", help_text="实际维修完成日期")
     repair_status = models.CharField(
         max_length=20,
-        choices=[("in_progress", "维修中"), ("completed", "已完成"), ("failed", "维修失败")],
-        default="in_progress",
+        choices=RepairStatus.choices,
+        default=RepairStatus.IN_PROGRESS,
         verbose_name="维修状态",
         help_text="维修状态：维修中/已完成/维修失败",
     )
@@ -56,10 +61,10 @@ class RepairAsset(BaseModel):
         max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="维修费用", help_text="维修产生的费用（元）"
     )
     physical_grade_before = models.CharField(
-        max_length=20, null=True, blank=True, verbose_name="维修前成色", help_text="维修前的物理成色"
+        max_length=20, choices=Asset.PhysicalGrade.choices, null=True, blank=True, verbose_name="维修前成色", help_text="维修前的物理成色"
     )
     physical_grade_after = models.CharField(
-        max_length=20, null=True, blank=True, verbose_name="维修后成色", help_text="维修后的物理成色"
+        max_length=20, choices=Asset.PhysicalGrade.choices, null=True, blank=True, verbose_name="维修后成色", help_text="维修后的物理成色"
     )
     operator_employee = models.ForeignKey(
         Employee,

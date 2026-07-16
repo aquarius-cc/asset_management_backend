@@ -62,7 +62,7 @@ class OutAssetService:
         outasset_data["outasset_manager_recordcode"] = manager
         outasset_data["outasset_using_location"] = using_location
 
-        # 构建 JSON 快照
+        # 构建 JSON 快照（包含恢复所需的所有字段）
         snapshot = {
             "applicant": {
                 "jobcode": applicant.employee_jobcode if applicant else None,
@@ -77,6 +77,10 @@ class OutAssetService:
             if manager
             else None,
             "using_location": using_location,
+            "asset_storage_recordcode": (
+                asset.asset_storage_recordcode.recordcode
+                if asset.asset_storage_recordcode else None
+            ),
         }
         outasset_data["outasset_snapshot"] = snapshot
 
@@ -176,87 +180,72 @@ class OutAssetService:
     def batch_delete_outasset(
         recordcodes: list[str], operator_jobcode: str | None = None, operator_name: str | None = None
     ) -> dict[str, Any]:
-        MAX_BATCH_SIZE = 100
-        if len(recordcodes) > MAX_BATCH_SIZE:
-            raise AppValidationError(
-                detail=f"单次批量删除不能超过 {MAX_BATCH_SIZE} 条", error_code="BATCH_SIZE_EXCEEDED"
-            )
+        from core.batch_mixins import BatchOperationMixin
 
-        success_ids: list[str] = []
-        fail_items: list[dict[str, Any]] = []
+        def _delete_one(recordcode: str) -> None:
+            outasset = OutAsset.objects.select_for_update().filter(recordcode=recordcode, is_deleted=False).first()
+            if not outasset:
+                raise AppValidationError(detail=f"出库记录 {recordcode} 不存在", error_code="NOT_FOUND")
 
-        for recordcode in recordcodes:
-            try:
-                with transaction.atomic():
-                    outasset = (
-                        OutAsset.objects.select_for_update().filter(recordcode=recordcode, is_deleted=False).first()
-                    )
-                    if not outasset:
-                        fail_items.append(
-                            {
-                                "id": recordcode,
-                                "error_code": "NOT_FOUND",
-                                "error_message": f"出库记录 {recordcode} 不存在",
-                            }
-                        )
-                        continue
-
-                    asset = Asset.objects.select_for_update().get(pk=outasset.asset_recordcode.pk)
-                    if asset.asset_current_status != "in_use":
-                        fail_items.append(
-                            {
-                                "id": recordcode,
-                                "error_code": "STATUS_NOT_ALLOWED",
-                                "error_message": f"关联资产当前状态为 {asset.asset_current_status}，不允许删除出库记录",
-                            }
-                        )
-                        continue
-
-                    if RecycleAsset.objects.filter(outasset_recordcode=outasset, is_deleted=False).exists():
-                        fail_items.append(
-                            {
-                                "id": recordcode,
-                                "error_code": "HAS_RECYCLE_RECORDS",
-                                "error_message": "出库记录存在关联回收记录，不允许删除",
-                            }
-                        )
-                        continue
-
-                    previous_status = outasset.outasset_previous_status or "in_store"
-
-                    outasset.delete()
-
-                    AssetFSM.cancel_outasset(asset, previous_status)
-
-                    asset.asset_applicant_recordcode = None
-                    asset.asset_manager_recordcode = None
-                    asset.asset_using_location = None
-
-                    update_fields = [
-                        "asset_current_status",
-                        "asset_applicant_recordcode",
-                        "asset_manager_recordcode",
-                        "asset_using_location",
-                    ]
-                    if previous_status == "in_store":
-                        asset.asset_storage_recordcode = None
-                        update_fields.append("asset_storage_recordcode")
-
-                    asset.save(update_fields=update_fields)
-
-                success_ids.append(recordcode)
-
-            except InvalidTransitionError as e:
-                fail_items.append({"id": recordcode, "error_code": "INVALID_STATE_TRANSITION", "error_message": str(e)})
-            except Exception:
-                fail_items.append(
-                    {"id": recordcode, "error_code": "INTERNAL_ERROR", "error_message": "服务器内部错误，请稍后重试"}
+            asset = Asset.objects.select_for_update().get(pk=outasset.asset_recordcode.pk)
+            if asset.asset_current_status != "in_use":
+                raise AppValidationError(
+                    detail=f"关联资产当前状态为 {asset.asset_current_status}，不允许删除出库记录",
+                    error_code="STATUS_NOT_ALLOWED",
                 )
+            if RecycleAsset.objects.filter(outasset_recordcode=outasset, is_deleted=False).exists():
+                raise AppValidationError(detail="出库记录存在关联回收记录，不允许删除", error_code="HAS_RECYCLE_RECORDS")
 
-        return {
-            "total": len(recordcodes),
-            "success_count": len(success_ids),
-            "fail_count": len(fail_items),
-            "success_ids": success_ids,
-            "fail_items": fail_items,
-        }
+            previous_status = outasset.outasset_previous_status or "in_store"
+
+            # 保存快照数据用于恢复资产字段
+            snapshot = outasset.outasset_snapshot or {}
+
+            outasset.delete()
+
+            try:
+                AssetFSM.cancel_outasset(asset, previous_status)
+            except InvalidTransitionError as e:
+                raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
+
+            # 从快照恢复资产字段（而非清空为 None）
+            update_fields = ["asset_current_status"]
+
+            # 恢复申请人
+            if snapshot.get("applicant") and snapshot["applicant"].get("jobcode"):
+                from apps.usermanagement.models import Employee
+                applicant = Employee.objects.filter(
+                    employee_jobcode=snapshot["applicant"]["jobcode"]
+                ).first()
+                if applicant:
+                    asset.asset_applicant_recordcode = applicant
+                    update_fields.append("asset_applicant_recordcode")
+
+            # 恢复保管人
+            if snapshot.get("manager") and snapshot["manager"].get("jobcode"):
+                from apps.usermanagement.models import Employee
+                manager = Employee.objects.filter(
+                    employee_jobcode=snapshot["manager"]["jobcode"]
+                ).first()
+                if manager:
+                    asset.asset_manager_recordcode = manager
+                    update_fields.append("asset_manager_recordcode")
+
+            # 恢复使用地点
+            if snapshot.get("using_location"):
+                asset.asset_using_location = snapshot["using_location"]
+                update_fields.append("asset_using_location")
+
+            # 恢复仓库（仅当原状态为 in_store 时，从快照恢复）
+            if previous_status == "in_store" and snapshot.get("asset_storage_recordcode"):
+                from apps.assetmanagement.models import Storage
+                storage = Storage.objects.filter(
+                    recordcode=snapshot["asset_storage_recordcode"]
+                ).first()
+                if storage:
+                    asset.asset_storage_recordcode = storage
+                    update_fields.append("asset_storage_recordcode")
+
+            asset.save(update_fields=update_fields)
+
+        return BatchOperationMixin.batch_delete_execute(ids=recordcodes, process_fn=_delete_one)

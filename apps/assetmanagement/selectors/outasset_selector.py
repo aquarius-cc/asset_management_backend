@@ -1,3 +1,4 @@
+# TECHNICAL_DEBT: >500 lines
 """
 出库/回收/报废查询选择器
 
@@ -5,12 +6,13 @@
 """
 
 from datetime import date
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from dateutil.relativedelta import relativedelta
 from django.db.models import Q, QuerySet
 
 from apps.assetmanagement.models import (
+    Asset,
     BrokenAsset,
     DamagedAsset,
     FoundAsset,
@@ -22,9 +24,6 @@ from apps.assetmanagement.models import (
 )
 from core.department_scope import get_asset_linked_queryset_for_user
 
-if TYPE_CHECKING:
-    from apps.assetmanagement.models import Asset
-
 
 class OutAssetSelector:
     """出库记录查询选择器"""
@@ -32,23 +31,23 @@ class OutAssetSelector:
     @staticmethod
     def get_queryset_for_user(user) -> QuerySet[OutAsset]:
         """RBAC 行级过滤"""
-        return get_asset_linked_queryset_for_user(user, OutAsset.objects.for_list())
+        return get_asset_linked_queryset_for_user(user, OutAsset.objects.for_list().filter(is_deleted=False))
 
     @staticmethod
     def get_outassets_for_list() -> QuerySet[OutAsset]:
-        return OutAsset.objects.for_list().all()
+        return OutAsset.objects.for_list().filter(is_deleted=False)
 
     @staticmethod
     def get_outassets_with_asset_details() -> QuerySet[OutAsset]:
-        return OutAsset.objects.with_asset_details().all()
+        return OutAsset.objects.with_asset_details().filter(is_deleted=False)
 
     @staticmethod
     def get_asset_recordcodes_for_list() -> QuerySet[OutAsset]:
-        return OutAsset.objects.for_list().all()
+        return OutAsset.objects.for_list().filter(is_deleted=False)
 
     @staticmethod
     def get_asset_recordcodes_with_asset_details() -> QuerySet[OutAsset]:
-        return OutAsset.objects.with_asset_details().all()
+        return OutAsset.objects.with_asset_details().filter(is_deleted=False)
 
     # 搜索参数配置：前端参数名 → 数据库查询字段
     # icontains: 模糊匹配, exact: 精确匹配
@@ -155,16 +154,14 @@ class OutAssetSelector:
     @staticmethod
     def get_recyclable_outassets(filters: dict[str, Any] | None = None) -> QuerySet[OutAsset]:
         # 【P0-25 修复】跨表 JOIN 过滤关联表 is_deleted=False，防止返回已删除资产的出库记录
+        # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法，添加额外 FK
         base_queryset = (
-            OutAsset.objects.filter(asset_recordcode__asset_current_status="in_use", asset_recordcode__is_deleted=False)
+            OutAsset.objects.filter(asset_recordcode__asset_current_status=Asset.AssetStatus.IN_USE, asset_recordcode__is_deleted=False)
             .exclude(recordcode__in=RecycleAsset.objects.values("outasset_recordcode"))
+            .with_asset_details()
             .select_related(
-                "asset_recordcode",
-                "asset_recordcode__asset_manager_recordcode",
                 "asset_recordcode__asset_manager_recordcode__employee_department",
-                "asset_recordcode__asset_applicant_recordcode",
                 "asset_recordcode__asset_applicant_recordcode__employee_department",
-                "asset_recordcode__asset_contract_recordcode",
             )
             .order_by("-outasset_date")
         )
@@ -174,52 +171,46 @@ class OutAssetSelector:
 
     @staticmethod
     def get_all_out_assets() -> QuerySet[OutAsset]:
-        return OutAsset.objects.select_related(
-            "asset_recordcode",
-            "asset_recordcode__asset_applicant_recordcode",
-            "asset_recordcode__asset_manager_recordcode",
-            "asset_recordcode__asset_contract_recordcode",
-        ).all()
+        # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
+        return OutAsset.objects.with_asset_details().filter(is_deleted=False)
 
     @staticmethod
     def get_outasset_by_record_code(record_code: str) -> OutAsset | None:
         try:
-            return OutAsset.objects.select_related(
-                "asset_recordcode",
-                "asset_recordcode__asset_applicant_recordcode",
-                "asset_recordcode__asset_manager_recordcode",
-            ).get(recordcode=record_code)
+            # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
+            return OutAsset.objects.with_asset_details().get(recordcode=record_code, is_deleted=False)
         except OutAsset.DoesNotExist:
             return None
 
     @staticmethod
     def get_outassets_by_applicant(applicant_jobcode: str) -> QuerySet[OutAsset]:
         return (
-            OutAsset.objects.filter(asset_recordcode__asset_applicant_recordcode__employee_jobcode=applicant_jobcode)
-            .select_related("asset_recordcode", "asset_recordcode__asset_manager_recordcode")
+            OutAsset.objects.filter(
+                asset_recordcode__asset_applicant_recordcode__employee_jobcode=applicant_jobcode,
+                is_deleted=False,
+            )
+            .with_asset_details()
             .order_by("-outasset_date")
         )
 
     @staticmethod
     def get_outassets_by_asset(asset_code: str) -> QuerySet[OutAsset]:
         return (
-            OutAsset.objects.filter(asset_recordcode__asset_code=asset_code)
-            .select_related(
-                "asset_recordcode",
-                "asset_recordcode__asset_applicant_recordcode",
-                "asset_recordcode__asset_manager_recordcode",
-            )
+            OutAsset.objects.filter(asset_recordcode__asset_code=asset_code, is_deleted=False)
+            .with_asset_details()
             .order_by("-outasset_date")
         )
 
     @staticmethod
     def get_outassets_by_status(status: str) -> QuerySet[OutAsset]:
-        return OutAsset.objects.filter(asset_recordcode__asset_current_status=status).select_related("asset_recordcode")
+        return OutAsset.objects.filter(
+            asset_recordcode__asset_current_status=status, is_deleted=False
+        ).select_related("asset_recordcode")
 
     @staticmethod
     def get_active_outasset_by_asset(asset_code: str, statuses: list[str] | None = None) -> OutAsset | None:
         if statuses is None:
-            statuses = ["in_use"]
+            statuses = [Asset.AssetStatus.IN_USE]
         try:
             return (
                 OutAsset.objects.filter(
@@ -257,55 +248,46 @@ class RecycleAssetSelector:
     @staticmethod
     def get_queryset_for_user(user) -> QuerySet[RecycleAsset]:
         """RBAC 行级过滤"""
-        return get_asset_linked_queryset_for_user(user, RecycleAsset.objects.for_list())
+        return get_asset_linked_queryset_for_user(user, RecycleAsset.objects.for_list().filter(is_deleted=False))
 
     @staticmethod
     def get_asset_recordcodes_for_list() -> QuerySet[RecycleAsset]:
-        return RecycleAsset.objects.for_list().all()
+        return RecycleAsset.objects.for_list().filter(is_deleted=False)
 
     @staticmethod
     def get_asset_recordcodes_with_asset_details() -> QuerySet[RecycleAsset]:
-        return RecycleAsset.objects.with_asset_details().all()
+        return RecycleAsset.objects.with_asset_details().filter(is_deleted=False)
 
     @staticmethod
     def get_all_asset_recordcodes() -> QuerySet[RecycleAsset]:
-        return RecycleAsset.objects.all()
+        return RecycleAsset.objects.filter(is_deleted=False)
 
     @staticmethod
     def get_asset_recordcode_by_record_code(record_code: str) -> RecycleAsset | None:
         try:
-            return RecycleAsset.objects.select_related(
-                "outasset_recordcode", "asset_recordcode", "operator_employee"
-            ).get(recordcode=record_code)
+            # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
+            return RecycleAsset.objects.with_asset_details().get(recordcode=record_code, is_deleted=False)
         except RecycleAsset.DoesNotExist:
             return None
 
     @staticmethod
     def exists_by_outasset(recordcode: str) -> bool:
-        return RecycleAsset.objects.filter(outasset_recordcode__recordcode=recordcode).exists()
+        return RecycleAsset.objects.filter(outasset_recordcode__recordcode=recordcode, is_deleted=False).exists()
 
     @staticmethod
     def get_by_asset_code(asset_code: str) -> QuerySet[RecycleAsset]:
+        # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
         return RecycleAsset.objects.filter(
             asset_recordcode__asset_code=asset_code, is_deleted=False
-        ).select_related(
-            "outasset_recordcode",
-            "asset_recordcode",
-            "asset_recordcode__asset_type_recordcode",
-            "asset_recordcode__asset_contract_recordcode",
-            "asset_recordcode__asset_storage_recordcode",
-            "asset_recordcode__asset_manager_recordcode",
-            "operator_employee",
-        )
+        ).with_asset_details()
 
     @staticmethod
     def get_by_outasset_recordcode(outasset_recordcode: str) -> RecycleAsset | None:
         """按出库记录编码查询回收记录"""
+        # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
         return RecycleAsset.objects.filter(
             outasset_recordcode__recordcode=outasset_recordcode, is_deleted=False
-        ).select_related(
-            "outasset_recordcode", "asset_recordcode", "operator_employee"
-        ).first()
+        ).with_asset_details().first()
 
 
 class DamagedAssetSelector:
@@ -318,16 +300,39 @@ class DamagedAssetSelector:
 
     @staticmethod
     def get_all_asset_recordcodes() -> QuerySet[DamagedAsset]:
-        return DamagedAsset.objects.all()
+        return DamagedAsset.objects.filter(is_deleted=False)
 
     @staticmethod
     def get_asset_recordcode_by_asset_code(asset_code: str) -> DamagedAsset | None:
         try:
-            return DamagedAsset.objects.select_related("asset_recordcode", "approver").get(
+            # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
+            return DamagedAsset.objects.with_asset_details().get(
                 asset_recordcode__asset_code=asset_code, is_deleted=False
             )
         except DamagedAsset.DoesNotExist:
             return None
+
+    @staticmethod
+    def get_asset_recordcode_for_update(asset_recordcode: str) -> DamagedAsset:
+        """
+        获取待报废记录并加行锁（用于事务更新）
+
+        【性能优化】合并存在性检查和行锁获取为单次查询。
+
+        Args:
+            asset_recordcode: 关联资产的 recordcode
+
+        Returns:
+            DamagedAsset: 待报废记录实例（已加行锁）
+
+        Raises:
+            DamagedAsset.DoesNotExist: 记录不存在或已被删除
+        """
+        # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
+        return DamagedAsset.objects.with_asset_details().select_for_update().get(
+            asset_recordcode__recordcode=asset_recordcode, 
+            is_deleted=False
+        )
 
     @staticmethod
     def exists_by_asset_code(asset_code: str) -> bool:
@@ -357,18 +362,13 @@ class WasteAssetSelector:
 
     @staticmethod
     def get_all_asset_recordcodes() -> QuerySet[WasteAsset]:
-        return WasteAsset.objects.all()
+        return WasteAsset.objects.filter(is_deleted=False)
 
     @staticmethod
     def get_asset_recordcode_by_asset_code(asset_code: str) -> WasteAsset | None:
         try:
-            return WasteAsset.objects.select_related(
-                "asset_recordcode",
-                "asset_recordcode__asset_type_recordcode",
-                "asset_recordcode__asset_contract_recordcode",
-                "asset_recordcode__asset_storage_recordcode",
-                "asset_recordcode__asset_manager_recordcode",
-            ).get(
+            # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
+            return WasteAsset.objects.with_asset_details().get(
                 asset_recordcode__asset_code=asset_code, is_deleted=False
             )
         except WasteAsset.DoesNotExist:
@@ -376,15 +376,10 @@ class WasteAssetSelector:
 
     @staticmethod
     def get_by_asset_code(asset_code: str) -> QuerySet[WasteAsset]:
+        # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
         return WasteAsset.objects.filter(
             asset_recordcode__asset_code=asset_code, is_deleted=False
-        ).select_related(
-            "asset_recordcode",
-            "asset_recordcode__asset_type_recordcode",
-            "asset_recordcode__asset_contract_recordcode",
-            "asset_recordcode__asset_storage_recordcode",
-            "asset_recordcode__asset_manager_recordcode",
-        )
+        ).with_asset_details()
 
 
 class BrokenAssetSelector:
@@ -393,15 +388,15 @@ class BrokenAssetSelector:
     @staticmethod
     def get_queryset_for_user(user) -> QuerySet[BrokenAsset]:
         """RBAC 行级过滤"""
-        return get_asset_linked_queryset_for_user(user, BrokenAsset.objects.for_list())
+        return get_asset_linked_queryset_for_user(user, BrokenAsset.objects.for_list().filter(is_deleted=False))
 
     @staticmethod
     def get_broken_assets_for_list() -> QuerySet[BrokenAsset]:
-        return BrokenAsset.objects.for_list().all()
+        return BrokenAsset.objects.for_list().filter(is_deleted=False)
 
     @staticmethod
     def get_broken_assets_with_details() -> QuerySet[BrokenAsset]:
-        return BrokenAsset.objects.with_asset_details().all()
+        return BrokenAsset.objects.with_asset_details().filter(is_deleted=False)
 
     @staticmethod
     def get_broken_asset_by_recordcode(recordcode: str) -> BrokenAsset | None:
@@ -421,15 +416,15 @@ class LostAssetSelector:
     @staticmethod
     def get_queryset_for_user(user) -> QuerySet[LostAsset]:
         """RBAC 行级过滤"""
-        return get_asset_linked_queryset_for_user(user, LostAsset.objects.for_list())
+        return get_asset_linked_queryset_for_user(user, LostAsset.objects.for_list().filter(is_deleted=False))
 
     @staticmethod
     def get_lost_assets_for_list() -> QuerySet[LostAsset]:
-        return LostAsset.objects.for_list().all()
+        return LostAsset.objects.for_list().filter(is_deleted=False)
 
     @staticmethod
     def get_lost_assets_with_details() -> QuerySet[LostAsset]:
-        return LostAsset.objects.with_asset_details().all()
+        return LostAsset.objects.with_asset_details().filter(is_deleted=False)
 
     @staticmethod
     def get_lost_asset_by_recordcode(recordcode: str) -> LostAsset | None:
@@ -449,15 +444,15 @@ class FoundAssetSelector:
     @staticmethod
     def get_queryset_for_user(user) -> QuerySet[FoundAsset]:
         """RBAC 行级过滤"""
-        return get_asset_linked_queryset_for_user(user, FoundAsset.objects.for_list())
+        return get_asset_linked_queryset_for_user(user, FoundAsset.objects.for_list().filter(is_deleted=False))
 
     @staticmethod
     def get_found_assets_for_list() -> QuerySet[FoundAsset]:
-        return FoundAsset.objects.for_list().all()
+        return FoundAsset.objects.for_list().filter(is_deleted=False)
 
     @staticmethod
     def get_found_assets_with_details() -> QuerySet[FoundAsset]:
-        return FoundAsset.objects.with_asset_details().all()
+        return FoundAsset.objects.with_asset_details().filter(is_deleted=False)
 
     @staticmethod
     def get_found_asset_by_recordcode(recordcode: str) -> FoundAsset | None:
@@ -479,20 +474,18 @@ class RepairAssetSelector:
     @staticmethod
     def get_queryset_for_user(user) -> QuerySet[RepairAsset]:
         """RBAC 行级过滤"""
-        return get_asset_linked_queryset_for_user(user, RepairAsset.objects.all())
+        return get_asset_linked_queryset_for_user(user, RepairAsset.objects.filter(is_deleted=False))
 
     @staticmethod
     def get_repair_assets_for_list() -> QuerySet[RepairAsset]:
-        return RepairAsset.objects.select_related(
-            "asset_recordcode", "operator_employee",
-        ).filter(is_deleted=False)
+        # 【性能优化】复用模型 QuerySet 的 for_list() 方法
+        return RepairAsset.objects.for_list().filter(is_deleted=False)
 
     @staticmethod
     def get_repair_asset_by_recordcode(recordcode: str) -> RepairAsset | None:
         try:
-            return RepairAsset.objects.select_related(
-                "asset_recordcode", "operator_employee",
-            ).get(recordcode=recordcode, is_deleted=False)
+            # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
+            return RepairAsset.objects.with_asset_details().get(recordcode=recordcode, is_deleted=False)
         except RepairAsset.DoesNotExist:
             return None
 

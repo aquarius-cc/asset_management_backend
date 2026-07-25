@@ -32,7 +32,7 @@ from apps.assetmanagement.serializers import (
 )
 from apps.assetmanagement.services import OutAssetService
 
-from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
+from ._mixins import AdminWritePermissionMixin, OperatorContextMixin, RecordcodeLookupMixin
 from ._export_mixin import ExportExcelMixin
 
 OUTASSET_STATUS_MAP = dict(OutAsset.OUTASSET_STATUS_CHOICES) if hasattr(OutAsset, 'OUTASSET_STATUS_CHOICES') else {}
@@ -40,6 +40,7 @@ OUTASSET_STATUS_MAP = dict(OutAsset.OUTASSET_STATUS_CHOICES) if hasattr(OutAsset
 
 @extend_schema(tags=["出库管理"])
 class OutAssetViewSet(
+    OperatorContextMixin,
     RecordcodeLookupMixin,
     AdminWritePermissionMixin,
     ExportExcelMixin,
@@ -48,14 +49,7 @@ class OutAssetViewSet(
     ResponseWrapperMixin,
     viewsets.ModelViewSet,
 ):
-    queryset = OutAsset.objects.select_related(
-        "asset_recordcode",
-        "asset_recordcode__asset_type_recordcode",
-        "asset_recordcode__asset_contract_recordcode",
-        "asset_recordcode__asset_storage_recordcode",
-        "asset_recordcode__asset_applicant_recordcode",
-        "asset_recordcode__asset_manager_recordcode",
-    ).all()
+    queryset = OutAsset.objects.filter(is_deleted=False)
     pagination_class = CustomPageNumberPagination
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ["outasset_type"]
@@ -65,6 +59,7 @@ class OutAssetViewSet(
     admin_actions = [
         "create", "update", "partial_update", "destroy",
         "batch_create", "batch_delete",
+        "cancel_outasset",
     ]
 
     # 导出配置
@@ -81,7 +76,7 @@ class OutAssetViewSet(
 
     def get_permissions(self):
         """RBAC: 写操作需 asset_admin+，读操作需认证"""
-        if self.action in ("create", "update", "partial_update", "destroy", "batch_create", "batch_delete"):
+        if self.action in self.admin_actions:
             return [IsAssetAdminOrAbove()]
         return [permissions.IsAuthenticated()]
 
@@ -90,14 +85,8 @@ class OutAssetViewSet(
         if self.action == "list":
             qs = OutAssetSelector.get_queryset_for_user(self.request.user)
         else:
-            qs = OutAssetSelector.get_queryset_for_user(self.request.user).select_related(
-                "asset_recordcode",
-                "asset_recordcode__asset_type_recordcode",
-                "asset_recordcode__asset_contract_recordcode",
-                "asset_recordcode__asset_storage_recordcode",
-                "asset_recordcode__asset_applicant_recordcode",
-                "asset_recordcode__asset_manager_recordcode",
-            )
+            # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
+            qs = OutAssetSelector.get_queryset_for_user(self.request.user).with_asset_details()
 
         keyword = self.request.query_params.get("keyword", "").strip()
         search_type = self.request.query_params.get("searchType", "all").lower()
@@ -193,7 +182,10 @@ class OutAssetViewSet(
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         try:
-            outasset = OutAssetService.create_outasset(serializer.validated_data)
+            outasset = OutAssetService.create_outasset(
+                serializer.validated_data,
+                **self.get_operator_context(),
+            )
             return success_response(
                 data=OutAssetCreateSerializer(outasset).data, message="出库成功", status_code=status.HTTP_201_CREATED
             )
@@ -226,7 +218,7 @@ class OutAssetViewSet(
         serializer.is_valid(raise_exception=True)
         result = OutAssetService.batch_create_outasset(
             serializer.validated_data["items"],
-            operator_jobcode=request.user.auth_id,
+            operator_jobcode=request.user.auth_username,
             operator_name=request.user.auth_username,
         )
         success_serializer = OutAssetCreateSerializer(result["success_items"], many=True)
@@ -246,7 +238,7 @@ class OutAssetViewSet(
             outasset = self.get_object()
             result = OutAssetService.batch_delete_outasset(
                 recordcodes=[outasset.recordcode],
-                operator_jobcode=request.user.auth_id,
+                operator_jobcode=request.user.auth_username,
                 operator_name=request.user.auth_username,
             )
             if result["fail_count"] > 0:
@@ -267,7 +259,7 @@ class OutAssetViewSet(
         serializer.is_valid(raise_exception=True)
         result = OutAssetService.batch_delete_outasset(
             serializer.validated_data["ids"],
-            operator_jobcode=request.user.auth_id,
+            operator_jobcode=request.user.auth_username,
             operator_name=request.user.auth_username,
         )
         return success_response(
@@ -317,7 +309,7 @@ class OutAssetViewSet(
         try:
             result = OutAssetService.batch_delete_outasset(
                 recordcodes=[outasset.recordcode],
-                operator_jobcode=request.user.auth_id,
+                operator_jobcode=request.user.auth_username,
                 operator_name=request.user.auth_username,
             )
             if result["fail_count"] > 0:

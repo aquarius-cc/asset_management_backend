@@ -25,7 +25,7 @@ from utils.response_utils import error_response, success_response
 from apps.assetmanagement.models import DamagedAsset
 from apps.assetmanagement.selectors import AssetSelector, DamagedAssetSelector
 from apps.assetmanagement.serializers import (
-    DamagedAssetAproveSerializer,
+    DamagedAssetApproveSerializer,
     DamagedAssetBatchDeleteSerializer,
     DamagedAssetCreateSerializer,
     DamagedAssetDetailSerializer,
@@ -49,14 +49,8 @@ class DamagedAssetViewSet(
     ResponseWrapperMixin,
     viewsets.ModelViewSet,
 ):
-    queryset = DamagedAsset.objects.select_related(
-        "asset_recordcode",
-        "asset_recordcode__asset_type_recordcode",
-        "asset_recordcode__asset_contract_recordcode",
-        "asset_recordcode__asset_storage_recordcode",
-        "asset_recordcode__asset_manager_recordcode",
-        "approver",
-    ).all()
+    # DR-3: 类属性使用 Selector（无 RBAC），实际查询由 get_queryset 覆盖
+    queryset = DamagedAsset.objects.filter(is_deleted=False)
     serializer_class = DamagedAssetSerializer
     pagination_class = CustomPageNumberPagination
     lookup_field = "recordcode"
@@ -94,21 +88,15 @@ class DamagedAssetViewSet(
         elif self.action in ["update", "partial_update"]:
             return DamagedAssetUpdateSerializer
         elif self.action in ["approve", "reject"]:
-            return DamagedAssetAproveSerializer
+            return DamagedAssetApproveSerializer
         return DamagedAssetDetailSerializer
 
     def get_queryset(self):
         # RBAC 行级数据隔离
         if self.action == "list":
             return DamagedAssetSelector.get_queryset_for_user(self.request.user)
-        return DamagedAsset.objects.select_related(
-            "asset_recordcode",
-            "asset_recordcode__asset_type_recordcode",
-            "asset_recordcode__asset_contract_recordcode",
-            "asset_recordcode__asset_storage_recordcode",
-            "asset_recordcode__asset_manager_recordcode",
-            "approver",
-        ).filter(is_deleted=False)
+        # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
+        return DamagedAsset.objects.with_asset_details().filter(is_deleted=False)
 
     def destroy(self, request, *args, **kwargs):
         try:
@@ -118,7 +106,7 @@ class DamagedAssetViewSet(
                 return error_response(message="关联资产不存在", status_code=400)
             DamagedAssetService.cancel_asset_recordcode(
                 asset_recordcode_code=asset_recordcode,
-                operator_jobcode=request.user.auth_id,
+                operator_jobcode=request.user.auth_username,
                 operator_name=request.user.auth_username,
             )
             return success_response(message="取消待报废申请成功")
@@ -130,8 +118,7 @@ class DamagedAssetViewSet(
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        if not serializer.is_valid():
-            return error_response(message=str(serializer.errors), status_code=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
         try:
             damaged_data = serializer.validated_data
             damaged_data["asset_recordcode"] = damaged_data.get("asset_recordcode")
@@ -140,7 +127,7 @@ class DamagedAssetViewSet(
             damaged_data["damaged_asset_number"] = damaged_data.get("damaged_asset_number", 1)
             damaged_asset = DamagedAssetService.create_damaged_asset(
                 damaged_data=damaged_data,
-                operator_jobcode=request.user.auth_id,
+                operator_jobcode=request.user.auth_username,
                 operator_name=request.user.auth_username,
             )
             return success_response(
@@ -155,39 +142,35 @@ class DamagedAssetViewSet(
             return error_response(message="创建失败，请稍后重试", status_code=500)
 
     def update(self, request, *args, **kwargs):
+        """BE-H2: 通过 Service 层更新，含 select_for_update + @transaction.atomic"""
         obj = self.get_object()
-        if obj.approval_status != "pending":
-            return error_response(
-                message=f"当前审批状态为 {obj.approval_status}，不允许修改",
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
-        serializer = self.get_serializer(obj, data=request.data)
-        if not serializer.is_valid():
-            return error_response(message=str(serializer.errors), status_code=status.HTTP_400_BAD_REQUEST)
         try:
-            serializer.save()
-            return success_response(
-                data=DamagedAssetUpdateSerializer(serializer.instance).data, message="更新待报废记录成功"
+            updated = DamagedAssetService.update_damaged_asset(
+                recordcode=obj.recordcode,
+                update_data=request.data,
             )
+            return success_response(
+                data=DamagedAssetUpdateSerializer(updated).data, message="更新待报废记录成功"
+            )
+        except AppValidationError as e:
+            return error_response(message=str(e.detail), status_code=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logging.exception(f"更新待报废记录失败: {e}")
             return error_response(message="更新失败，请稍后重试", status_code=500)
 
     def partial_update(self, request, *args, **kwargs):
+        """BE-H2: 通过 Service 层更新，含 select_for_update + @transaction.atomic"""
         obj = self.get_object()
-        if obj.approval_status != "pending":
-            return error_response(
-                message=f"当前审批状态为 {obj.approval_status}，不允许修改",
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
-        serializer = self.get_serializer(obj, data=request.data, partial=True)
-        if not serializer.is_valid():
-            return error_response(message=str(serializer.errors), status_code=status.HTTP_400_BAD_REQUEST)
         try:
-            serializer.save()
-            return success_response(
-                data=DamagedAssetUpdateSerializer(serializer.instance).data, message="更新待报废记录成功"
+            updated = DamagedAssetService.update_damaged_asset(
+                recordcode=obj.recordcode,
+                update_data=request.data,
             )
+            return success_response(
+                data=DamagedAssetUpdateSerializer(updated).data, message="更新待报废记录成功"
+            )
+        except AppValidationError as e:
+            return error_response(message=str(e.detail), status_code=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logging.exception(f"更新待报废记录失败: {e}")
             return error_response(message="更新失败，请稍后重试", status_code=500)
@@ -199,7 +182,7 @@ class DamagedAssetViewSet(
             asset_recordcode = obj.asset_recordcode.recordcode if obj.asset_recordcode else None
             if not asset_recordcode:
                 return error_response(message="关联资产不存在", status_code=400)
-            approver_jobcode = request.data.get("approver_jobcode") or request.user.auth_id
+            approver_jobcode = request.data.get("approver_jobcode") or request.user.auth_username
             operator_name = request.data.get("operator_name") or request.user.auth_username
             result = DamagedAssetService.approve_asset_recordcode(
                 asset_recordcode_code=asset_recordcode, approver_jobcode=approver_jobcode, operator_name=operator_name
@@ -224,7 +207,7 @@ class DamagedAssetViewSet(
             asset_recordcode = obj.asset_recordcode.recordcode if obj.asset_recordcode else None
             if not asset_recordcode:
                 return error_response(message="关联资产不存在", status_code=400)
-            approver_jobcode = request.data.get("approver_jobcode") or request.user.auth_id
+            approver_jobcode = request.data.get("approver_jobcode") or request.user.auth_username
             operator_name = request.data.get("operator_name") or request.user.auth_username
             result = DamagedAssetService.reject_asset_recordcode(
                 asset_recordcode_code=asset_recordcode, approver_jobcode=approver_jobcode, operator_name=operator_name

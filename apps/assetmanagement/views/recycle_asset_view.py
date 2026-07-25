@@ -48,15 +48,7 @@ class RecycleAssetViewSet(
     ResponseWrapperMixin,
     viewsets.ModelViewSet,
 ):
-    queryset = RecycleAsset.objects.select_related(
-        "outasset_recordcode",
-        "asset_recordcode",
-        "asset_recordcode__asset_type_recordcode",
-        "asset_recordcode__asset_contract_recordcode",
-        "asset_recordcode__asset_storage_recordcode",
-        "asset_recordcode__asset_manager_recordcode",
-        "operator_employee",
-    ).all()
+    queryset = RecycleAsset.objects.filter(is_deleted=False)
     pagination_class = CustomPageNumberPagination
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = [
@@ -75,6 +67,7 @@ class RecycleAssetViewSet(
     admin_actions = [
         "create", "update", "partial_update", "destroy",
         "batch_create", "batch_delete",
+        "cancel_recycle", "reissue",
     ]
 
     # 导出配置
@@ -108,15 +101,8 @@ class RecycleAssetViewSet(
         if self.action == "list":
             qs = RecycleAssetSelector.get_queryset_for_user(self.request.user)
         else:
-            qs = RecycleAssetSelector.get_queryset_for_user(self.request.user).select_related(
-                "outasset_recordcode",
-                "asset_recordcode",
-                "asset_recordcode__asset_type_recordcode",
-                "asset_recordcode__asset_contract_recordcode",
-                "asset_recordcode__asset_storage_recordcode",
-                "asset_recordcode__asset_manager_recordcode",
-                "operator_employee",
-            )
+            # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
+            qs = RecycleAssetSelector.get_queryset_for_user(self.request.user).with_asset_details()
 
         date_from = self.request.query_params.get("recycle_date_from")
         date_to = self.request.query_params.get("recycle_date_to")
@@ -132,7 +118,7 @@ class RecycleAssetViewSet(
         try:
             recycle = RecycleAssetService.create_recycle_asset(
                 serializer.validated_data,
-                operator_jobcode=request.user.auth_id,
+                operator_jobcode=request.user.auth_username,
                 operator_name=request.user.auth_username,
             )
             return success_response(
@@ -147,12 +133,12 @@ class RecycleAssetViewSet(
     def update(self, request, *args, **kwargs):
         recordcode = self.kwargs.get("recordcode")
         try:
-            serializer = RecycleAssetCreateSerializer(data=request.data, partial=True)
+            serializer = RecycleAssetUpdateSerializer(data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
             recycle = RecycleAssetService.update_recycle_asset(
                 recordcode=recordcode,
                 update_data=serializer.validated_data,
-                operator_jobcode=request.user.auth_id,
+                operator_jobcode=request.user.auth_username,
                 operator_name=request.user.auth_username,
             )
             return success_response(data=RecycleAssetDetailSerializer(recycle).data, message="更新成功")
@@ -216,7 +202,7 @@ class RecycleAssetViewSet(
             mapped_items.append(mapped)
 
         result = RecycleAssetService.batch_create_recycle_asset(
-            mapped_items, operator_jobcode=request.user.auth_id, operator_name=request.user.auth_username
+            mapped_items, operator_jobcode=request.user.auth_username, operator_name=request.user.auth_username
         )
         success_serializer = RecycleAssetCreateSerializer(result["success_items"], many=True)
         return success_response(
@@ -235,7 +221,7 @@ class RecycleAssetViewSet(
             asset_recordcode = self.get_object()
             result = RecycleAssetService.batch_delete_recycle_asset(
                 recordcodes=[asset_recordcode.recordcode],
-                operator_jobcode=request.user.auth_id,
+                operator_jobcode=request.user.auth_username,
                 operator_name=request.user.auth_username,
             )
             if result["fail_count"] > 0:
@@ -256,7 +242,7 @@ class RecycleAssetViewSet(
         serializer.is_valid(raise_exception=True)
         result = RecycleAssetService.batch_delete_recycle_asset(
             serializer.validated_data["ids"],
-            operator_jobcode=request.user.auth_id,
+            operator_jobcode=request.user.auth_username,
             operator_name=request.user.auth_username,
         )
         return success_response(
@@ -277,7 +263,7 @@ class RecycleAssetViewSet(
         try:
             result = RecycleAssetService.batch_delete_recycle_asset(
                 recordcodes=[recycle.recordcode],
-                operator_jobcode=request.user.auth_id,
+                operator_jobcode=request.user.auth_username,
                 operator_name=request.user.auth_username,
             )
             if result["fail_count"] > 0:
@@ -298,7 +284,7 @@ class RecycleAssetViewSet(
         try:
             outasset = RecycleAssetService.reissue_recycle_asset(
                 recordcode=recordcode,
-                operator_jobcode=request.user.auth_id,
+                operator_jobcode=request.user.auth_username,
                 operator_name=request.user.auth_username,
             )
             return success_response(

@@ -24,6 +24,7 @@ class RecycleAssetQuerySet(models.QuerySet):
     def with_asset_details(self):
         """预加载资产完整信息"""
         return self.select_related(
+            "outasset_recordcode",
             "asset_recordcode",
             "asset_recordcode__asset_type_recordcode",
             "asset_recordcode__asset_contract_recordcode",

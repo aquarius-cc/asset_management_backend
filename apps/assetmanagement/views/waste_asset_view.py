@@ -46,13 +46,7 @@ class WasteAssetViewSet(
     ResponseWrapperMixin,
     viewsets.ModelViewSet,
 ):
-    queryset = WasteAsset.objects.select_related(
-        "asset_recordcode",
-        "asset_recordcode__asset_type_recordcode",
-        "asset_recordcode__asset_contract_recordcode",
-        "asset_recordcode__asset_storage_recordcode",
-        "asset_recordcode__asset_manager_recordcode",
-    ).all()
+    queryset = WasteAsset.objects.filter(is_deleted=False)
     serializer_class = WasteAssetSerializer
     pagination_class = CustomPageNumberPagination
     lookup_field = "asset_recordcode__asset_code"
@@ -90,13 +84,8 @@ class WasteAssetViewSet(
         # RBAC 行级数据隔离
         if self.action == "list":
             return WasteAssetSelector.get_queryset_for_user(self.request.user)
-        return WasteAssetSelector.get_queryset_for_user(self.request.user).select_related(
-            "asset_recordcode",
-            "asset_recordcode__asset_type_recordcode",
-            "asset_recordcode__asset_contract_recordcode",
-            "asset_recordcode__asset_storage_recordcode",
-            "asset_recordcode__asset_manager_recordcode",
-        )
+        # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
+        return WasteAssetSelector.get_queryset_for_user(self.request.user).with_asset_details()
 
     def create(self, request, *args, **kwargs):
         return error_response(
@@ -183,7 +172,8 @@ class WasteAssetViewSet(
                 success_ids.append(asset_recordcode_code)
             except WasteAsset.DoesNotExist:
                 fail_items.append({"id": asset_recordcode_code, "error_code": "NOT_FOUND", "error_message": f"已报废记录 {asset_recordcode_code} 不存在"})
-            except Exception:
+            except Exception as e:
+                logging.exception(f"批量删除报废资产失败: {e}")
                 fail_items.append({"id": asset_recordcode_code, "error_code": "INTERNAL_ERROR", "error_message": "服务器内部错误"})
         return success_response(
             data={

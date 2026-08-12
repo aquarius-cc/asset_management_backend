@@ -1,17 +1,18 @@
 """
 资产生命周期管理 Mixin
 
-提供资产状态流转相关的业务方法：标记损坏/遗失、找回、送修、维修完成/失败。
+提供资产状态流转相关的业务方法:标记损坏/遗失、找回、送修、维修完成/失败。
 被 AssetService 继承以保持统一 API。
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from django.db import transaction
 
 from apps.assetmanagement.audit import AuditLogger
+
 
 if TYPE_CHECKING:
     from apps.assetmanagement.models import RepairAsset
@@ -38,12 +39,14 @@ class AssetLifecycleMixin:
             return asset
 
         from apps.usermanagement.models import Employee
+
         operator = Employee.objects.filter(employee_jobcode=operator_jobcode).first()
 
         AssetFSM.mark_broken(asset)
         asset.save(update_fields=["asset_current_status", "updated_at"])
 
         from apps.assetmanagement.models import AssetOperationLog, BrokenAsset
+
         BrokenAsset.objects.create(
             asset_recordcode=asset,
             broken_reason=broken_reason,
@@ -78,12 +81,14 @@ class AssetLifecycleMixin:
             return asset
 
         from apps.usermanagement.models import Employee
+
         operator = Employee.objects.filter(employee_jobcode=operator_jobcode).first()
 
         AssetFSM.mark_lost(asset)
         asset.save(update_fields=["asset_current_status", "updated_at"])
 
         from apps.assetmanagement.models import AssetOperationLog, LostAsset
+
         LostAsset.objects.create(
             asset_recordcode=asset,
             last_known_location=last_known_location,
@@ -111,19 +116,22 @@ class AssetLifecycleMixin:
         operator_jobcode: str = "",
         operator_name: str = "",
     ) -> Asset:
-        """找回遗失资产并入库"""
+        """找回遗失资产(转入待发放状态)"""
         asset = Asset.objects.select_for_update().get(asset_code=asset_code)
 
         from apps.assetmanagement.models import LostAsset
+
         lost_record = LostAsset.objects.get(asset_recordcode=asset)
 
         from apps.usermanagement.models import Employee
+
         operator = Employee.objects.filter(employee_jobcode=operator_jobcode).first()
 
         AssetFSM.found_and_return(asset)
         asset.save(update_fields=["asset_current_status", "updated_at"])
 
         from apps.assetmanagement.models import AssetOperationLog, FoundAsset
+
         FoundAsset.objects.create(
             lost_asset_recordcode=lost_record,
             asset_recordcode=asset,
@@ -138,7 +146,7 @@ class AssetLifecycleMixin:
             operation_type="found",
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
-            description="遗失资产找回并入库",
+            description="遗失资产找回,转入待发放状态",
         )
         return asset
 
@@ -151,17 +159,19 @@ class AssetLifecycleMixin:
         repair_description: str = "",
         operator_jobcode: str = "",
         operator_name: str = "",
-    ) -> "RepairAsset":
+    ) -> RepairAsset:
         """送修资产: broken -> repairing"""
         asset = Asset.objects.select_for_update().get(asset_code=asset_code)
 
         from apps.usermanagement.models import Employee
+
         operator = Employee.objects.filter(employee_jobcode=operator_jobcode).first()
 
         AssetFSM.repair(asset)
         asset.save(update_fields=["asset_current_status", "updated_at"])
 
         from apps.assetmanagement.models import AssetOperationLog, RepairAsset
+
         repair_record = RepairAsset.objects.create(
             asset_recordcode=asset,
             repair_date=repair_date,
@@ -189,16 +199,16 @@ class AssetLifecycleMixin:
         physical_grade_after: str = "",
         operator_jobcode: str = "",
         operator_name: str = "",
-    ) -> "RepairAsset":
-        """维修完成: repairing -> in_store"""
+    ) -> RepairAsset:
+        """维修完成: repairing -> recycled_pending"""
         asset = Asset.objects.select_for_update().get(asset_code=asset_code)
 
         from apps.assetmanagement.models import RepairAsset
-        repair_record = RepairAsset.objects.filter(
-            asset_recordcode=asset, repair_status="in_progress"
-        ).first()
+
+        repair_record = RepairAsset.objects.filter(asset_recordcode=asset, repair_status="in_progress").first()
         if not repair_record:
             from core.exceptions import AppValidationError
+
             raise AppValidationError("No in-progress repair record found for this asset")
 
         AssetFSM.repair_done(asset)
@@ -207,12 +217,14 @@ class AssetLifecycleMixin:
         asset.save(update_fields=["asset_current_status", "physical_grade", "updated_at"])
 
         from django.utils import timezone
+
         repair_record.repair_status = "completed"
         repair_record.actual_return_date = actual_return_date or timezone.now().date()
         repair_record.physical_grade_after = physical_grade_after or None
         repair_record.save(update_fields=["repair_status", "actual_return_date", "physical_grade_after", "updated_at"])
 
         from apps.assetmanagement.models import AssetOperationLog
+
         AssetOperationLog.objects.create(
             asset_code=asset.asset_code,
             asset_name=asset.asset_name,
@@ -220,7 +232,7 @@ class AssetLifecycleMixin:
             operation_type="repair_done",
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
-            description="Repair completed, asset returned to store",
+            description="Repair completed, asset moved to recycled_pending",
         )
         return repair_record
 
@@ -230,16 +242,16 @@ class AssetLifecycleMixin:
         asset_code: str,
         operator_jobcode: str = "",
         operator_name: str = "",
-    ) -> "RepairAsset":
+    ) -> RepairAsset:
         """维修失败: repairing -> damaged"""
         asset = Asset.objects.select_for_update().get(asset_code=asset_code)
 
         from apps.assetmanagement.models import RepairAsset
-        repair_record = RepairAsset.objects.filter(
-            asset_recordcode=asset, repair_status="in_progress"
-        ).first()
+
+        repair_record = RepairAsset.objects.filter(asset_recordcode=asset, repair_status="in_progress").first()
         if not repair_record:
             from core.exceptions import AppValidationError
+
             raise AppValidationError("No in-progress repair record found for this asset")
 
         AssetFSM.repair_failed(asset)
@@ -249,6 +261,7 @@ class AssetLifecycleMixin:
         repair_record.save(update_fields=["repair_status", "updated_at"])
 
         from apps.assetmanagement.models import AssetOperationLog, DamagedAsset
+
         DamagedAsset.objects.create(
             asset_recordcode=asset,
             damaged_asset_number=1,
@@ -271,7 +284,7 @@ class AssetLifecycleMixin:
         operator_jobcode: str = "",
         operator_name: str = "",
     ) -> dict:
-        """软删除损坏资产记录（事务包裹、逐条校验、审计日志）"""
+        """软删除损坏资产记录(事务包裹、逐条校验、审计日志)"""
         obj = BrokenAsset.objects.select_for_update().get(recordcode=recordcode, is_deleted=False)
         obj.is_deleted = True
         obj.save(update_fields=["is_deleted", "updated_at"])
@@ -294,7 +307,7 @@ class AssetLifecycleMixin:
         operator_jobcode: str = "",
         operator_name: str = "",
     ) -> dict:
-        """软删除遗失资产记录（事务包裹、逐条校验、审计日志）"""
+        """软删除遗失资产记录(事务包裹、逐条校验、审计日志)"""
         obj = LostAsset.objects.select_for_update().get(recordcode=recordcode, is_deleted=False)
         obj.is_deleted = True
         obj.save(update_fields=["is_deleted", "updated_at"])
@@ -317,7 +330,7 @@ class AssetLifecycleMixin:
         operator_jobcode: str = "",
         operator_name: str = "",
     ) -> dict:
-        """软删除找回资产记录（事务包裹、逐条校验、审计日志）"""
+        """软删除找回资产记录(事务包裹、逐条校验、审计日志)"""
         obj = FoundAsset.objects.select_for_update().get(recordcode=recordcode, is_deleted=False)
         obj.is_deleted = True
         obj.save(update_fields=["is_deleted", "updated_at"])

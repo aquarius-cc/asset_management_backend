@@ -6,13 +6,10 @@ change_asset_status, change_outasset_employee, get_asset_statistics,
 以及 AssetLifecycleMixin 中的状态流转方法。
 """
 
-from unittest.mock import patch
-
 import pytest
 
 from apps.assetmanagement.models import (
     Asset,
-    AssetOperationLog,
     BrokenAsset,
     DamagedAsset,
     LostAsset,
@@ -85,8 +82,9 @@ class TestDeleteAsset:
         assert exc_info.value.error_code == "ASSET_IN_USE"
 
     def test_delete_asset_has_outasset(self, asset):
-        """有关联出库记录时不允许删除（outasset fixture 会改变状态，需手动创建）"""
+        """有关联出库记录时不允许删除(outasset fixture 会改变状态,需手动创建)"""
         from apps.assetmanagement.models import OutAsset
+
         OutAsset.objects.create(asset_recordcode=asset, outasset_date="2024-01-01")
         with pytest.raises(AppValidationError) as exc_info:
             AssetService.delete_asset(asset_code="A001")
@@ -120,9 +118,7 @@ class TestBatchDeleteAsset:
 
     def test_batch_delete_mixed_results(self, asset):
         """部分成功部分失败"""
-        result = AssetService.batch_delete_asset(
-            asset_codes=["A001", "NOT_EXIST"]
-        )
+        result = AssetService.batch_delete_asset(asset_codes=["A001", "NOT_EXIST"])
         assert result["success_count"] == 1
         assert result["fail_count"] == 1
         assert "NOT_EXIST" in result["fail_items"][0]["id"]
@@ -187,7 +183,7 @@ class TestChangeOutassetEmployee:
             employee_name="保管人",
             employee_department=user.employee_department,
         )
-        # change_outasset_employee 通过 FK descriptor 赋值，需传 Employee 实例
+        # change_outasset_employee 通过 FK descriptor 赋值,需传 Employee 实例
         result = AssetService.change_outasset_employee(
             asset_code="A001",
             applicant_jobcode=user,
@@ -209,7 +205,7 @@ class TestChangeOutassetEmployee:
 
 @pytest.mark.django_db
 class TestGetAssetStatistics:
-    """get_asset_statistics 测试（补充已有 test_services.py 中的用例）"""
+    """get_asset_statistics 测试(补充已有 test_services.py 中的用例)"""
 
     def test_statistics_empty_db(self):
         stats = AssetService.get_asset_statistics()
@@ -308,7 +304,7 @@ class TestFindAndReturnAsset:
     """find_and_return_asset 测试"""
 
     def _make_lost_asset(self, asset, user):
-        """辅助：将资产标记为 lost 并创建 LostAsset 记录"""
+        """辅助:将资产标记为 lost 并创建 LostAsset 记录"""
         asset.asset_current_status = "lost"
         asset.save()
         return LostAsset.objects.create(
@@ -325,7 +321,7 @@ class TestFindAndReturnAsset:
             operator_name=user.employee_name,
         )
         result.refresh_from_db()
-        assert result.asset_current_status == "in_store"
+        assert result.asset_current_status == "recycled_pending"
 
     def test_find_and_return_no_lost_record(self, asset, user):
         """没有 LostAsset 记录时应报错"""
@@ -344,7 +340,7 @@ class TestRepairAsset:
     """repair_asset 测试"""
 
     def _make_broken_asset(self, asset, user):
-        """辅助：将资产标记为 broken"""
+        """辅助:将资产标记为 broken"""
         asset.asset_current_status = "broken"
         asset.save()
         return asset
@@ -379,7 +375,7 @@ class TestRepairDone:
     """repair_done 测试"""
 
     def _make_repairing_asset(self, asset, user):
-        """辅助：将资产标记为 repairing 并创建维修记录"""
+        """辅助:将资产标记为 repairing 并创建维修记录"""
         asset.asset_current_status = "repairing"
         asset.save()
         return RepairAsset.objects.create(
@@ -402,7 +398,7 @@ class TestRepairDone:
         result.refresh_from_db()
         assert result.repair_status == "completed"
         asset.refresh_from_db()
-        assert asset.asset_current_status == "in_store"
+        assert asset.asset_current_status == "recycled_pending"
         assert asset.physical_grade == "良好"
 
     def test_repair_done_no_in_progress_record(self, asset, user):
@@ -422,7 +418,7 @@ class TestRepairFailed:
     """repair_failed 测试"""
 
     def _make_repairing_asset(self, asset, user):
-        """辅助：将资产标记为 repairing 并创建维修记录"""
+        """辅助:将资产标记为 repairing 并创建维修记录"""
         asset.asset_current_status = "repairing"
         asset.save()
         return RepairAsset.objects.create(

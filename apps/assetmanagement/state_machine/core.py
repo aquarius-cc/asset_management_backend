@@ -1,21 +1,27 @@
 """
 资产状态机核心实现
 【AGENTS 规范 - 状态机解耦】
-集中管理资产状态流转规则，每个状态转换是独立方法。
+集中管理资产状态流转规则,每个状态转换是独立方法。
 核心设计:
 - AssetState: 状态枚举定义
 - AssetFSM: 状态转换方法集合
 - InvalidTransitionError: 非法转换异常
 状态流转图:
 ```
-in_store ──outasset──→ in_use ──recycle──→ recycled_pending ──damaged──→ damaged ──approve──→ scrapped
-                          ↑                      │                      │
-                          │                      │                      │
-                          └──────outasset────────┘                      │
-                                                 │                      │
-                                                 └──── reject/cancel────┘
+主路径:  in_store ──outasset──→ in_use ──recycle──→ recycled_pending ──to_damaged──→ damaged ──approve──→ scrapped(终态)
+         recycled_pending ──outasset──→ in_use(再次出库)
+         damaged ──reject/cancel──→ recycled_pending(审批拒绝/取消)
 
-终态: scrapped（已报废，无转出）
+损坏/遗失/维修路径:
+         in_store / in_use / recycled_pending ──mark_broken──→ broken
+         in_store / in_use / recycled_pending ──mark_lost──→ lost
+         broken ──repair──→ repairing ──repair_done──→ recycled_pending
+         repairing ──repair_failed──→ damaged
+         lost ──found_and_return──→ recycled_pending
+         lost ──to_damaged──→ damaged
+```
+
+终态: scrapped(已报废,无转出)
 ```
 
 职责边界:
@@ -38,13 +44,14 @@ class AssetState(Enum):
     与 Asset.asset_current_status 字段值一一对应。
 
     Attributes:
-        IN_STORE: 在库 - 资产在仓库中，未分配使用
-        IN_USE: 在用 - 资产已被领用/出库，正在使用中
-        RECYCLED_PENDING: 已回收待发放 - 资产已回收，等待下次分配
+        IN_STORE: 在库 - 资产在仓库中,未分配使用(首次入库的新资产)
+        IN_USE: 在用 - 资产已被领用/出库,正在使用中
+        RECYCLED_PENDING: 已回收待发放 - 资产已回收,等待下次分配
         BROKEN: 已损坏 - 资产存在但已损坏
+        REPAIRING: 维修中 - 资产已送修,等待维修结果
         LOST: 已遗失 - 资产无法找到
-        DAMAGED: 待报废 - 资产损坏，等待报废审批
-        SCRAPPED: 已报废 - 审批通过，资产报废（终态）
+        DAMAGED: 待报废 - 资产损坏,等待报废审批
+        SCRAPPED: 已报废 - 审批通过,资产报废(终态)
     """
 
     IN_STORE = "in_store"
@@ -61,7 +68,7 @@ class AssetState(Enum):
         """
         从字符串转换为枚举值
         Args:
-            value: 状态字符串（如 'in_store'）
+            value: 状态字符串(如 'in_store')
 
         Returns:
             AssetState: 对应的枚举值
@@ -89,21 +96,21 @@ class AssetFSM:
     """
     资产有限状态机
     【设计原则 - AGENTS规范】
-    - 单一职责: 只负责状态字段(asset_current_status)变更，不处理其他字段
-    - 显式调用: 每个状态转换是独立方法，调用意图清晰可见
+    - 单一职责: 只负责状态字段(asset_current_status)变更,不处理其他字段
+    - 显式调用: 每个状态转换是独立方法,调用意图清晰可见
     - 契约驱动: 通过类型注解和文档明确接口契约
-    - 事务边界: 状态机不处理事务和并发锁，由调用方(Service)控制
+    - 事务边界: 状态机不处理事务和并发锁,由调用方(Service)控制
     【使用方式】
         # Service层控制事务和并发
         with transaction.atomic():
             asset = Asset.objects.select_for_update().get(pk=asset.pk)
-            AssetFSM.outasset(asset)  # 执行状态转换（只修改内存中的值）
+            AssetFSM.outasset(asset)  # 执行状态转换(只修改内存中的值)
             asset.save()              # 持久化到数据库
 
     【注意】
-    - 所有方法只修改 asset.asset_current_status，不调用 save()
-    - 所有方法不处理事务，由调用方通过 @transaction.atomic 控制
-    - 所有方法不处理并发锁，由调用方通过 select_for_update() 控制
+    - 所有方法只修改 asset.asset_current_status,不调用 save()
+    - 所有方法不处理事务,由调用方通过 @transaction.atomic 控制
+    - 所有方法不处理并发锁,由调用方通过 select_for_update() 控制
     """
 
     # ===================================================================
@@ -114,64 +121,68 @@ class AssetFSM:
     #
     # 【完整状态流转图】
     #
-    #   in_store ──outasset──→ in_use ──recycle──→ recycled_pending ──damaged──→ damaged ──approve──→ scrapped(终态)
-    #                             │    ╲              │    ╲              │                      │
-    #                             │     ╲damaged      │     ╲damaged     │                      │
-    #                             │      ╲            │      ╲           │                      │
-    #                             │       → damaged   │       → damaged  │                      │
-    #                             │                      │                      │
-    #                             └──────outasset────────┘                      │
-    #                                                    │                      │
-    #                                                    └──── reject/cancel────┘
+    #   主路径: in_store ──outasset──→ in_use ──recycle──→ recycled_pending ──to_damaged──→ damaged ──approve──→ scrapped(终态)
+    #           recycled_pending ──outasset──→ in_use(再次出库)
+    #           damaged ──reject/cancel──→ recycled_pending(审批拒绝/取消)
+    #
+    #   损坏/遗失/维修路径:
+    #           in_store / in_use / recycled_pending ──mark_broken──→ broken
+    #           in_store / in_use / recycled_pending ──mark_lost──→ lost
+    #           broken ──repair──→ repairing ──repair_done──→ recycled_pending
+    #           repairing ──repair_failed──→ damaged
+    #           lost ──found_and_return──→ recycled_pending
+    #           lost ──to_damaged──→ damaged
     #
     # 【业务规则】
-    # - reject（审批拒绝）和 cancel（用户取消）都回到 recycled_pending
-    # - 保留独立方法以区分业务语义，便于日志追踪
-    # - scrapped 为终态，不允许任何转出
+    # - reject(审批拒绝)和 cancel(用户取消)都回到 recycled_pending
+    # - 保留独立方法以区分业务语义,便于日志追踪
+    # - scrapped 为终态,不允许任何转出
+    # - 维修完成/找回入池:已使用过的资产(维修/找回)统一回到 recycled_pending,
+    #   in_store 仅表示首次入库的新资产
     #
     _TRANSITIONS: dict = {
-        # 在库 → 在用（首次出库）、已损坏、已遗失
+        # 在库 → 在用(首次出库)、已损坏、已遗失
         AssetState.IN_STORE: {
             AssetState.IN_USE: "outasset",
             AssetState.BROKEN: "mark_broken",
             AssetState.LOST: "mark_lost",
         },
-        # 在用 → 待发放（回收）、已损坏、已遗失、待报废
+        # 在用 → 待发放(回收)、已损坏、已遗失、待报废
         AssetState.IN_USE: {
             AssetState.RECYCLED_PENDING: "recycle",
             AssetState.BROKEN: "mark_broken",
             AssetState.LOST: "mark_lost",
             AssetState.DAMAGED: "to_damaged",
         },
-        # 待发放 → 在用（再次出库）、已损坏、已遗失、待报废
+        # 待发放 → 在用(再次出库)、已损坏、已遗失、待报废
         AssetState.RECYCLED_PENDING: {
             AssetState.IN_USE: "outasset",
             AssetState.BROKEN: "mark_broken",
             AssetState.LOST: "mark_lost",
             AssetState.DAMAGED: "to_damaged",
         },
-        # 已损坏 → 待报废（提交报废）或 → 维修中（送修）
+        # 已损坏 → 待报废(提交报废)或 → 维修中(送修)
         AssetState.BROKEN: {
             AssetState.DAMAGED: "to_damaged",
             AssetState.REPAIRING: "repair",
         },
-        # 维修中 → 在库（维修完成）或 → 待报废（维修失败）
+        # 维修中 → 待发放(维修完成,已使用资产修好后重新入待发放池)或 → 待报废(维修失败)
         AssetState.REPAIRING: {
-            AssetState.IN_STORE: "repair_done",
+            AssetState.RECYCLED_PENDING: "repair_done",
             AssetState.DAMAGED: "repair_failed",
         },
-        # 已遗失 → 待报废（提交报废）或 → 在库（找回）
+        # 已遗失 → 待报废(提交报废)或 → 待发放(找回,重新进入发放池)
         AssetState.LOST: {
             AssetState.DAMAGED: "to_damaged",
-            AssetState.IN_STORE: "found_and_return",
+            AssetState.RECYCLED_PENDING: "found_and_return",
         },
-        # 待报废 → 已报废（审批通过）、已损坏（拒绝）、已遗失（拒绝）
+        # 待报废 → 已报废(审批通过)、已损坏(拒绝)、已遗失(拒绝)
         AssetState.DAMAGED: {
             AssetState.SCRAPPED: "approve",
             AssetState.BROKEN: "reject_to_broken",
             AssetState.LOST: "reject_to_lost",
         },
-        # 已报废 - 终态，无转出
+        # 已报废 - 终态,无转出
         AssetState.SCRAPPED: {},
     }
 
@@ -182,7 +193,7 @@ class AssetFSM:
     @classmethod
     def _validate_transition(cls, asset: "Asset", target_state: AssetState) -> None:
         """
-        验证状态转换合法性（不修改状态）
+        验证状态转换合法性(不修改状态)
         """
         current = AssetState.from_string(asset.asset_current_status)
         if target_state not in cls._TRANSITIONS.get(current, {}):
@@ -191,9 +202,9 @@ class AssetFSM:
     @classmethod
     def _transition(cls, asset: "Asset", target_state: AssetState) -> None:
         """
-        执行状态转换（内部方法）
+        执行状态转换(内部方法)
         验证合法性后修改 asset.asset_current_status。
-        【注意】不调用 save()，由调用方控制持久化时机。
+        【注意】不调用 save(),由调用方控制持久化时机。
 
         Args:
             asset: 资产实例
@@ -215,7 +226,7 @@ class AssetFSM:
         出库: (in_store | recycled_pending) → in_use
         资产从仓库或待发放状态转为在用状态。
         支持首次出库和再次出库两种场景。
-        触发时机: 创建出库记录(OutAsset)后，由 OutAssetService 调用。
+        触发时机: 创建出库记录(OutAsset)后,由 OutAssetService 调用。
         Args:
             asset: 资产实例
 
@@ -235,28 +246,28 @@ class AssetFSM:
         """
         取消出库: in_use → previous_status
 
-        删除出库记录后，根据出库前的来源状态回退资产状态。
-        【业务规则】从 in_store 出库的回到 in_store，从 recycled_pending 出库的回到 recycled_pending。
-        【注意】此为特殊回退操作，不在 _TRANSITIONS 中定义。
+        删除出库记录后,根据出库前的来源状态回退资产状态。
+        【业务规则】从 in_store 出库的回到 in_store,从 recycled_pending 出库的回到 recycled_pending。
+        【注意】此为特殊回退操作,不在 _TRANSITIONS 中定义。
 
-        触发时机: 删除出库记录后，由 OutAssetService 调用。
+        触发时机: 删除出库记录后,由 OutAssetService 调用。
 
         Args:
             asset: 资产实例
-            previous_status: 出库前的资产状态字符串（'in_store' 或 'recycled_pending'）
+            previous_status: 出库前的资产状态字符串('in_store' 或 'recycled_pending')
 
         Raises:
             InvalidTransitionError: 当前状态不是 in_use 或 previous_status 不合法时抛出
         """
         current = AssetState.from_string(asset.asset_current_status)
         if current != AssetState.IN_USE:
-            raise InvalidTransitionError(f"只有'在用'状态的资产才能取消出库，当前状态: {current.value}")
+            raise InvalidTransitionError(f"只有'在用'状态的资产才能取消出库,当前状态: {current.value}")
 
         # 验证并设置目标状态
         target = AssetState.from_string(previous_status)
         if target not in (AssetState.IN_STORE, AssetState.RECYCLED_PENDING):
             raise InvalidTransitionError(
-                f"取消出库的目标状态必须是'in_store'或'recycled_pending'，收到: {previous_status}"
+                f"取消出库的目标状态必须是'in_store'或'recycled_pending',收到: {previous_status}"
             )
 
         asset.asset_current_status = target.value
@@ -270,7 +281,7 @@ class AssetFSM:
         """
         回收: in_use → recycled_pending
         资产从在用状态转为已回收待发放状态。
-        触发时机: 创建回收记录(RecycleAsset)后，由 RecycleAssetService 调用。
+        触发时机: 创建回收记录(RecycleAsset)后,由 RecycleAssetService 调用。
         Args:
             asset: 资产实例
         Raises:
@@ -282,8 +293,8 @@ class AssetFSM:
     def cancel_recycle(cls, asset: "Asset") -> None:
         """
         取消回收: recycled_pending → in_use
-        删除回收记录后，恢复资产到在用状态。
-        【注意】此为特殊回退操作，不在 _TRANSITIONS 中定义。
+        删除回收记录后,恢复资产到在用状态。
+        【注意】此为特殊回退操作,不在 _TRANSITIONS 中定义。
         触发时机: 删除回收记录后。
         Args:
             asset: 资产实例
@@ -293,7 +304,7 @@ class AssetFSM:
         """
         current = AssetState.from_string(asset.asset_current_status)
         if current != AssetState.RECYCLED_PENDING:
-            raise InvalidTransitionError(f"只有'已回收待发放'状态的资产才能取消回收，当前状态: {current.value}")
+            raise InvalidTransitionError(f"只有'已回收待发放'状态的资产才能取消回收,当前状态: {current.value}")
         asset.asset_current_status = AssetState.IN_USE.value
 
     # ===================================================================
@@ -306,7 +317,7 @@ class AssetFSM:
         申请报废: (in_use | recycled_pending) → damaged
         资产从在用或待发放状态转为待报废状态。
         支持使用中和待发放两种场景的报废申请。
-        触发时机: 创建待报废记录(DamagedAsset)后，由 DamagedAssetService 调用。
+        触发时机: 创建待报废记录(DamagedAsset)后,由 DamagedAssetService 调用。
         Args:
             asset: 资产实例
 
@@ -319,9 +330,9 @@ class AssetFSM:
     def cancel_damaged(cls, asset: "Asset") -> None:
         """
         取消报废申请: damaged → recycled_pending
-        用户主动取消待报废申请，资产回到待发放状态。
-        【业务语义】与 reject 不同：cancel 是用户主动取消，reject 是审批人拒绝。
-        触发时机: 删除待报废记录后（用户主动操作）。
+        用户主动取消待报废申请,资产回到待发放状态。
+        【业务语义】与 reject 不同:cancel 是用户主动取消,reject 是审批人拒绝。
+        触发时机: 删除待报废记录后(用户主动操作)。
         Args:
             asset: 资产实例
 
@@ -330,15 +341,15 @@ class AssetFSM:
         """
         current = AssetState.from_string(asset.asset_current_status)
         if current != AssetState.DAMAGED:
-            raise InvalidTransitionError(f"只有'待报废'状态的资产才能取消申请，当前状态: {current.value}")
+            raise InvalidTransitionError(f"只有'待报废'状态的资产才能取消申请,当前状态: {current.value}")
         asset.asset_current_status = AssetState.RECYCLED_PENDING.value
 
     @classmethod
     def approve(cls, asset: "Asset") -> None:
         """
         审批通过报废: damaged → scrapped
-        待报废审批通过后，资产转为已报废状态（终态）。
-        触发时机: 审批人通过待报废申请后，由 DamagedAssetService 调用。
+        待报废审批通过后,资产转为已报废状态(终态)。
+        触发时机: 审批人通过待报废申请后,由 DamagedAssetService 调用。
         Args:
             asset: 资产实例
 
@@ -351,9 +362,9 @@ class AssetFSM:
     def reject(cls, asset: "Asset") -> None:
         """
         审批拒绝报废: damaged → recycled_pending
-        待报废审批被拒绝后，资产回到待发放状态。
-        【业务规则】审批拒绝后资产可回收再分配，而非直接恢复使用。
-        触发时机: 审批人拒绝待报废申请后，由 DamagedAssetService 调用。
+        待报废审批被拒绝后,资产回到待发放状态。
+        【业务规则】审批拒绝后资产可回收再分配,而非直接恢复使用。
+        触发时机: 审批人拒绝待报废申请后,由 DamagedAssetService 调用。
         Args:
             asset: 资产实例
 
@@ -363,7 +374,7 @@ class AssetFSM:
         cls._transition(asset, AssetState.RECYCLED_PENDING)
 
     # ===================================================================
-    # 不在账资产专用状态转换（unregisteredasset 应用使用）
+    # 不在账资产专用状态转换(unregisteredasset 应用使用)
     # ===================================================================
 
     @classmethod
@@ -371,8 +382,8 @@ class AssetFSM:
         """
         未登记资产创建并回收: 无状态 → recycled_pending
 
-        【业务场景】S1场景（实物有系统无）审批通过后，直接创建资产并入库待发放。
-        此操作跳过常规的入库流程，直接设置状态为 recycled_pending。
+        【业务场景】S1场景(实物有系统无)审批通过后,直接创建资产并入库待发放。
+        此操作跳过常规的入库流程,直接设置状态为 recycled_pending。
 
         【使用方式】
             # 在 UnregisteredAssetService 中调用
@@ -381,7 +392,7 @@ class AssetFSM:
             asset.save()
 
         Args:
-            asset: 新创建的资产实例（当前状态应为 in_store 或空）
+            asset: 新创建的资产实例(当前状态应为 in_store 或空)
 
         Raises:
             InvalidTransitionError: 资产已有非初始状态时抛出
@@ -395,8 +406,8 @@ class AssetFSM:
         # 验证当前状态是否允许此操作
         current_status = asset.asset_current_status
         if current_status and current_status != AssetState.IN_STORE.value:
-            raise InvalidTransitionError(f"未登记资产创建时状态必须为空白或'in_store'，当前: {current_status}")
-        # 直接设置为目标状态（跳过常规状态流转）
+            raise InvalidTransitionError(f"未登记资产创建时状态必须为空白或'in_store',当前: {current_status}")
+        # 直接设置为目标状态(跳过常规状态流转)
         asset.asset_current_status = AssetState.RECYCLED_PENDING.value
 
     @classmethod
@@ -404,7 +415,7 @@ class AssetFSM:
         """
         未登记资产创建并待报废: 无状态 → damaged
 
-        【业务场景】S1场景（实物有系统无）审批通过后，创建资产并直接进入待报废流程。
+        【业务场景】S1场景(实物有系统无)审批通过后,创建资产并直接进入待报废流程。
         此操作用于发现实物资产但决定报废的场景。
 
         【使用方式】
@@ -415,7 +426,7 @@ class AssetFSM:
             # 然后创建 DamagedAsset 记录
 
         Args:
-            asset: 新创建的资产实例（当前状态应为 in_store 或空）
+            asset: 新创建的资产实例(当前状态应为 in_store 或空)
 
         Raises:
             InvalidTransitionError: 资产已有非初始状态时抛出
@@ -428,7 +439,7 @@ class AssetFSM:
         """
         current_status = asset.asset_current_status
         if current_status and current_status != AssetState.IN_STORE.value:
-            raise InvalidTransitionError(f"未登记资产创建时状态必须为空白或'in_store'，当前: {current_status}")
+            raise InvalidTransitionError(f"未登记资产创建时状态必须为空白或'in_store',当前: {current_status}")
         asset.asset_current_status = AssetState.DAMAGED.value
 
     @classmethod
@@ -436,15 +447,15 @@ class AssetFSM:
         """
         强制回收: (任意非终态) → recycled_pending
 
-        【业务场景】S2/S3场景使用，用于处理系统中有记录但流程异常的资产。
-        - S2: 系统有资产记录但无出库记录，补建出库后直接回收
-        - S3: 资产状态与实际不符，强制修正后回收
+        【业务场景】S2/S3场景使用,用于处理系统中有记录但流程异常的资产。
+        - S2: 系统有资产记录但无出库记录,补建出库后直接回收
+        - S3: 资产状态与实际不符,强制修正后回收
 
-        【警告】此方法绕过常规状态流转校验，仅用于管理员审批授权后的特殊操作。
-        禁止从终态（scrapped）转换。
+        【警告】此方法绕过常规状态流转校验,仅用于管理员审批授权后的特殊操作。
+        禁止从终态(scrapped)转换。
 
         【使用方式】
-            # 在 UnregisteredAssetService 中调用（需已审批授权）
+            # 在 UnregisteredAssetService 中调用(需已审批授权)
             asset = Asset.objects.select_for_update().get(asset_code='AST001')
             AssetFSM.force_recycle_from_any(asset)
             asset.save()
@@ -453,7 +464,7 @@ class AssetFSM:
             asset: 资产实例
 
         Raises:
-            InvalidTransitionError: 当前状态为终态（scrapped）时抛出
+            InvalidTransitionError: 当前状态为终态(scrapped)时抛出
 
         Example:
             >>> asset = Asset.objects.get(asset_code='AST001')
@@ -465,8 +476,8 @@ class AssetFSM:
         """
         current = AssetState.from_string(asset.asset_current_status)
         if current == AssetState.SCRAPPED:
-            raise InvalidTransitionError("已报废资产无法强制回收，当前状态: scrapped")
-        # 直接设置状态，跳过常规流转校验
+            raise InvalidTransitionError("已报废资产无法强制回收,当前状态: scrapped")
+        # 直接设置状态,跳过常规流转校验
         asset.asset_current_status = AssetState.RECYCLED_PENDING.value
 
     # ===================================================================
@@ -478,7 +489,7 @@ class AssetFSM:
         """
         标记损坏: (in_store|recycled_pending) → broken
 
-        将资产标记为已损坏状态，直接生效无需审批。
+        将资产标记为已损坏状态,直接生效无需审批。
         支持从在库或待发放状态直接标记。
         触发时机: 用户主动标记资产损坏。
 
@@ -495,7 +506,7 @@ class AssetFSM:
         """
         标记遗失: (in_store|recycled_pending) → lost
 
-        将资产标记为已遗失状态，直接生效无需审批。
+        将资产标记为已遗失状态,直接生效无需审批。
         支持从在库或待发放状态直接标记。
         触发时机: 用户主动标记资产遗失。
 
@@ -510,10 +521,10 @@ class AssetFSM:
     @classmethod
     def found_and_return(cls, asset: "Asset") -> None:
         """
-        找回入库: lost → in_store
+        找回入库: lost → recycled_pending
 
-        遗失资产被找回后，恢复到在库状态。
-        触发时机: 资产找回后，由 AssetService 调用。
+        遗失资产被找回后,转入待发放状态,等待再次分配。
+        触发时机: 资产找回后,由 AssetService 调用。
 
         Args:
             asset: 资产实例
@@ -521,15 +532,15 @@ class AssetFSM:
         Raises:
             InvalidTransitionError: 当前状态不是 lost 时抛出
         """
-        cls._transition(asset, AssetState.IN_STORE)
+        cls._transition(asset, AssetState.RECYCLED_PENDING)
 
     @classmethod
     def reject_to_broken(cls, asset: "Asset") -> None:
         """
         审批拒绝(损坏): damaged → broken
 
-        待报废审批被拒绝后，资产回到损坏状态。
-        触发时机: 审批人拒绝待报废申请，且原状态为 broken 时。
+        待报废审批被拒绝后,资产回到损坏状态。
+        触发时机: 审批人拒绝待报废申请,且原状态为 broken 时。
 
         Args:
             asset: 资产实例
@@ -544,8 +555,8 @@ class AssetFSM:
         """
         审批拒绝(遗失): damaged → lost
 
-        待报废审批被拒绝后，资产回到遗失状态。
-        触发时机: 审批人拒绝待报废申请，且原状态为 lost 时。
+        待报废审批被拒绝后,资产回到遗失状态。
+        触发时机: 审批人拒绝待报废申请,且原状态为 lost 时。
 
         Args:
             asset: 资产实例
@@ -564,7 +575,7 @@ class AssetFSM:
         """
         送修: broken → repairing
 
-        将损坏资产送修，进入维修中状态。
+        将损坏资产送修,进入维修中状态。
         触发时机: 用户提交送修申请。
 
         Args:
@@ -578,9 +589,9 @@ class AssetFSM:
     @classmethod
     def repair_done(cls, asset: "Asset") -> None:
         """
-        维修完成: repairing → in_store
+        维修完成: repairing → recycled_pending
 
-        维修完成后资产恢复在库状态。
+        维修完成后,资产转入待发放状态(已使用过的设备修好后再次投入发放)。
         触发时机: 维修完成确认。
 
         Args:
@@ -589,7 +600,7 @@ class AssetFSM:
         Raises:
             InvalidTransitionError: 当前状态不是 repairing 时抛出
         """
-        cls._transition(asset, AssetState.IN_STORE)
+        cls._transition(asset, AssetState.RECYCLED_PENDING)
 
     @classmethod
     def repair_failed(cls, asset: "Asset") -> None:

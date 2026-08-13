@@ -4,10 +4,12 @@
 
 import pytest
 
-from apps.usermanagement.models import MAX_DEPARTMENT_LEVEL, Department
+from apps.usermanagement.models import MAX_DEPARTMENT_LEVEL, Department, Employee
 from apps.usermanagement.selectors import DepartmentSelector, EmployeeSelector
 from apps.usermanagement.services import DepartmentService, EmployeeService
-from core.exceptions import BusinessLogicError, AppValidationError
+from core.exceptions import AppValidationError, BusinessLogicError
+
+
 ValidationError = AppValidationError  # 测试中统一使用 AppValidationError
 
 
@@ -37,6 +39,28 @@ class TestEmployeeService:
 
     def test_get_employee_by_jobcode(self, test_employee):
         """测试通过工号获取员工"""
+        employee = EmployeeSelector.get_employee_by_jobcode("UTEST")
+
+        assert employee is not None
+        assert employee.employee_jobcode == "UTEST"
+
+    def test_get_employee_by_jobcode_nonexistent(self, db):
+        """【P1-6 回归屏障】不存在的工号返回 None 而非抛异常"""
+        assert EmployeeSelector.get_employee_by_jobcode("NO_SUCH_CODE") is None
+
+    def test_get_employee_by_jobcode_none_returns_none(self, db):
+        """【P1-6 回归屏障】None 工号返回 None(与原 get() 捕获 DoesNotExist 等价)"""
+        assert EmployeeSelector.get_employee_by_jobcode(None) is None
+
+    def test_get_employee_by_jobcode_with_soft_deleted_duplicate(self, db, department):
+        """【P1-6 回归屏障】软删除重复工号场景返回一条而非抛 MultipleObjectsReturned→500"""
+        Employee.objects.create(
+            employee_jobcode="UTEST", employee_name="在职工号", employee_department=department, is_deleted=False
+        )
+        Employee.objects.create(
+            employee_jobcode="UTEST", employee_name="软删除工号", employee_department=department, is_deleted=True
+        )
+
         employee = EmployeeSelector.get_employee_by_jobcode("UTEST")
 
         assert employee is not None
@@ -75,7 +99,7 @@ class TestDepartmentService:
 
     def test_create_department_level_exceeded(self, db):
         """测试创建部门层级超限"""
-        # 创建 6 层部门（level 0-5）
+        # 创建 6 层部门(level 0-5)
         parent = None
         parent_path = ""
         for i in range(MAX_DEPARTMENT_LEVEL + 1):  # 0, 1, 2, 3, 4, 5
@@ -90,7 +114,7 @@ class TestDepartmentService:
             parent = dept
             parent_path = dept.path
 
-        # 尝试创建第 7 层（level 6），应该失败
+        # 尝试创建第 7 层(level 6),应该失败
         with pytest.raises(ValidationError):
             DepartmentService.create_department(
                 {
@@ -111,8 +135,11 @@ class TestDepartmentService:
         """测试移动部门"""
         # 创建一个新的根部门
         new_parent = Department.objects.create(
-            department_code="NEW_PARENT", department_name="新父部门", department_information="信息员",
-            level=0, path="/NEW_PARENT"
+            department_code="NEW_PARENT",
+            department_name="新父部门",
+            department_information="信息员",
+            level=0,
+            path="/NEW_PARENT",
         )
 
         # 移动子部门到新父部门下
@@ -135,7 +162,7 @@ class TestDepartmentService:
 
     def test_move_department_circular_reference(self, department, child_department):
         """测试移动部门循环引用"""
-        # 尝试将父部门移动到子部门下，应该失败
+        # 尝试将父部门移动到子部门下,应该失败
         with pytest.raises(BusinessLogicError):
             DepartmentService.move_department(department.department_code, child_department.department_code)
 

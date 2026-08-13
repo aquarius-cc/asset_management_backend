@@ -13,6 +13,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='employee',
             name='role',
-            field=models.CharField(choices=[('system_admin', '系统管理员'), ('dept_manager', '部门经理'), ('asset_admin', '资产管理员'), ('regular_user', '普通用户'), ('auditor', '审计员')], default='regular_user', help_text='RBAC 角色：system_admin/dept_manager/asset_admin/regular_user/auditor', max_length=20, verbose_name='系统角色'),
+            field=models.CharField(choices=[('system_admin', '系统管理员'), ('dept_manager', '部门经理'), ('asset_admin', '资产管理员'), ('regular_user', '普通用户'), ('auditor', '审计员')], default='regular_user', help_text='RBAC 角色:system_admin/dept_manager/asset_admin/regular_user/auditor', max_length=20, verbose_name='系统角色'),
         ),
     ]

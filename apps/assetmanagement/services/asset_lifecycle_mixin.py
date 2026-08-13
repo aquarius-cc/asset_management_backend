@@ -38,9 +38,9 @@ class AssetLifecycleMixin:
         if asset.asset_current_status == "broken":
             return asset
 
-        from apps.usermanagement.models import Employee
+        from apps.usermanagement.selectors import EmployeeSelector
 
-        operator = Employee.objects.filter(employee_jobcode=operator_jobcode).first()
+        operator = EmployeeSelector.get_employee_by_jobcode(operator_jobcode)
 
         AssetFSM.mark_broken(asset)
         asset.save(update_fields=["asset_current_status", "updated_at"])
@@ -80,9 +80,9 @@ class AssetLifecycleMixin:
         if asset.asset_current_status == "lost":
             return asset
 
-        from apps.usermanagement.models import Employee
+        from apps.usermanagement.selectors import EmployeeSelector
 
-        operator = Employee.objects.filter(employee_jobcode=operator_jobcode).first()
+        operator = EmployeeSelector.get_employee_by_jobcode(operator_jobcode)
 
         AssetFSM.mark_lost(asset)
         asset.save(update_fields=["asset_current_status", "updated_at"])
@@ -123,9 +123,9 @@ class AssetLifecycleMixin:
 
         lost_record = LostAsset.objects.get(asset_recordcode=asset)
 
-        from apps.usermanagement.models import Employee
+        from apps.usermanagement.selectors import EmployeeSelector
 
-        operator = Employee.objects.filter(employee_jobcode=operator_jobcode).first()
+        operator = EmployeeSelector.get_employee_by_jobcode(operator_jobcode)
 
         AssetFSM.found_and_return(asset)
         asset.save(update_fields=["asset_current_status", "updated_at"])
@@ -163,9 +163,9 @@ class AssetLifecycleMixin:
         """送修资产: broken -> repairing"""
         asset = Asset.objects.select_for_update().get(asset_code=asset_code)
 
-        from apps.usermanagement.models import Employee
+        from apps.usermanagement.selectors import EmployeeSelector
 
-        operator = Employee.objects.filter(employee_jobcode=operator_jobcode).first()
+        operator = EmployeeSelector.get_employee_by_jobcode(operator_jobcode)
 
         AssetFSM.repair(asset)
         asset.save(update_fields=["asset_current_status", "updated_at"])

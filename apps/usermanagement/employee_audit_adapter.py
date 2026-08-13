@@ -1,7 +1,7 @@
 """
 员工审计适配器
 
-封装对 GenericAuditService 的调用，为 employee 模块提供统一的审计日志记录接口。
+封装对 GenericAuditService 的调用,为 employee 模块提供统一的审计日志记录接口。
 """
 
 import logging

@@ -6,17 +6,17 @@ from django.db import migrations, models
 
 def convert_parent_code_to_fk(apps, schema_editor):
     """
-    数据迁移：将 parent_code（department_code）转换为 parent FK（recordcode），
+    数据迁移:将 parent_code(department_code)转换为 parent FK(recordcode),
     并自动生成物化路径 path。
 
-    执行逻辑：
+    执行逻辑:
     1. 建立 department_code → recordcode 的映射表
-    2. 遍历所有部门，根据 parent_code 查找父级 recordcode，写入 parent FK
-    3. 递归生成每个部门的 path（从根到当前节点）
+    2. 遍历所有部门,根据 parent_code 查找父级 recordcode,写入 parent FK
+    3. 递归生成每个部门的 path(从根到当前节点)
     """
     Department = apps.get_model('usermanagement', 'Department')
 
-    # 1. 建立 department_code → recordcode 映射（仅未删除的记录）
+    # 1. 建立 department_code → recordcode 映射(仅未删除的记录)
     code_to_rc = {}
     for dept in Department.objects.filter(is_deleted=False):
         code_to_rc[dept.department_code] = dept.recordcode
@@ -29,12 +29,12 @@ def convert_parent_code_to_fk(apps, schema_editor):
             Department.objects.filter(pk=dept.pk).update(parent_id=parent_rc)
             updated_count += 1
         else:
-            print(f"  [WARN] 部门 {dept.department_code} 的父级 {dept.parent_code} 不存在，跳过")
+            print(f"  [WARN] 部门 {dept.department_code} 的父级 {dept.parent_code} 不存在,跳过")
 
-    print(f"  [INFO] 转换 parent FK 完成：{updated_count} 条记录")
+    print(f"  [INFO] 转换 parent FK 完成:{updated_count} 条记录")
 
-    # 3. 生成物化路径 path（需要递归，按 level 从低到高处理）
-    # 先刷新映射表（parent_id 已更新）
+    # 3. 生成物化路径 path(需要递归,按 level 从低到高处理)
+    # 先刷新映射表(parent_id 已更新)
     dept_map = {}
     for dept in Department.objects.filter(is_deleted=False):
         dept_map[dept.department_code] = dept
@@ -49,7 +49,7 @@ def convert_parent_code_to_fk(apps, schema_editor):
         else:
             parent = None
             for d in dept_map.values():
-                # parent_id 存储的是 recordcode（因为 to_field='recordcode'）
+                # parent_id 存储的是 recordcode(因为 to_field='recordcode')
                 if d.recordcode == dept.parent_id:
                     parent = d
                     break
@@ -61,18 +61,18 @@ def convert_parent_code_to_fk(apps, schema_editor):
         return path
 
     path_updated = 0
-    # 按 level 排序，确保父级 path 先生成
+    # 按 level 排序,确保父级 path 先生成
     for dept in sorted(dept_map.values(), key=lambda d: d.level):
         new_path = generate_path(dept)
         if new_path != dept.path:
             Department.objects.filter(pk=dept.pk).update(path=new_path)
             path_updated += 1
 
-    print(f"  [INFO] 生成物化路径完成：{path_updated} 条记录")
+    print(f"  [INFO] 生成物化路径完成:{path_updated} 条记录")
 
 
 def reverse_convert(apps, schema_editor):
-    """反向迁移：清空 parent FK 和 path（保留 parent_code 不变）"""
+    """反向迁移:清空 parent FK 和 path(保留 parent_code 不变)"""
     Department = apps.get_model('usermanagement', 'Department')
     Department.objects.all().update(parent=None, path='')
 
@@ -84,7 +84,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # 1. 结构变更：加字段
+        # 1. 结构变更:加字段
         migrations.RenameIndex(
             model_name='department',
             new_name='idx_department_parent_old',
@@ -93,17 +93,17 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='department',
             name='parent',
-            field=models.ForeignKey(blank=True, help_text='上级部门（FK 指向 recordcode），null 表示根部门', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='children', to='usermanagement.department', to_field='recordcode', verbose_name='上级部门'),
+            field=models.ForeignKey(blank=True, help_text='上级部门(FK 指向 recordcode),null 表示根部门', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='children', to='usermanagement.department', to_field='recordcode', verbose_name='上级部门'),
         ),
         migrations.AddField(
             model_name='department',
             name='path',
-            field=models.CharField(blank=True, default='', help_text='从根到当前节点的完整路径，如 /DEPT-001/IT-001/DEV-001', max_length=500, verbose_name='物化路径'),
+            field=models.CharField(blank=True, default='', help_text='从根到当前节点的完整路径,如 /DEPT-001/IT-001/DEV-001', max_length=500, verbose_name='物化路径'),
         ),
         migrations.AlterField(
             model_name='department',
             name='parent_code',
-            field=models.CharField(blank=True, help_text='【已废弃】迁移完成后将删除，新代码请使用 parent FK', max_length=20, null=True, verbose_name='上级部门编码（旧）'),
+            field=models.CharField(blank=True, help_text='【已废弃】迁移完成后将删除,新代码请使用 parent FK', max_length=20, null=True, verbose_name='上级部门编码(旧)'),
         ),
         migrations.AddIndex(
             model_name='department',
@@ -113,6 +113,6 @@ class Migration(migrations.Migration):
             model_name='department',
             index=models.Index(fields=['path'], name='idx_department_path'),
         ),
-        # 2. 数据迁移：parent_code → parent FK + 生成 path
+        # 2. 数据迁移:parent_code → parent FK + 生成 path
         migrations.RunPython(convert_parent_code_to_fk, reverse_convert),
     ]

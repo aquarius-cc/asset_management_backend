@@ -28,7 +28,7 @@ from django.utils import timezone
 from apps.assetmanagement.audit import AuditLogger
 from apps.assetmanagement.models import Asset, AssetOperationLog, DamagedAsset, RepairAsset
 from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
-from apps.usermanagement.models import Employee
+from apps.usermanagement.selectors import EmployeeSelector
 from core.exceptions import AppValidationError
 
 
@@ -74,7 +74,7 @@ class RepairAssetService:
 
         operator = None
         if operator_jobcode:
-            operator = Employee.objects.filter(employee_jobcode=operator_jobcode).first()
+            operator = EmployeeSelector.get_employee_by_jobcode(operator_jobcode)
 
         return asset, operator
 

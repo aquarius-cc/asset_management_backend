@@ -1,7 +1,7 @@
 """
 回收资产管理服务
 
-提供资产回收的业务逻辑，包括回收记录创建、资产状态更新等操作。
+提供资产回收的业务逻辑,包括回收记录创建、资产状态更新等操作。
 """
 
 import copy
@@ -10,14 +10,16 @@ from typing import Any
 from django.db import transaction
 
 from apps.assetmanagement.audit import AuditLogger
-from apps.assetmanagement.models import Asset, BrokenAsset, LostAsset, RecycleAsset, Storage
-from apps.assetmanagement.selectors import OutAssetSelector, RecycleAssetSelector
+from apps.assetmanagement.models import Asset, BrokenAsset, LostAsset, OutAsset, RecycleAsset, Storage
+from apps.assetmanagement.selectors import OutAssetSelector
 from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
 from apps.usermanagement.models import Employee
+from apps.usermanagement.selectors import EmployeeSelector
 from core.batch_mixins import BatchOperationMixin
 from core.exceptions import AppValidationError
 
-# 字段白名单：允许通过 update_recycle_asset 修改的字段
+
+# 字段白名单:允许通过 update_recycle_asset 修改的字段
 RECYCLE_ASSET_UPDATE_ALLOWED_FIELDS = frozenset(
     [
         "recycle_asset_date",
@@ -42,11 +44,11 @@ class RecycleAssetService:
         """
         创建回收记录
 
-        接受灵活的 recycle_data：
+        接受灵活的 recycle_data:
         - outasset_recordcode: OutAsset 对象或 recordcode 字符串
         - recycle_asset_storage: Storage 对象或 storage_code 字符串
         - recycle_asset_recycle_person_jobcode: Employee 对象或 employee_jobcode 字符串
-        - asset_recordcode: 可选，未提供时从 outasset 自动推导
+        - asset_recordcode: 可选,未提供时从 outasset 自动推导
         """
         storage_obj = recycle_data.pop("recycle_asset_storage", None)
         recycle_person_obj = recycle_data.pop("recycle_asset_recycle_person_jobcode", None)
@@ -54,7 +56,7 @@ class RecycleAssetService:
         if storage_obj is not None and not isinstance(storage_obj, Storage):
             storage_obj = Storage.objects.filter(storage_code=str(storage_obj)).first()
         if recycle_person_obj is not None and not isinstance(recycle_person_obj, Employee):
-            recycle_person_obj = Employee.objects.filter(employee_jobcode=str(recycle_person_obj)).first()
+            recycle_person_obj = EmployeeSelector.get_employee_by_jobcode(str(recycle_person_obj))
 
         outasset_recordcode = recycle_data.get("outasset_recordcode")
         if not outasset_recordcode:
@@ -70,7 +72,7 @@ class RecycleAssetService:
         asset = outasset.asset_recordcode
         if asset.asset_current_status != "in_use":
             raise AppValidationError(
-                detail=f"资产当前状态为 {asset.asset_current_status}，不能回收",
+                detail=f"资产当前状态为 {asset.asset_current_status},不能回收",
                 error_code="INVALID_ASSET_STATUS_FOR_RECYCLE",
             )
 
@@ -81,7 +83,7 @@ class RecycleAssetService:
             recycle_data["operator_employee"] = recycle_person_obj
 
         if not recycle_data.get("operator_employee") and operator_jobcode:
-            operator_employee = Employee.objects.filter(employee_jobcode=operator_jobcode).first()
+            operator_employee = EmployeeSelector.get_employee_by_jobcode(operator_jobcode)
             if operator_employee:
                 recycle_data["operator_employee"] = operator_employee
 
@@ -110,11 +112,16 @@ class RecycleAssetService:
             asset.asset_applicant_recordcode = None
             asset.asset_manager_recordcode = None
             asset.asset_using_location = None
-            asset.save(update_fields=[
-                "asset_current_status", "asset_applicant_recordcode",
-                "asset_manager_recordcode", "asset_using_location",
-                "asset_storage_recordcode", "asset_entry_person_recordcode",
-            ])
+            asset.save(
+                update_fields=[
+                    "asset_current_status",
+                    "asset_applicant_recordcode",
+                    "asset_manager_recordcode",
+                    "asset_using_location",
+                    "asset_storage_recordcode",
+                    "asset_entry_person_recordcode",
+                ]
+            )
 
             # 标记损坏
             try:
@@ -128,7 +135,7 @@ class RecycleAssetService:
                 asset_recordcode=asset,
                 broken_date=recycle_asset.recycle_asset_date,
                 broken_reason=broken_reason or "回收时发现损坏",
-                broken_description=f"回收时发现损坏，回收记录: {recycle_asset.recordcode}",
+                broken_description=f"回收时发现损坏,回收记录: {recycle_asset.recordcode}",
                 operator_employee=recycle_person_obj,
             )
 
@@ -154,11 +161,16 @@ class RecycleAssetService:
             asset.asset_applicant_recordcode = None
             asset.asset_manager_recordcode = None
             asset.asset_using_location = None
-            asset.save(update_fields=[
-                "asset_current_status", "asset_applicant_recordcode",
-                "asset_manager_recordcode", "asset_using_location",
-                "asset_storage_recordcode", "asset_entry_person_recordcode",
-            ])
+            asset.save(
+                update_fields=[
+                    "asset_current_status",
+                    "asset_applicant_recordcode",
+                    "asset_manager_recordcode",
+                    "asset_using_location",
+                    "asset_storage_recordcode",
+                    "asset_entry_person_recordcode",
+                ]
+            )
 
             # 标记遗失
             try:
@@ -172,7 +184,7 @@ class RecycleAssetService:
                 asset_recordcode=asset,
                 lost_date=recycle_asset.recycle_asset_date,
                 lost_reason=lost_reason or "回收时发现遗失",
-                lost_description=f"回收时发现遗失，回收记录: {recycle_asset.recordcode}",
+                lost_description=f"回收时发现遗失,回收记录: {recycle_asset.recordcode}",
                 operator_employee=recycle_person_obj,
             )
 
@@ -184,7 +196,7 @@ class RecycleAssetService:
             )
 
         else:
-            # 正常回收（无损坏/遗失标记）
+            # 正常回收(无损坏/遗失标记)
             try:
                 AssetFSM.recycle(asset)
             except InvalidTransitionError as e:
@@ -281,19 +293,19 @@ class RecycleAssetService:
         from core.batch_mixins import BatchOperationMixin
 
         def _delete_one(record_code: str) -> None:
-            recycle_asset = RecycleAsset.objects.select_for_update().filter(
-                recordcode=record_code, is_deleted=False
-            ).first()
+            recycle_asset = (
+                RecycleAsset.objects.select_for_update().filter(recordcode=record_code, is_deleted=False).first()
+            )
             if not recycle_asset:
                 raise AppValidationError(detail=f"回收记录 {record_code} 不存在", error_code="NOT_FOUND")
 
             asset = Asset.objects.select_for_update().get(pk=recycle_asset.asset_recordcode.pk)
             if asset.asset_current_status != "recycled_pending":
                 raise AppValidationError(
-                    detail=f"关联资产当前状态为 {asset.asset_current_status}，不允许删除回收记录",
+                    detail=f"关联资产当前状态为 {asset.asset_current_status},不允许删除回收记录",
                     error_code="STATUS_NOT_ALLOWED",
                 )
-            # 保存关联的出库记录信息，用于恢复资产字段
+            # 保存关联的出库记录信息,用于恢复资产字段
             outasset = OutAsset.objects.filter(
                 recordcode=recycle_asset.outasset_recordcode_id, is_deleted=False
             ).first()
@@ -305,7 +317,7 @@ class RecycleAssetService:
             except InvalidTransitionError as e:
                 raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
 
-            # 恢复资产的申请人、保管人、使用地点（从出库记录恢复）
+            # 恢复资产的申请人、保管人、使用地点(从出库记录恢复)
             update_fields = ["asset_current_status"]
             if outasset:
                 if outasset.outasset_applicant_recordcode:
@@ -319,6 +331,15 @@ class RecycleAssetService:
                     update_fields.append("asset_using_location")
             asset.save(update_fields=update_fields)
 
+            AuditLogger.log_state_change(
+                asset=asset,
+                from_state="recycled_pending",
+                to_state="in_use",
+                trigger="cancel_recycle",
+                operator_jobcode=operator_jobcode,
+                operator_name=operator_name,
+            )
+
         return BatchOperationMixin.batch_delete_execute(ids=recordcodes, process_fn=_delete_one)
 
     @staticmethod
@@ -327,32 +348,30 @@ class RecycleAssetService:
         recordcode: str, operator_jobcode: str | None = None, operator_name: str | None = None
     ) -> "OutAsset":
         """
-        重新发放：将已回收待发放的资产重新出库
+        重新发放:将已回收待发放的资产重新出库
 
-        业务规则：
+        业务规则:
         1. 资产状态必须为 recycled_pending
-        2. 资产不能处于损坏或遗失状态（is_broken=False, is_lost=False）
+        2. 资产不能处于损坏或遗失状态(is_broken=False, is_lost=False)
         3. 调用 OutAssetService.create_outasset 重新出库
         """
         from apps.assetmanagement.services.out_asset_service import OutAssetService
 
-        recycle_asset = RecycleAsset.objects.filter(
-            recordcode=recordcode, is_deleted=False
-        ).select_related("asset_recordcode").first()
+        recycle_asset = (
+            RecycleAsset.objects.filter(recordcode=recordcode, is_deleted=False)
+            .select_related("asset_recordcode")
+            .first()
+        )
         if not recycle_asset:
-            raise AppValidationError(
-                detail=f"回收记录 {recordcode} 不存在", error_code="RECYCLE_ASSET_NOT_FOUND"
-            )
+            raise AppValidationError(detail=f"回收记录 {recordcode} 不存在", error_code="RECYCLE_ASSET_NOT_FOUND")
 
         asset = recycle_asset.asset_recordcode
         if not asset:
-            raise AppValidationError(
-                detail="回收记录未关联资产", error_code="MISSING_RELATED_ASSET"
-            )
+            raise AppValidationError(detail="回收记录未关联资产", error_code="MISSING_RELATED_ASSET")
 
         if asset.asset_current_status != "recycled_pending":
             raise AppValidationError(
-                detail=f"资产当前状态为 {asset.asset_current_status}，只有已回收待发放的资产才能重新发放",
+                detail=f"资产当前状态为 {asset.asset_current_status},只有已回收待发放的资产才能重新发放",
                 error_code="INVALID_ASSET_STATUS_FOR_REISSUE",
             )
 

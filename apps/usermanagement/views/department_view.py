@@ -12,7 +12,7 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 
 from apps.usermanagement.models import Department
-from apps.usermanagement.selectors import DepartmentSelector
+from apps.usermanagement.selectors import DepartmentSelector, EmployeeSelector
 from apps.usermanagement.serializers import (
     DepartmentBatchCreateSerializer,
     DepartmentBatchDeleteSerializer,
@@ -21,7 +21,6 @@ from apps.usermanagement.serializers import (
     DepartmentSerializer,
     EmployeeSerializer,
 )
-from apps.usermanagement.selectors import EmployeeSelector
 from apps.usermanagement.services import DepartmentService
 from core.mixins import LoggingMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
@@ -37,7 +36,7 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
     统一使用 LoggingMixin 记录日志
     统一使用 GetSerializerClassMixin 自动选择序列化器
 
-    【修复 S12】管理操作需要管理员权限，防止普通用户创建/修改/删除部门
+    【修复 S12】管理操作需要管理员权限,防止普通用户创建/修改/删除部门
     """
 
     queryset = Department.objects.all()
@@ -46,7 +45,7 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
 
     def get_permissions(self) -> list:
         """
-        自定义权限：管理员可管理部门，普通用户只能查看
+        自定义权限:管理员可管理部门,普通用户只能查看
         """
         if self.action in ["create", "update", "partial_update", "destroy", "batch_create", "batch_delete", "sort"]:
             permission_classes = [IsAdminUser]
@@ -63,13 +62,13 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
     @extend_schema(
         operation_id="department_employees_list",
         summary="获取部门员工列表",
-        description="获取指定部门下的所有员工列表，支持按状态筛选",
+        description="获取指定部门下的所有员工列表,支持按状态筛选",
         parameters=[
             OpenApiParameter(
                 name="status",
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.QUERY,
-                description="员工状态筛选（可选）：active-在职, left-离职, retirement-退休",
+                description="员工状态筛选(可选):active-在职, left-离职, retirement-退休",
                 required=False,
             ),
         ],
@@ -117,15 +116,15 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
         tags=["部门管理"],
     )
     @action(detail=True, methods=["get"], url_path="employees")
-    def employees(self, request, department_code: str = None) -> Response:
+    def employees(self, request, department_code: str | None = None) -> Response:
         """
-        获取指定部门下的所有员工（支持状态筛选）
+        获取指定部门下的所有员工(支持状态筛选)
 
         【AGENTS 规范 - P1-11】使用 EmployeeSelector 替代直接 ORM 调用
         【AGENTS 规范 - 契约驱动】响应格式匹配前端 API 契约
 
         Query Parameters:
-            status: 员工状态筛选（可选）
+            status: 员工状态筛选(可选)
                 - active: 在职员工
                 - left: 离职员工
                 - retirement: 退休员工
@@ -141,7 +140,7 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
                 }
             }
         """
-        # 获取部门实例（DRF 会根据 lookup_field 自动处理 404）
+        # 获取部门实例(DRF 会根据 lookup_field 自动处理 404)
         department: Department = self.get_object()
 
         # 【AGENTS 规范 - P1-11】使用 Selector 获取员工列表
@@ -154,7 +153,7 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
             valid_statuses: list[str] = ["active", "left", "retirement"]
             if status_filter not in valid_statuses:
                 return error_response(
-                    message=f"无效的状态值: {status_filter}，有效值为: {', '.join(valid_statuses)}",
+                    message=f"无效的状态值: {status_filter},有效值为: {', '.join(valid_statuses)}",
                     status_code=status.HTTP_400_BAD_REQUEST,
                 )
             employees = employees.filter(employee_status=status_filter)
@@ -177,7 +176,7 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
     @extend_schema(
         operation_id="department_tree",
         summary="获取部门树",
-        description="返回完整的部门树形结构，包含子部门和员工数量统计",
+        description="返回完整的部门树形结构,包含子部门和员工数量统计",
         responses={
             200: OpenApiResponse(
                 description="部门树",
@@ -216,8 +215,8 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
         """
         获取部门树形结构
 
-        返回完整的部门树，从根部门开始递归构建。
-        每个节点包含：
+        返回完整的部门树,从根部门开始递归构建。
+        每个节点包含:
         - 部门基本信息
         - children: 子部门列表
         - employee_count: 当前部门员工数量
@@ -247,7 +246,7 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
             department_code: 部门编码
 
         Returns:
-            子部门列表，包含员工数量统计
+            子部门列表,包含员工数量统计
         """
         try:
             department = self.get_object()
@@ -279,8 +278,8 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
 
     @extend_schema(
         operation_id="department_path",
-        summary="获取部门路径（面包屑导航）",
-        description="获取从根部门到指定部门的完整路径，用于面包屑导航",
+        summary="获取部门路径(面包屑导航)",
+        description="获取从根部门到指定部门的完整路径,用于面包屑导航",
         responses={
             200: OpenApiResponse(
                 description="部门路径",
@@ -308,16 +307,16 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
     @action(detail=True, methods=["get"])
     def path(self, request, department_code=None):
         """
-        获取部门路径（面包屑导航）
+        获取部门路径(面包屑导航)
 
         【AGENTS 规范 - P3-31】调用 DepartmentSelector.get_department_path()
-        获取从根部门到当前部门的完整路径，供前端面包屑导航使用。
+        获取从根部门到当前部门的完整路径,供前端面包屑导航使用。
 
         Args:
             department_code: 部门编码
 
         Returns:
-            path: 部门路径列表，从根部门到当前部门
+            path: 部门路径列表,从根部门到当前部门
         """
         try:
             department = self.get_object()
@@ -350,7 +349,7 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
     @extend_schema(
         operation_id="department_descendants",
         summary="获取所有后代部门",
-        description="递归获取指定部门的所有后代部门（子部门、孙部门等）",
+        description="递归获取指定部门的所有后代部门(子部门、孙部门等)",
         responses={
             200: OpenApiResponse(
                 description="后代部门列表",
@@ -382,13 +381,13 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
         获取所有后代部门
 
         【AGENTS 规范 - P3-32】调用 DepartmentSelector.get_all_descendants()
-        递归获取指定部门的所有后代部门，供组织架构展示使用。
+        递归获取指定部门的所有后代部门,供组织架构展示使用。
 
         Args:
             department_code: 部门编码
 
         Returns:
-            descendants: 所有后代部门列表（含员工数量统计）
+            descendants: 所有后代部门列表(含员工数量统计)
         """
         try:
             department = self.get_object()
@@ -426,7 +425,7 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
         """
         获取父部门信息
 
-        返回字段：
+        返回字段:
         - department_code: 部门编码
         - department_name: 部门名称
         - level: 部门层级
@@ -437,7 +436,7 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
 
             if not department.parent:
                 return error_response(
-                    message=f"部门 {department_code} 是根部门，没有上级部门", status_code=status.HTTP_404_NOT_FOUND
+                    message=f"部门 {department_code} 是根部门,没有上级部门", status_code=status.HTTP_404_NOT_FOUND
                 )
 
             parent = department.parent
@@ -457,7 +456,7 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
     @extend_schema(
         operation_id="department_move",
         summary="移动部门",
-        description="修改部门的父级关系，支持拖拽排序场景。会自动验证循环引用和层级约束（最大6层）",
+        description="修改部门的父级关系,支持拖拽排序场景。会自动验证循环引用和层级约束(最大6层)",
         request=DepartmentMoveSerializer,
         responses={
             200: OpenApiResponse(
@@ -491,13 +490,13 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
         """
         移动部门到新的父部门下
 
-        用于前端拖拽排序场景，支持：
+        用于前端拖拽排序场景,支持:
         - 移动到其他部门下
-        - 移动成为根部门（target_parent_code 为 null）
+        - 移动成为根部门(target_parent_code 为 null)
 
-        自动验证：
-        - 循环引用：不能移动到自己的子部门下
-        - 层级约束：移动后不超过 6 层
+        自动验证:
+        - 循环引用:不能移动到自己的子部门下
+        - 层级约束:移动后不超过 6 层
         """
         try:
             department = self.get_object()
@@ -522,13 +521,15 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
     @extend_schema(
         operation_id="department_batch_sort",
         summary="批量排序",
-        description="批量更新部门的 sort_order 字段，支持前端拖拽排序",
+        description="批量更新部门的 sort_order 字段,支持前端拖拽排序",
         request=DepartmentBatchSortSerializer,
         responses={
             200: OpenApiResponse(
                 description="排序成功",
                 examples=[
-                    OpenApiExample("排序成功", value={"code": 0, "message": "排序更新成功", "data": {"updated_count": 5}})
+                    OpenApiExample(
+                        "排序成功", value={"code": 0, "message": "排序更新成功", "data": {"updated_count": 5}}
+                    )
                 ],
             ),
             400: OpenApiResponse(description="参数验证失败"),
@@ -542,7 +543,7 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
 
         用于前端拖拽排序后批量保存排序结果。
 
-        请求格式：
+        请求格式:
         {
             "items": [
                 {"department_code": "D001", "sort_order": 1},
@@ -583,7 +584,7 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
                 "success_items": success_serializer.data,
                 "fail_items": result["fail_items"],
             },
-            message=f"批量创建完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条",
+            message=f"批量创建完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
 
     @action(detail=False, methods=["post"], url_path="batch-delete")
@@ -602,5 +603,5 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
                 "success_ids": result["success_ids"],
                 "fail_items": result["fail_items"],
             },
-            message=f"批量删除完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条",
+            message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )

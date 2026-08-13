@@ -1,7 +1,7 @@
 """
 出库资产管理服务
 
-提供资产出库的业务逻辑，包括出库记录创建、状态变更等操作。
+提供资产出库的业务逻辑,包括出库记录创建、状态变更等操作。
 """
 
 from typing import Any
@@ -47,7 +47,7 @@ class OutAssetService:
 
         if asset.asset_current_status not in ["in_store", "recycled_pending"]:
             raise AppValidationError(
-                detail=f"资产当前状态为 {asset.asset_current_status}，不能出库",
+                detail=f"资产当前状态为 {asset.asset_current_status},不能出库",
                 error_code="ILLEGAL_OUTASSET",  # 2001: 非法出库
             )
 
@@ -62,7 +62,7 @@ class OutAssetService:
         outasset_data["outasset_manager_recordcode"] = manager
         outasset_data["outasset_using_location"] = using_location
 
-        # 构建 JSON 快照（包含恢复所需的所有字段）
+        # 构建 JSON 快照(包含恢复所需的所有字段)
         snapshot = {
             "applicant": {
                 "jobcode": applicant.employee_jobcode if applicant else None,
@@ -78,8 +78,7 @@ class OutAssetService:
             else None,
             "using_location": using_location,
             "asset_storage_recordcode": (
-                asset.asset_storage_recordcode.recordcode
-                if asset.asset_storage_recordcode else None
+                asset.asset_storage_recordcode.recordcode if asset.asset_storage_recordcode else None
             ),
         }
         outasset_data["outasset_snapshot"] = snapshot
@@ -190,11 +189,11 @@ class OutAssetService:
             asset = Asset.objects.select_for_update().get(pk=outasset.asset_recordcode.pk)
             if asset.asset_current_status != "in_use":
                 raise AppValidationError(
-                    detail=f"关联资产当前状态为 {asset.asset_current_status}，不允许删除出库记录",
+                    detail=f"关联资产当前状态为 {asset.asset_current_status},不允许删除出库记录",
                     error_code="STATUS_NOT_ALLOWED",
                 )
             if RecycleAsset.objects.filter(outasset_recordcode=outasset, is_deleted=False).exists():
-                raise AppValidationError(detail="出库记录存在关联回收记录，不允许删除", error_code="HAS_RECYCLE_RECORDS")
+                raise AppValidationError(detail="出库记录存在关联回收记录,不允许删除", error_code="HAS_RECYCLE_RECORDS")
 
             previous_status = outasset.outasset_previous_status or "in_store"
 
@@ -208,25 +207,23 @@ class OutAssetService:
             except InvalidTransitionError as e:
                 raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
 
-            # 从快照恢复资产字段（而非清空为 None）
+            # 从快照恢复资产字段(而非清空为 None)
             update_fields = ["asset_current_status"]
 
             # 恢复申请人
             if snapshot.get("applicant") and snapshot["applicant"].get("jobcode"):
-                from apps.usermanagement.models import Employee
-                applicant = Employee.objects.filter(
-                    employee_jobcode=snapshot["applicant"]["jobcode"]
-                ).first()
+                from apps.usermanagement.selectors import EmployeeSelector
+
+                applicant = EmployeeSelector.get_employee_by_jobcode(snapshot["applicant"]["jobcode"])
                 if applicant:
                     asset.asset_applicant_recordcode = applicant
                     update_fields.append("asset_applicant_recordcode")
 
             # 恢复保管人
             if snapshot.get("manager") and snapshot["manager"].get("jobcode"):
-                from apps.usermanagement.models import Employee
-                manager = Employee.objects.filter(
-                    employee_jobcode=snapshot["manager"]["jobcode"]
-                ).first()
+                from apps.usermanagement.selectors import EmployeeSelector
+
+                manager = EmployeeSelector.get_employee_by_jobcode(snapshot["manager"]["jobcode"])
                 if manager:
                     asset.asset_manager_recordcode = manager
                     update_fields.append("asset_manager_recordcode")
@@ -236,16 +233,24 @@ class OutAssetService:
                 asset.asset_using_location = snapshot["using_location"]
                 update_fields.append("asset_using_location")
 
-            # 恢复仓库（仅当原状态为 in_store 时，从快照恢复）
+            # 恢复仓库(仅当原状态为 in_store 时,从快照恢复)
             if previous_status == "in_store" and snapshot.get("asset_storage_recordcode"):
                 from apps.assetmanagement.models import Storage
-                storage = Storage.objects.filter(
-                    recordcode=snapshot["asset_storage_recordcode"]
-                ).first()
+
+                storage = Storage.objects.filter(recordcode=snapshot["asset_storage_recordcode"]).first()
                 if storage:
                     asset.asset_storage_recordcode = storage
                     update_fields.append("asset_storage_recordcode")
 
             asset.save(update_fields=update_fields)
+
+            AuditLogger.log_state_change(
+                asset=asset,
+                from_state="in_use",
+                to_state=previous_status,
+                trigger="cancel_outasset",
+                operator_jobcode=operator_jobcode,
+                operator_name=operator_name,
+            )
 
         return BatchOperationMixin.batch_delete_execute(ids=recordcodes, process_fn=_delete_one)

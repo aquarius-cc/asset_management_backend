@@ -15,19 +15,17 @@ class DepartmentSerializer(serializers.ModelSerializer):
 
     用于部门的 CRUD 操作和基础展示。
 
-    输出字段：
-    - parent: FK ID（recordcode）
-    - parent_department_code: 业务编码（方便前端显示）
+    输出字段:
+    - parent: FK ID(recordcode)
+    - parent_department_code: 业务编码(方便前端显示)
     - path: 物化路径
     """
 
     parent_department_code = serializers.CharField(
-        source="parent.department_code", read_only=True, allow_null=True,
-        help_text="上级部门业务编码"
+        source="parent.department_code", read_only=True, allow_null=True, help_text="上级部门业务编码"
     )
     parent_name = serializers.CharField(
-        source="parent.department_name", read_only=True, allow_null=True,
-        help_text="上级部门名称"
+        source="parent.department_name", read_only=True, allow_null=True, help_text="上级部门名称"
     )
 
     class Meta:
@@ -50,21 +48,20 @@ class DepartmentTreeSerializer(serializers.ModelSerializer):
     """
     部门树形结构序列化器
 
-    用于返回树形结构的部门数据，包含子部门和员工数量。
+    用于返回树形结构的部门数据,包含子部门和员工数量。
 
     【字段说明】
-    - children: 子部门列表（递归嵌套）
-    - employee_count: 当前部门员工数量（仅直接关联）
+    - children: 子部门列表(递归嵌套)
+    - employee_count: 当前部门员工数量(仅直接关联)
     """
 
-    # 子部门列表，递归使用自身序列化器
+    # 子部门列表,递归使用自身序列化器
     children = serializers.SerializerMethodField(help_text="子部门列表")
     # 员工数量统计
     employee_count = serializers.SerializerMethodField(help_text="当前部门员工数量")
     # 父部门业务编码
     parent_department_code = serializers.CharField(
-        source="parent.department_code", read_only=True, allow_null=True,
-        help_text="上级部门业务编码"
+        source="parent.department_code", read_only=True, allow_null=True, help_text="上级部门业务编码"
     )
 
     class Meta:
@@ -85,7 +82,7 @@ class DepartmentTreeSerializer(serializers.ModelSerializer):
 
     def get_children(self, obj: Department) -> list[dict[str, Any]]:
         """
-        获取子部门列表（使用 parent FK 查询）
+        获取子部门列表(使用 parent FK 查询)
 
         Args:
             obj: 当前部门实例
@@ -116,17 +113,16 @@ class DepartmentMoveSerializer(serializers.Serializer):
     """
     部门移动序列化器
 
-    用于验证部门移动请求，修改部门的父级关系。
+    用于验证部门移动请求,修改部门的父级关系。
 
     【验证规则】
-    - target_parent_department_code: 目标父部门业务编码，null 表示成为根部门
+    - target_parent_department_code: 目标父部门业务编码,null 表示成为根部门
     - 移动后层级不能超过 MAX_DEPARTMENT_LEVEL
-    - 不允许循环引用（不能移动到自己的子部门下）
+    - 不允许循环引用(不能移动到自己的子部门下)
     """
 
     target_parent_department_code = serializers.CharField(
-        required=True, allow_null=True, max_length=20,
-        help_text="目标父部门业务编码，null 表示成为根部门"
+        required=True, allow_null=True, max_length=20, help_text="目标父部门业务编码,null 表示成为根部门"
     )
 
     def validate_target_parent_department_code(self, value: str | None) -> str | None:
@@ -157,7 +153,7 @@ class DepartmentMoveSerializer(serializers.Serializer):
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         """
-        整体验证：检查循环引用和层级约束
+        整体验证:检查循环引用和层级约束
 
         Args:
             attrs: 已验证的属性字典
@@ -170,22 +166,20 @@ class DepartmentMoveSerializer(serializers.Serializer):
         """
         target_parent_code = attrs.get("target_parent_department_code")
 
-        # 如果要成为根部门，无需额外验证
+        # 如果要成为根部门,无需额外验证
         if target_parent_code is None:
             return attrs
 
-        # 获取当前部门（从上下文中获取）
+        # 获取当前部门(从上下文中获取)
         current_department: Department | None = self.context.get("department")
         if current_department is None:
             return attrs
 
         # 检查是否移动到自己
         if target_parent_code == current_department.department_code:
-            raise serializers.ValidationError(
-                {"target_parent_department_code": "不能将部门移动到自己下面"}
-            )
+            raise serializers.ValidationError({"target_parent_department_code": "不能将部门移动到自己下面"})
 
-        # 检查循环引用：不能移动到自己的子部门下
+        # 检查循环引用:不能移动到自己的子部门下
         descendant_codes = current_department.get_all_descendants()
         if descendant_codes:
             descendants = Department.objects.filter(
@@ -193,7 +187,7 @@ class DepartmentMoveSerializer(serializers.Serializer):
             ).values_list("department_code", flat=True)
             if target_parent_code in descendants:
                 raise serializers.ValidationError(
-                    {"target_parent_department_code": "不能将部门移动到自己的子部门下面，这会形成循环引用"}
+                    {"target_parent_department_code": "不能将部门移动到自己的子部门下面,这会形成循环引用"}
                 )
 
         # 检查层级约束
@@ -216,20 +210,23 @@ class DepartmentMoveSerializer(serializers.Serializer):
 
     def _get_max_child_depth(self, department: Department) -> int:
         """
-        计算部门的最大子树深度（基于 path 查询）
+        计算部门的最大子树深度(基于 path 查询)
 
         Args:
             department: 部门实例
 
         Returns:
-            int: 最大子树深度（相对于当前部门）
+            int: 最大子树深度(相对于当前部门)
         """
         if not department.path:
             return 0
 
-        max_level = Department.objects.filter(
-            path__startswith=f"{department.path}/"
-        ).order_by("-level").values_list("level", flat=True).first()
+        max_level = (
+            Department.objects.filter(path__startswith=f"{department.path}/")
+            .order_by("-level")
+            .values_list("level", flat=True)
+            .first()
+        )
 
         if max_level is None:
             return 0
@@ -254,7 +251,7 @@ class DepartmentSortSerializer(serializers.Serializer):
     """
 
     department_code = serializers.CharField(max_length=20, help_text="部门编码")
-    sort_order = serializers.IntegerField(min_value=0, help_text="排序顺序，数字越小越靠前")
+    sort_order = serializers.IntegerField(min_value=0, help_text="排序顺序,数字越小越靠前")
 
 
 class DepartmentBatchSortSerializer(serializers.Serializer):
@@ -302,12 +299,12 @@ class DepartmentBatchSortSerializer(serializers.Serializer):
 
 class EmployeeSerializer(serializers.ModelSerializer):
     """
-    员工序列化器（列表/查询用）
+    员工序列化器(列表/查询用)
 
     【字段说明】
-    - employee_department_code: 部门编码（department_code）
-    - employee_department_name: 部门名称（department_name）
-    - employee_department_level: 部门层级（department.level），前端用于判断部门层级
+    - employee_department_code: 部门编码(department_code)
+    - employee_department_name: 部门名称(department_name)
+    - employee_department_level: 部门层级(department.level),前端用于判断部门层级
     """
 
     employee_department_code = serializers.SlugRelatedField(
@@ -340,12 +337,12 @@ class EmployeeSerializer(serializers.ModelSerializer):
 
 class EmployeeDetailSerializer(serializers.ModelSerializer):
     """
-    员工详细信息序列化器（详情页用）
+    员工详细信息序列化器(详情页用)
 
     【字段说明】
-    - employee_department_code: 部门编码（department_code）
-    - employee_department_name: 部门名称（department_name）
-    - employee_department_level: 部门层级（department.level），前端用于判断部门层级
+    - employee_department_code: 部门编码(department_code)
+    - employee_department_name: 部门名称(department_name)
+    - employee_department_level: 部门层级(department.level),前端用于判断部门层级
     """
 
     employee_department_code = serializers.SlugRelatedField(
@@ -359,7 +356,7 @@ class EmployeeDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Employee
         fields = "__all__"
-        # 【P1-19 修复】Detail 序列化器标记关键字段为只读，防止意外写入
+        # 【P1-19 修复】Detail 序列化器标记关键字段为只读,防止意外写入
         read_only_fields = ["id", "recordcode", "employee_jobcode", "employee_department"]
 
 
@@ -412,7 +409,7 @@ class EmployeeUpdateSerializer(serializers.ModelSerializer):
             "employee_phone",
             "employee_location",
             "employee_description",
-            "sort_order",  # 【AGENTS规范】暴露排序字段，支持前端调整排序
+            "sort_order",  # 【AGENTS规范】暴露排序字段,支持前端调整排序
         ]
 
 
@@ -433,7 +430,7 @@ class EmployeeSortSerializer(serializers.Serializer):
     """
 
     employee_jobcode = serializers.CharField(max_length=20, help_text="员工工号")
-    sort_order = serializers.IntegerField(min_value=0, help_text="排序顺序，数字越小越靠前")
+    sort_order = serializers.IntegerField(min_value=0, help_text="排序顺序,数字越小越靠前")
 
 
 class EmployeeBatchSortSerializer(serializers.Serializer):
@@ -500,8 +497,7 @@ class DepartmentBatchItemSerializer(serializers.Serializer):
     department_name = serializers.CharField(required=True)
     department_information = serializers.CharField(required=False, allow_blank=True)
     parent_department_code = serializers.CharField(
-        required=False, allow_blank=True, allow_null=True,
-        help_text="上级部门业务编码"
+        required=False, allow_blank=True, allow_null=True, help_text="上级部门业务编码"
     )
     sort_order = serializers.IntegerField(required=False, default=0)
 

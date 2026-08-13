@@ -12,8 +12,8 @@ class DepartmentAdmin(admin.ModelAdmin):
     """
     部门管理配置
 
-    字段说明：
-    - parent: FK 指向上级部门（recordcode）
+    字段说明:
+    - parent: FK 指向上级部门(recordcode)
     - path: 物化路径
     - level: 部门层级
     """

@@ -1,12 +1,12 @@
 """
 修复 Department.parent FK 的 to_field
 
-问题：0002 迁移中 parent FK 默认指向 id（bigint），需要指向 recordcode（varchar）。
-数据库状态：parent_id 列已存在但类型错误，需要重建。
+问题:0002 迁移中 parent FK 默认指向 id(bigint),需要指向 recordcode(varchar)。
+数据库状态:parent_id 列已存在但类型错误,需要重建。
 
-执行逻辑：
+执行逻辑:
 1. 删除旧的 parent_id 列
-2. 重新添加 parent_id 列，指向 recordcode
+2. 重新添加 parent_id 列,指向 recordcode
 3. 重新运行数据迁移
 """
 
@@ -25,7 +25,7 @@ def fix_parent_fk_and_migrate_data(apps, schema_editor):
     for dept in Department.objects.filter(is_deleted=False):
         code_to_rc[dept.department_code] = dept.recordcode
 
-    # 2. 转换 parent_code → parent_id（recordcode）
+    # 2. 转换 parent_code → parent_id(recordcode)
     updated_count = 0
     for dept in Department.objects.filter(is_deleted=False, parent_code__isnull=False):
         parent_rc = code_to_rc.get(dept.parent_code)
@@ -33,12 +33,12 @@ def fix_parent_fk_and_migrate_data(apps, schema_editor):
             Department.objects.filter(pk=dept.pk).update(parent_id=parent_rc)
             updated_count += 1
         else:
-            print(f"  [WARN] 部门 {dept.department_code} 的父级 {dept.parent_code} 不存在，跳过")
+            print(f"  [WARN] 部门 {dept.department_code} 的父级 {dept.parent_code} 不存在,跳过")
 
-    print(f"  [INFO] 转换 parent FK 完成：{updated_count} 条记录")
+    print(f"  [INFO] 转换 parent FK 完成:{updated_count} 条记录")
 
     # 3. 生成物化路径 path
-    # 建立 recordcode → department 的映射（因为 parent_id 存储的是 recordcode）
+    # 建立 recordcode → department 的映射(因为 parent_id 存储的是 recordcode)
     rc_map = {}
     for dept in Department.objects.filter(is_deleted=False):
         rc_map[dept.recordcode] = dept
@@ -57,14 +57,14 @@ def fix_parent_fk_and_migrate_data(apps, schema_editor):
         return f"/{dept.department_code}"
 
     path_updated = 0
-    # 按 level 排序，确保父级 path 先生成
+    # 按 level 排序,确保父级 path 先生成
     all_depts = list(Department.objects.filter(is_deleted=False).order_by('level', 'sort_order'))
     for dept in all_depts:
         new_path = generate_path(dept)
         Department.objects.filter(pk=dept.pk).update(path=new_path)
         path_updated += 1
 
-    print(f"  [INFO] 生成物化路径完成：{path_updated} 条记录")
+    print(f"  [INFO] 生成物化路径完成:{path_updated} 条记录")
 
 
 def reverse_fix(apps, schema_editor):
@@ -80,7 +80,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # 删除旧的 parent_id 列（bigint 类型，指向 id）
+        # 删除旧的 parent_id 列(bigint 类型,指向 id)
         migrations.RemoveIndex(
             model_name='department',
             name='idx_department_parent_fk',
@@ -89,13 +89,13 @@ class Migration(migrations.Migration):
             model_name='department',
             name='parent',
         ),
-        # 重新添加 parent FK，指向 recordcode
+        # 重新添加 parent FK,指向 recordcode
         migrations.AddField(
             model_name='department',
             name='parent',
             field=models.ForeignKey(
                 blank=True,
-                help_text='上级部门（FK 指向 recordcode），null 表示根部门',
+                help_text='上级部门(FK 指向 recordcode),null 表示根部门',
                 null=True,
                 on_delete=django.db.models.deletion.SET_NULL,
                 related_name='children',

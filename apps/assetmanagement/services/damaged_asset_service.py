@@ -9,13 +9,13 @@ from typing import Any
 from django.db import transaction
 from django.utils import timezone
 
+from apps.assetmanagement.audit import AuditLogger
 from apps.assetmanagement.models import Asset, DamagedAsset, WasteAsset
-from apps.usermanagement.models import Employee
 from apps.assetmanagement.selectors import (
     DamagedAssetSelector,
 )
-from apps.assetmanagement.audit import AuditLogger
 from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
+from apps.usermanagement.selectors import EmployeeSelector
 from core.exceptions import AppValidationError
 
 
@@ -66,6 +66,34 @@ class DamagedAssetService:
 
     @staticmethod
     @transaction.atomic
+    def update_damaged_asset(recordcode: str, update_data: dict[str, Any]) -> DamagedAsset:
+        """
+        更新待报废记录(select_for_update 防并发覆盖)
+
+        Args:
+            recordcode: 待报废记录编码
+            update_data: 更新字段(白名单过滤)
+
+        Returns:
+            更新后的 DamagedAsset
+        """
+        damaged_asset = DamagedAsset.objects.select_for_update().filter(recordcode=recordcode).first()
+        if not damaged_asset:
+            raise AppValidationError(detail="待报废记录不存在", error_code="DAMAGED_RECORD_NOT_FOUND")
+
+        allowed_fields = {"damaged_asset_description", "damaged_date", "damaged_asset_number"}
+        update_fields = []
+        for field, value in update_data.items():
+            if field in allowed_fields and value is not None:
+                setattr(damaged_asset, field, value)
+                update_fields.append(field)
+
+        if update_fields:
+            damaged_asset.save(update_fields=update_fields)
+        return damaged_asset
+
+    @staticmethod
+    @transaction.atomic
     def approve_asset_recordcode(
         asset_recordcode_code: str, approver_jobcode: str, operator_name: str
     ) -> dict[str, Any]:
@@ -92,13 +120,13 @@ class DamagedAssetService:
 
         if damaged_asset.approval_status != "pending":
             raise AppValidationError(
-                detail=f"待报废记录状态为 {damaged_asset.approval_status}，不允许审批",
+                detail=f"待报废记录状态为 {damaged_asset.approval_status},不允许审批",
                 error_code="INVALID_APPROVAL_STATUS",
             )
 
         # 更新审批状态
         damaged_asset.approval_status = "approved"
-        damaged_asset.approver = Employee.objects.filter(employee_jobcode=approver_jobcode).first()
+        damaged_asset.approver = EmployeeSelector.get_employee_by_jobcode(approver_jobcode)
         damaged_asset.save()
 
         # 创建报废记录
@@ -124,9 +152,10 @@ class DamagedAssetService:
             operator_name=operator_name,
         )
 
-        # P1-8 通知：审批通过 → 发给资产所属部门所有 dept_manager
+        # P1-8 通知:审批通过 → 发给资产所属部门所有 dept_manager
         try:
             from apps.notification.helpers import notify_dept_managers
+
             notify_dept_managers(
                 asset=asset,
                 notification_type="approval",
@@ -169,13 +198,13 @@ class DamagedAssetService:
 
         if damaged_asset.approval_status != "pending":
             raise AppValidationError(
-                detail=f"待报废记录状态为 {damaged_asset.approval_status}，不允许审批",
+                detail=f"待报废记录状态为 {damaged_asset.approval_status},不允许审批",
                 error_code="INVALID_APPROVAL_STATUS",
             )
 
         # 更新审批状态
         damaged_asset.approval_status = "rejected"
-        damaged_asset.approver = Employee.objects.filter(employee_jobcode=approver_jobcode).first()
+        damaged_asset.approver = EmployeeSelector.get_employee_by_jobcode(approver_jobcode)
         damaged_asset.save()
 
         # 根据original_status回退状态
@@ -197,9 +226,10 @@ class DamagedAssetService:
             operator_name=operator_name,
         )
 
-        # P1-8 通知：审批拒绝 → 发给资产所属部门所有 dept_manager
+        # P1-8 通知:审批拒绝 → 发给资产所属部门所有 dept_manager
         try:
             from apps.notification.helpers import notify_dept_managers
+
             notify_dept_managers(
                 asset=asset,
                 notification_type="approval",
@@ -238,7 +268,7 @@ class DamagedAssetService:
 
         if damaged_asset.approval_status != "pending":
             raise AppValidationError(
-                detail=f"待报废记录状态为 {damaged_asset.approval_status}，不允许取消",
+                detail=f"待报废记录状态为 {damaged_asset.approval_status},不允许取消",
                 error_code="INVALID_APPROVAL_STATUS",
             )
 

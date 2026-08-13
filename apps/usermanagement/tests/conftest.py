@@ -16,7 +16,7 @@ def api_client():
 
 @pytest.fixture
 def department(db):
-    """测试部门（根部门）"""
+    """测试部门(根部门)"""
     return Department.objects.create(
         department_code="DTEST",
         department_name="测试部门",

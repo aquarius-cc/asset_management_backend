@@ -18,14 +18,14 @@ if TYPE_CHECKING:
     from django.db.models import Manager
 
 
-# ==================== AssetStateLog（需求定义的状态变更日志） ====================
+# ==================== AssetStateLog(需求定义的状态变更日志) ====================
 
 
 class AssetStateLog(BaseModel):
     """
-    资产状态变更日志（需求 §15）
+    资产状态变更日志(需求 §15)
 
-    记录资产状态的每次变更，仅供审计查询，不可修改、不可删除。
+    记录资产状态的每次变更,仅供审计查询,不可修改、不可删除。
     """
 
     RECORDCODE_PREFIX = "STATELOG"
@@ -80,40 +80,15 @@ class AssetStateLog(BaseModel):
         return f"状态变更-{self.asset_recordcode}:{self.from_state}→{self.to_state}"
 
 
-# ==================== AssetOperationLog（原有操作记录，保留兼容） ====================
-
-
-class AssetOperationLogManager(models.Manager):
-    """
-    资产操作记录自定义管理器
-    """
-
-    def get_asset_history(self, asset_code: str):
-        """获取指定资产的完整操作历史"""
-        return self.filter(asset_code=asset_code).select_related()
-
-    def get_recent_operations(self, days: int = 7):
-        """获取最近N天的操作记录"""
-        from datetime import timedelta
-
-        start_time = timezone.now() - timedelta(days=days)
-        return self.filter(operation_time__gte=start_time)
-
-    def get_operations_by_type(self, operation_type: str):
-        """按操作类型查询记录"""
-        return self.filter(operation_type=operation_type)
-
-    def get_user_operations(self, operator_jobcode: str):
-        """获取指定用户的操作记录"""
-        return self.filter(operator_jobcode=operator_jobcode)
+# ==================== AssetOperationLog(原有操作记录,保留兼容) ====================
 
 
 class AssetOperationLog(models.Model):
     """
-    资产操作记录表（只读）
+    资产操作记录表(只读)
 
     记录资产全生命周期中的所有操作。
-    此表数据只增不改，业务逻辑中禁止调用 save() 更新或 delete() 删除。
+    此表数据只增不改,业务逻辑中禁止调用 save() 更新或 delete() 删除。
     """
 
     if TYPE_CHECKING:
@@ -121,6 +96,7 @@ class AssetOperationLog(models.Model):
 
     class OperationType(models.TextChoices):
         """操作类型"""
+
         CREATE = "create", "创建"
         UPDATE = "update", "更新"
         DELETE = "delete", "删除"
@@ -143,10 +119,10 @@ class AssetOperationLog(models.Model):
 
     asset_code = models.CharField(max_length=64, verbose_name="资产编码", db_index=True, help_text="关联的资产编码")
     asset_name = models.CharField(
-        max_length=100, verbose_name="资产名称", null=True, blank=True, help_text="资产名称（冗余存储）"
+        max_length=100, verbose_name="资产名称", null=True, blank=True, help_text="资产名称(冗余存储)"
     )
     asset_specification = models.CharField(
-        max_length=100, verbose_name="资产规格", null=True, blank=True, help_text="资产规格（冗余存储）"
+        max_length=100, verbose_name="资产规格", null=True, blank=True, help_text="资产规格(冗余存储)"
     )
     operation_type = models.CharField(
         max_length=20, choices=OperationType.choices, verbose_name="操作类型", db_index=True, help_text="操作类型"
@@ -169,10 +145,10 @@ class AssetOperationLog(models.Model):
         max_length=100, verbose_name="操作人姓名", blank=True, null=True, help_text="执行操作的人员姓名"
     )
     before_data = models.JSONField(
-        verbose_name="变更前数据", blank=True, null=True, help_text="操作前的资产数据（JSON格式）"
+        verbose_name="变更前数据", blank=True, null=True, help_text="操作前的资产数据(JSON格式)"
     )
     after_data = models.JSONField(
-        verbose_name="变更后数据", blank=True, null=True, help_text="操作后的资产数据（JSON格式）"
+        verbose_name="变更后数据", blank=True, null=True, help_text="操作后的资产数据(JSON格式)"
     )
     description = models.TextField(verbose_name="操作描述", help_text="操作的详细描述")
     related_record_code = models.CharField(
@@ -185,7 +161,7 @@ class AssetOperationLog(models.Model):
         verbose_name="操作IP地址", blank=True, null=True, help_text="执行操作的IP地址"
     )
 
-    objects = AssetOperationLogManager()
+    objects = models.Manager()
 
     class Meta:
         verbose_name = "资产操作记录"
@@ -209,9 +185,9 @@ class AssetOperationLog(models.Model):
         return "".join(secrets.choice(chars) for _ in range(length))
 
     def save(self, *args, **kwargs) -> None:
-        """阻止更新已有记录，创建时自动生成 logging_id"""
+        """阻止更新已有记录,创建时自动生成 logging_id"""
         if self.pk:
-            raise PermissionError("AssetOperationLog 是只读表，禁止修改已有记录。")
+            raise PermissionError("AssetOperationLog 是只读表,禁止修改已有记录。")
         if not self.logging_id:
             op_time = self.operation_time or timezone.now()
             date_str = op_time.strftime("%Y%m%d")
@@ -221,4 +197,4 @@ class AssetOperationLog(models.Model):
 
     def delete(self, *args, **kwargs) -> None:
         """阻止删除记录"""
-        raise PermissionError("AssetOperationLog 是只读表，禁止删除记录。")
+        raise PermissionError("AssetOperationLog 是只读表,禁止删除记录。")

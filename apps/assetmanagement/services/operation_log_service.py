@@ -4,13 +4,13 @@
 【AGENTS 规范 - 架构优化】
 提供资产操作日志的记录和查询功能。
 
-设计原则：
+设计原则:
 1. 所有资产状态变更必须通过此服务记录
 2. 支持自动捕获变更前后数据
 3. 提供便捷的查询接口
 
 【易错点】
-- 操作日志是只读的，创建后不可修改
+- 操作日志是只读的,创建后不可修改
 - 必须在同一事务中创建日志和业务数据
 """
 
@@ -18,9 +18,9 @@ import logging
 from typing import Any
 
 from django.db import transaction
-from django.utils import timezone
 
 from apps.assetmanagement.models import Asset, AssetOperationLog
+from apps.assetmanagement.selectors.operation_log_selector import OperationLogSelector
 
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ class OperationLogService:
     """
     资产操作日志服务
 
-    封装操作日志的创建和查询逻辑，确保审计追踪完整性。
+    封装操作日志的创建和查询逻辑,确保审计追踪完整性。
     """
 
     @classmethod
@@ -53,18 +53,18 @@ class OperationLogService:
         """
         记录资产操作日志
 
-        【重要】必须在数据库事务中调用此方法，确保业务数据和日志的一致性。
+        【重要】必须在数据库事务中调用此方法,确保业务数据和日志的一致性。
 
         Args:
             asset_code: 资产编码
-            operation_type: 操作类型（create/update/delete/out/recycle/damaged/waste/approve/transfer）
+            operation_type: 操作类型(create/update/delete/out/recycle/damaged/waste/approve/transfer)
             description: 操作描述
-            asset_name: 资产名称（冗余存储，删除 Asset 不影响记录）
-            asset_specification: 资产规格（冗余存储，删除 Asset 不影响记录）
+            asset_name: 资产名称(冗余存储,删除 Asset 不影响记录)
+            asset_specification: 资产规格(冗余存储,删除 Asset 不影响记录)
             operator_jobcode: 操作人工号
             operator_name: 操作人姓名
-            before_data: 变更前数据（JSON格式）
-            after_data: 变更后数据（JSON格式）
+            before_data: 变更前数据(JSON格式)
+            after_data: 变更后数据(JSON格式)
             related_record_code: 关联记录编码
             related_record_type: 关联记录类型
             ip_address: 操作IP地址
@@ -174,7 +174,7 @@ class OperationLogService:
         operator_name: str | None = None,
         ip_address: str | None = None,
     ) -> AssetOperationLog:
-        """记录资产删除操作（软删除）"""
+        """记录资产删除操作(软删除)"""
         before_data = None
         asset_specification = None
         if asset:
@@ -323,7 +323,7 @@ class OperationLogService:
 
         Args:
             asset: 资产对象
-            approval_result: 审批结果（approved/rejected）
+            approval_result: 审批结果(approved/rejected)
             operator_jobcode: 操作人工号
             operator_name: 操作人姓名
 
@@ -384,130 +384,46 @@ class OperationLogQueryService:
     """
     操作日志查询服务
 
-    提供只读查询接口，支持各种维度的操作日志查询。
+    提供只读查询接口,支持各种维度的操作日志查询。
+    统一委托 OperationLogSelector 实现(BR-1/BR-3: 查询收敛至 Selector 层,Service 仅做转发)。
     """
 
     @staticmethod
     def get_asset_history(asset_code: str) -> list[AssetOperationLog]:
-        """
-        获取指定资产的完整操作历史
-
-        Args:
-            asset_code: 资产编码
-
-        Returns:
-            List[AssetOperationLog]: 按时间倒序排列的操作记录
-        """
-        return list(AssetOperationLog.objects.filter(asset_code=asset_code).order_by("-operation_time"))
+        """获取指定资产的完整操作历史"""
+        return OperationLogSelector.get_asset_history(asset_code)
 
     @staticmethod
     def get_recent_operations(days: int = 7) -> list[AssetOperationLog]:
-        """
-        获取最近N天的操作记录
-
-        Args:
-            days: 天数，默认7天
-
-        Returns:
-            List[AssetOperationLog]: 最近的操作记录
-        """
-        from datetime import timedelta
-
-        start_time = timezone.now() - timedelta(days=days)
-        return list(AssetOperationLog.objects.filter(operation_time__gte=start_time).order_by("-operation_time"))
+        """获取最近N天的操作记录"""
+        return OperationLogSelector.get_recent_operations(days)
 
     @staticmethod
     def get_operations_by_type(operation_type: str) -> list[AssetOperationLog]:
-        """
-        按操作类型查询记录
-
-        Args:
-            operation_type: 操作类型代码
-
-        Returns:
-            List[AssetOperationLog]: 指定类型的操作记录
-        """
-        return list(AssetOperationLog.objects.filter(operation_type=operation_type).order_by("-operation_time"))
+        """按操作类型查询记录"""
+        return OperationLogSelector.get_operations_by_type(operation_type)
 
     @staticmethod
     def get_user_operations(operator_jobcode: str) -> list[AssetOperationLog]:
-        """
-        获取指定用户的操作记录
-
-        Args:
-            operator_jobcode: 操作人工号
-
-        Returns:
-            List[AssetOperationLog]: 该用户的操作记录
-        """
-        return list(AssetOperationLog.objects.filter(operator_jobcode=operator_jobcode).order_by("-operation_time"))
+        """获取指定用户的操作记录"""
+        return OperationLogSelector.get_user_operations(operator_jobcode)
 
     @staticmethod
     def get_asset_status_timeline(asset_code: str) -> list[dict[str, Any]]:
-        """
-        获取资产状态变更时间线
-
-        Args:
-            asset_code: 资产编码
-
-        Returns:
-            List[Dict]: 状态变更记录列表
-        """
-        logs = AssetOperationLog.objects.filter(
-            asset_code=asset_code, operation_type__in=["create", "out", "recycle", "damaged", "waste", "approve"]
-        ).order_by("operation_time")
-
-        timeline = []
-        for log in logs:
-            timeline.append(
-                {
-                    "time": log.operation_time,
-                    "operation": log.get_operation_type_display(),
-                    "operator": log.operator_name or log.operator_jobcode,
-                    "description": log.description,
-                    "before_status": log.before_data.get("asset_current_status") if log.before_data else None,
-                    "after_status": log.after_data.get("asset_current_status") if log.after_data else None,
-                }
-            )
-
-        return timeline
+        """获取资产状态变更时间线"""
+        return OperationLogSelector.get_asset_status_timeline(asset_code)
 
     @staticmethod
     def get_operation_log_by_logging_id(logging_id: str) -> AssetOperationLog | None:
-        """
-        根据 LoggingId 查询操作记录
-
-        Args:
-            logging_id: 日志记录唯一标识
-
-        Returns:
-            Optional[AssetOperationLog]: 操作记录实例或 None
-        """
-        try:
-            return AssetOperationLog.objects.get(logging_id=logging_id)
-        except AssetOperationLog.DoesNotExist:
-            return None
+        """根据 LoggingId 查询操作记录"""
+        return OperationLogSelector.get_operation_log_by_logging_id(logging_id)
 
     # 【AGENTS 规范 - P1-09】以下方法为 View 层查询逻辑下沉到 Service 层而新增
 
     @staticmethod
     def get_operation_log_by_pk(pk: int) -> AssetOperationLog | None:
-        """
-        【AGENTS 规范 - P1-09】根据主键查询单条操作记录
-
-        将 View 层的直接 ORM 查询下沉到 Service 层，
-        View 仅负责参数解析和响应格式化。
-
-        Args:
-            pk: 操作记录主键ID
-
-        Returns:
-            Optional[AssetOperationLog]: 操作记录实例或 None
-        """
-        try:
-            return AssetOperationLog.objects.get(pk=pk)
-        except AssetOperationLog.DoesNotExist:
-            return None
+        """【AGENTS 规范 - P1-09】根据主键查询单条操作记录"""
+        return OperationLogSelector.get_operation_log_by_pk(pk)
 
     @staticmethod
     def query_operation_logs(
@@ -517,40 +433,11 @@ class OperationLogQueryService:
         start_time: Any | None = None,
         end_time: Any | None = None,
     ) -> list[AssetOperationLog]:
-        """
-        【AGENTS 规范 - P1-09】多条件组合查询操作记录
-
-        将 View 层的 ORM 查询构建逻辑下沉到 Service 层，
-        View 仅负责参数解析（含校验）和响应格式化。
-
-        【性能优化】使用 select_related('asset') 一次查询获取关联的 Asset 信息，
-        避免 N+1 查询问题。
-
-        Args:
-            asset_code: 资产编码（精确匹配）
-            operation_type: 操作类型
-            operator_jobcode: 操作人工号
-            start_time: 起始时间（datetime 实例）
-            end_time: 截止时间（datetime 实例）
-
-        Returns:
-            List[AssetOperationLog]: 按时间倒序排列的操作记录
-        """
-        queryset = AssetOperationLog.objects.all()
-
-        if asset_code:
-            queryset = queryset.filter(asset_code=asset_code)
-
-        if operation_type:
-            queryset = queryset.filter(operation_type=operation_type)
-
-        if operator_jobcode:
-            queryset = queryset.filter(operator_jobcode=operator_jobcode)
-
-        if start_time:
-            queryset = queryset.filter(operation_time__gte=start_time)
-
-        if end_time:
-            queryset = queryset.filter(operation_time__lte=end_time)
-
-        return list(queryset.order_by("-operation_time"))
+        """【AGENTS 规范 - P1-09】多条件组合查询操作记录"""
+        return OperationLogSelector.query_operation_logs(
+            asset_code=asset_code,
+            operation_type=operation_type,
+            operator_jobcode=operator_jobcode,
+            start_time=start_time,
+            end_time=end_time,
+        )

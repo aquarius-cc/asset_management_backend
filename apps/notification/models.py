@@ -1,12 +1,11 @@
 """
 通知模型
 
-存储系统通知（审批通知、状态变更通知等）
+存储系统通知(审批通知、状态变更通知等)
 支持 WebSocket 实时推送 + 持久化存储
 """
 
 from django.db import models
-from django.conf import settings
 
 
 class Notification(models.Model):
@@ -53,7 +52,18 @@ class Notification(models.Model):
         null=True,
         verbose_name="关联页面路径",
     )
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间", help_text="记录创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间", help_text="最后修改时间")
+    recordcode = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        unique=True,
+        verbose_name="记录编码",
+        help_text="后端生成的全局唯一编码,用于外键引用",
+    )
+    is_active = models.BooleanField(default=True, verbose_name="是否启用", help_text="控制记录是否激活")
+    is_deleted = models.BooleanField(default=False, verbose_name="是否删除", help_text="软删除标记")
 
     class Meta:
         verbose_name = "通知"

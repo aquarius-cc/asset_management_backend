@@ -30,12 +30,29 @@ from typing import Any
 # ── Configuration ─────────────────────────────────────────────────────────
 
 VALID_NODE_PREFIXES = {
-    "file", "func", "function", "class", "module", "concept",
-    "config", "document", "service", "table", "endpoint",
-    "pipeline", "schema", "resource",
-    "domain", "flow", "step",
+    "file",
+    "func",
+    "function",
+    "class",
+    "module",
+    "concept",
+    "config",
+    "document",
+    "service",
+    "table",
+    "endpoint",
+    "pipeline",
+    "schema",
+    "resource",
+    "domain",
+    "flow",
+    "step",
     # Knowledge-base node types (schema.ts NodeType enum)
-    "article", "entity", "topic", "claim", "source",
+    "article",
+    "entity",
+    "topic",
+    "claim",
+    "source",
 }
 
 # node.type → canonical ID prefix
@@ -131,6 +148,7 @@ def _num(v: Any) -> float:
 
 # ── Batch loading ─────────────────────────────────────────────────────────
 
+
 def load_batch(path: Path) -> dict[str, Any] | None:
     """Load a batch JSON file, tolerating malformed files."""
     try:
@@ -150,6 +168,7 @@ def load_batch(path: Path) -> dict[str, Any] | None:
 
 
 # ── ID normalization ──────────────────────────────────────────────────────
+
 
 def classify_id_fix(original: str, corrected: str) -> str:
     """Return a human-readable pattern label for an ID correction."""
@@ -183,7 +202,7 @@ def normalize_node_id(node_id: str, node: dict[str, Any]) -> str:
     for prefix in VALID_NODE_PREFIXES:
         double = f"{prefix}:{prefix}:"
         if nid.startswith(double):
-            nid = nid[len(prefix) + 1:]
+            nid = nid[len(prefix) + 1 :]
             break
 
     # Strip project-name prefix: "my-project:file:src/foo.ts" → "file:src/foo.ts"
@@ -275,6 +294,7 @@ def normalize_complexity(value: Any) -> tuple[str, str]:
 # `<svc>/src/Y/X.cs`). Stripping LLM edges drops that real-world coverage
 # signal entirely. Swapping preserves it.
 
+
 def _path_segments(path: str) -> list[str]:
     """Split a relative POSIX-style path into segments (ignoring empties)."""
     return [seg for seg in path.split("/") if seg]
@@ -302,9 +322,7 @@ def is_test_path(path: str) -> bool:
     if patterns is None:
         return False
     prefixes, suffixes = patterns
-    return any(stem.startswith(p) for p in prefixes) or any(
-        stem.endswith(s) for s in suffixes
-    )
+    return any(stem.startswith(p) for p in prefixes) or any(stem.endswith(s) for s in suffixes)
 
 
 def _strip_test_infix(stem: str) -> str | None:
@@ -390,7 +408,7 @@ def production_candidates(test_path: str) -> list[str]:
     # ── Python ────────────────────────────────────────────────────────
     elif ext == ".py" and (stem.startswith("test_") or stem.endswith("_test")):
         if stem.startswith("test_"):
-            base_stem = stem[len("test_"):]
+            base_stem = stem[len("test_") :]
         else:
             base_stem = stem[: -len("_test")]
 
@@ -417,13 +435,8 @@ def production_candidates(test_path: str) -> list[str]:
             if stem.endswith(suffix):
                 base_stem = stem[: -len(suffix)]
                 # Maven/Gradle layout: swap src/test/java/... → src/main/java/...
-                if (
-                    len(dir_segs) >= 3
-                    and dir_segs[0] == "src"
-                    and dir_segs[1] == "test"
-                    and dir_segs[2] == "java"
-                ):
-                    new_dir = "/".join(["src", "main", "java"] + list(dir_segs[3:]))
+                if len(dir_segs) >= 3 and dir_segs[0] == "src" and dir_segs[1] == "test" and dir_segs[2] == "java":
+                    new_dir = "/".join(["src", "main", "java", *list(dir_segs[3:])])
                     _add_unique(candidates, f"{new_dir}/{base_stem}.java")
                 # Sibling fallback
                 _add_unique(candidates, _join(dir_path, f"{base_stem}.java"))
@@ -434,13 +447,8 @@ def production_candidates(test_path: str) -> list[str]:
         for suffix in ("Tests", "Test"):
             if stem.endswith(suffix):
                 base_stem = stem[: -len(suffix)]
-                if (
-                    len(dir_segs) >= 3
-                    and dir_segs[0] == "src"
-                    and dir_segs[1] == "test"
-                    and dir_segs[2] == "kotlin"
-                ):
-                    new_dir = "/".join(["src", "main", "kotlin"] + list(dir_segs[3:]))
+                if len(dir_segs) >= 3 and dir_segs[0] == "src" and dir_segs[1] == "test" and dir_segs[2] == "kotlin":
+                    new_dir = "/".join(["src", "main", "kotlin", *list(dir_segs[3:])])
                     _add_unique(candidates, f"{new_dir}/{base_stem}.kt")
                 _add_unique(candidates, _join(dir_path, f"{base_stem}.kt"))
                 break
@@ -495,7 +503,7 @@ def production_candidates(test_path: str) -> list[str]:
     # ── C/C++ ─────────────────────────────────────────────────────────
     elif ext in {".c", ".cpp", ".cc"}:
         if stem.startswith("test_"):
-            base_stem = stem[len("test_"):]
+            base_stem = stem[len("test_") :]
         elif stem.endswith("_test"):
             base_stem = stem[: -len("_test")]
         else:
@@ -514,12 +522,10 @@ def _file_node_path(node: dict[str, Any]) -> str | None:
     fp = node.get("filePath")
     if isinstance(fp, str) and fp:
         return fp
-    return nid[len("file:"):]
+    return nid[len("file:") :]
 
 
-def _swap_tested_by_in_place(
-    edge: dict[str, Any], original_src: str, original_tgt: str
-) -> None:
+def _swap_tested_by_in_place(edge: dict[str, Any], original_src: str, original_tgt: str) -> None:
     """Flip an inverted `tested_by` edge so source becomes production and
     target becomes the test file. Mutates `edge` in place; appends a
     `[direction corrected]` audit marker to `description`.
@@ -528,11 +534,7 @@ def _swap_tested_by_in_place(
     edge["target"] = original_src
     edge["direction"] = "forward"
     prev = edge.get("description")
-    edge["description"] = (
-        "Direction corrected (was test → production)"
-        if not prev
-        else f"{prev} [direction corrected]"
-    )
+    edge["description"] = "Direction corrected (was test → production)" if not prev else f"{prev} [direction corrected]"
 
 
 def _ensure_tested_tag(node: dict[str, Any]) -> bool:
@@ -694,14 +696,16 @@ def link_tests(
             pair = (prod_node["id"], test_node["id"])
             if pair in covered:
                 continue
-            edges.append({
-                "source": prod_node["id"],
-                "target": test_node["id"],
-                "type": "tested_by",
-                "direction": "forward",
-                "weight": 0.5,
-                "description": "Path-based pairing (deterministic)",
-            })
+            edges.append(
+                {
+                    "source": prod_node["id"],
+                    "target": test_node["id"],
+                    "type": "tested_by",
+                    "direction": "forward",
+                    "weight": 0.5,
+                    "description": "Path-based pairing (deterministic)",
+                }
+            )
             covered.add(pair)
             added += 1
             break
@@ -720,6 +724,7 @@ def link_tests(
 
 
 # ── Main merge + normalize ────────────────────────────────────────────────
+
 
 def merge_and_normalize(batches: list[dict[str, Any]]) -> tuple[dict[str, Any], list[str]]:
     """Merge batch results and normalize. Returns (assembled_graph, report_lines)."""
@@ -749,7 +754,9 @@ def merge_and_normalize(batches: list[dict[str, Any]]) -> tuple[dict[str, Any], 
     for i, node in enumerate(all_nodes):
         original_id = node.get("id")
         if not original_id:
-            unfixable.append(f"Node[{i}] has no 'id' field (name={node.get('name', '?')}, type={node.get('type', '?')})")
+            unfixable.append(
+                f"Node[{i}] has no 'id' field (name={node.get('name', '?')}, type={node.get('type', '?')})"
+            )
             continue
 
         # Flag unknown node types
@@ -774,10 +781,10 @@ def merge_and_normalize(batches: list[dict[str, Any]]) -> tuple[dict[str, Any], 
 
         if status == "mapped":
             orig_repr = repr(original) if not isinstance(original, str) else f'"{original}"'
-            complexity_fix_patterns[f"{orig_repr} → \"{normalized}\""] += 1
+            complexity_fix_patterns[f'{orig_repr} → "{normalized}"'] += 1
         elif status == "unknown":
             orig_repr = repr(original) if not isinstance(original, str) else f'"{original}"'
-            complexity_unknown_patterns[f"complexity {orig_repr} → defaulted to \"moderate\""] += 1
+            complexity_unknown_patterns[f'complexity {orig_repr} → defaulted to "moderate"'] += 1
 
         node["complexity"] = normalized
 
@@ -804,9 +811,7 @@ def merge_and_normalize(batches: list[dict[str, Any]]) -> tuple[dict[str, Any], 
 
     # ── Step 5b: Deterministic tested_by linker ──────────────────────
     # See module-level "Deterministic tested_by linker" section above.
-    tested_by_added, tested_by_dropped, tested_by_tagged, tested_by_swapped = link_tests(
-        nodes_by_id, all_edges
-    )
+    tested_by_added, tested_by_dropped, tested_by_tagged, tested_by_swapped = link_tests(nodes_by_id, all_edges)
 
     # ── Step 6: Deduplicate edges, drop dangling ─────────────────────
     node_ids = set(nodes_by_id.keys())
@@ -843,18 +848,22 @@ def merge_and_normalize(batches: list[dict[str, Any]]) -> tuple[dict[str, Any], 
     fixed_lines: list[str] = []
     if id_fix_patterns:
         for pattern, count in id_fix_patterns.most_common():
-            fixed_lines.append(f"  {count:>4} × {pattern}")
+            fixed_lines.append(f"  {count:>4} x {pattern}")
     if complexity_fix_patterns:
         for pattern, count in complexity_fix_patterns.most_common():
-            fixed_lines.append(f"  {count:>4} × complexity {pattern}")
+            fixed_lines.append(f"  {count:>4} x complexity {pattern}")
     if edges_rewritten:
-        fixed_lines.append(f"  {edges_rewritten:>4} × edge references rewritten after ID normalization")
+        fixed_lines.append(f"  {edges_rewritten:>4} x edge references rewritten after ID normalization")
     if duplicate_count:
-        fixed_lines.append(f"  {duplicate_count:>4} × duplicate node IDs removed (kept last)")
+        fixed_lines.append(f"  {duplicate_count:>4} x duplicate node IDs removed (kept last)")
     if tested_by_swapped:
-        fixed_lines.append(f"  {tested_by_swapped:>4} × tested_by edges flipped (test → production became production → test)")
+        fixed_lines.append(
+            f"  {tested_by_swapped:>4} x tested_by edges flipped (test → production became production → test)"
+        )
     if tested_by_dropped:
-        fixed_lines.append(f"  {tested_by_dropped:>4} × tested_by edges dropped (orphan endpoint or test↔test / prod↔prod pair)")
+        fixed_lines.append(
+            f"  {tested_by_dropped:>4} x tested_by edges dropped (orphan endpoint or test↔test / prod↔prod pair)"
+        )
 
     if fixed_lines:
         report.append("")
@@ -874,24 +883,22 @@ def merge_and_normalize(batches: list[dict[str, Any]]) -> tuple[dict[str, Any], 
     if tested_by_added or tested_by_tagged:
         report.append("")
         report.append("Tested-by linker:")
-        report.append(f"  {tested_by_added:>4} × tested_by edges produced (path-convention supplement, production → test)")
-        report.append(f"  {tested_by_tagged:>4} × production nodes tagged \"tested\"")
+        report.append(
+            f"  {tested_by_added:>4} x tested_by edges produced (path-convention supplement, production → test)"
+        )
+        report.append(f'  {tested_by_tagged:>4} x production nodes tagged "tested"')
 
     # Could not fix section — unknown patterns (grouped) + individual details
-    unfixable_total = (
-        len(unfixable)
-        + sum(complexity_unknown_patterns.values())
-        + sum(unknown_node_types.values())
-    )
+    unfixable_total = len(unfixable) + sum(complexity_unknown_patterns.values()) + sum(unknown_node_types.values())
     if unfixable_total:
         report.append("")
         report.append(f"Could not fix ({unfixable_total} issues — needs agent review):")
         # Unknown node types (grouped by count)
         for ntype, count in unknown_node_types.most_common():
-            report.append(f"  {count:>4} × unknown node type \"{ntype}\" (not in schema, kept as-is)")
+            report.append(f'  {count:>4} x unknown node type "{ntype}" (not in schema, kept as-is)')
         # Unknown complexity patterns (grouped by count)
         for pattern, count in complexity_unknown_patterns.most_common():
-            report.append(f"  {count:>4} × {pattern}")
+            report.append(f"  {count:>4} x {pattern}")
         # Individual unfixable items
         for detail in unfixable:
             report.append(f"  - {detail}")
@@ -909,6 +916,7 @@ def merge_and_normalize(batches: list[dict[str, Any]]) -> tuple[dict[str, Any], 
 
 
 # ── Imports-edge recovery from importMap ──────────────────────────────────
+
 
 def recover_imports_from_scan(
     assembled: dict[str, Any],
@@ -969,36 +977,30 @@ def recover_imports_from_scan(
                 continue
             if (src_id, tgt_id) in existing:
                 continue
-            assembled["edges"].append({
-                "source": src_id,
-                "target": tgt_id,
-                "type": "imports",
-                "direction": "forward",
-                "weight": 0.7,
-                "recoveredFromImportMap": True,
-            })
+            assembled["edges"].append(
+                {
+                    "source": src_id,
+                    "target": tgt_id,
+                    "type": "imports",
+                    "direction": "forward",
+                    "weight": 0.7,
+                    "recoveredFromImportMap": True,
+                }
+            )
             existing.add((src_id, tgt_id))
             recovered += 1
 
     lines: list[str] = []
-    lines.append(
-        f"  Recovered {recovered} `imports` edges from importMap "
-        f"({len(import_map)} entries scanned)"
-    )
+    lines.append(f"  Recovered {recovered} `imports` edges from importMap ({len(import_map)} entries scanned)")
     if skipped_no_src_node:
-        lines.append(
-            f"  Skipped {skipped_no_src_node} importMap source files "
-            f"with no `file:` node in graph"
-        )
+        lines.append(f"  Skipped {skipped_no_src_node} importMap source files with no `file:` node in graph")
     if skipped_no_tgt_node:
-        lines.append(
-            f"  Skipped {skipped_no_tgt_node} importMap target paths "
-            f"with no `file:` node in graph"
-        )
+        lines.append(f"  Skipped {skipped_no_tgt_node} importMap target paths with no `file:` node in graph")
     return recovered, lines
 
 
 # ── Main ──────────────────────────────────────────────────────────────────
+
 
 def main() -> None:
     if len(sys.argv) < 2:
@@ -1015,9 +1017,7 @@ def main() -> None:
     # Discover batch files, sorted by numeric index (not lexicographic)
     batch_files = sorted(
         intermediate_dir.glob("batch-*.json"),
-        key=lambda p: int(re.search(r"batch-(\d+)", p.stem).group(1))
-        if re.search(r"batch-(\d+)", p.stem)
-        else 0,
+        key=lambda p: int(re.search(r"batch-(\d+)", p.stem).group(1)) if re.search(r"batch-(\d+)", p.stem) else 0,
     )
     if not batch_files:
         print("Error: no batch-*.json files found in intermediate/", file=sys.stderr)
@@ -1030,6 +1030,7 @@ def main() -> None:
     # silently dropped during load — flag them loudly instead so the user
     # can fix the file-analyzer agent.
     from collections import defaultdict as _dd
+
     by_batch = _dd(list)
     unrecognized_batch_files: list[str] = []
     for f in batch_files:
@@ -1041,11 +1042,7 @@ def main() -> None:
 
     if unrecognized_batch_files:
         preview = ", ".join(unrecognized_batch_files[:5])
-        suffix = (
-            f" (+{len(unrecognized_batch_files) - 5} more)"
-            if len(unrecognized_batch_files) > 5
-            else ""
-        )
+        suffix = f" (+{len(unrecognized_batch_files) - 5} more)" if len(unrecognized_batch_files) > 5 else ""
         print(
             f"Warning: merge-batch-graphs: {len(unrecognized_batch_files)} "
             f"batch file(s) with unrecognized filenames will be DROPPED — "
@@ -1057,8 +1054,7 @@ def main() -> None:
     logical_count = len(by_batch)
     multi_part = sum(1 for entries in by_batch.values() if len(entries) > 1)
     print(
-        f"Found {len(batch_files)} batch files "
-        f"({logical_count} logical batches, {multi_part} multi-part):",
+        f"Found {len(batch_files)} batch files ({logical_count} logical batches, {multi_part} multi-part):",
         file=sys.stderr,
     )
 
@@ -1113,8 +1109,7 @@ def main() -> None:
     if missing_part_warnings:
         report.append("")
         report.append(
-            f"Warning: {len(missing_part_warnings)} batch(es) with missing parts "
-            f"— some nodes/edges silently dropped:"
+            f"Warning: {len(missing_part_warnings)} batch(es) with missing parts — some nodes/edges silently dropped:"
         )
         for w in missing_part_warnings:
             report.append(f"  - {w}")
@@ -1123,11 +1118,7 @@ def main() -> None:
     # downstream review step sees them, not just stderr.
     if unrecognized_batch_files:
         preview = ", ".join(unrecognized_batch_files[:5])
-        suffix = (
-            f" (+{len(unrecognized_batch_files) - 5} more)"
-            if len(unrecognized_batch_files) > 5
-            else ""
-        )
+        suffix = f" (+{len(unrecognized_batch_files) - 5} more)" if len(unrecognized_batch_files) > 5 else ""
         report.append("")
         report.append(
             f"Warning: dropped {len(unrecognized_batch_files)} batch file(s) "
@@ -1141,7 +1132,7 @@ def main() -> None:
     # `batchImportData` containing them. The project-scanner's importMap
     # is the deterministic source of truth.
     scan_result_path = intermediate_dir / "scan-result.json"
-    recovered, recovery_report = recover_imports_from_scan(assembled, scan_result_path)
+    _, recovery_report = recover_imports_from_scan(assembled, scan_result_path)
     if recovery_report:
         report.append("")
         report.append("Imports edge recovery:")

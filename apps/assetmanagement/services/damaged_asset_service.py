@@ -42,25 +42,26 @@ class DamagedAssetService:
 
         damaged_asset = DamagedAsset.objects.create(**damaged_data)
 
-        # 触发 FSM 状态流转: (in_use|recycled_pending) → damaged
-        asset = damaged_data.get("asset_recordcode")
-        if asset:
-            asset = Asset.objects.select_for_update().get(pk=asset.pk)
-            old_status = asset.asset_current_status
-            try:
-                AssetFSM.damaged(asset)
-            except InvalidTransitionError as e:
-                raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
-            asset.save(update_fields=["asset_current_status", "updated_at"])
+        # 触发 FSM 状态流转: (in_use|recycled_pending|broken|repairing|lost) → damaged
+        asset = Asset.objects.select_for_update().get(pk=asset.pk)
+        old_status = asset.asset_current_status
+        # 记录申请前状态(审批拒绝时回退依据,业务约束 §三.5;服务端权威,不信任客户端传值)
+        damaged_asset.original_status = old_status
+        damaged_asset.save(update_fields=["original_status", "updated_at"])
+        try:
+            AssetFSM.damaged(asset)
+        except InvalidTransitionError as e:
+            raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
+        asset.save(update_fields=["asset_current_status", "updated_at"])
 
-            AuditLogger.log_state_change(
-                asset=asset,
-                from_state=old_status,
-                to_state="damaged",
-                trigger="create_damaged",
-                operator_jobcode=operator_jobcode,
-                operator_name=operator_name,
-            )
+        AuditLogger.log_state_change(
+            asset=asset,
+            from_state=old_status,
+            to_state="damaged",
+            trigger="create_damaged",
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+        )
 
         return damaged_asset
 
@@ -207,13 +208,10 @@ class DamagedAssetService:
         damaged_asset.approver = EmployeeSelector.get_employee_by_jobcode(approver_jobcode)
         damaged_asset.save()
 
-        # 根据original_status回退状态
+        # 根据 original_status 回退状态(业务约束 §三.5: 审批拒绝回退申请前状态)
         asset = damaged_asset.asset_recordcode
         old_status = asset.asset_current_status
-        if damaged_asset.original_status == "lost":
-            AssetFSM.reject_to_lost(asset)
-        else:
-            AssetFSM.reject_to_broken(asset)
+        AssetFSM.reject_to_original(asset, damaged_asset.original_status)
         asset.save(update_fields=["asset_current_status", "updated_at"])
 
         # 审计日志

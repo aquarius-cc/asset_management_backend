@@ -1,3 +1,4 @@
+# TECHNICAL_DEBT: >500 lines
 """
 资产状态机核心实现
 【AGENTS 规范 - 状态机解耦】
@@ -10,7 +11,8 @@
 ```
 主路径:  in_store ──outasset──→ in_use ──recycle──→ recycled_pending ──to_damaged──→ damaged ──approve──→ scrapped(终态)
          recycled_pending ──outasset──→ in_use(再次出库)
-         damaged ──reject/cancel──→ recycled_pending(审批拒绝/取消)
+         damaged ──reject──→ broken/lost/in_use/recycled_pending/repairing (审批拒绝,按original_status回退)
+         damaged ──cancel──→ recycled_pending(用户取消)
 
 损坏/遗失/维修路径:
          in_store / in_use / recycled_pending ──mark_broken──→ broken
@@ -123,7 +125,8 @@ class AssetFSM:
     #
     #   主路径: in_store ──outasset──→ in_use ──recycle──→ recycled_pending ──to_damaged──→ damaged ──approve──→ scrapped(终态)
     #           recycled_pending ──outasset──→ in_use(再次出库)
-    #           damaged ──reject/cancel──→ recycled_pending(审批拒绝/取消)
+    #           damaged ──reject──→ broken/lost/in_use/recycled_pending/repairing (审批拒绝,按original_status回退)
+    #           damaged ──cancel──→ recycled_pending(用户取消)
     #
     #   损坏/遗失/维修路径:
     #           in_store / in_use / recycled_pending ──mark_broken──→ broken
@@ -134,8 +137,8 @@ class AssetFSM:
     #           lost ──to_damaged──→ damaged
     #
     # 【业务规则】
-    # - reject(审批拒绝)和 cancel(用户取消)都回到 recycled_pending
-    # - 保留独立方法以区分业务语义,便于日志追踪
+    # - reject(审批拒绝)回退到申请前状态(由 original_status 决定,见 reject_to_original)
+    # - cancel(用户取消)回到 recycled_pending
     # - scrapped 为终态,不允许任何转出
     # - 维修完成/找回入池:已使用过的资产(维修/找回)统一回到 recycled_pending,
     #   in_store 仅表示首次入库的新资产
@@ -176,11 +179,14 @@ class AssetFSM:
             AssetState.DAMAGED: "to_damaged",
             AssetState.RECYCLED_PENDING: "found_and_return",
         },
-        # 待报废 → 已报废(审批通过)、已损坏(拒绝)、已遗失(拒绝)
+        # 待报废 → 已报废(审批通过)、回退申请前状态(审批拒绝)
         AssetState.DAMAGED: {
             AssetState.SCRAPPED: "approve",
             AssetState.BROKEN: "reject_to_broken",
             AssetState.LOST: "reject_to_lost",
+            AssetState.IN_USE: "reject_to_in_use",
+            AssetState.RECYCLED_PENDING: "reject_to_recycled_pending",
+            AssetState.REPAIRING: "reject_to_repairing",
         },
         # 已报废 - 终态,无转出
         AssetState.SCRAPPED: {},
@@ -189,6 +195,16 @@ class AssetFSM:
     # ===================================================================
     # 内部方法
     # ===================================================================
+
+    # 审批拒绝的合法回退目标(对应各 reject_to_* 方法)
+    # 【注意】scrapped(approve)虽然也在 _TRANSITIONS[DAMAGED] 中,但不可作为拒绝目标
+    _REJECT_TARGETS: set[AssetState] = {
+        AssetState.BROKEN,
+        AssetState.LOST,
+        AssetState.IN_USE,
+        AssetState.RECYCLED_PENDING,
+        AssetState.REPAIRING,
+    }
 
     @classmethod
     def _validate_transition(cls, asset: "Asset", target_state: AssetState) -> None:
@@ -359,12 +375,62 @@ class AssetFSM:
         cls._transition(asset, AssetState.SCRAPPED)
 
     @classmethod
-    def reject(cls, asset: "Asset") -> None:
+    def reject_to_original(cls, asset: "Asset", original_status: str | None) -> None:
         """
-        审批拒绝报废: damaged → recycled_pending
+        审批拒绝(按申请前状态回退): damaged → original_status
+
+        【业务规则】审批拒绝后资产必须回退到申请前的状态(由 original_status 决定)。
+        - 支持目标: broken / lost / in_use / recycled_pending / repairing
+        - original_status 缺失或非法时,兜底回退到 recycled_pending(可回收再分配)
+        - in_store 不可能成为原状态(无 in_store→damaged 路径),若出现按非法值兜底处理
+
+        触发时机: 审批人拒绝待报废申请,由 DamagedAssetService 调用。
+
+        Args:
+            asset: 资产实例
+            original_status: 进入 damaged 前的状态(DamagedAsset.original_status 字段值)
+
+        Raises:
+            InvalidTransitionError: 当前状态不是 damaged 时抛出
+        """
+        current = AssetState.from_string(asset.asset_current_status)
+        if current != AssetState.DAMAGED:
+            raise InvalidTransitionError(f"只有'待报废'状态的资产才能审批拒绝,当前状态: {current.value}")
+
+        try:
+            target = AssetState(original_status) if original_status else None
+        except ValueError:
+            target = None
+
+        if target is None or target not in cls._REJECT_TARGETS:
+            target = AssetState.RECYCLED_PENDING
+
+        asset.asset_current_status = target.value
+
+    @classmethod
+    def reject_to_in_use(cls, asset: "Asset") -> None:
+        """
+        审批拒绝(在用): damaged → in_use
+
+        待报废审批被拒绝后,资产回到在用状态。
+        触发时机: 审批人拒绝待报废申请,且原状态为 in_use 时。
+
+        Args:
+            asset: 资产实例
+
+        Raises:
+            InvalidTransitionError: 当前状态不是 damaged 时抛出
+        """
+        cls._transition(asset, AssetState.IN_USE)
+
+    @classmethod
+    def reject_to_recycled_pending(cls, asset: "Asset") -> None:
+        """
+        审批拒绝(待发放): damaged → recycled_pending
+
         待报废审批被拒绝后,资产回到待发放状态。
-        【业务规则】审批拒绝后资产可回收再分配,而非直接恢复使用。
-        触发时机: 审批人拒绝待报废申请后,由 DamagedAssetService 调用。
+        触发时机: 审批人拒绝待报废申请,且原状态为 recycled_pending 时。
+
         Args:
             asset: 资产实例
 
@@ -372,6 +438,22 @@ class AssetFSM:
             InvalidTransitionError: 当前状态不是 damaged 时抛出
         """
         cls._transition(asset, AssetState.RECYCLED_PENDING)
+
+    @classmethod
+    def reject_to_repairing(cls, asset: "Asset") -> None:
+        """
+        审批拒绝(维修中): damaged → repairing
+
+        待报废审批被拒绝后,资产回到维修中状态。
+        触发时机: 审批人拒绝待报废申请,且原状态为 repairing 时。
+
+        Args:
+            asset: 资产实例
+
+        Raises:
+            InvalidTransitionError: 当前状态不是 damaged 时抛出
+        """
+        cls._transition(asset, AssetState.REPAIRING)
 
     # ===================================================================
     # 不在账资产专用状态转换(unregisteredasset 应用使用)

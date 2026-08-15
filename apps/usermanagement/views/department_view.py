@@ -24,7 +24,7 @@ from apps.usermanagement.serializers import (
 from apps.usermanagement.services import DepartmentService
 from core.mixins import LoggingMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
-from core.permissions import IsAdminUser  # 【修复】使用自定义 IsAdminUser
+from core.permissions import IsSystemAdmin
 from utils.response_utils import error_response, success_response
 
 
@@ -48,7 +48,7 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
         自定义权限:管理员可管理部门,普通用户只能查看
         """
         if self.action in ["create", "update", "partial_update", "destroy", "batch_create", "batch_delete", "sort"]:
-            permission_classes = [IsAdminUser]
+            permission_classes = [IsSystemAdmin]
         else:
             permission_classes = [permissions.IsAuthenticated]
         return [permission() for permission in permission_classes]

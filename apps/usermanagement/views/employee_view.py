@@ -26,9 +26,10 @@ from apps.usermanagement.serializers import (
     EmployeeUpdateSerializer,
 )
 from apps.usermanagement.services import EmployeeService, PermissionService
+from core.department_scope import get_effective_data_scope_for_user
 from core.mixins import LoggingMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
-from core.permissions import IsAdminUser, IsSystemAdmin
+from core.permissions import IsSystemAdmin
 from utils.response_utils import error_response, success_response
 
 
@@ -76,7 +77,7 @@ class EmployeeViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSet)
             "batch_sort",
             "change_status",
         ]:
-            permission_classes = [IsAdminUser]
+            permission_classes = [IsSystemAdmin]
         else:
             permission_classes = [permissions.IsAuthenticated]
         return [permission() for permission in permission_classes]
@@ -477,11 +478,11 @@ class EmployeeViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSet)
                     }
                 )
 
-            # 3. 获取权限列表
-            permissions = PermissionService.get_user_permissions(auth_user.auth_id)
+            # 3. 获取权限列表(G1-B 收敛:单入口)
+            permissions = PermissionService.get_effective_permissions_for_user(auth_user)
 
-            # 4. 获取数据范围
-            data_scope = PermissionService.get_merged_data_scope(auth_user.auth_id)
+            # 4. 获取数据范围(G1-B flavor a:直接派生自 Employee)
+            data_scope = get_effective_data_scope_for_user(auth_user)
 
             return success_response(
                 data={

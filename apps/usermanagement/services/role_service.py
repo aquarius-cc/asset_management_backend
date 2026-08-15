@@ -5,26 +5,28 @@
   - RoleService: 角色管理服务(所有写操作 @transaction.atomic)
 
 函数/方法:
-  - assign_role: 为用户分配角色(含 data_scope 验证、Token 黑名单)
-  - remove_role: 撤销用户角色(幂等操作)
+  - assign_role: 为用户分配角色(D1 继承部门 / D2 同步 Employee.role / M3 自定义角色禁止分配)
+  - remove_role: 撤销用户角色(幂等,同步重算 Employee.role)
   - get_user_roles: 获取用户所有角色列表
   - sync_role_permissions: 同步角色的权限码列表(全量替换)
-  - _validate_data_scope: 验证并规范化 data_scope 结构
-  - _blacklist_user_tokens: 黑名单用户所有 Refresh Token
+  - _recompute_employee_role: D2 重算 Employee.role(最高 role_level 胜出,instance.save 触发黑名单)
+  - _resolve_operator: 解析审计操作者(优先显式传入,其次 request 上下文)
 
 调用链:
   本模块被 views/role_view.py 调用
-  本模块依赖 models(Role, UserRole, RolePermission, Permission)
-  本模块依赖 role_audit_adapter.RoleAuditAdapter
+  本模块依赖 models(Role, UserRole, RolePermission, Permission, EmployeeRole)与
+  role_audit_adapter.RoleAuditAdapter、core.department_scope、core.request_context
 """
 
 import logging
 
 from django.db import transaction
 
-from apps.usermanagement.models import Department, Permission, Role, RolePermission, UserRole
+from apps.usermanagement.models import EmployeeRole, Permission, Role, RolePermission, UserRole
 from apps.usermanagement.role_audit_adapter import RoleAuditAdapter
+from core.department_scope import get_effective_data_scope_for_user, get_employee_for_user
 from core.exceptions import AppValidationError
+from core.request_context import get_current_request
 
 
 logger = logging.getLogger(__name__)
@@ -40,23 +42,31 @@ class RoleService:
 
     @staticmethod
     @transaction.atomic
-    def assign_role(user_id: int, role_id: int, data_scope: dict | None = None) -> UserRole:
+    def assign_role(
+        user_id: int,
+        role_id: int,
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+    ) -> UserRole:
         """
         为用户分配角色。
 
-        创建 UserRole 记录,若已存在则更新 data_scope。
-        创建后触发该用户所有 Refresh Token 黑名单(强制重新登录)。
+        D1: data_scope 继承 Employee 部门(单入口,零漂移),忽略客户端传入。
+        D2: 分配后重算 Employee.role(当前角色 + 活跃 UserRole 最高 role_level),
+            role 变化时由 Employee.save 钩子黑名单 Token(G3 去重)。
+        M3: 自定义角色(role_code ∉ EmployeeRole.values)禁止分配。
 
         Args:
             user_id: AuthUser 的 auth_id
             role_id: Role 的 id
-            data_scope: 数据范围字典,如 {"scope_type": "all"}
+            operator_jobcode: 操作者工号(缺省时从请求上下文解析)
+            operator_name: 操作者姓名
 
         Returns:
             创建或更新的 UserRole 实例
 
         Raises:
-            AppValidationError: 用户或角色不存在
+            AppValidationError: 用户/角色不存在,或角色为自定义角色
         """
         from apps.authusermanagement.models import AuthUser
 
@@ -72,12 +82,15 @@ class RoleService:
         except Role.DoesNotExist:
             raise AppValidationError(detail="角色不存在", error_code="ROLE_NOT_FOUND")
 
-        # 验证 data_scope
-        # H2 修复:data_scope 未提供时使用最严格限制
-        if data_scope:
-            data_scope = RoleService._validate_data_scope(data_scope)
-        else:
-            data_scope = {"scope_type": "departments", "department_codes": [], "include_children": False}
+        # M3:禁止分配自定义角色(仅 EmployeeRole 内置角色可分配)
+        if role.role_code not in EmployeeRole.values:
+            raise AppValidationError(
+                detail=f"角色 {role.role_name} 为自定义角色,不可分配给用户",
+                error_code="CUSTOM_ROLE_NOT_ASSIGNABLE",
+            )
+
+        # D1:数据范围继承 Employee 部门(无部门→最严兜底,全局角色→all)
+        data_scope = get_effective_data_scope_for_user(auth_user)
 
         # 创建或更新 UserRole
         user_role, _ = UserRole.objects.update_or_create(
@@ -86,41 +99,46 @@ class RoleService:
             defaults={"data_scope": data_scope},
         )
 
-        # 触发 Token 黑名单
-        RoleService._blacklist_user_tokens(user_id)
+        # D2:重算 Employee.role(role 变化时由 Employee.save 钩子黑名单 Token)
+        RoleService._recompute_employee_role(auth_user)
 
-        # 记录审计日志
+        # 审计日志(操作者 = 实际请求操作者)
+        op_jobcode, op_name = RoleService._resolve_operator(operator_jobcode, operator_name)
         RoleAuditAdapter.log_assign_role(
             user_id=user_id,
             role_id=role_id,
             role_name=role.role_name,
             data_scope=data_scope,
-            operator_jobcode=auth_user.auth_username,
-            operator_name=auth_user.auth_username,
+            operator_jobcode=op_jobcode,
+            operator_name=op_name,
         )
 
         return user_role
 
     @staticmethod
     @transaction.atomic
-    def remove_role(user_id: int, role_id: int) -> None:
+    def remove_role(
+        user_id: int,
+        role_id: int,
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+    ) -> None:
         """
         撤销用户角色(幂等操作)。
 
-        删除 UserRole 记录。
-        删除后触发该用户所有 Refresh Token 黑名单。
-        如果角色已被撤销,静默返回(幂等)。
+        删除 UserRole 记录后,同步重算 Employee.role(D2,可能降级,
+        role 变化时由 Employee.save 钩子黑名单 Token)。
 
         Args:
             user_id: AuthUser 的 auth_id
             role_id: Role 的 id
+            operator_jobcode: 操作者工号(缺省时从请求上下文解析)
+            operator_name: 操作者姓名
         """
-        # 获取角色信息用于审计日志
-        try:
-            role = Role.objects.get(pk=role_id, is_deleted=False)
-            role_name = role.role_name
-        except Role.DoesNotExist:
-            role_name = f"role_{role_id}"
+        # 获取角色信息用于审计日志与降级排除(含软删除角色,便于识别撤销目标)
+        role = Role.objects.filter(pk=role_id).first()
+        role_name = role.role_name if role else f"role_{role_id}"
+        exclude_role_code = role.role_code if role else None
 
         deleted, _ = UserRole.objects.filter(
             auth_user_id=user_id,
@@ -128,17 +146,25 @@ class RoleService:
             is_deleted=False,
         ).delete()
 
-        # H2 修复:仅在实际删除时触发 Token 黑名单
+        # 仅在实际删除时同步 Employee.role 并记录审计日志
         if deleted:
-            RoleService._blacklist_user_tokens(user_id)
+            try:
+                from apps.authusermanagement.models import AuthUser
 
-            # 记录审计日志
+                auth_user = AuthUser.objects.get(auth_id=user_id)
+            except AuthUser.DoesNotExist:
+                auth_user = None
+
+            if auth_user is not None:
+                RoleService._recompute_employee_role(auth_user, exclude_role_code=exclude_role_code)
+
+            op_jobcode, op_name = RoleService._resolve_operator(operator_jobcode, operator_name)
             RoleAuditAdapter.log_remove_role(
                 user_id=user_id,
                 role_id=role_id,
                 role_name=role_name,
-                operator_jobcode=f"user_{user_id}",
-                operator_name=f"user_{user_id}",
+                operator_jobcode=op_jobcode,
+                operator_name=op_name,
             )
 
     @staticmethod
@@ -185,90 +211,76 @@ class RoleService:
             RolePermission.objects.bulk_create(role_perms, ignore_conflicts=True)
 
     @staticmethod
-    def _validate_data_scope(scope: dict) -> dict:
+    def _recompute_employee_role(auth_user, exclude_role_code: str | None = None) -> None:
         """
-        验证并规范化 data_scope 结构。
+        D2:重新计算 Employee.role。
+
+        候选集 = 活跃 UserRole 的 role_code + {当前 Employee.role}(仅当未被任一活跃
+        UserRole 表示且不等于 exclude_role_code —— 即遗留种子 G6 基线)。
+        - exclude_role_code 由 remove_role 传入被撤销角色码,防止降级失效
+          (写权限类 Is*OrAbove 直接读 Employee.role,撤销必须同步降级,否则撤销无效)
+        - 仅保留 ∈ EmployeeRole.values 且存在未删除 Role 记录的码(M1,过滤自定义/幽灵角色)
+        - role_level 最高者胜出(5/4/3/2/1),并列时按角色码字典序稳定排序
+        - 无候选 → regular_user
+        - 必须 instance.save(update_fields=["role"]) 触发 role_changed 黑名单钩子(G3 去重)
 
         Args:
-            scope: data_scope 字典
-
-        Returns:
-            验证后的 data_scope 字典
-
-        Raises:
-            AppValidationError: 结构不合法或部门不存在
+            auth_user: AuthUser 实例
+            exclude_role_code: 本次撤销的角色码(从候选中排除)
         """
-        VALID_SCOPE_TYPES = {"all", "department", "departments"}
+        employee = get_employee_for_user(auth_user)
+        if not employee:
+            return
 
-        if not scope:
-            return {"scope_type": "all"}
+        active_codes = set(
+            UserRole.objects.filter(
+                auth_user=auth_user,
+                is_deleted=False,
+                role__is_deleted=False,
+            ).values_list("role__role_code", flat=True)
+        )
 
-        scope_type = scope.get("scope_type")
-        if scope_type not in VALID_SCOPE_TYPES:
-            raise AppValidationError(
-                detail=f"无效的 scope_type: {scope_type}",
-                error_code="INVALID_SCOPE_TYPE",
-            )
+        candidate_codes = set(active_codes)
+        if (
+            employee.role
+            and employee.role not in active_codes
+            and employee.role != exclude_role_code
+        ):
+            candidate_codes.add(employee.role)
 
-        if scope_type == "department":
-            dept_code = scope.get("department_code")
-            if not dept_code:
-                raise AppValidationError(
-                    detail="department 类型必须包含 department_code",
-                    error_code="MISSING_DEPARTMENT_CODE",
-                )
-            # 验证部门存在
-            if not Department.objects.filter(department_code=dept_code, is_deleted=False).exists():
-                raise AppValidationError(
-                    detail=f"部门 {dept_code} 不存在",
-                    error_code="DEPARTMENT_NOT_FOUND",
-                )
+        valid_codes = [c for c in candidate_codes if c in EmployeeRole.values]
+        new_role = EmployeeRole.REGULAR_USER
+        if valid_codes:
+            levels = {
+                r.role_code: r.role_level
+                for r in Role.objects.filter(role_code__in=valid_codes, is_deleted=False)
+            }
+            winners = [c for c in valid_codes if c in levels]
+            if winners:
+                new_role = sorted(winners, key=lambda c: (levels[c], c), reverse=True)[0]
 
-        if scope_type == "departments":
-            codes = scope.get("department_codes", [])
-            if not isinstance(codes, list) or len(codes) == 0:
-                raise AppValidationError(
-                    detail="departments 类型必须包含非空 department_codes 列表",
-                    error_code="MISSING_DEPARTMENT_CODES",
-                )
-            # 验证所有部门存在
-            existing = set(
-                Department.objects.filter(department_code__in=codes, is_deleted=False).values_list(
-                    "department_code", flat=True
-                )
-            )
-            missing = set(codes) - existing
-            if missing:
-                raise AppValidationError(
-                    detail=f"以下部门不存在: {', '.join(sorted(missing))}",
-                    error_code="DEPARTMENT_NOT_FOUND",
-                )
-
-        return scope
+        if employee.role != new_role:
+            employee.role = new_role
+            employee.save(update_fields=["role"])
 
     @staticmethod
-    def _blacklist_user_tokens(user_id: int) -> None:
+    def _resolve_operator(operator_jobcode: str | None, operator_name: str | None) -> tuple[str | None, str | None]:
         """
-        黑名单该用户的所有 Refresh Token,强制重新登录。
+        解析审计操作者:显式传入优先,其次从请求上下文取 request.user。
 
         Args:
-            user_id: AuthUser 的 auth_id
+            operator_jobcode: 显式传入的操作者工号
+            operator_name: 显式传入的操作者姓名
+
+        Returns:
+            (operator_jobcode, operator_name)
         """
-        try:
-            from rest_framework_simplejwt.token_blacklist.models import (
-                BlacklistedToken,
-                OutstandingToken,
-            )
+        if operator_jobcode is not None:
+            return operator_jobcode, operator_name
 
-            outstanding = OutstandingToken.objects.filter(user_id=user_id)
-            blacklisted_count = 0
-            for token in outstanding:
-                _, created = BlacklistedToken.objects.get_or_create(token=token)
-                if created:
-                    blacklisted_count += 1
+        request = get_current_request()
+        user = getattr(request, "user", None) if request else None
+        if user is not None and getattr(user, "is_authenticated", False):
+            return user.auth_username, user.auth_username
 
-            if blacklisted_count > 0:
-                logger.info(f"角色变更:已黑名单 {blacklisted_count} 个 Token (user_id={user_id})")
-        except Exception as e:
-            # H4 修复:记录异常而非静默吞没
-            logger.warning(f"Token 黑名单操作失败 (user_id={user_id}): {e}")
+        return None, None

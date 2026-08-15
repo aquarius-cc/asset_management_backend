@@ -19,7 +19,7 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 
 from apps.usermanagement.models import Role, UserRole
-from apps.usermanagement.serializers import (
+from apps.usermanagement.rbac_serializers import (
     RoleCreateUpdateSerializer,
     RoleSerializer,
     UserRoleSerializer,
@@ -217,13 +217,12 @@ class UserRoleViewSet(ResponseWrapperMixin, viewsets.ModelViewSet):
         )
 
     def perform_create(self, serializer):
-        """创建用户角色关联"""
+        """创建用户角色关联(D1: data_scope 由 Service 继承 Employee 部门)"""
         user_id = self.kwargs.get("user_id")
         raw_role = serializer.validated_data.get("role")
         role_id = raw_role.pk if hasattr(raw_role, "pk") else raw_role
-        data_scope = serializer.validated_data.get("data_scope", {})
 
-        RoleService.assign_role(user_id, role_id, data_scope)
+        RoleService.assign_role(user_id, role_id)
 
     def perform_destroy(self, instance):
         """删除用户角色关联"""

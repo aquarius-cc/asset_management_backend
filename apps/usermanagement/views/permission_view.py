@@ -6,7 +6,7 @@
 
 调用链:
   本模块被 urls.py 路由注册
-  本模块依赖 models.Permission、serializers.PermissionSerializer
+  本模块依赖 models.Permission、rbac_serializers.PermissionSerializer
 """
 
 from drf_spectacular.utils import extend_schema, extend_schema_view
@@ -15,7 +15,7 @@ from rest_framework.mixins import ListModelMixin, RetrieveModelMixin
 from rest_framework.viewsets import GenericViewSet
 
 from apps.usermanagement.models import Permission
-from apps.usermanagement.serializers import PermissionSerializer
+from apps.usermanagement.rbac_serializers import PermissionSerializer
 from core.mixins import ResponseWrapperMixin
 
 

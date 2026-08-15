@@ -221,11 +221,8 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
         - children: 子部门列表
         - employee_count: 当前部门员工数量
         """
-        try:
-            tree = DepartmentSelector.build_department_tree()
-            return success_response(data=tree)
-        except Exception as e:
-            return error_response(message=str(e))
+        tree = DepartmentSelector.build_department_tree()
+        return success_response(data=tree)
 
     @extend_schema(
         operation_id="department_children",
@@ -248,33 +245,30 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
         Returns:
             子部门列表,包含员工数量统计
         """
-        try:
-            department = self.get_object()
-            children = DepartmentSelector.get_children(department_code)
+        department = self.get_object()
+        children = DepartmentSelector.get_children(department_code)
 
-            # 构建返回数据
-            data = []
-            for child in children:
-                data.append(
-                    {
-                        "recordcode": child.recordcode,
-                        "department_code": child.department_code,
-                        "department_name": child.department_name,
-                        "department_information": child.department_information,
-                        "parent": child.parent_id,
-                        "parent_department_code": child.parent.department_code if child.parent else None,
-                        "path": child.path,
-                        "level": child.level,
-                        "sort_order": child.sort_order,
-                        "employee_count": child.get_employee_count(),
-                    }
-                )
-
-            return success_response(
-                data={"parent": DepartmentSerializer(department).data, "children_count": len(data), "children": data}
+        # 构建返回数据
+        data = []
+        for child in children:
+            data.append(
+                {
+                    "recordcode": child.recordcode,
+                    "department_code": child.department_code,
+                    "department_name": child.department_name,
+                    "department_information": child.department_information,
+                    "parent": child.parent_id,
+                    "parent_department_code": child.parent.department_code if child.parent else None,
+                    "path": child.path,
+                    "level": child.level,
+                    "sort_order": child.sort_order,
+                    "employee_count": child.get_employee_count(),
+                }
             )
-        except Exception as e:
-            return error_response(message=str(e))
+
+        return success_response(
+            data={"parent": DepartmentSerializer(department).data, "children_count": len(data), "children": data}
+        )
 
     @extend_schema(
         operation_id="department_path",
@@ -318,33 +312,30 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
         Returns:
             path: 部门路径列表,从根部门到当前部门
         """
-        try:
-            department = self.get_object()
-            # 【AGENTS 规范 - P3-31】使用 Selector 获取部门路径
-            path_departments = DepartmentSelector.get_department_path(department_code)
+        department = self.get_object()
+        # 【AGENTS 规范 - P3-31】使用 Selector 获取部门路径
+        path_departments = DepartmentSelector.get_department_path(department_code)
 
-            path_data = [
-                {
-                    "recordcode": dept.recordcode,
-                    "department_code": dept.department_code,
-                    "department_name": dept.department_name,
-                    "department_information": dept.department_information,
-                    "parent": dept.parent_id,
-                    "path": dept.path,
-                    "level": dept.level,
-                }
-                for dept in path_departments
-            ]
+        path_data = [
+            {
+                "recordcode": dept.recordcode,
+                "department_code": dept.department_code,
+                "department_name": dept.department_name,
+                "department_information": dept.department_information,
+                "parent": dept.parent_id,
+                "path": dept.path,
+                "level": dept.level,
+            }
+            for dept in path_departments
+        ]
 
-            return success_response(
-                data={
-                    "current": DepartmentSerializer(department).data,
-                    "path": path_data,
-                    "depth": len(path_data),
-                }
-            )
-        except Exception as e:
-            return error_response(message=str(e))
+        return success_response(
+            data={
+                "current": DepartmentSerializer(department).data,
+                "path": path_data,
+                "depth": len(path_data),
+            }
+        )
 
     @extend_schema(
         operation_id="department_descendants",
@@ -389,36 +380,33 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
         Returns:
             descendants: 所有后代部门列表(含员工数量统计)
         """
-        try:
-            department = self.get_object()
-            # 【AGENTS 规范 - P3-32】使用 Selector 获取所有后代部门
-            descendant_departments = DepartmentSelector.get_all_descendants(department_code)
+        department = self.get_object()
+        # 【AGENTS 规范 - P3-32】使用 Selector 获取所有后代部门
+        descendant_departments = DepartmentSelector.get_all_descendants(department_code)
 
-            descendants_data = [
-                {
-                    "recordcode": dept.recordcode,
-                    "department_code": dept.department_code,
-                    "department_name": dept.department_name,
-                    "department_information": dept.department_information,
-                    "parent": dept.parent_id,
-                    "parent_department_code": dept.parent.department_code if dept.parent else None,
-                    "path": dept.path,
-                    "level": dept.level,
-                    "sort_order": dept.sort_order,
-                    "employee_count": dept.get_employee_count(),
-                }
-                for dept in descendant_departments
-            ]
+        descendants_data = [
+            {
+                "recordcode": dept.recordcode,
+                "department_code": dept.department_code,
+                "department_name": dept.department_name,
+                "department_information": dept.department_information,
+                "parent": dept.parent_id,
+                "parent_department_code": dept.parent.department_code if dept.parent else None,
+                "path": dept.path,
+                "level": dept.level,
+                "sort_order": dept.sort_order,
+                "employee_count": dept.get_employee_count(),
+            }
+            for dept in descendant_departments
+        ]
 
-            return success_response(
-                data={
-                    "current": DepartmentSerializer(department).data,
-                    "descendants_count": len(descendants_data),
-                    "descendants": descendants_data,
-                }
-            )
-        except Exception as e:
-            return error_response(message=str(e))
+        return success_response(
+            data={
+                "current": DepartmentSerializer(department).data,
+                "descendants_count": len(descendants_data),
+                "descendants": descendants_data,
+            }
+        )
 
     @action(detail=True, methods=["get"])
     def parent(self, request, department_code=None):
@@ -431,27 +419,24 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
         - level: 部门层级
         - parent_department_code: 上级部门业务编码
         """
-        try:
-            department = self.get_object()
+        department = self.get_object()
 
-            if not department.parent:
-                return error_response(
-                    message=f"部门 {department_code} 是根部门,没有上级部门", status_code=status.HTTP_404_NOT_FOUND
-                )
-
-            parent = department.parent
-            return success_response(
-                data={
-                    "recordcode": parent.recordcode,
-                    "department_code": parent.department_code,
-                    "department_name": parent.department_name,
-                    "level": parent.level,
-                    "parent_department_code": parent.parent.department_code if parent.parent else None,
-                    "path": parent.path,
-                }
+        if not department.parent:
+            return error_response(
+                message=f"部门 {department_code} 是根部门,没有上级部门", status_code=status.HTTP_404_NOT_FOUND
             )
-        except Exception as e:
-            return error_response(message=str(e))
+
+        parent = department.parent
+        return success_response(
+            data={
+                "recordcode": parent.recordcode,
+                "department_code": parent.department_code,
+                "department_name": parent.department_name,
+                "level": parent.level,
+                "parent_department_code": parent.parent.department_code if parent.parent else None,
+                "path": parent.path,
+            }
+        )
 
     @extend_schema(
         operation_id="department_move",
@@ -498,25 +483,21 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
         - 循环引用:不能移动到自己的子部门下
         - 层级约束:移动后不超过 6 层
         """
-        try:
-            department = self.get_object()
+        department = self.get_object()
 
-            # 验证请求数据
-            serializer = DepartmentMoveSerializer(data=request.data, context={"department": department})
+        # 验证请求数据
+        serializer = DepartmentMoveSerializer(data=request.data, context={"department": department})
 
-            if not serializer.is_valid():
-                return error_response(message="参数验证失败", errors=serializer.errors)
+        if not serializer.is_valid():
+            return error_response(message="参数验证失败", errors=serializer.errors)
 
-            # 执行移动操作
-            target_parent_code = serializer.validated_data.get("target_parent_department_code")
-            updated_department = DepartmentService.move_department(
-                department_code=department_code, target_parent_code=target_parent_code
-            )
+        # 执行移动操作
+        target_parent_code = serializer.validated_data.get("target_parent_department_code")
+        updated_department = DepartmentService.move_department(
+            department_code=department_code, target_parent_code=target_parent_code
+        )
 
-            return success_response(data=DepartmentSerializer(updated_department).data, message="部门移动成功")
-
-        except Exception as e:
-            return error_response(message=str(e))
+        return success_response(data=DepartmentSerializer(updated_department).data, message="部门移动成功")
 
     @extend_schema(
         operation_id="department_batch_sort",
@@ -551,20 +532,16 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
             ]
         }
         """
-        try:
-            serializer = DepartmentBatchSortSerializer(data=request.data)
+        serializer = DepartmentBatchSortSerializer(data=request.data)
 
-            if not serializer.is_valid():
-                return error_response(message="参数验证失败", errors=serializer.errors)
+        if not serializer.is_valid():
+            return error_response(message="参数验证失败", errors=serializer.errors)
 
-            # 执行批量更新
-            items = serializer.validated_data["items"]
-            updated_count = DepartmentService.batch_update_sort_order(items)
+        # 执行批量更新
+        items = serializer.validated_data["items"]
+        updated_count = DepartmentService.batch_update_sort_order(items)
 
-            return success_response(data={"updated_count": updated_count}, message="排序更新成功")
-
-        except Exception as e:
-            return error_response(message=str(e))
+        return success_response(data={"updated_count": updated_count}, message="排序更新成功")
 
     @action(detail=False, methods=["post"], url_path="batch-create")
     def batch_create(self, request):

@@ -188,13 +188,13 @@ def merge_graphs(graphs: list[dict[str, Any]]) -> tuple[dict[str, Any], list[str
     fixed_lines: list[str] = []
     if node_dedup_by_type:
         for ntype, count in node_dedup_by_type.most_common():
-            fixed_lines.append(f"  {count:>4} × duplicate '{ntype}' nodes removed (kept later)")
+            fixed_lines.append(f"  {count:>4} x duplicate '{ntype}' nodes removed (kept later)")
     if edge_dedup_count:
-        fixed_lines.append(f"  {edge_dedup_count:>4} × duplicate edges removed (kept higher weight)")
+        fixed_lines.append(f"  {edge_dedup_count:>4} x duplicate edges removed (kept higher weight)")
     if dropped_layer_refs:
-        fixed_lines.append(f"  {dropped_layer_refs:>4} × dangling layer nodeId refs removed")
+        fixed_lines.append(f"  {dropped_layer_refs:>4} x dangling layer nodeId refs removed")
     if dropped_tour_refs:
-        fixed_lines.append(f"  {dropped_tour_refs:>4} × dangling tour nodeId refs removed")
+        fixed_lines.append(f"  {dropped_tour_refs:>4} x dangling tour nodeId refs removed")
 
     if fixed_lines:
         total_fixed = sum(node_dedup_by_type.values()) + edge_dedup_count + dropped_layer_refs + dropped_tour_refs
@@ -211,7 +211,9 @@ def merge_graphs(graphs: list[dict[str, Any]]) -> tuple[dict[str, Any], list[str
 
     # Output stats
     report.append("")
-    report.append(f"Output: {len(nodes_by_id)} nodes, {len(valid_edges)} edges, {len(layers_by_id)} layers, {len(all_tour_steps)} tour steps")
+    report.append(
+        f"Output: {len(nodes_by_id)} nodes, {len(valid_edges)} edges, {len(layers_by_id)} layers, {len(all_tour_steps)} tour steps"
+    )
 
     merged: dict[str, Any] = {
         "version": "1.0.0",
@@ -219,7 +221,9 @@ def merge_graphs(graphs: list[dict[str, Any]]) -> tuple[dict[str, Any], list[str
             "name": project_name,
             "languages": languages,
             "frameworks": frameworks,
-            "description": " | ".join(descriptions) if len(descriptions) > 1 else (descriptions[0] if descriptions else ""),
+            "description": " | ".join(descriptions)
+            if len(descriptions) > 1
+            else (descriptions[0] if descriptions else ""),
             "analyzedAt": latest_at,
             "gitCommitHash": latest_hash,
         },
@@ -253,10 +257,7 @@ def main() -> None:
     else:
         # Auto-discover subdomain graphs — exclude the main output file
         # to avoid self-merging on repeated runs
-        graph_files = sorted(
-            p for p in ua_dir.glob("*knowledge-graph*.json")
-            if p.name != "knowledge-graph.json"
-        )
+        graph_files = sorted(p for p in ua_dir.glob("*knowledge-graph*.json") if p.name != "knowledge-graph.json")
 
     if not graph_files:
         print("No subdomain graphs found to merge", file=sys.stderr)

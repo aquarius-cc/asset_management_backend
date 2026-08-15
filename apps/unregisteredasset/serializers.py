@@ -1,20 +1,20 @@
 """
 未登记资产序列化器
 
-该模块定义 DRF 序列化器，用于 API 请求/响应的数据验证和转换。
+该模块定义 DRF 序列化器,用于 API 请求/响应的数据验证和转换。
 
 【AGENTS 规范 - 序列化器设计】
-- 输入校验：验证字段类型、必填项、业务规则
-- 输出控制：控制响应字段，保护敏感信息
-- 嵌套序列化：外键字段使用 PrimaryKeyRelatedField 或 StringRelatedField
-- 文档化：字段添加 help_text
+- 输入校验:验证字段类型、必填项、业务规则
+- 输出控制:控制响应字段,保护敏感信息
+- 嵌套序列化:外键字段使用 PrimaryKeyRelatedField 或 StringRelatedField
+- 文档化:字段添加 help_text
 
 【序列化器列表】
 - UnregisteredAssetCreateSerializer: 创建请求
 - UnregisteredAssetUpdateSerializer: 更新请求
 - UnregisteredAssetApproveSerializer: 审批请求
-- UnregisteredAssetListSerializer: 列表响应（精简字段）
-- UnregisteredAssetDetailSerializer: 详情响应（完整字段）
+- UnregisteredAssetListSerializer: 列表响应(精简字段)
+- UnregisteredAssetDetailSerializer: 详情响应(完整字段)
 """
 
 from rest_framework import serializers
@@ -29,10 +29,10 @@ class UnregisteredAssetCreateSerializer(serializers.ModelSerializer):
     用于创建未登记资产申请的请求验证。
 
     【校验规则】
-    - scenario_type: 必填，必须是有效选项
-    - asset_name: 必填，最大长度 100
-    - discovery_date: 必填，日期格式
-    - discovery_location: 必填，最大长度 200
+    - scenario_type: 必填,必须是有效选项
+    - asset_name: 必填,最大长度 100
+    - discovery_date: 必填,日期格式
+    - discovery_location: 必填,最大长度 200
     - related_asset: S2/S3 场景必填
     """
 
@@ -55,19 +55,19 @@ class UnregisteredAssetCreateSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             "scenario_type": {
                 "required": True,
-                "help_text": "场景类型：s1_no_record/s2_no_outasset/s3_status_mismatch",
+                "help_text": "场景类型:s1_no_record/s2_no_outasset/s3_status_mismatch",
             },
-            "discovery_date": {"required": True, "help_text": "发现日期，格式：YYYY-MM-DD"},
+            "discovery_date": {"required": True, "help_text": "发现日期,格式:YYYY-MM-DD"},
             "discovery_location": {"required": True, "help_text": "发现地点"},
             "asset_name": {"required": True, "help_text": "资产名称"},
-            "asset_brand": {"required": False, "help_text": "资产品牌（可选）"},
-            "asset_specification": {"required": False, "help_text": "资产规格（可选）"},
-            "unregistered_asset_type": {"required": False, "help_text": "资产类型（可选）"},
-            "estimated_value": {"required": False, "help_text": "预估价值（可选）"},
-            "related_asset": {"required": False, "help_text": "关联资产编码（S2/S3场景必填）"},
-            "unregistered_asset_storage": {"required": False, "help_text": "目标仓库（可选）"},
-            "handle_description": {"required": False, "help_text": "处理说明（可选）"},
-            "attachments": {"required": False, "help_text": "附件列表（可选，JSON数组格式）"},
+            "asset_brand": {"required": False, "help_text": "资产品牌(可选)"},
+            "asset_specification": {"required": False, "help_text": "资产规格(可选)"},
+            "unregistered_asset_type": {"required": False, "help_text": "资产类型(可选)"},
+            "estimated_value": {"required": False, "help_text": "预估价值(可选)"},
+            "related_asset": {"required": False, "help_text": "关联资产编码(S2/S3场景必填)"},
+            "unregistered_asset_storage": {"required": False, "help_text": "目标仓库(可选)"},
+            "handle_description": {"required": False, "help_text": "处理说明(可选)"},
+            "attachments": {"required": False, "help_text": "附件列表(可选,JSON数组格式)"},
         }
 
     def validate(self, data: dict) -> dict:
@@ -141,7 +141,7 @@ class UnregisteredAssetListSerializer(serializers.ModelSerializer):
     """
     未登记资产列表序列化器
 
-    用于列表响应，返回精简字段。
+    用于列表响应,返回精简字段。
     """
 
     scenario_type_display = serializers.CharField(
@@ -175,7 +175,7 @@ class UnregisteredAssetDetailSerializer(serializers.ModelSerializer):
     """
     未登记资产详情序列化器
 
-    用于详情响应，返回完整字段。
+    用于详情响应,返回完整字段。
     """
 
     scenario_type_display = serializers.CharField(source="get_scenario_type_display", read_only=True)

@@ -1,7 +1,7 @@
 """
 未登记资产选择器测试
 
-测试 UnregisteredAssetSelector 的：
+测试 UnregisteredAssetSelector 的:
 - 根据编码获取
 - 根据 ID 获取
 - 列表筛选

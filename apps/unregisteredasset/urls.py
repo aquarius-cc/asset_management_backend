@@ -5,8 +5,8 @@
 
 【AGENTS 规范 - URL 配置】
 - 使用 DRF 的 DefaultRouter 自动生成路由
-- URL 前缀使用 kebab-case（短横线连接）
-- 版本控制：/api/v1/unregistered-assets/
+- URL 前缀使用 kebab-case(短横线连接)
+- 版本控制:/api/v1/unregistered-assets/
 
 【路由列表】
 - GET    /api/v1/unregistered-assets/          list
@@ -28,7 +28,7 @@ app_name = "unregisteredasset"
 router = DefaultRouter()
 
 # 注册视图集
-# lookup 参数指定 URL 中的参数名，这里使用 unregistered_code 作为 lookup field
+# lookup 参数指定 URL 中的参数名,这里使用 unregistered_code 作为 lookup field
 router.register(r"unregistered-assets", UnregisteredAssetViewSet, basename="unregisteredasset")
 
 # URL 模式

@@ -23,7 +23,7 @@ from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
 from rest_framework.filters import OrderingFilter, SearchFilter
-from rest_framework.permissions import IsAdminUser, IsAuthenticated  # 【P0-03 修复】IsAdminUser 用于 get_permissions
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
@@ -40,7 +40,7 @@ from apps.unregisteredasset.services import UnregisteredAssetService
 from core.exceptions import AppValidationError
 from core.mixins import LoggingMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
-from core.permissions import IsDeptManagerOrAbove
+from core.permissions import IsDeptManagerOrAbove, IsSystemAdmin
 from utils.response_utils import error_response, success_response
 
 
@@ -53,8 +53,9 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet)
     【权限控制】
     - 列表/详情:认证用户可访问
     - 创建:认证用户
-    - 更新/删除:创建者或管理员(仅待审批状态)
-    - 审批:管理员
+    - 更新:认证用户
+    - 删除/批量删除:系统管理员(IsSystemAdmin,替代遗留 is_staff 门禁)
+    - 审批:部门经理及以上
 
     【序列化器映射】
     - list: UnregisteredAssetListSerializer
@@ -80,7 +81,7 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet)
 
     def get_permissions(self):
         if self.action in ["destroy", "batch_delete"]:
-            permission_classes = [IsAdminUser]
+            permission_classes = [IsSystemAdmin]
         elif self.action == "approve":
             permission_classes = [IsDeptManagerOrAbove]
         else:

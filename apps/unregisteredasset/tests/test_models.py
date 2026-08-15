@@ -1,7 +1,7 @@
 """
 未登记资产模型测试
 
-测试 UnregisteredAsset 模型的：
+测试 UnregisteredAsset 模型的:
 - 创建和字段验证
 - 编码自动生成
 - 状态检查方法
@@ -47,7 +47,7 @@ class TestUnregisteredAssetModel:
 
     def test_create_s2_scenario(self, employee, storage, existing_asset):
         """
-        测试创建 S2 场景未登记资产（关联现有资产）
+        测试创建 S2 场景未登记资产(关联现有资产)
         """
         asset = UnregisteredAsset.objects.create(
             scenario_type="s2_no_outasset",
@@ -75,7 +75,7 @@ class TestUnregisteredAssetModel:
             unregistered_asset_storage=storage,
         )
 
-        # 验证编码格式：UNR-YYYYMMDD-XXXXXX
+        # 验证编码格式:UNR-YYYYMMDD-XXXXXX
         assert len(asset.unregistered_code) == 19
         assert asset.unregistered_code.startswith("UNR-")
         assert asset.unregistered_code[4:12].isdigit()  # 日期部分
@@ -84,7 +84,7 @@ class TestUnregisteredAssetModel:
         """
         测试软删除后可复用编码
 
-        【说明】MySQL不支持条件唯一约束，此测试验证软删除后的编码复用功能
+        【说明】MySQL不支持条件唯一约束,此测试验证软删除后的编码复用功能
         """
         asset1 = UnregisteredAsset.objects.create(
             scenario_type="s1_no_record",
@@ -102,7 +102,7 @@ class TestUnregisteredAssetModel:
         asset1.is_deleted = True
         asset1.save(update_fields=["is_deleted"])
 
-        # 创建相同编码的新记录（软删除后应允许）
+        # 创建相同编码的新记录(软删除后应允许)
         asset2 = UnregisteredAsset.objects.create(
             unregistered_code=code,
             scenario_type="s1_no_record",

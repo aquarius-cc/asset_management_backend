@@ -1,8 +1,8 @@
 """
 仪表盘专用URL配置
 
-【AGENTS 规范】使用 SimpleRouter 替代 DefaultRouter，
-避免自动生成标准 CRUD 路由（list/create/retrieve 等），
+【AGENTS 规范】使用 SimpleRouter 替代 DefaultRouter,
+避免自动生成标准 CRUD 路由(list/create/retrieve 等),
 DashboardViewSet 仅使用 @action 自定义路由。
 """
 

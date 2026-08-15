@@ -8,7 +8,7 @@ from datetime import date
 
 from django.test import TestCase
 
-from apps.assetmanagement.models import Asset, AssetType, Storage
+from apps.assetmanagement.models import Asset, AssetOperationLog, AssetType, Storage
 from apps.assetmanagement.services import OutAssetService, RecycleAssetService
 from apps.usermanagement.models import Department, Employee
 
@@ -49,7 +49,7 @@ class TestRecycleAssetClearFields(TestCase):
             asset_current_status="in_store",
         )
 
-        # 通过 Service 创建出库记录（触发状态变更）
+        # 通过 Service 创建出库记录(触发状态变更)
         outasset_data = {
             "asset_recordcode": self.asset,
             "outasset_applicant": self.user,
@@ -172,10 +172,28 @@ class TestOutAssetDeleteClearFields(TestCase):
         self.asset.refresh_from_db()
         self.assertEqual(self.asset.asset_current_status, "in_store", "删除出库记录后状态应恢复为 in_store")
 
-        # 【BE-C2 修复】验证字段从快照恢复（而非清空）
-        self.assertEqual(self.asset.asset_applicant_recordcode, self.user,
-                         "删除出库记录后 asset_applicant_recordcode 应从快照恢复")
-        self.assertEqual(self.asset.asset_manager_recordcode, self.user,
-                         "删除出库记录后 asset_manager_recordcode 应从快照恢复")
-        self.assertEqual(self.asset.asset_using_location, "测试使用地点",
-                         "删除出库记录后 asset_using_location 应从快照恢复")
+        # 【BE-C2 修复】验证字段从快照恢复(而非清空)
+        self.assertEqual(
+            self.asset.asset_applicant_recordcode, self.user, "删除出库记录后 asset_applicant_recordcode 应从快照恢复"
+        )
+        self.assertEqual(
+            self.asset.asset_manager_recordcode, self.user, "删除出库记录后 asset_manager_recordcode 应从快照恢复"
+        )
+        self.assertEqual(
+            self.asset.asset_using_location, "测试使用地点", "删除出库记录后 asset_using_location 应从快照恢复"
+        )
+
+        # 【审计修复】取消出库应写入状态变更审计日志
+        log = (
+            AssetOperationLog.objects.filter(
+                asset_code=self.asset.asset_code,
+                operation_type="state_change",
+                description__contains="cancel_outasset",
+            )
+            .order_by("-operation_time")
+            .first()
+        )
+        self.assertIsNotNone(log, "取消出库应写入状态变更审计日志")
+        self.assertEqual(log.operator_jobcode, self.user.employee_jobcode, "审计日志应记录操作人工号")
+        self.assertIn("in_use", log.description, "审计日志应包含源状态")
+        self.assertIn("in_store", log.description, "审计日志应包含目标状态")

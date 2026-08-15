@@ -66,7 +66,7 @@ class StorageService:
     @transaction.atomic
     def delete_storage(storage_code: str) -> None:
         """
-        删除仓库（软删除）
+        删除仓库(软删除)
 
         Args:
             storage_code: 仓库编码
@@ -79,7 +79,7 @@ class StorageService:
             raise AppValidationError(detail=f"仓库 {storage_code} 不存在或已删除", error_code="STORAGE_NOT_FOUND")
 
         if Asset.objects.filter(asset_storage_recordcode=storage, is_deleted=False).exists():
-            raise AppValidationError(detail="仓库下存在关联资产，不允许删除", error_code="HAS_RELATED_ASSETS")
+            raise AppValidationError(detail="仓库下存在关联资产,不允许删除", error_code="HAS_RELATED_ASSETS")
 
         GenericAuditService.log_delete(
             record_code=storage.storage_code,
@@ -98,9 +98,9 @@ class StorageService:
         storage_data_list: list[dict[str, Any]],
     ) -> dict[str, Any]:
         """
-        【新增】批量创建仓库（逐条独立执行，返回详细结果）
+        【新增】批量创建仓库(逐条独立执行,返回详细结果)
 
-        每条记录独立 try-except，单条失败不影响其他记录。
+        每条记录独立 try-except,单条失败不影响其他记录。
         复用 StorageService.create_storage() 单条创建逻辑。
 
         Args:
@@ -141,7 +141,7 @@ class StorageService:
                         "row_number": storage_data.get("row_number"),
                         "input_data": storage_data,
                         "error_code": "INTERNAL_ERROR",
-                        "error_message": "服务器内部错误，请稍后重试",
+                        "error_message": "服务器内部错误,请稍后重试",
                     }
                 )
 
@@ -156,7 +156,7 @@ class StorageService:
     @staticmethod
     def batch_delete_storage(storage_codes: list[str]) -> dict[str, Any]:
         """
-        批量删除仓库（软删除，逐条独立执行）
+        批量删除仓库(软删除,逐条独立执行)
 
         使用 BatchOperationMixin.batch_delete_execute 复用公共框架。
         """

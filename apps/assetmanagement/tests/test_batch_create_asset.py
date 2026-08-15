@@ -1,10 +1,10 @@
 """
 批量创建资产 API 测试
 
-测试 AssetBatchCreateSerializer 和 AssetBatchItemSerializer 的正确性：
-1. slug_field 正确使用业务编码（asset_type_code/storage_code/contract_code/employee_jobcode）
+测试 AssetBatchCreateSerializer 和 AssetBatchItemSerializer 的正确性:
+1. slug_field 正确使用业务编码(asset_type_code/storage_code/contract_code/employee_jobcode)
 2. DRF 自动将业务编码转换为 recordcode
-3. 删除了不存在的字段（asset_remark/asset_department_code）
+3. 删除了不存在的字段(asset_remark/asset_department_code)
 4. asset_entry_person 字段名正确
 """
 
@@ -104,7 +104,7 @@ class AssetBatchItemSerializerTest(TestCase):
             "asset_remark": "这是一个备注",  # 不应存在
         }
         serializer = AssetBatchItemSerializer(data=data)
-        # asset_remark 应被忽略（不参与验证）
+        # asset_remark 应被忽略(不参与验证)
         self.assertNotIn("asset_remark", serializer.fields)
 
 
@@ -286,12 +286,12 @@ class AssetBatchCreateAPITest(TestCase):
         }
         response = self.client.post("/api/assets/assets/batch-create/", data, format="json")
         self.assertEqual(response.status_code, 200)
-        # success_count 统计的是 item 数量，不是 asset 数量
+        # success_count 统计的是 item 数量,不是 asset 数量
         self.assertEqual(response.data["data"]["success_count"], 1)
         # purchase_number=3 应创建 3 个资产
         self.assertEqual(Asset.objects.count(), 3)
 
-        # 验证生成的资产编码（格式：{type_code}-{uuid_hex}）
+        # 验证生成的资产编码(格式:{type_code}-{uuid_hex})
         assets = Asset.objects.all()
         for asset in assets:
             self.assertTrue(asset.asset_code.startswith("AT001-"))

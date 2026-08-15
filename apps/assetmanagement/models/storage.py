@@ -18,7 +18,7 @@ class Storage(BaseModel):
     """
     仓库管理模型
 
-    用于管理资产的存储仓库，包括新货仓库、回收仓库、待报废仓库等类型。
+    用于管理资产的存储仓库,包括新货仓库、回收仓库、待报废仓库等类型。
     """
 
     if TYPE_CHECKING:
@@ -28,6 +28,7 @@ class Storage(BaseModel):
 
     class StorageType(models.TextChoices):
         """仓库类型"""
+
         NEW_ASSET = "newasset", "新货仓库"
         RECYCLE = "recycle", "回收仓库"
         BROKEN = "broken", "损坏存放出库"
@@ -36,8 +37,8 @@ class Storage(BaseModel):
     # 向后兼容
     STORAGE_TYPE_CHOICES = StorageType.choices
 
-    storage_code = models.CharField(max_length=30, verbose_name="仓库编码", help_text="仓库唯一编码，用于业务关联")
-    storage_name = models.CharField(max_length=100, verbose_name="仓库名称", help_text="仓库名称，用户可见的展示名称")
+    storage_code = models.CharField(max_length=30, verbose_name="仓库编码", help_text="仓库唯一编码,用于业务关联")
+    storage_name = models.CharField(max_length=100, verbose_name="仓库名称", help_text="仓库名称,用户可见的展示名称")
     storage_address = models.CharField(max_length=200, verbose_name="仓库地址", help_text="仓库的物理地址")
     storage_type = models.CharField(
         max_length=50,
@@ -46,7 +47,7 @@ class Storage(BaseModel):
         verbose_name="仓库类型",
         blank=True,
         null=True,
-        help_text="仓库类型：新货/回收/损坏存放出库/待报废",
+        help_text="仓库类型:新货/回收/损坏存放出库/待报废",
     )
     storage_description = models.TextField(
         verbose_name="仓库描述", blank=True, null=True, help_text="仓库的补充说明信息"
@@ -62,12 +63,12 @@ class Storage(BaseModel):
         verbose_name="仓库管理员",
         blank=True,
         null=True,
-        help_text="仓库管理员（通过 recordcode 关联）",
+        help_text="仓库管理员(通过 recordcode 关联)",
     )
     storage_capacity = models.IntegerField(
         verbose_name="仓库容量", blank=True, null=True, help_text="仓库的最大存储容量"
     )
-    sort_order = models.IntegerField(default=0, verbose_name="排序号", help_text="排序号，数值越小越靠前")
+    sort_order = models.IntegerField(default=0, verbose_name="排序号", help_text="排序号,数值越小越靠前")
     version = models.IntegerField(default=1, verbose_name="版本号", help_text="乐观锁版本号")
 
     class Meta:

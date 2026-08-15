@@ -42,8 +42,8 @@ class WasteAsset(BaseModel):
     """
     已报废资产管理模型
 
-    记录已完成报废的资产信息，报废后资产状态为"已报废"。
-    当待报废资产(DamagedAsset)审批通过后，自动创建已报废记录。
+    记录已完成报废的资产信息,报废后资产状态为"已报废"。
+    当待报废资产(DamagedAsset)审批通过后,自动创建已报废记录。
     """
 
     if TYPE_CHECKING:
@@ -57,7 +57,7 @@ class WasteAsset(BaseModel):
         verbose_name="已报废资产的资产唯一标识码",
         related_name="waste_asset",
         on_delete=models.PROTECT,
-        help_text="已报废的资产唯一标识码（通过 recordcode 关联）",
+        help_text="已报废的资产唯一标识码(通过 recordcode 关联)",
     )
     damaged_recordcode = models.OneToOneField(
         DamagedAsset,
@@ -67,7 +67,7 @@ class WasteAsset(BaseModel):
         on_delete=models.PROTECT,
         null=True,
         blank=True,
-        help_text="关联的待报废记录的资产唯一标识码，用于追溯来源",
+        help_text="关联的待报废记录的资产唯一标识码,用于追溯来源",
     )
     waste_asset_number = models.IntegerField(verbose_name="已报废数量", default=1, help_text="报废的资产数量")
     waste_asset_date = models.DateField(verbose_name="报废日期", help_text="完成报废的日期")

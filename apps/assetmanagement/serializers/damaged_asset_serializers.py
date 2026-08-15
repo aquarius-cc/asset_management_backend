@@ -4,10 +4,10 @@
 包含 DamagedAsset 及其批量操作序列化器。
 
 【AGENTS 规范 - 序列化器分层设计】
-每个模块按 Action 分离序列化器：
-- ListSerializer: 列表查询（扁平字段，只读，精简）
-- CreateSerializer: 创建操作（写入字段）
-- DetailSerializer: 详情查询（嵌套对象，只读，完整）
+每个模块按 Action 分离序列化器:
+- ListSerializer: 列表查询(扁平字段,只读,精简)
+- CreateSerializer: 创建操作(写入字段)
+- DetailSerializer: 详情查询(嵌套对象,只读,完整)
 """
 
 from rest_framework import serializers
@@ -21,8 +21,8 @@ from apps.assetmanagement.models import DamagedAsset
 class DamagedAssetCreateSerializer(serializers.ModelSerializer):
     """
     待报废资产创建序列化器
-    用途：create action
-    特点：写入字段
+    用途:create action
+    特点:写入字段
     """
 
     recordcode = serializers.CharField(read_only=True)
@@ -63,8 +63,8 @@ class DamagedAssetCreateSerializer(serializers.ModelSerializer):
 class DamagedAssetUpdateSerializer(serializers.ModelSerializer):
     """
     待报废资产更新序列化器
-    用途：update, partial_update action
-    特点：写入字段，recordcode 只读
+    用途:update, partial_update action
+    特点:写入字段,recordcode 只读
     """
 
     recordcode = serializers.CharField(read_only=True)
@@ -109,8 +109,8 @@ class DamagedAssetUpdateSerializer(serializers.ModelSerializer):
 class DamagedAssetAproveSerializer(serializers.ModelSerializer):
     """
     待报废资产审批序列化器
-    用途：approve, reject action
-    特点：审批相关字段
+    用途:approve, reject action
+    特点:审批相关字段
     """
 
     recordcode = serializers.CharField(read_only=True)
@@ -153,8 +153,8 @@ class DamagedAssetAproveSerializer(serializers.ModelSerializer):
 class DamagedAssetListSerializer(serializers.ModelSerializer):
     """
     待报废资产列表序列化器
-    用途：list action
-    特点：精简字段，只读
+    用途:list action
+    特点:精简字段,只读
     """
 
     damaged_asset_name = serializers.CharField(source="asset_recordcode.asset_name", read_only=True)
@@ -196,8 +196,8 @@ class DamagedAssetListSerializer(serializers.ModelSerializer):
 class DamagedAssetDetailSerializer(serializers.ModelSerializer):
     """
     待报废资产详情序列化器
-    用途：retrieve action
-    特点：完整字段，只读
+    用途:retrieve action
+    特点:完整字段,只读
     """
 
     damaged_asset_name = serializers.CharField(source="asset_recordcode.asset_name", read_only=True)
@@ -241,7 +241,7 @@ class DamagedAssetDetailSerializer(serializers.ModelSerializer):
 DamagedAssetSerializer = DamagedAssetListSerializer
 
 
-# ========== 批量操作序列化器（DamagedAsset） ==========
+# ========== 批量操作序列化器(DamagedAsset) ==========
 
 
 # 【P1-10 修复】为 DamagedAsset 批量删除添加序列化器验证

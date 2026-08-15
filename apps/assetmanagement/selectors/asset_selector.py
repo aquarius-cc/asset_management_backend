@@ -9,7 +9,7 @@ from typing import Any
 from django.db.models import Count, Q, QuerySet, Sum
 
 from apps.assetmanagement.models import Asset, AssetOperationLog, AssetType
-from core.department_scope import get_department_codes_for_user, resolve_asset_department_codes
+from core.department_scope import get_department_codes_for_user
 
 
 class AssetSelector:
@@ -18,7 +18,7 @@ class AssetSelector:
     @staticmethod
     def get_queryset_for_user(user) -> QuerySet[Asset]:
         """
-        根据用户角色返回行级过滤后的 QuerySet（RBAC 行级数据隔离）。
+        根据用户角色返回行级过滤后的 QuerySet(RBAC 行级数据隔离)。
 
         - system_admin / auditor / is_superuser: 无限制
         - dept_manager: 本部门 + 下级部门的资产
@@ -28,7 +28,7 @@ class AssetSelector:
         if dept_codes is None:
             return Asset.objects.for_list()
 
-        # 资产归属部门：通过保管人/入库人/仓库管理员 三条路径解析
+        # 资产归属部门:通过保管人/入库人/仓库管理员 三条路径解析
         return Asset.objects.for_list().filter(
             Q(asset_manager_recordcode__employee_department__department_code__in=dept_codes)
             | Q(asset_entry_person_recordcode__employee_department__department_code__in=dept_codes)
@@ -57,15 +57,15 @@ class AssetSelector:
         asset_contract_name: str | None = None,
     ) -> QuerySet[Asset]:
         """
-        获取可用资产列表（支持多条件搜索）
+        获取可用资产列表(支持多条件搜索)
 
         Args:
-            asset_code: 资产编码（模糊匹配）
-            asset_name: 资产名称（模糊匹配）
-            asset_specification: 资产规格（模糊匹配）
-            asset_brand: 资产品牌（模糊匹配）
-            asset_contract_code: 合同编码（精确匹配）
-            asset_contract_name: 合同名称（模糊匹配）
+            asset_code: 资产编码(模糊匹配)
+            asset_name: 资产名称(模糊匹配)
+            asset_specification: 资产规格(模糊匹配)
+            asset_brand: 资产品牌(模糊匹配)
+            asset_contract_code: 合同编码(精确匹配)
+            asset_contract_name: 合同名称(模糊匹配)
 
         Returns:
             QuerySet[Asset]: 可用资产列表
@@ -85,7 +85,7 @@ class AssetSelector:
         if asset_brand:
             queryset = queryset.filter(asset_brand__icontains=asset_brand)
         if asset_contract_code:
-            # 【修复】改为模糊匹配，支持部分合同编码模糊搜索则添加'__icontains',删掉就是精确匹配
+            # 【修复】改为模糊匹配,支持部分合同编码模糊搜索则添加'__icontains',删掉就是精确匹配
             queryset = queryset.filter(asset_contract_recordcode__contract_code__icontains=asset_contract_code)
         if asset_contract_name:
             queryset = queryset.filter(asset_contract_recordcode__contract_name__icontains=asset_contract_name)
@@ -176,7 +176,7 @@ class AssetSelector:
 
     @staticmethod
     def exists_by_code(asset_code: str) -> bool:
-        # 【P0-19 修复】显式过滤 is_deleted=False，防御性编码
+        # 【P0-19 修复】显式过滤 is_deleted=False,防御性编码
         return Asset.objects.filter(asset_code=asset_code, is_deleted=False).exists()
 
     @staticmethod
@@ -188,9 +188,9 @@ class AssetSelector:
         """
         多字段 AND 模糊搜索
 
-        支持前端传入：
-        - asset_type_code: 类型代码或 recordcode，自动转换
-        - asset_type_category: 类型分类，通过 AssetType 关联查询
+        支持前端传入:
+        - asset_type_code: 类型代码或 recordcode,自动转换
+        - asset_type_category: 类型分类,通过 AssetType 关联查询
 
         :param field_filters: 模糊字段名和值的映射
         :param exact_filters: 精确字段名和值的映射
@@ -198,11 +198,11 @@ class AssetSelector:
         """
         queryset = Asset.objects.filter(is_deleted=False)
 
-        # 1. 如果没有传入任何过滤条件，返回空集（避免全表扫描）
+        # 1. 如果没有传入任何过滤条件,返回空集(避免全表扫描)
         if not field_filters and not exact_filters:
             return queryset.none()
 
-        # 【修复】字段名映射：前端字段名 → 模型字段名
+        # 【修复】字段名映射:前端字段名 → 模型字段名
         FIELD_NAME_MAPPING = {
             "asset_contract": "asset_contract_recordcode__contract_code",
             "asset_contract_name": "asset_contract_recordcode__contract_name",
@@ -210,7 +210,7 @@ class AssetSelector:
             "asset_storage": "asset_storage_recordcode__storage_code",
         }
 
-        # 2. 构造 AND 组合的 Q 对象（模糊字段）
+        # 2. 构造 AND 组合的 Q 对象(模糊字段)
         if field_filters:
             q_objects = []
             for field, value in field_filters.items():
@@ -227,24 +227,24 @@ class AssetSelector:
 
         # 3. 处理精确过滤条件
         if exact_filters:
-            # 【修复】asset_type 字段：前端传类型代码，需转换为 recordcode
-            # 注意：模型字段已重命名为 asset_type_recordcode
+            # 【修复】asset_type 字段:前端传类型代码,需转换为 recordcode
+            # 注意:模型字段已重命名为 asset_type_recordcode
             if exact_filters.get("asset_type"):
                 type_code = exact_filters.pop("asset_type")
                 # 先尝试作为 recordcode 匹配
                 asset_type = AssetTypeSelector.get_asset_type_by_recordcode(type_code)
                 if not asset_type:
-                    # 不是 recordcode，尝试按 asset_type_code 匹配
+                    # 不是 recordcode,尝试按 asset_type_code 匹配
                     asset_type = AssetTypeSelector.get_asset_type_by_code(type_code)
 
                 if asset_type:
                     # 【修复】使用正确的字段名 asset_type_recordcode
                     exact_filters["asset_type_recordcode"] = asset_type.recordcode
                 else:
-                    # 找不到对应类型，返回空集
+                    # 找不到对应类型,返回空集
                     return queryset.none()
 
-            # asset_type_category 字段：通过 AssetType 关联查询
+            # asset_type_category 字段:通过 AssetType 关联查询
             if exact_filters.get("asset_type_category"):
                 category = exact_filters.pop("asset_type_category")
                 # 查找该分类下所有 AssetType 的 recordcode
@@ -256,7 +256,7 @@ class AssetSelector:
                 else:
                     return queryset.none()
 
-            # 叠加精确过滤条件（AND 关系）
+            # 叠加精确过滤条件(AND 关系)
             queryset = queryset.filter(**{k: v for k, v in exact_filters.items() if v is not None})
 
         # 4. 预加载关联数据
@@ -266,20 +266,21 @@ class AssetSelector:
 
         return queryset
 
-
     @staticmethod
     def get_operation_logs_for_asset(asset: Asset, limit: int = 50) -> QuerySet[AssetOperationLog]:
         """获取资产的操作日志"""
-        return AssetOperationLog.objects.filter(
-            asset_recordcode=asset
-        ).select_related("operator_employee").order_by("-created_at")[:limit]
+        return (
+            AssetOperationLog.objects.filter(asset_recordcode=asset)
+            .select_related("operator_employee")
+            .order_by("-created_at")[:limit]
+        )
 
 
 class AssetTypeSelector:
     """
     资产类型查询选择器
 
-    树形关联设计（方案 D）：
+    树形关联设计(方案 D):
     - 使用 parent FK 查询父子关系
     - 使用 path 字段加速子孙查询和面包屑导航
     """
@@ -306,12 +307,12 @@ class AssetTypeSelector:
 
     @staticmethod
     def exists_by_code(type_code: str) -> bool:
-        # 显式过滤 is_deleted=False，防御性编码
+        # 显式过滤 is_deleted=False,防御性编码
         return AssetType.objects.filter(type_code=type_code, is_deleted=False).exists()
 
     @staticmethod
     def get_root_types() -> QuerySet[AssetType]:
-        """获取所有顶级资产类型（parent FK 为 null）"""
+        """获取所有顶级资产类型(parent FK 为 null)"""
         return AssetType.objects.filter(parent__isnull=True).order_by("sort_order", "type_code")
 
     @staticmethod
@@ -324,24 +325,18 @@ class AssetTypeSelector:
 
     @staticmethod
     def get_all_descendants(type_code: str) -> list[str]:
-        """获取指定资产类型的所有后代 type_code（基于 path 查询）"""
+        """获取指定资产类型的所有后代 type_code(基于 path 查询)"""
         at = AssetTypeSelector.get_asset_type_by_code(type_code)
         if not at or not at.path:
             return []
-        return list(
-            AssetType.objects.filter(path__startswith=f"{at.path}/")
-            .values_list("type_code", flat=True)
-        )
+        return list(AssetType.objects.filter(path__startswith=f"{at.path}/").values_list("type_code", flat=True))
 
     @staticmethod
     def get_type_path(type_code: str) -> list[AssetType]:
-        """获取从顶级到当前类型的路径（用于面包屑导航）"""
+        """获取从顶级到当前类型的路径(用于面包屑导航)"""
         at = AssetTypeSelector.get_asset_type_by_code(type_code)
         if not at or not at.path:
             return []
         codes = [c for c in at.path.split("/") if c]
-        departments = {
-            d.type_code: d
-            for d in AssetType.objects.filter(type_code__in=codes, is_deleted=False)
-        }
+        departments = {d.type_code: d for d in AssetType.objects.filter(type_code__in=codes, is_deleted=False)}
         return [departments[c] for c in codes if c in departments]

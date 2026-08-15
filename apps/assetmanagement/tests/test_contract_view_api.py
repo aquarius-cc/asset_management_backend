@@ -1,7 +1,7 @@
 """
 合同管理 ViewSet API 测试
 
-测试 ContractViewSet 的 API 端点：
+测试 ContractViewSet 的 API 端点:
 - list
 - create
 - retrieve
@@ -14,7 +14,6 @@
 import pytest
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APIClient
 
 from apps.assetmanagement.models import Contract
 
@@ -97,6 +96,12 @@ class TestContractViewSet:
         assert response.data["code"] == 0
         assert not Contract.objects.filter(recordcode=contract.recordcode).exists()
 
+    def test_destroy_nonexistent_contract_returns_404(self, admin_authenticated_client):
+        """【CT-4 回归屏障】删除不存在的合同应返回 404 而非 500,验证全局异常处理器接管 Http404"""
+        url = reverse("contracts-detail", kwargs={"recordcode": "CT-NOT-EXIST"})
+        response = admin_authenticated_client.delete(url)
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
     def test_batch_create(self, admin_authenticated_client):
         """测试批量创建合同"""
         url = reverse("contracts-batch-create")
@@ -143,7 +148,7 @@ class TestContractViewSet:
         assert response.data["code"] == 0
 
     def test_update_settlement_status(self, admin_authenticated_client, contract):
-        """测试更新结算状态（需遵循合同状态机流转规则）"""
+        """测试更新结算状态(需遵循合同状态机流转规则)"""
         url = reverse("contracts-update-settlement-status", kwargs={"recordcode": contract.recordcode})
         # 从 purchasing 合法流转到 purchase_finished
         data = {"status": "purchase_finished"}

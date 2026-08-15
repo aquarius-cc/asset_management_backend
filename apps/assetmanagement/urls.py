@@ -17,9 +17,6 @@ from apps.assetmanagement.operation_log_views import (
     UserOperationsView,
 )
 
-# 公开扫码接口（无需认证）
-from apps.assetmanagement.views.public_scan_view import public_scan_view
-
 # 从 views/ 包导入主要视图
 from apps.assetmanagement.views import (
     AssetTypeViewSet,
@@ -36,6 +33,9 @@ from apps.assetmanagement.views import (
     StorageViewSet,
     WasteAssetViewSet,
 )
+
+# 公开扫码接口(无需认证)
+from apps.assetmanagement.views.public_scan_view import public_scan_view
 
 
 router: DefaultRouter = DefaultRouter()
@@ -58,8 +58,8 @@ router.register(prefix="repair-assets", viewset=RepairAssetViewSet, basename="re
 
 urlpatterns: list[URLResolver | URLPattern] = [
     path(route="", view=include(arg=router.urls)),
-    # path('api/', include(router.urls)),  # 最终路由：/api/assets/contracts/{pk}/
-    # ========== 资产操作记录API（只读）==========
+    # path('api/', include(router.urls)),  # 最终路由:/api/assets/contracts/{pk}/
+    # ========== 资产操作记录API(只读)==========
     # 【AGENTS 规范 - 架构优化】新增操作记录查询接口
     path(
         "operation-logs/by-logging-id/<str:logging_id>/",
@@ -72,15 +72,15 @@ urlpatterns: list[URLResolver | URLPattern] = [
     path("operation-logs/user/<str:operator_jobcode>/", UserOperationsView.as_view(), name="operation-log-user"),
     path("assets/<str:asset_code>/history/", AssetHistoryView.as_view(), name="asset-history"),
     path("assets/<str:asset_code>/timeline/", AssetStatusTimelineView.as_view(), name="asset-timeline"),
-    # 公开扫码接口（无需认证）
+    # 公开扫码接口(无需认证)
     path("public/scan/<str:recordcode>/", public_scan_view, name="public-scan"),
 ]
 
 """
-在 Django REST Framework 中，当你使用 router.register() 注册视图集时，
-路由会自动映射到视图集中的标准方法，遵循 RESTful API 的设计规范。
+在 Django REST Framework 中,当你使用 router.register() 注册视图集时,
+路由会自动映射到视图集中的标准方法,遵循 RESTful API 的设计规范。
 
-映射关系如下：
+映射关系如下:
 HTTP方法    URL路径              对应方法        功能描述
 GET         /assets/            list()         获取资源列表
 POST        /assets/            create()       创建新资源
@@ -88,7 +88,7 @@ GET         /assets/{id}/       retrieve()     获取单个资源详情
 PUT         /assets/{id}/       update()       全量更新资源
 PATCH	            /assets/{id}/	             partial_update()	    部分更新资源
 DELETE	            /assets/{id}/	             destroy()	            删除资源
-这些方法都是ViewSet提供的默认动作，你可以在AssetViewSet中重写这些方法来实现自定义逻辑，例如
+这些方法都是ViewSet提供的默认动作,你可以在AssetViewSet中重写这些方法来实现自定义逻辑,例如
 from rest_framework import viewsets
 from .models import Asset
 from .serializers.asset_serializers import AssetSerializer
@@ -96,17 +96,17 @@ class AssetViewSet(viewsets.ModelViewSet):
     queryset = Asset.objects.all()
     serializer_class = AssetSerializer
 
-    # 重写list方法，自定义列表查询逻辑
+    # 重写list方法,自定义列表查询逻辑
     def list(self, request, *args, **kwargs):
         # 自定义逻辑
         return super().list(request, *args, **kwargs)
 
-    # 重写create方法，自定义创建逻辑
+    # 重写create方法,自定义创建逻辑
     def create(self, request, *args, **kwargs):
         # 自定义逻辑
         return super().create(request, *args, **kwargs)
 
-如果你需要添加额外的自定义动作，可以使用@action装饰器，例如：
+如果你需要添加额外的自定义动作,可以使用@action装饰器,例如:
 from rest_framework.decorators import action
 from rest_framework.response import Response
 

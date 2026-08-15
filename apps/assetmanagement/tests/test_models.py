@@ -21,7 +21,7 @@ class TestAssetModel:
         assert asset.asset_code == "A001"
         assert asset.asset_name == "测试资产"
         assert asset.asset_current_status == "in_store"
-        # asset_type_recordcode 是 ForeignKey，需通过 .asset_type_recordcode 访问关联对象
+        # asset_type_recordcode 是 ForeignKey,需通过 .asset_type_recordcode 访问关联对象
         assert asset.asset_type_recordcode.type_code == "AT001"
 
     def test_asset_str(self, asset):
@@ -36,13 +36,13 @@ class TestAssetModel:
         """
         测试资产软删除后可复用编码
 
-        【说明】MySQL不支持条件唯一约束，此测试验证软删除后的编码复用功能
+        【说明】MySQL不支持条件唯一约束,此测试验证软删除后的编码复用功能
         """
         # 软删除资产
         asset.is_deleted = True
         asset.save(update_fields=["is_deleted"])
 
-        # 创建相同编码的新资产（软删除后应允许）
+        # 创建相同编码的新资产(软删除后应允许)
         new_asset = Asset.objects.create(
             asset_code="A001",  # 相同编码
             asset_name="新资产",

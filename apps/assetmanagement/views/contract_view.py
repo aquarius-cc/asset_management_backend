@@ -2,22 +2,14 @@
 合同管理视图集
 """
 
-import logging
-
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.openapi import OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
-from rest_framework import permissions, status, viewsets
+from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
-
-from core.exceptions import AppValidationError, NotFoundError
-from core.permissions import IsSystemAdmin
-from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
-from core.pagination import CustomPageNumberPagination
-from utils.response_utils import error_response, success_response
 
 from apps.assetmanagement.models import Contract
 from apps.assetmanagement.selectors import ContractSelector
@@ -30,9 +22,13 @@ from apps.assetmanagement.serializers import (
     ContractUpdateSerializer,
 )
 from apps.assetmanagement.services import ContractService
+from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
+from core.pagination import CustomPageNumberPagination
+from core.permissions import IsSystemAdmin
+from utils.response_utils import error_response, success_response
 
-from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
 from ._export_mixin import ExportExcelMixin
+from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
 
 
 class ContractViewSet(
@@ -48,23 +44,28 @@ class ContractViewSet(
     pagination_class = CustomPageNumberPagination
     lookup_field = "recordcode"
     admin_actions = [
-        "create", "update", "partial_update", "destroy",
-        "batch_delete", "batch_create",
-        "update_settlement_status", "payment_record",
+        "create",
+        "update",
+        "partial_update",
+        "destroy",
+        "batch_delete",
+        "batch_create",
+        "update_settlement_status",
+        "payment_record",
     ]
 
-
     def get_permissions(self):
-        """RBAC: 写操作需 IsSystemAdmin+，读操作需认证"""
+        """RBAC: 写操作需 IsSystemAdmin+,读操作需认证"""
         if self.action in self.admin_actions:
             return [IsSystemAdmin()]
         return [permissions.IsAuthenticated()]
+
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ["contract_type", "contract_status"]
     ordering_fields = ["contract_code", "contract_start_date", "contract_amount"]
     ordering = ["-created_at"]
 
-    # 导出配置（HIGH-12）
+    # 导出配置(HIGH-12)
     export_columns = [
         {"header": "合同编码", "field": "contract_code"},
         {"header": "合同名称", "field": "contract_name"},
@@ -77,7 +78,7 @@ class ContractViewSet(
     export_sheet_name = "合同列表"
 
     def get_queryset(self):
-        # RBAC: Contract 为全局资源，仅按软删除过滤
+        # RBAC: Contract 为全局资源,仅按软删除过滤
         return Contract.objects.filter(is_deleted=False)
 
     def get_serializer_class(self) -> type:
@@ -90,17 +91,9 @@ class ContractViewSet(
         return ContractDetailSerializer
 
     def destroy(self, request, *args, **kwargs):
-        try:
-            contract = self.get_object()
-            ContractService.delete_contract(contract.contract_code)
-            return success_response(message="删除成功")
-        except AppValidationError as e:
-            return error_response(message=str(e), status_code=400)
-        except NotFoundError as e:
-            return error_response(message=str(e), status_code=404)
-        except Exception:
-            logging.exception("合同删除失败")
-            return error_response(message="删除失败，请稍后重试", status_code=500)
+        contract = self.get_object()
+        ContractService.delete_contract(contract.contract_code)
+        return success_response(message="删除成功")
 
     @action(detail=False, methods=["post"], url_path="batch-delete")
     def batch_delete(self, request):
@@ -115,7 +108,7 @@ class ContractViewSet(
                 "success_ids": result["success_ids"],
                 "fail_items": result["fail_items"],
             },
-            message=f"批量删除完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条",
+            message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
 
     @action(detail=False, methods=["post"], url_path="batch-create")
@@ -131,7 +124,7 @@ class ContractViewSet(
                 "success_items": [ContractCreateSerializer(item).data for item in result.get("success_items", [])],
                 "fail_items": result["fail_items"],
             },
-            message=f"批量创建完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条",
+            message=f"批量创建完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
 
     @extend_schema(
@@ -162,17 +155,11 @@ class ContractViewSet(
     def update_settlement_status(self, request, recordcode=None) -> Response:
         new_status = request.data.get("status")
         if not new_status:
-            return error_response(message="请提供结算状态（pending/settled）", status_code=400)
-        try:
-            contract = self.get_object()
-            updated = ContractService.update_settlement_status(contract.contract_code, new_status)
-            serializer = ContractDetailSerializer(instance=updated)
-            return success_response(data={"contract": serializer.data}, message="结算状态更新成功")
-        except AppValidationError as e:
-            return error_response(message=str(e), status_code=400)
-        except Exception:
-            logging.exception("合同结算状态更新失败")
-            return error_response(message="更新失败，请稍后重试", status_code=500)
+            return error_response(message="请提供结算状态(pending/settled)", status_code=400)
+        contract = self.get_object()
+        updated = ContractService.update_settlement_status(contract.contract_code, new_status)
+        serializer = ContractDetailSerializer(instance=updated)
+        return success_response(data={"contract": serializer.data}, message="结算状态更新成功")
 
     @action(detail=True, methods=["post"], url_path="payment_record")
     def payment_record(self, request, recordcode=None) -> Response:
@@ -181,15 +168,13 @@ class ContractViewSet(
         if not amount:
             return error_response(message="请提供付款金额", status_code=400)
         try:
-            contract = self.get_object()
             amount = float(amount)
-            updated = ContractService.add_payment_record(contract.contract_code, amount, description)
-            serializer = ContractDetailSerializer(instance=updated)
-            return success_response(data={"contract": serializer.data}, message="付款记录添加成功")
-        except AppValidationError as e:
-            return error_response(message=str(e), status_code=400)
         except ValueError:
             return error_response(message="付款金额格式错误", status_code=400)
+        contract = self.get_object()
+        updated = ContractService.add_payment_record(contract.contract_code, amount, description)
+        serializer = ContractDetailSerializer(instance=updated)
+        return success_response(data={"contract": serializer.data}, message="付款记录添加成功")
 
     @extend_schema(
         summary="全局模糊搜索合同",

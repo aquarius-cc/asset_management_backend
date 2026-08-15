@@ -18,7 +18,7 @@ class TestAssetSelector:
         """
         测试获取可用资产
 
-        【修复】asset_type_code 是 ForeignKey，需通过 .type_code 访问编码
+        【修复】asset_type_code 是 ForeignKey,需通过 .type_code 访问编码
         """
         available = AssetSelector.get_available_assets()
 
@@ -30,7 +30,7 @@ class TestAssetSelector:
         """
         测试按状态获取资产
 
-        【修复】asset_type_code 是 ForeignKey，需通过 .type_code 访问编码
+        【修复】asset_type_code 是 ForeignKey,需通过 .type_code 访问编码
         """
         in_store_assets = AssetSelector.get_assets_by_status("in_store")
 
@@ -42,7 +42,7 @@ class TestAssetSelector:
         """
         测试通过编码获取资产
 
-        【修复】asset_type_code 是 ForeignKey，需通过 .type_code 访问编码
+        【修复】asset_type_code 是 ForeignKey,需通过 .type_code 访问编码
         """
         result = AssetSelector.get_asset_by_code("A001")
 
@@ -62,7 +62,7 @@ class TestAssetSelector:
         """
         测试搜索资产
 
-        【修复】asset_type_code 是 ForeignKey，需通过 .type_code 访问编码
+        【修复】asset_type_code 是 ForeignKey,需通过 .type_code 访问编码
         """
         results = AssetSelector.search_assets(keyword="测试")
 
@@ -74,7 +74,7 @@ class TestAssetSelector:
         """
         测试按状态搜索资产
 
-        【修复】asset_type_code 是 ForeignKey，需通过 .type_code 访问编码
+        【修复】asset_type_code 是 ForeignKey,需通过 .type_code 访问编码
         """
         results = AssetSelector.search_assets(status="in_store")
 

@@ -1,9 +1,10 @@
 """资产类型管理服务测试"""
 
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-from apps.assetmanagement.models import AssetType, MAX_ASSET_TYPE_LEVEL
+import pytest
+
+from apps.assetmanagement.models import AssetType
 from apps.assetmanagement.services.asset_type_service import AssetTypeService
 from core.exceptions import AppValidationError
 
@@ -54,26 +55,20 @@ class TestCreateAssetType:
 
     def test_create_with_parent_by_recordcode(self):
         parent = AssetTypeService.create_asset_type({"type_code": "P2", "type_name": "父2"})
-        child = AssetTypeService.create_asset_type(
-            {"type_code": "C2", "type_name": "子2", "parent": parent.recordcode}
-        )
+        child = AssetTypeService.create_asset_type({"type_code": "C2", "type_name": "子2", "parent": parent.recordcode})
         assert child.level == 1
         assert child.parent == parent
 
     def test_create_with_nonexistent_parent_rc_raises(self):
         with pytest.raises(AppValidationError) as exc_info:
-            AssetTypeService.create_asset_type(
-                {"type_code": "X", "type_name": "X", "parent": "NONEXIST_RC"}
-            )
+            AssetTypeService.create_asset_type({"type_code": "X", "type_name": "X", "parent": "NONEXIST_RC"})
         assert exc_info.value.error_code == "PARENT_ASSET_TYPE_NOT_FOUND"
 
     @patch("apps.assetmanagement.services.asset_type_service.MAX_ASSET_TYPE_LEVEL", 0)
     def test_create_exceeds_max_level_raises(self):
-        parent = AssetTypeService.create_asset_type({"type_code": "L0", "type_name": "L0"})
+        _ = AssetTypeService.create_asset_type({"type_code": "L0", "type_name": "L0"})
         with pytest.raises(AppValidationError) as exc_info:
-            AssetTypeService.create_asset_type(
-                {"type_code": "L1", "type_name": "L1", "parent_type_code": "L0"}
-            )
+            AssetTypeService.create_asset_type({"type_code": "L1", "type_name": "L1", "parent_type_code": "L0"})
         assert exc_info.value.error_code == "ASSET_TYPE_LEVEL_EXCEEDED"
 
     def test_create_removes_parent_code_field(self):
@@ -85,7 +80,7 @@ class TestCreateAssetType:
 @pytest.mark.django_db
 class TestDeleteAssetType:
     def test_delete_success(self):
-        at = AssetTypeService.create_asset_type({"type_code": "DEL", "type_name": "删除"})
+        _ = AssetTypeService.create_asset_type({"type_code": "DEL", "type_name": "删除"})
         AssetTypeService.delete_asset_type("DEL")
         assert AssetType.all_objects.filter(type_code="DEL", is_deleted=True).exists()
 
@@ -95,22 +90,30 @@ class TestDeleteAssetType:
         assert exc_info.value.error_code == "ASSET_TYPE_NOT_FOUND"
 
     def test_delete_already_deleted_raises(self):
-        at = AssetTypeService.create_asset_type({"type_code": "DEL2", "type_name": "Del2"})
+        _ = AssetTypeService.create_asset_type({"type_code": "DEL2", "type_name": "Del2"})
         AssetTypeService.delete_asset_type("DEL2")
         with pytest.raises(AppValidationError):
             AssetTypeService.delete_asset_type("DEL2")
 
     def test_delete_with_related_assets_raises(self, db):
         from apps.assetmanagement.models import Asset, Storage
+
         at = AssetTypeService.create_asset_type({"type_code": "USED", "type_name": "Used"})
         storage = Storage.objects.create(
-            storage_code="S_DEL", storage_name="Del仓库",
-            storage_address="addr", storage_capacity=100, sort_order=0,
+            storage_code="S_DEL",
+            storage_name="Del仓库",
+            storage_address="addr",
+            storage_capacity=100,
+            sort_order=0,
         )
         Asset.objects.create(
-            asset_code="A_DEL", asset_name="测试", asset_purchase_price=100,
-            asset_purchase_date="2024-01-01", asset_entry_date="2024-01-01",
-            asset_storage_recordcode=storage, asset_type_recordcode=at,
+            asset_code="A_DEL",
+            asset_name="测试",
+            asset_purchase_price=100,
+            asset_purchase_date="2024-01-01",
+            asset_entry_date="2024-01-01",
+            asset_storage_recordcode=storage,
+            asset_type_recordcode=at,
         )
         with pytest.raises(AppValidationError) as exc_info:
             AssetTypeService.delete_asset_type("USED")
@@ -149,13 +152,13 @@ class TestBatchCreateAssetType:
 @pytest.mark.django_db
 class TestBatchDeleteAssetType:
     def test_batch_delete_success(self):
-        at1 = AssetTypeService.create_asset_type({"type_code": "BD1", "type_name": "BD1"})
-        at2 = AssetTypeService.create_asset_type({"type_code": "BD2", "type_name": "BD2"})
+        _ = AssetTypeService.create_asset_type({"type_code": "BD1", "type_name": "BD1"})
+        _ = AssetTypeService.create_asset_type({"type_code": "BD2", "type_name": "BD2"})
         result = AssetTypeService.batch_delete_asset_type(["BD1", "BD2"])
         assert result["success_count"] == 2
 
     def test_batch_delete_with_nonexistent(self):
-        at = AssetTypeService.create_asset_type({"type_code": "BD3", "type_name": "BD3"})
+        _ = AssetTypeService.create_asset_type({"type_code": "BD3", "type_name": "BD3"})
         result = AssetTypeService.batch_delete_asset_type(["BD3", "NOPE"])
         assert result["success_count"] == 1
         assert result["fail_count"] == 1

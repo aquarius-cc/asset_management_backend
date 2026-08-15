@@ -1,7 +1,7 @@
 """
 合同管理服务
 
-提供合同管理的业务逻辑，包括付款记录管理等。
+提供合同管理的业务逻辑,包括付款记录管理等。
 """
 
 import copy
@@ -92,7 +92,10 @@ class ContractService:
 
         contract.amount_paid = (contract.amount_paid or 0) + amount
         # 自动计算未付金额
-        if contract.contract_status in ("settlement_done", "final_check", "project_finished") and contract.settlemented_price:
+        if (
+            contract.contract_status in ("settlement_done", "final_check", "project_finished")
+            and contract.settlemented_price
+        ):
             contract.amount_unpaid = contract.settlemented_price - contract.amount_paid
         else:
             contract.amount_unpaid = (contract.contract_amount or 0) - contract.amount_paid
@@ -147,7 +150,7 @@ class ContractService:
     @transaction.atomic
     def delete_contract(contract_code: str) -> None:
         """
-        删除合同（软删除）
+        删除合同(软删除)
 
         Args:
             contract_code: 合同编码
@@ -156,11 +159,11 @@ class ContractService:
         if not contract or contract.is_deleted:
             raise AppValidationError(detail=f"合同 {contract_code} 不存在或已删除", error_code="CONTRACT_NOT_FOUND")
 
-        # 【P2-14 修复】删除前检查关联资产，防止数据不一致
+        # 【P2-14 修复】删除前检查关联资产,防止数据不一致
         from apps.assetmanagement.models import Asset
 
         if Asset.objects.filter(asset_contract_recordcode=contract, is_deleted=False).exists():
-            raise AppValidationError(detail="合同存在关联资产，不允许删除", error_code="HAS_RELATED_ASSETS")
+            raise AppValidationError(detail="合同存在关联资产,不允许删除", error_code="HAS_RELATED_ASSETS")
 
         GenericAuditService.log_delete(
             record_code=contract.contract_code,
@@ -179,7 +182,7 @@ class ContractService:
         contract_data_list: list[dict[str, Any]],
     ) -> dict[str, Any]:
         """
-        【新增】批量创建合同（逐条独立执行，返回详细结果）
+        【新增】批量创建合同(逐条独立执行,返回详细结果)
 
         Args:
             contract_data_list: 合同数据列表
@@ -219,7 +222,7 @@ class ContractService:
                         "row_number": contract_data.get("row_number"),
                         "input_data": contract_data,
                         "error_code": "INTERNAL_ERROR",
-                        "error_message": "服务器内部错误，请稍后重试",
+                        "error_message": "服务器内部错误,请稍后重试",
                     }
                 )
 
@@ -234,7 +237,7 @@ class ContractService:
     @staticmethod
     def batch_delete_contract(contract_codes: list[str]) -> dict[str, Any]:
         """
-        批量删除合同（软删除，逐条独立执行）
+        批量删除合同(软删除,逐条独立执行)
         """
 
         def _delete_item(contract_code: str) -> None:

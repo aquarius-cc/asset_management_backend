@@ -44,7 +44,7 @@ class RecycleAsset(BaseModel):
     """
     回收资产管理模型
 
-    记录资产的回收信息，关联出库记录，回收后资产状态自动变为"在库"。
+    记录资产的回收信息,关联出库记录,回收后资产状态自动变为"在库"。
     """
 
     if TYPE_CHECKING:
@@ -54,6 +54,7 @@ class RecycleAsset(BaseModel):
 
     class RecycleType(models.TextChoices):
         """回收类型"""
+
         NORMAL = "normal", "正常回收"
         ABNORMAL = "abnormal", "异常回收"
         OTHER = "other", "其他"
@@ -72,7 +73,7 @@ class RecycleAsset(BaseModel):
         verbose_name="回收资产的资产唯一标识码",
         related_name="recycle_assets",
         on_delete=models.PROTECT,
-        help_text="回收的资产唯一标识码（通过 recordcode 关联）",
+        help_text="回收的资产唯一标识码(通过 recordcode 关联)",
     )
     recycle_asset_number = models.IntegerField(verbose_name="回收数量", default=1, help_text="回收的资产数量")
     operator_employee = models.ForeignKey(
@@ -83,21 +84,22 @@ class RecycleAsset(BaseModel):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        help_text="办理回收操作的人员工号（通过 recordcode 关联）",
+        help_text="办理回收操作的人员工号(通过 recordcode 关联)",
     )
     recycle_type = models.CharField(
-        verbose_name="回收类型", max_length=50, choices=RecycleType.choices, blank=True, null=True, help_text="回收原因/类型"
+        verbose_name="回收类型",
+        max_length=50,
+        choices=RecycleType.choices,
+        blank=True,
+        null=True,
+        help_text="回收原因/类型",
     )
     recycle_asset_date = models.DateField(verbose_name="回收日期", help_text="资产回收的日期")
-    is_broken = models.BooleanField(
-        default=False, verbose_name="回收时发现损坏", help_text="回收时是否发现资产损坏"
-    )
+    is_broken = models.BooleanField(default=False, verbose_name="回收时发现损坏", help_text="回收时是否发现资产损坏")
     broken_reason = models.CharField(
         max_length=100, blank=True, null=True, verbose_name="损坏原因", help_text="回收时发现损坏的原因"
     )
-    is_lost = models.BooleanField(
-        default=False, verbose_name="回收时发现遗失", help_text="回收时是否发现资产遗失"
-    )
+    is_lost = models.BooleanField(default=False, verbose_name="回收时发现遗失", help_text="回收时是否发现资产遗失")
     lost_reason = models.CharField(
         max_length=100, blank=True, null=True, verbose_name="遗失原因", help_text="回收时发现遗失的原因"
     )

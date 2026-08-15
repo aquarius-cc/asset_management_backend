@@ -1,10 +1,13 @@
 """回收资产管理服务测试"""
 
-import pytest
 from datetime import date
 
+import pytest
+
 from apps.assetmanagement.models import (
-    Asset, AssetType, OutAsset, RecycleAsset, Storage,
+    Asset,
+    AssetOperationLog,
+    OutAsset,
 )
 from apps.assetmanagement.services.recycle_asset_service import RecycleAssetService
 from core.exceptions import AppValidationError
@@ -60,21 +63,25 @@ class TestCreateRecycleAsset:
 
     def test_create_without_outasset_raises(self, storage, user):
         with pytest.raises(AppValidationError) as exc_info:
-            RecycleAssetService.create_recycle_asset({
-                "recycle_asset_storage": storage,
-                "recycle_asset_recycle_person_jobcode": user,
-                "recycle_asset_date": date.today(),
-            })
+            RecycleAssetService.create_recycle_asset(
+                {
+                    "recycle_asset_storage": storage,
+                    "recycle_asset_recycle_person_jobcode": user,
+                    "recycle_asset_date": date.today(),
+                }
+            )
         assert exc_info.value.error_code == "MISSING_OUTASSET_RECORDCODE"
 
     def test_create_nonexistent_outasset_raises(self, storage, user):
         with pytest.raises(AppValidationError) as exc_info:
-            RecycleAssetService.create_recycle_asset({
-                "outasset_recordcode": "NONEXIST",
-                "recycle_asset_storage": storage,
-                "recycle_asset_recycle_person_jobcode": user,
-                "recycle_asset_date": date.today(),
-            })
+            RecycleAssetService.create_recycle_asset(
+                {
+                    "outasset_recordcode": "NONEXIST",
+                    "recycle_asset_storage": storage,
+                    "recycle_asset_recycle_person_jobcode": user,
+                    "recycle_asset_date": date.today(),
+                }
+            )
         assert exc_info.value.error_code == "OUTASSET_NOT_FOUND"
 
     def test_create_invalid_status_raises(self, out_asset, storage, user):
@@ -82,21 +89,25 @@ class TestCreateRecycleAsset:
         asset.asset_current_status = "in_store"
         asset.save(update_fields=["asset_current_status"])
         with pytest.raises(AppValidationError) as exc_info:
-            RecycleAssetService.create_recycle_asset({
-                "outasset_recordcode": out_asset,
-                "recycle_asset_storage": storage,
-                "recycle_asset_recycle_person_jobcode": user,
-                "recycle_asset_date": date.today(),
-            })
+            RecycleAssetService.create_recycle_asset(
+                {
+                    "outasset_recordcode": out_asset,
+                    "recycle_asset_storage": storage,
+                    "recycle_asset_recycle_person_jobcode": user,
+                    "recycle_asset_date": date.today(),
+                }
+            )
         assert exc_info.value.error_code == "INVALID_ASSET_STATUS_FOR_RECYCLE"
 
     def test_create_with_string_storage_code(self, out_asset, user):
-        result = RecycleAssetService.create_recycle_asset({
-            "outasset_recordcode": out_asset,
-            "recycle_asset_storage": out_asset.asset_recordcode.asset_storage_recordcode.storage_code,
-            "recycle_asset_recycle_person_jobcode": user.employee_jobcode,
-            "recycle_asset_date": date.today(),
-        })
+        result = RecycleAssetService.create_recycle_asset(
+            {
+                "outasset_recordcode": out_asset,
+                "recycle_asset_storage": out_asset.asset_recordcode.asset_storage_recordcode.storage_code,
+                "recycle_asset_recycle_person_jobcode": user.employee_jobcode,
+                "recycle_asset_date": date.today(),
+            }
+        )
         assert result.pk is not None
 
     def test_create_with_operator_jobcode(self, out_asset, storage, user):
@@ -140,12 +151,14 @@ class TestUpdateRecycleAsset:
 @pytest.mark.django_db
 class TestBatchDeleteRecycleAsset:
     def _create_recycle(self, out_asset, storage, user):
-        return RecycleAssetService.create_recycle_asset({
-            "outasset_recordcode": out_asset,
-            "recycle_asset_storage": storage,
-            "recycle_asset_recycle_person_jobcode": user,
-            "recycle_asset_date": date.today(),
-        })
+        return RecycleAssetService.create_recycle_asset(
+            {
+                "outasset_recordcode": out_asset,
+                "recycle_asset_storage": storage,
+                "recycle_asset_recycle_person_jobcode": user,
+                "recycle_asset_date": date.today(),
+            }
+        )
 
     def test_batch_delete_exceeds_limit_raises(self):
         codes = [f"RC{i}" for i in range(101)]
@@ -167,3 +180,27 @@ class TestBatchDeleteRecycleAsset:
         result = RecycleAssetService.batch_delete_recycle_asset([ra.recordcode])
         assert result["success_count"] == 0
         assert result["fail_items"][0]["error_code"] == "STATUS_NOT_ALLOWED"
+
+    def test_batch_delete_success_records_audit_log(self, out_asset, storage, user):
+        """取消回收成功后应写入状态变更审计日志"""
+        ra = self._create_recycle(out_asset, storage, user)
+        asset = out_asset.asset_recordcode
+        result = RecycleAssetService.batch_delete_recycle_asset(
+            [ra.recordcode], operator_jobcode=user.employee_jobcode, operator_name=user.employee_name
+        )
+        assert result["success_count"] == 1
+        asset.refresh_from_db()
+        assert asset.asset_current_status == "in_use"
+        log = (
+            AssetOperationLog.objects.filter(
+                asset_code=asset.asset_code,
+                operation_type="state_change",
+                description__contains="cancel_recycle",
+            )
+            .order_by("-operation_time")
+            .first()
+        )
+        assert log is not None
+        assert log.operator_jobcode == user.employee_jobcode
+        assert "recycled_pending" in log.description
+        assert "in_use" in log.description

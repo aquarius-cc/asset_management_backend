@@ -4,10 +4,10 @@
 包含 OutAsset 及其批量操作序列化器。
 
 【AGENTS 规范 - 序列化器分层设计】
-每个模块按 Action 分离序列化器：
-- ListSerializer: 列表查询（扁平字段，只读，精简）
-- CreateSerializer: 创建操作（写入字段）
-- DetailSerializer: 详情查询（嵌套对象，只读，完整）
+每个模块按 Action 分离序列化器:
+- ListSerializer: 列表查询(扁平字段,只读,精简)
+- CreateSerializer: 创建操作(写入字段)
+- DetailSerializer: 详情查询(嵌套对象,只读,完整)
 """
 
 from rest_framework import serializers
@@ -23,8 +23,8 @@ from apps.assetmanagement.serializers.base_model_serializers import ContractSeri
 class OutAssetListSerializer(serializers.ModelSerializer):
     """
     出库记录列表序列化器
-    用途：list, recyclable action
-    特点：扁平字段，只读，精简性能优化
+    用途:list, recyclable action
+    特点:扁平字段,只读,精简性能优化
     """
 
     asset_recordcode = serializers.CharField(source="asset_recordcode.recordcode", read_only=True)
@@ -74,8 +74,8 @@ class OutAssetListSerializer(serializers.ModelSerializer):
 class OutAssetCreateSerializer(serializers.ModelSerializer):
     """
     出库记录创建序列化器
-    用途：create, update, partial_update action
-    特点：写入字段，SlugRelatedField 自动转换业务编码为 recordcode
+    用途:create, update, partial_update action
+    特点:写入字段,SlugRelatedField 自动转换业务编码为 recordcode
     """
 
     asset_recordcode = serializers.SlugRelatedField(
@@ -114,8 +114,8 @@ class OutAssetCreateSerializer(serializers.ModelSerializer):
 class OutAssetDetailSerializer(serializers.ModelSerializer):
     """
     出库记录详情序列化器
-    用途：retrieve action
-    特点：嵌套对象，只读，完整字段
+    用途:retrieve action
+    特点:嵌套对象,只读,完整字段
     """
 
     asset_recordcode = serializers.CharField(source="asset_recordcode.recordcode", read_only=True)
@@ -163,8 +163,8 @@ class OutAssetDetailSerializer(serializers.ModelSerializer):
 class OutAssetUpdateSerializer(serializers.ModelSerializer):
     """
     出库记录更新序列化器
-    用途：update, partial_update action
-    特点：写入字段，recordcode 和 asset_recordcode 只读
+    用途:update, partial_update action
+    特点:写入字段,recordcode 和 asset_recordcode 只读
     """
 
     recordcode = serializers.CharField(read_only=True)
@@ -189,11 +189,11 @@ class OutAssetUpdateSerializer(serializers.ModelSerializer):
 
 
 # ==================== 保持向后兼容 ====================
-# 旧的序列化器名称别名，用于批量操作等场景
+# 旧的序列化器名称别名,用于批量操作等场景
 OutAssetSerializer = OutAssetCreateSerializer
 
 
-# ========== 批量操作序列化器（OutAsset） ==========
+# ========== 批量操作序列化器(OutAsset) ==========
 
 
 class OutAssetBatchItemSerializer(serializers.Serializer):
@@ -224,7 +224,7 @@ class OutAssetBatchCreateSerializer(serializers.Serializer):
     def validate_items(self, value):
         if len(value) > self.MAX_BATCH_SIZE:
             raise serializers.ValidationError(f"单次批量创建不能超过 {self.MAX_BATCH_SIZE} 条")
-        # 【P0-14 修复】字段名应为 outasset_asset（非 outasset_code）
+        # 【P0-14 修复】字段名应为 outasset_asset(非 outasset_code)
         asset_codes = [item["outasset_asset"].asset_code for item in value]
         if len(asset_codes) != len(set(asset_codes)):
             raise serializers.ValidationError("提交记录中存在重复的资产编码")

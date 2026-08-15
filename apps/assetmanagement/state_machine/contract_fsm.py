@@ -4,7 +4,6 @@
 管理合同 8 种状态的合法流转规则。
 """
 
-
 from enum import Enum
 
 
@@ -53,7 +52,7 @@ _CONTRACT_TRANSITIONS: dict = {
 class ContractFSM:
     """
     合同有限状态机
-    只负责状态字段变更，不处理其他字段。
+    只负责状态字段变更,不处理其他字段。
     """
 
     @classmethod
@@ -61,9 +60,7 @@ class ContractFSM:
         current = ContractState(current_status)
         target = ContractState(target_status)
         if target not in _CONTRACT_TRANSITIONS.get(current, {}):
-            raise ContractInvalidTransitionError(
-                f"合同状态转换不合法: {current.value} → {target.value}"
-            )
+            raise ContractInvalidTransitionError(f"合同状态转换不合法: {current.value} → {target.value}")
 
     @classmethod
     def transition(cls, contract, target_status: str) -> None:

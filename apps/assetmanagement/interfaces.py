@@ -2,7 +2,7 @@
 资产模块接口契约定义
 
 【AGENTS 规范 - 跨应用解耦】
-通过抽象接口定义员工数据契约，资产模块不直接依赖员工模块的具体实现。
+通过抽象接口定义员工数据契约,资产模块不直接依赖员工模块的具体实现。
 
 使用方式:
     from apps.assetmanagement.interfaces import get_employee_queryset, get_employee_serializer_class
@@ -18,7 +18,7 @@ class EmployeeDTO:
     员工数据传输对象
 
     Attributes:
-        jobcode: 员工工号（唯一标识）
+        jobcode: 员工工号(唯一标识)
         name: 员工姓名
         department: 所属部门
         is_active: 是否在职
@@ -38,13 +38,13 @@ class EmployeeProvider(ABC):
     员工数据提供者接口
 
     实现类:
-        - DjangoEmployeeProvider: Django ORM实现（生产环境）
-        - MockEmployeeProvider: Mock实现（单元测试）
+        - DjangoEmployeeProvider: Django ORM实现(生产环境)
+        - MockEmployeeProvider: Mock实现(单元测试)
     """
 
     @abstractmethod
     def get_employee_queryset(self):
-        """获取员工QuerySet（用于DRF SlugRelatedField）"""
+        """获取员工QuerySet(用于DRF SlugRelatedField)"""
         pass
 
     @abstractmethod
@@ -54,7 +54,7 @@ class EmployeeProvider(ABC):
 
 
 # ===================================================================
-# 模块级依赖注册（简约至上，避免过度设计）
+# 模块级依赖注册(简约至上,避免过度设计)
 # ===================================================================
 
 _employee_provider: EmployeeProvider | None = None

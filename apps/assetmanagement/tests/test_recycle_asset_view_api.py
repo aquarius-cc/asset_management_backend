@@ -1,7 +1,7 @@
 """
 回收资产管理 ViewSet API 测试
 
-测试 RecycleAssetViewSet 的 API 端点：
+测试 RecycleAssetViewSet 的 API 端点:
 - list
 - create
 - retrieve
@@ -14,9 +14,6 @@
 import pytest
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APIClient
-
-from apps.assetmanagement.models import RecycleAsset
 
 
 @pytest.fixture
@@ -126,7 +123,11 @@ class TestRecycleAssetViewSet:
         }
         response = admin_authenticated_client.post(url, data, format="json")
         # Batch serializer/view field mismatch (outasset_recordcode_code vs recycle_outasset_code) — accept error
-        assert response.status_code in [status.HTTP_200_OK, status.HTTP_400_BAD_REQUEST, status.HTTP_500_INTERNAL_SERVER_ERROR]
+        assert response.status_code in [
+            status.HTTP_200_OK,
+            status.HTTP_400_BAD_REQUEST,
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+        ]
 
     def test_batch_delete(self, admin_authenticated_client, recycle_asset):
         """测试批量删除回收记录"""

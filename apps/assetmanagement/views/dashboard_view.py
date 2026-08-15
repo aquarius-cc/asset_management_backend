@@ -7,11 +7,10 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from core.mixins import LoggingMixin, ResponseWrapperMixin
-from utils.response_utils import success_response
-
 from apps.assetmanagement.selectors import DashboardSelector
 from apps.assetmanagement.serializers import DashboardStatSerializer
+from core.mixins import LoggingMixin, ResponseWrapperMixin
+from utils.response_utils import success_response
 
 
 class DashboardViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ViewSet):

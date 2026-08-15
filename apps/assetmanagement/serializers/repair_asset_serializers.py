@@ -12,9 +12,7 @@ class RepairAssetListSerializer(serializers.ModelSerializer):
 
     asset_code = serializers.CharField(source="asset_recordcode.asset_code", read_only=True)
     asset_name = serializers.CharField(source="asset_recordcode.asset_name", read_only=True)
-    operator_name = serializers.CharField(
-        source="operator_employee.employee_name", read_only=True, allow_null=True
-    )
+    operator_name = serializers.CharField(source="operator_employee.employee_name", read_only=True, allow_null=True)
 
     class Meta:
         model = RepairAsset
@@ -90,9 +88,7 @@ class RepairAssetDetailSerializer(serializers.ModelSerializer):
     asset_specification = serializers.CharField(
         source="asset_recordcode.asset_specification", read_only=True, allow_null=True
     )
-    operator_name = serializers.CharField(
-        source="operator_employee.employee_name", read_only=True, allow_null=True
-    )
+    operator_name = serializers.CharField(source="operator_employee.employee_name", read_only=True, allow_null=True)
     operator_jobcode = serializers.CharField(
         source="operator_employee.employee_jobcode", read_only=True, allow_null=True
     )

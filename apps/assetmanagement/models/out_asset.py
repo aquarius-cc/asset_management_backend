@@ -52,7 +52,7 @@ class OutAsset(BaseModel):
     """
     出库资产管理模型
 
-    记录资产的领用和借用信息，包含申请人、保管人、使用地点等信息。
+    记录资产的领用和借用信息,包含申请人、保管人、使用地点等信息。
     资产出库后状态自动变为"在用"。
     """
 
@@ -61,6 +61,7 @@ class OutAsset(BaseModel):
 
     class OutassetType(models.TextChoices):
         """出库类型"""
+
         RECEIVE = "receive", "领用"
         BORROW = "borrow", "借用"
 
@@ -82,7 +83,7 @@ class OutAsset(BaseModel):
         null=True,
         blank=True,
         verbose_name="出库资产的资产唯一标识码",
-        help_text="关联的资产唯一标识码（通过 recordcode 关联）",
+        help_text="关联的资产唯一标识码(通过 recordcode 关联)",
     )
     outasset_number = models.IntegerField(verbose_name="出库数量", default=1, help_text="出库的资产数量")
     outasset_previous_status = models.CharField(
@@ -92,7 +93,7 @@ class OutAsset(BaseModel):
         null=True,
         blank=True,
         verbose_name="出库前资产状态",
-        help_text="记录出库前资产的状态，用于取消出库时恢复。历史数据可能为空。",
+        help_text="记录出库前资产的状态,用于取消出库时恢复。历史数据可能为空。",
     )
     return_date = models.DateField(
         verbose_name="归还日期", blank=True, null=True, help_text="借用资产的预计或实际归还日期"
@@ -105,7 +106,7 @@ class OutAsset(BaseModel):
         verbose_name="出库类型",
         blank=True,
         null=True,
-        help_text="出库类型：领用/借用",
+        help_text="出库类型:领用/借用",
     )
     outasset_description = models.TextField(
         verbose_name="出库资产描述", blank=True, null=True, help_text="出库的补充说明"
@@ -118,7 +119,7 @@ class OutAsset(BaseModel):
         blank=True,
         related_name="out_assets_applicant",
         verbose_name="出库申请人",
-        help_text="出库时的申请人（FK 关联）",
+        help_text="出库时的申请人(FK 关联)",
     )
     outasset_manager_recordcode = models.ForeignKey(
         Employee,
@@ -128,13 +129,13 @@ class OutAsset(BaseModel):
         blank=True,
         related_name="out_assets_manager",
         verbose_name="出库保管人",
-        help_text="出库时的保管人（FK 关联）",
+        help_text="出库时的保管人(FK 关联)",
     )
     outasset_using_location = models.CharField(
         max_length=100, blank=True, null=True, verbose_name="出库使用地点", help_text="出库时的使用地点"
     )
     outasset_snapshot = models.JSONField(
-        blank=True, null=True, verbose_name="出库快照", help_text="保存出库时的申请人、保管人等关键信息（用于历史追溯）"
+        blank=True, null=True, verbose_name="出库快照", help_text="保存出库时的申请人、保管人等关键信息(用于历史追溯)"
     )
     version = models.IntegerField(default=1, verbose_name="版本号", help_text="乐观锁版本号")
 

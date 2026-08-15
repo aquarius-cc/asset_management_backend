@@ -22,16 +22,13 @@ from apps.assetmanagement.serializers.base_model_serializers import (
     HardDiskSNSimpleSerializer,
     StorageSerializer,
 )
-from apps.usermanagement.models import Employee
 
 
 class AssetListSerializer(serializers.ModelSerializer):
-    """资产列表序列化器（精简版）"""
+    """资产列表序列化器(精简版)"""
 
     type_category = serializers.CharField(source="asset_type_recordcode.type_code", read_only=True)
-    asset_type_name = serializers.CharField(
-        source="asset_type_recordcode.type_name", read_only=True, allow_null=True
-    )
+    asset_type_name = serializers.CharField(source="asset_type_recordcode.type_name", read_only=True, allow_null=True)
     contract_code = serializers.CharField(
         source="asset_contract_recordcode.contract_code", read_only=True, allow_null=True
     )
@@ -91,7 +88,7 @@ AssetSerializer = AssetListSerializer
 
 
 class AssetDetailSerializer(serializers.ModelSerializer):
-    # 使用 source 参数映射后端字段名到前端字段名（读取时）
+    # 使用 source 参数映射后端字段名到前端字段名(读取时)
     asset_type = AssetTypeSerializer(source="asset_type_recordcode", read_only=True)
     asset_contract = ContractSerializer(source="asset_contract_recordcode", read_only=True)
     asset_storage = StorageSerializer(source="asset_storage_recordcode", read_only=True)
@@ -132,12 +129,12 @@ class AssetDetailSerializer(serializers.ModelSerializer):
 class AssetUpdateSerializer(serializers.ModelSerializer):
     """资产更新序列化器
 
-    排除 recordcode 和 asset_code（后端自动生成，不可修改）。
-    前端传入业务编码（asset_type_code/contract_code/storage_code/employee_jobcode），
+    排除 recordcode 和 asset_code(后端自动生成,不可修改)。
+    前端传入业务编码(asset_type_code/contract_code/storage_code/employee_jobcode),
     DRF SlugRelatedField 自动转换为 recordcode 存入数据库。
     """
 
-    # FK 字段：前端传入业务编码，DRF 自动转换为 recordcode
+    # FK 字段:前端传入业务编码,DRF 自动转换为 recordcode
     asset_type = serializers.SlugRelatedField(
         slug_field="type_code",
         queryset=AssetType.objects.filter(is_deleted=False),
@@ -213,21 +210,21 @@ class AssetUpdateSerializer(serializers.ModelSerializer):
 class AssetCreateSerializer(serializers.ModelSerializer):
     """资产创建序列化器
 
-    前端传入业务编码（asset_type_code/contract_code/storage_code/employee_jobcode），
+    前端传入业务编码(asset_type_code/contract_code/storage_code/employee_jobcode),
     DRF SlugRelatedField 自动转换为 recordcode 存入数据库。
 
-    字段名约定（前端字段名 → 后端模型字段名）：
-    - asset_type → asset_type_recordcode: 传入 AssetType.asset_type_code（如 "AT001"）
-    - asset_contract → asset_contract_recordcode: 传入 Contract.contract_code（如 "CT001"）
-    - asset_storage → asset_storage_recordcode: 传入 Storage.storage_code（如 "ST001"）
-    - asset_entry_person → asset_entry_person_recordcode: 传入 Employee.employee_jobcode（如 "E001"）
-    - asset_applicant → asset_applicant_recordcode: 传入 Employee.employee_jobcode（如 "E002"）
-    - asset_manager → asset_manager_recordcode: 传入 Employee.employee_jobcode（如 "E003"）
+    字段名约定(前端字段名 → 后端模型字段名):
+    - asset_type → asset_type_recordcode: 传入 AssetType.asset_type_code(如 "AT001")
+    - asset_contract → asset_contract_recordcode: 传入 Contract.contract_code(如 "CT001")
+    - asset_storage → asset_storage_recordcode: 传入 Storage.storage_code(如 "ST001")
+    - asset_entry_person → asset_entry_person_recordcode: 传入 Employee.employee_jobcode(如 "E001")
+    - asset_applicant → asset_applicant_recordcode: 传入 Employee.employee_jobcode(如 "E002")
+    - asset_manager → asset_manager_recordcode: 传入 Employee.employee_jobcode(如 "E003")
     """
 
     asset_code = serializers.CharField(max_length=64, read_only=True)
 
-    # FK 字段：前端传入业务编码，DRF 自动转换为 recordcode
+    # FK 字段:前端传入业务编码,DRF 自动转换为 recordcode
     # 使用 source 参数映射前端字段名到后端模型字段名
     asset_type = serializers.SlugRelatedField(
         slug_field="type_code",
@@ -325,7 +322,7 @@ class CombinedAssetSerializer(serializers.Serializer):
     asset_specification = serializers.CharField()
     asset_type = serializers.CharField()
     asset_classification = serializers.CharField()
-    # 【P1-21 修复】字段名拼写修正：purhase → purchase
+    # 【P1-21 修复】字段名拼写修正:purhase → purchase
     asset_purchase_date = serializers.DateField()
     asset_warranty_period = serializers.IntegerField()
     asset_entry_date = serializers.DateField()
@@ -360,7 +357,7 @@ class AssetOperationLogSerializer(serializers.ModelSerializer):
     """
     资产操作记录序列化器
 
-    asset_name 和 asset_specification 直接从模型字段读取（冗余存储），
+    asset_name 和 asset_specification 直接从模型字段读取(冗余存储),
     删除 Asset 不影响操作日志记录。
     """
 
@@ -393,23 +390,23 @@ class CombineSearchSerializer(serializers.Serializer):
     """
     资产组合搜索序列化器
 
-    - 模糊字段：asset_name, asset_specification, asset_brand
-    - 精确字段：asset_current_status, asset_type, asset_storage, asset_contract
+    - 模糊字段:asset_name, asset_specification, asset_brand
+    - 精确字段:asset_current_status, asset_type, asset_storage, asset_contract
     """
 
-    # 模糊匹配字段（支持包含搜索）
+    # 模糊匹配字段(支持包含搜索)
     asset_name = serializers.CharField(required=False, allow_blank=True)
     asset_specification = serializers.CharField(required=False, allow_blank=True)
     asset_brand = serializers.CharField(required=False, allow_blank=True)
 
-    # 精确匹配字段（字段名与 Asset 模型一致）
+    # 精确匹配字段(字段名与 Asset 模型一致)
     asset_current_status = serializers.CharField(required=False, allow_blank=True)
     asset_type = serializers.CharField(required=False, allow_blank=True)
     asset_storage = serializers.CharField(required=False, allow_blank=True)
     asset_contract = serializers.CharField(required=False, allow_blank=True)
 
     def validate(self, attrs):
-        # 去除空字符串，统一转为 None 或空值，便于后续过滤
+        # 去除空字符串,统一转为 None 或空值,便于后续过滤
         for key, value in attrs.items():
             if value == "":
                 attrs[key] = None

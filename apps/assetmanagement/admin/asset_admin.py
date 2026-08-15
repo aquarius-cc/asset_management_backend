@@ -61,8 +61,13 @@ class AssetTypeAdmin(admin.ModelAdmin):
 @admin.register(Contract)
 class ContractAdmin(admin.ModelAdmin):
     list_display = [
-        "recordcode", "contract_code", "contract_name", "supplier_name",
-        "contract_amount", "contract_status", "created_at",
+        "recordcode",
+        "contract_code",
+        "contract_name",
+        "supplier_name",
+        "contract_amount",
+        "contract_status",
+        "created_at",
     ]
     search_fields = ["contract_code", "contract_name", "supplier_name"]
     list_filter = ["contract_status", "created_at"]
@@ -75,28 +80,55 @@ class ContractAdmin(admin.ModelAdmin):
 @admin.register(Asset)
 class AssetAdmin(admin.ModelAdmin):
     list_display = [
-        "recordcode", "asset_code", "asset_name", "asset_brand",
-        "asset_current_status", "physical_grade", "created_at",
+        "recordcode",
+        "asset_code",
+        "asset_name",
+        "asset_brand",
+        "asset_current_status",
+        "physical_grade",
+        "created_at",
     ]
     search_fields = ["asset_code", "asset_name", "asset_brand"]
     list_filter = ["asset_current_status", "physical_grade", "usage_type"]
     readonly_fields = ["recordcode", "asset_code", "created_at", "updated_at"]
     fieldsets = (
-        ("Basic Info", {
-            "fields": ("recordcode", "asset_code", "asset_name", "asset_brand", "asset_specification", "asset_price"),
-        }),
-        ("Status", {
-            "fields": ("asset_current_status", "physical_grade", "usage_type"),
-        }),
-        ("Relations", {
-            "fields": ("asset_type_recordcode", "asset_contract_recordcode", "asset_storage_recordcode"),
-        }),
-        ("People", {
-            "fields": ("asset_applicant_recordcode", "asset_manager_recordcode", "asset_entry_person_recordcode"),
-        }),
-        ("Timestamps", {
-            "fields": ("created_at", "updated_at"),
-        }),
+        (
+            "Basic Info",
+            {
+                "fields": (
+                    "recordcode",
+                    "asset_code",
+                    "asset_name",
+                    "asset_brand",
+                    "asset_specification",
+                    "asset_price",
+                ),
+            },
+        ),
+        (
+            "Status",
+            {
+                "fields": ("asset_current_status", "physical_grade", "usage_type"),
+            },
+        ),
+        (
+            "Relations",
+            {
+                "fields": ("asset_type_recordcode", "asset_contract_recordcode", "asset_storage_recordcode"),
+            },
+        ),
+        (
+            "People",
+            {
+                "fields": ("asset_applicant_recordcode", "asset_manager_recordcode", "asset_entry_person_recordcode"),
+            },
+        ),
+        (
+            "Timestamps",
+            {
+                "fields": ("created_at", "updated_at"),
+            },
+        ),
     )
 
 
@@ -180,8 +212,13 @@ class LostAssetAdmin(admin.ModelAdmin):
     operator_name.short_description = "操作人"
 
     list_display = [
-        "recordcode", "asset_code_display", "asset_name", "lost_date",
-        "operator_name", "lost_reason", "last_known_location",
+        "recordcode",
+        "asset_code_display",
+        "asset_name",
+        "lost_date",
+        "operator_name",
+        "lost_reason",
+        "last_known_location",
     ]
     search_fields = ["asset_recordcode__asset_name", "lost_reason"]
     list_filter = ["lost_date"]
@@ -215,13 +252,25 @@ class FoundAssetAdmin(admin.ModelAdmin):
     operator_name.short_description = "操作人"
 
     list_display = [
-        "recordcode", "lost_asset_code_display", "asset_code_display",
-        "asset_name", "found_date", "found_location", "operator_name",
+        "recordcode",
+        "lost_asset_code_display",
+        "asset_code_display",
+        "asset_name",
+        "found_date",
+        "found_location",
+        "operator_name",
     ]
     search_fields = ["asset_recordcode__asset_name"]
     list_filter = ["found_date"]
     date_hierarchy = "found_date"
-    readonly_fields = ["recordcode", "lost_asset_recordcode", "asset_recordcode", "operator_employee", "created_at", "updated_at"]
+    readonly_fields = [
+        "recordcode",
+        "lost_asset_recordcode",
+        "asset_recordcode",
+        "operator_employee",
+        "created_at",
+        "updated_at",
+    ]
 
 
 # ======================================================================
@@ -245,8 +294,13 @@ class RepairAssetAdmin(admin.ModelAdmin):
     operator_name.short_description = "操作人"
 
     list_display = [
-        "recordcode", "asset_code_display", "asset_name", "repair_date",
-        "repair_status", "repair_reason", "operator_name",
+        "recordcode",
+        "asset_code_display",
+        "asset_name",
+        "repair_date",
+        "repair_status",
+        "repair_reason",
+        "operator_name",
     ]
     search_fields = ["asset_recordcode__asset_name", "repair_reason"]
     list_filter = ["repair_status", "repair_date"]
@@ -265,8 +319,12 @@ class DamagedAssetAdmin(admin.ModelAdmin):
     asset_code_display.short_description = "资产编码"
 
     list_display = [
-        "recordcode", "asset_code_display", "damaged_asset_number",
-        "damaged_date", "approval_status", "approver",
+        "recordcode",
+        "asset_code_display",
+        "damaged_asset_number",
+        "damaged_date",
+        "approval_status",
+        "approver",
     ]
     search_fields = ["asset_recordcode__asset_code"]
     list_filter = ["approval_status", "damaged_date"]
@@ -299,7 +357,14 @@ class HardDiskSNAdmin(admin.ModelAdmin):
 
     asset_code_display.short_description = "资产编码"
 
-    list_display = ["recordcode", "asset_code_display", "harddisk_sn_code", "harddisk_type", "harddisk_capacity", "harddisk_status"]
+    list_display = [
+        "recordcode",
+        "asset_code_display",
+        "harddisk_sn_code",
+        "harddisk_type",
+        "harddisk_capacity",
+        "harddisk_status",
+    ]
     search_fields = ["harddisk_sn_code", "harddisk_type"]
     list_filter = ["harddisk_type", "harddisk_status"]
     readonly_fields = ["recordcode", "asset_recordcode", "created_at", "updated_at"]

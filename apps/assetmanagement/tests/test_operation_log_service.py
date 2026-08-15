@@ -1,14 +1,14 @@
 """资产操作日志服务测试"""
 
-import pytest
 from datetime import timedelta
 
+import pytest
 from django.utils import timezone
 
-from apps.assetmanagement.models import Asset, AssetOperationLog
+from apps.assetmanagement.models import AssetOperationLog
 from apps.assetmanagement.services.operation_log_service import (
-    OperationLogService,
     OperationLogQueryService,
+    OperationLogService,
 )
 
 
@@ -218,13 +218,13 @@ class TestOperationLogQueryService:
         self._create_log(asset.asset_code, "create")
         self._create_log(asset.asset_code, "update")
         logs = OperationLogQueryService.get_operations_by_type("create")
-        assert all(l.operation_type == "create" for l in logs)
+        assert all(log.operation_type == "create" for log in logs)
 
     def test_get_user_operations(self, asset):
         self._create_log(asset.asset_code, jobcode="U001")
         self._create_log(asset.asset_code, jobcode="U002")
         logs = OperationLogQueryService.get_user_operations("U001")
-        assert all(l.operator_jobcode == "U001" for l in logs)
+        assert all(log.operator_jobcode == "U001" for log in logs)
 
     def test_get_asset_status_timeline(self, asset):
         self._create_log(asset.asset_code, "create")

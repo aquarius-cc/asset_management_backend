@@ -16,7 +16,7 @@ class ExportExcelMixin:
     """
     Excel 导出 Mixin
 
-    子类定义 export_columns 配置：
+    子类定义 export_columns 配置:
     ```python
     export_columns = [
         {"header": "资产编码", "field": "asset_code"},
@@ -37,7 +37,7 @@ class ExportExcelMixin:
         """导出当前列表数据为 Excel"""
         try:
             import openpyxl
-            from openpyxl.styles import Font, PatternFill, Alignment
+            from openpyxl.styles import Alignment, Font, PatternFill
         except ImportError:
             return error_response(message="缺少 openpyxl 依赖", status_code=500)
 
@@ -77,16 +77,14 @@ class ExportExcelMixin:
             max_length = max(len(str(cell.value or "")) for cell in col)
             ws.column_dimensions[col[0].column_letter].width = min(max_length + 4, 40)
 
-        response = HttpResponse(
-            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         response["Content-Disposition"] = f'attachment; filename="{self.export_filename}"'
         wb.save(response)
         return response
 
     @staticmethod
     def _get_nested_value(obj, field_path: str):
-        """支持嵌套字段访问，如 asset_recordcode__asset_code"""
+        """支持嵌套字段访问,如 asset_recordcode__asset_code"""
         parts = field_path.split("__")
         value = obj
         for part in parts:

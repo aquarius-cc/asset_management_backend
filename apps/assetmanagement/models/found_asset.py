@@ -45,7 +45,7 @@ class FoundAsset(BaseModel):
     """
     资产找回记录模型
 
-    记录遗失资产找回信息，关联LostAsset。
+    记录遗失资产找回信息,关联LostAsset。
     """
 
     if TYPE_CHECKING:

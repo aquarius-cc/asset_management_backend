@@ -1,8 +1,8 @@
 """
 资产生命周期事件视图集
 
-包含 BrokenAsset（损坏）、LostAsset（遗失）、FoundAsset（找回）、RepairAsset（维修）视图集。
-这些视图集结构高度相似，统一管理。
+包含 BrokenAsset(损坏)、LostAsset(遗失)、FoundAsset(找回)、RepairAsset(维修)视图集。
+这些视图集结构高度相似,统一管理。
 """
 
 from django_filters.rest_framework import DjangoFilterBackend
@@ -11,14 +11,13 @@ from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 
-from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
-from core.pagination import CustomPageNumberPagination
-from core.permissions import IsAssetAdminOrAbove
-from utils.response_utils import error_response, success_response
-
 from apps.assetmanagement.models import BrokenAsset, FoundAsset, LostAsset, RepairAsset
-from apps.assetmanagement.selectors import BrokenAssetSelector, FoundAssetSelector, LostAssetSelector, RepairAssetSelector
-from apps.assetmanagement.services.asset_lifecycle_mixin import AssetLifecycleMixin
+from apps.assetmanagement.selectors import (
+    BrokenAssetSelector,
+    FoundAssetSelector,
+    LostAssetSelector,
+    RepairAssetSelector,
+)
 from apps.assetmanagement.serializers import (
     BrokenAssetCreateSerializer,
     BrokenAssetDetailSerializer,
@@ -37,9 +36,14 @@ from apps.assetmanagement.serializers import (
     RepairAssetListSerializer,
     RepairAssetUpdateSerializer,
 )
+from apps.assetmanagement.services.asset_lifecycle_mixin import AssetLifecycleMixin
+from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
+from core.pagination import CustomPageNumberPagination
+from core.permissions import IsAssetAdminOrAbove
+from utils.response_utils import error_response, success_response
 
-from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
 from ._export_mixin import ExportExcelMixin
+from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
 
 
 @extend_schema(tags=["损坏资产"])
@@ -100,8 +104,13 @@ class BrokenAssetViewSet(
             except Exception:
                 fail_items.append({"id": recordcode, "error_code": "INTERNAL_ERROR", "error_message": "Server error"})
         return success_response(
-            data={"total": len(ids), "success_count": len(success_ids), "fail_count": len(fail_items),
-                  "success_ids": success_ids, "fail_items": fail_items},
+            data={
+                "total": len(ids),
+                "success_count": len(success_ids),
+                "fail_count": len(fail_items),
+                "success_ids": success_ids,
+                "fail_items": fail_items,
+            },
             message=f"Batch delete done: {len(success_ids)} success, {len(fail_items)} fail",
         )
 
@@ -164,8 +173,13 @@ class LostAssetViewSet(
             except Exception:
                 fail_items.append({"id": recordcode, "error_code": "INTERNAL_ERROR", "error_message": "Server error"})
         return success_response(
-            data={"total": len(ids), "success_count": len(success_ids), "fail_count": len(fail_items),
-                  "success_ids": success_ids, "fail_items": fail_items},
+            data={
+                "total": len(ids),
+                "success_count": len(success_ids),
+                "fail_count": len(fail_items),
+                "success_ids": success_ids,
+                "fail_items": fail_items,
+            },
             message=f"Batch delete done: {len(success_ids)} success, {len(fail_items)} fail",
         )
 
@@ -228,8 +242,13 @@ class FoundAssetViewSet(
             except Exception:
                 fail_items.append({"id": recordcode, "error_code": "INTERNAL_ERROR", "error_message": "Server error"})
         return success_response(
-            data={"total": len(ids), "success_count": len(success_ids), "fail_count": len(fail_items),
-                  "success_ids": success_ids, "fail_items": fail_items},
+            data={
+                "total": len(ids),
+                "success_count": len(success_ids),
+                "fail_count": len(fail_items),
+                "success_ids": success_ids,
+                "fail_items": fail_items,
+            },
             message=f"Batch delete done: {len(success_ids)} success, {len(fail_items)} fail",
         )
 

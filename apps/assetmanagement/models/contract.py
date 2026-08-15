@@ -17,7 +17,7 @@ class Contract(BaseModel):
     """
     合同管理模型
 
-    用于管理资产相关的采购合同、服务合同等，
+    用于管理资产相关的采购合同、服务合同等,
     包含合同金额、付款记录、结算状态等信息。
     """
 
@@ -49,7 +49,7 @@ class Contract(BaseModel):
         QUANTITY_INCREASE_WITH_MODEL = "quantity_increase_with_model", "设备数量增加和型号变更"
         QUANTITY_DECREASE_WITH_MODEL = "quantity_decrease_with_model", "设备数量减少和型号变更"
 
-    # 向后兼容：保留旧名称作为类属性
+    # 向后兼容:保留旧名称作为类属性
     CONTRACT_TYPE_CHOICES = ContractType.choices
     CONTRACT_STATUS_CHOICES = ContractStatus.choices
     PROJECT_CHANGE_TYPE_CHOICES = ProjectChangeType.choices
@@ -62,16 +62,20 @@ class Contract(BaseModel):
         verbose_name="合同类型",
         blank=True,
         null=True,
-        help_text="合同类型：招标采购/服务/信息化建设/直接采购",
+        help_text="合同类型:招标采购/服务/信息化建设/直接采购",
     )
-    supplier_name = models.CharField(max_length=100, verbose_name="供应商名称", blank=True, null=True, help_text="供应商名称")
+    supplier_name = models.CharField(
+        max_length=100, verbose_name="供应商名称", blank=True, null=True, help_text="供应商名称"
+    )
     contract_amount = models.DecimalField(
-        max_digits=12, decimal_places=2, verbose_name="合同总金额", blank=True, null=True, help_text="合同总金额（元）"
+        max_digits=12, decimal_places=2, verbose_name="合同总金额", blank=True, null=True, help_text="合同总金额(元)"
     )
     settlemented_price = models.DecimalField(
-        max_digits=12, decimal_places=2, verbose_name="结算价格", blank=True, null=True, help_text="最终结算金额（元）"
+        max_digits=12, decimal_places=2, verbose_name="结算价格", blank=True, null=True, help_text="最终结算金额(元)"
     )
-    contract_total_quantity = models.IntegerField(verbose_name="合同总数量", blank=True, null=True, help_text="合同约定的总数量")
+    contract_total_quantity = models.IntegerField(
+        verbose_name="合同总数量", blank=True, null=True, help_text="合同约定的总数量"
+    )
     contract_start_date = models.DateField(verbose_name="合同开始日期", blank=True, null=True, help_text="合同开始日期")
     contract_end_date = models.DateField(verbose_name="合同结束日期", blank=True, null=True, help_text="合同结束日期")
     contract_status = models.CharField(
@@ -79,7 +83,7 @@ class Contract(BaseModel):
         choices=ContractStatus.choices,
         default=ContractStatus.PURCHASING,
         verbose_name="合同状态",
-        help_text="合同状态：供货中/供货完成/到货验收/初步验收/结算中/结算完成/最终验收/项目结束",
+        help_text="合同状态:供货中/供货完成/到货验收/初步验收/结算中/结算完成/最终验收/项目结束",
     )
     project_change = models.BooleanField(default=False, verbose_name="项目变更", help_text="是否存在项目变更")
     project_change_type = models.CharField(
@@ -88,7 +92,7 @@ class Contract(BaseModel):
         verbose_name="变更类型",
         blank=True,
         null=True,
-        help_text="变更类型：设备增加/设备减少/只涉及型号/数量增加和型号/数量减少和型号",
+        help_text="变更类型:设备增加/设备减少/只涉及型号/数量增加和型号/数量减少和型号",
     )
     project_change_description = models.TextField(
         verbose_name="变更描述", blank=True, null=True, help_text="简单介绍变更内容"
@@ -96,12 +100,26 @@ class Contract(BaseModel):
     receive_check_date = models.DateField(verbose_name="到货验收日期", blank=True, null=True, help_text="到货验收日期")
     initial_check_date = models.DateField(verbose_name="初步验收日期", blank=True, null=True, help_text="初步验收日期")
     final_check_date = models.DateField(verbose_name="最终验收日期", blank=True, null=True, help_text="最终验收日期")
-    paid_record = models.TextField(verbose_name="支付记录", blank=True, null=True, help_text="支付记录（可存储JSON格式的支付明细）")
+    paid_record = models.TextField(
+        verbose_name="支付记录", blank=True, null=True, help_text="支付记录(可存储JSON格式的支付明细)"
+    )
     amount_paid = models.DecimalField(
-        max_digits=12, decimal_places=2, default=0, verbose_name="已支付金额", blank=True, null=True, help_text="已支付金额，默认为0"
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        verbose_name="已支付金额",
+        blank=True,
+        null=True,
+        help_text="已支付金额,默认为0",
     )
     amount_unpaid = models.DecimalField(
-        max_digits=12, decimal_places=2, default=0, verbose_name="未支付金额", blank=True, null=True, help_text="未支付金额（自动计算）"
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        verbose_name="未支付金额",
+        blank=True,
+        null=True,
+        help_text="未支付金额(自动计算)",
     )
     contract_description = models.TextField(verbose_name="合同描述", blank=True, null=True, help_text="补充说明")
     sort_order = models.IntegerField(default=0, verbose_name="排序", help_text="排序字段")

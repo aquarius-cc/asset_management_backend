@@ -34,15 +34,14 @@ class AssetTypeSerializer(serializers.ModelSerializer):
     """
     资产类型序列化器
 
-    输出字段：
-    - parent: FK ID（recordcode）
-    - parent_type_code: 业务编码（方便前端显示）
+    输出字段:
+    - parent: FK ID(recordcode)
+    - parent_type_code: 业务编码(方便前端显示)
     - path: 物化路径
     """
 
     parent_type_code = serializers.CharField(
-        source="parent.type_code", read_only=True, allow_null=True,
-        help_text="父级类型编码"
+        source="parent.type_code", read_only=True, allow_null=True, help_text="父级类型编码"
     )
 
     class Meta:
@@ -67,8 +66,8 @@ class AssetTypeSerializer(serializers.ModelSerializer):
 class ContractListSerializer(serializers.ModelSerializer):
     """
     合同列表序列化器
-    用途：list action
-    特点：精简字段，只读
+    用途:list action
+    特点:精简字段,只读
     """
 
     class Meta:
@@ -97,8 +96,8 @@ class ContractListSerializer(serializers.ModelSerializer):
 class ContractCreateSerializer(serializers.ModelSerializer):
     """
     合同创建序列化器
-    用途：create action
-    特点：写入字段
+    用途:create action
+    特点:写入字段
     """
 
     recordcode = serializers.CharField(read_only=True)
@@ -139,8 +138,8 @@ class ContractCreateSerializer(serializers.ModelSerializer):
 class ContractDetailSerializer(serializers.ModelSerializer):
     """
     合同详情序列化器
-    用途：retrieve action
-    特点：完整字段，只读
+    用途:retrieve action
+    特点:完整字段,只读
     """
 
     class Meta:
@@ -179,8 +178,8 @@ class ContractDetailSerializer(serializers.ModelSerializer):
 class ContractUpdateSerializer(serializers.ModelSerializer):
     """
     合同更新序列化器
-    用途：update, partial_update action
-    特点：写入字段，recordcode 只读
+    用途:update, partial_update action
+    特点:写入字段,recordcode 只读
     """
 
     recordcode = serializers.CharField(read_only=True)
@@ -223,7 +222,7 @@ ContractSerializer = ContractCreateSerializer
 
 
 class HardDiskSNSimpleSerializer(serializers.ModelSerializer):
-    """硬盘序列号精简序列化器（用于 Asset 详情嵌套）"""
+    """硬盘序列号精简序列化器(用于 Asset 详情嵌套)"""
 
     class Meta:
         model = HardDiskSN
@@ -238,6 +237,7 @@ class HardDiskSNSimpleSerializer(serializers.ModelSerializer):
 
 class HardDiskSNSerializer(serializers.ModelSerializer):
     """硬盘序列号完整序列化器"""
+
     asset_code = serializers.CharField(source="asset_recordcode.asset_code", read_only=True)
     asset_name = serializers.CharField(source="asset_recordcode.asset_name", read_only=True)
 
@@ -281,7 +281,8 @@ class HardDiskSNCreateSerializer(serializers.ModelSerializer):
 
 class DiskItemSerializer(serializers.Serializer):
     """批量操作单条硬盘"""
-    recordcode = serializers.CharField(required=False, help_text="已有记录的 recordcode（更新时传入）")
+
+    recordcode = serializers.CharField(required=False, help_text="已有记录的 recordcode(更新时传入)")
     harddisk_sn_code = serializers.CharField(max_length=100)
     harddisk_type = serializers.ChoiceField(choices=HardDiskSN.HARDDISK_TYPE_CHOICES, default="HDD")
     harddisk_capacity = serializers.CharField(required=False, default="", max_length=20)
@@ -290,12 +291,14 @@ class DiskItemSerializer(serializers.Serializer):
 
 
 class HardDiskSNBatchSerializer(serializers.Serializer):
-    """批量保存硬盘序列号（资产入库时调用）"""
+    """批量保存硬盘序列号(资产入库时调用)"""
+
     asset_recordcode = serializers.CharField(required=True)
     disks = DiskItemSerializer(many=True)
 
     def validate_asset_recordcode(self, value):
         from apps.assetmanagement.selectors import AssetSelector
+
         if not AssetSelector.get_asset_by_recordcode(value):
             raise serializers.ValidationError(f"资产 recordcode '{value}' 不存在")
         return value

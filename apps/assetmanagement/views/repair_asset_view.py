@@ -132,8 +132,8 @@ class RepairAssetViewSet(
         obj = self.get_object()
         AssetLifecycleMixin.delete_repair_asset(
             recordcode=obj.recordcode,
-            operator_jobcode=request.user.auth_username,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         return success_response(data={"recordcode": obj.recordcode}, message="删除成功")
 
@@ -177,8 +177,8 @@ class RepairAssetViewSet(
         def _delete_one(recordcode: str) -> None:
             AssetLifecycleMixin.delete_repair_asset(
                 recordcode=recordcode,
-                operator_jobcode=request.user.auth_username,
-                operator_name=request.user.auth_username,
+                operator_jobcode=resolve_operator(request.user)[0],
+                operator_name=resolve_operator(request.user)[1],
             )
 
         return success_response(

@@ -32,6 +32,7 @@ from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMi
 from core.pagination import CustomPageNumberPagination
 from core.permissions import IsDeptManagerOrAbove
 from utils.response_utils import error_response, success_response
+from utils.user_utils import resolve_operator
 
 from ._export_mixin import ExportExcelMixin
 from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
@@ -102,8 +103,8 @@ class DamagedAssetViewSet(
             return error_response(message="关联资产不存在", status_code=400)
         DamagedAssetService.cancel_asset_recordcode(
             asset_recordcode_code=asset_recordcode,
-            operator_jobcode=request.user.auth_username,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         return success_response(message="取消待报废申请成功")
 
@@ -117,8 +118,8 @@ class DamagedAssetViewSet(
         damaged_data["damaged_asset_number"] = damaged_data.get("damaged_asset_number", 1)
         damaged_asset = DamagedAssetService.create_damaged_asset(
             damaged_data=damaged_data,
-            operator_jobcode=request.user.auth_username,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         return success_response(
             data=DamagedAssetCreateSerializer(damaged_asset).data,

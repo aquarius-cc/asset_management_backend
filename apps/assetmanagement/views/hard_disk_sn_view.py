@@ -18,6 +18,7 @@ from apps.assetmanagement.services import HardDiskSNService
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.permissions import IsAssetAdminOrAbove
 from utils.response_utils import error_response, success_response
+from utils.user_utils import resolve_operator
 
 from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
 
@@ -62,8 +63,8 @@ class HardDiskSNViewSet(
         serializer.is_valid(raise_exception=True)
         harddisk = HardDiskSNService.create(
             data=serializer.validated_data,
-            operator_jobcode=request.user.auth_id,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         return success_response(
             data=HardDiskSNSerializer(harddisk).data,
@@ -78,8 +79,8 @@ class HardDiskSNViewSet(
         harddisk = HardDiskSNService.update(
             recordcode=recordcode,
             update_data=serializer.validated_data,
-            operator_jobcode=request.user.auth_id,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         return success_response(data=HardDiskSNSerializer(harddisk).data, message="更新成功")
 
@@ -90,8 +91,8 @@ class HardDiskSNViewSet(
         recordcode = self.kwargs.get("recordcode")
         HardDiskSNService.delete(
             recordcode=recordcode,
-            operator_jobcode=request.user.auth_id,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         return success_response(message="删除成功")
 

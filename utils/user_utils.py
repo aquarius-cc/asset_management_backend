@@ -16,11 +16,15 @@ if TYPE_CHECKING:
 
 
 def resolve_operator(user: "AbstractBaseUser") -> tuple[str, str]:
-    """从当前用户的 Employee FK 反查操作人工号与姓名。
+    """解析操作人工号与姓名,按绑定机制优先级降级。
 
-    通过 OneToOne FK 关系(Employee.auth_user)获取绑定的 Employee 记录,
-    取其 employee_jobcode 和 employee_name。若用户未绑定 Employee,
-    则降级使用 AuthUser 的 auth_username 作为操作人标识。
+    优先级:
+      1. Employee.auth_user 外键绑定(user.employee OneToOne 反向访问)
+      2. 命名约定绑定(AuthUser.auth_username == Employee.employee_jobcode)
+      3. 最终兜底:使用 auth_username 作为操作人标识
+
+    依据系统同时存在的两种绑定方式(FK 与命名约定)设计,
+    避免未绑定 Employee 时误用 auth_id(数字主键)污染审计字段。
 
     Args:
         user: 已认证的 AuthUser 实例(request.user)
@@ -29,9 +33,16 @@ def resolve_operator(user: "AbstractBaseUser") -> tuple[str, str]:
         tuple[str, str]: (operator_jobcode, operator_name)
     """
     from apps.usermanagement.models import Employee
+    from apps.usermanagement.selectors import EmployeeSelector
 
     try:
         employee = user.employee
         return employee.employee_jobcode, employee.employee_name
     except Employee.DoesNotExist:
-        return user.auth_username, user.auth_username
+        pass
+
+    employee = EmployeeSelector.get_employee_by_jobcode(getattr(user, "auth_username", ""))
+    if employee is not None:
+        return employee.employee_jobcode, employee.employee_name
+
+    return user.auth_username, user.auth_username

@@ -36,6 +36,7 @@ from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMi
 from core.pagination import CustomPageNumberPagination
 from core.permissions import IsAssetAdminOrAbove
 from utils.response_utils import error_response, success_response
+from utils.user_utils import resolve_operator
 
 from ._export_mixin import ExportExcelMixin
 from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
@@ -84,8 +85,7 @@ class BrokenAssetViewSet(
             return error_response(message="ids is required", status_code=400)
         success_ids = []
         fail_items = []
-        operator_jobcode = request.user.auth_id
-        operator_name = getattr(request.user, "auth_username", None)
+        operator_jobcode, operator_name = resolve_operator(request.user)
         for recordcode in ids:
             try:
                 AssetLifecycleMixin.delete_broken_asset(
@@ -153,8 +153,7 @@ class LostAssetViewSet(
             return error_response(message="ids is required", status_code=400)
         success_ids = []
         fail_items = []
-        operator_jobcode = request.user.auth_id
-        operator_name = getattr(request.user, "auth_username", None)
+        operator_jobcode, operator_name = resolve_operator(request.user)
         for recordcode in ids:
             try:
                 AssetLifecycleMixin.delete_lost_asset(
@@ -222,8 +221,7 @@ class FoundAssetViewSet(
             return error_response(message="ids is required", status_code=400)
         success_ids = []
         fail_items = []
-        operator_jobcode = request.user.auth_id
-        operator_name = getattr(request.user, "auth_username", None)
+        operator_jobcode, operator_name = resolve_operator(request.user)
         for recordcode in ids:
             try:
                 AssetLifecycleMixin.delete_found_asset(

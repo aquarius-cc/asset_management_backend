@@ -27,6 +27,7 @@ from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMi
 from core.pagination import CustomPageNumberPagination
 from core.permissions import IsAssetAdminOrAbove
 from utils.response_utils import error_response, success_response
+from utils.user_utils import resolve_operator
 
 from ._export_mixin import ExportExcelMixin
 from ._mixins import AdminWritePermissionMixin, OperatorContextMixin, RecordcodeLookupMixin
@@ -207,8 +208,8 @@ class OutAssetViewSet(
         serializer.is_valid(raise_exception=True)
         result = OutAssetService.batch_create_outasset(
             serializer.validated_data["items"],
-            operator_jobcode=request.user.auth_username,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         success_serializer = OutAssetCreateSerializer(result["success_items"], many=True)
         return success_response(
@@ -226,8 +227,8 @@ class OutAssetViewSet(
         outasset = self.get_object()
         result = OutAssetService.batch_delete_outasset(
             recordcodes=[outasset.recordcode],
-            operator_jobcode=request.user.auth_username,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         if result["fail_count"] > 0:
             fail_item = result["fail_items"][0]
@@ -242,8 +243,8 @@ class OutAssetViewSet(
         serializer.is_valid(raise_exception=True)
         result = OutAssetService.batch_delete_outasset(
             serializer.validated_data["ids"],
-            operator_jobcode=request.user.auth_username,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         return success_response(
             data={
@@ -291,8 +292,8 @@ class OutAssetViewSet(
         outasset = self.get_object()
         result = OutAssetService.batch_delete_outasset(
             recordcodes=[outasset.recordcode],
-            operator_jobcode=request.user.auth_username,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         if result["fail_count"] > 0:
             fail_item = result["fail_items"][0]

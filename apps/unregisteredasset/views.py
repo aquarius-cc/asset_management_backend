@@ -42,6 +42,7 @@ from core.mixins import LoggingMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
 from core.permissions import IsDeptManagerOrAbove, IsSystemAdmin
 from utils.response_utils import error_response, success_response
+from utils.user_utils import resolve_operator
 
 
 class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet):
@@ -128,24 +129,9 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet)
         serializer = self.get_serializer_class()(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # 获取操作人工号:从请求数据中获取discovery_person
-        operator_jobcode = request.data.get("discovery_person")
-        if not operator_jobcode:
-            # 尝试从当前用户查找对应的Employee
-            from apps.usermanagement.selectors import EmployeeSelector
-
-            try:
-                # 假设auth_username与employee_jobcode有某种关联
-                employee = EmployeeSelector.get_employee_by_jobcode(getattr(request.user, "auth_username", None))
-                if employee:
-                    operator_jobcode = employee.employee_jobcode
-                else:
-                    # 如果找不到对应的Employee,使用auth_id(可能失败)
-                    operator_jobcode = request.user.auth_id
-            except Exception:
-                operator_jobcode = request.user.auth_id
-
-        operator_name = getattr(request.user, "auth_username", None)
+        # 获取操作人工号:优先取请求中的 discovery_person,否则解析当前用户
+        operator_jobcode = request.data.get("discovery_person") or resolve_operator(request.user)[0]
+        operator_name = resolve_operator(request.user)[1]
 
         # 创建记录
         instance = UnregisteredAssetService.create(
@@ -177,8 +163,7 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet)
         serializer = self.get_serializer_class()(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        operator_jobcode = request.user.auth_id
-        operator_name = getattr(request.user, "auth_username", None)
+        operator_jobcode, operator_name = resolve_operator(request.user)
 
         updated = UnregisteredAssetService.update(
             unregistered_code=unregistered_code,
@@ -205,8 +190,7 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet)
         if not instance:
             raise NotFound(detail=f"未登记资产 {unregistered_code} 不存在")
 
-        operator_jobcode = request.user.auth_id
-        operator_name = getattr(request.user, "auth_username", None)
+        operator_jobcode, operator_name = resolve_operator(request.user)
 
         UnregisteredAssetService.delete(
             unregistered_code=unregistered_code, operator_jobcode=operator_jobcode, operator_name=operator_name
@@ -237,9 +221,9 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet)
         serializer = self.get_serializer_class("approve")(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # 优先从请求数据中获取审批人工号,否则使用当前用户的auth_id
-        approver = serializer.validated_data.get("approver") or request.user.auth_id
-        operator_name = getattr(request.user, "auth_username", None)
+        # 优先从请求数据中获取审批人工号,否则使用当前用户的工号
+        operator_jobcode, operator_name = resolve_operator(request.user)
+        approver = serializer.validated_data.get("approver") or operator_jobcode
 
         result = UnregisteredAssetService.approve_and_handle(
             unregistered_code=unregistered_code,
@@ -270,8 +254,8 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet)
                 serializer.is_valid(raise_exception=True)
                 instance = UnregisteredAssetService.create(
                     data=serializer.validated_data,
-                    operator_jobcode=request.user.auth_id,
-                    operator_name=getattr(request.user, "auth_username", None),
+                    operator_jobcode=resolve_operator(request.user)[0],
+                    operator_name=resolve_operator(request.user)[1],
                 )
                 success_items.append(UnregisteredAssetDetailSerializer(instance).data)
             except Exception as e:
@@ -353,8 +337,8 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet)
 
                 UnregisteredAssetService.delete(
                     unregistered_code=unregistered_code,
-                    operator_jobcode=request.user.auth_id,
-                    operator_name=getattr(request.user, "auth_username", None),
+                    operator_jobcode=resolve_operator(request.user)[0],
+                    operator_name=resolve_operator(request.user)[1],
                 )
                 success_ids.append(unregistered_code)
 

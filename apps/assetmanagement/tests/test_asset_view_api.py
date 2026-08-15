@@ -133,7 +133,8 @@ class TestAssetViewSet:
             .first()
         )
         assert log is not None
-        assert log.operator_jobcode == str(admin_auth_user.auth_id)
+        assert log.operator_jobcode == admin_auth_user.auth_username
+        assert log.operator_jobcode != str(admin_auth_user.auth_id)
 
     def test_change_outasset_employee(self, admin_authenticated_client, asset, employee):
         url = reverse("assets-change-outasset-employee", kwargs={"recordcode": asset.recordcode})

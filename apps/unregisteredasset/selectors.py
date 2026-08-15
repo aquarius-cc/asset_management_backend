@@ -1,15 +1,15 @@
 """
 未登记资产查询选择器
 
-该模块封装未登记资产的所有查询逻辑，遵循 Selector 层职责：
-- 只读操作（查询、筛选、统计）
+该模块封装未登记资产的所有查询逻辑,遵循 Selector 层职责:
+- 只读操作(查询、筛选、统计)
 - 不涉及业务逻辑判断
 - 返回 QuerySet 或模型实例
 
 【AGENTS 规范 - Selector 层】
-- 单一职责：只负责数据查询，不修改数据
-- 可组合：支持链式调用和条件筛选
-- 类型安全：返回值有类型标注
+- 单一职责:只负责数据查询,不修改数据
+- 可组合:支持链式调用和条件筛选
+- 类型安全:返回值有类型标注
 
 【使用方式】
     from .selectors import UnregisteredAssetSelector
@@ -37,7 +37,7 @@ class UnregisteredAssetSelector:
     """
     未登记资产查询选择器
 
-    提供未登记资产的查询方法，所有方法均为静态方法，无需实例化。
+    提供未登记资产的查询方法,所有方法均为静态方法,无需实例化。
 
     【查询方法】
     - get_by_code(): 根据编码获取单条记录
@@ -47,8 +47,8 @@ class UnregisteredAssetSelector:
     - list_pending(): 获取待审批记录
 
     【返回值说明】
-    - get_* 方法：返回模型实例或 None
-    - list_* 方法：返回 QuerySet
+    - get_* 方法:返回模型实例或 None
+    - list_* 方法:返回 QuerySet
 
     Example:
         >>> from apps.unregisteredasset.selectors import UnregisteredAssetSelector
@@ -69,10 +69,10 @@ class UnregisteredAssetSelector:
         根据未登记资产编码获取记录
 
         Args:
-            unregistered_code: 未登记资产编码（如 'UNR-20260526-ABC123'）
+            unregistered_code: 未登记资产编码(如 'UNR-20260526-ABC123')
 
         Returns:
-            UnregisteredAsset: 找到的记录，不存在则返回 None
+            UnregisteredAsset: 找到的记录,不存在则返回 None
 
         Example:
             >>> asset = UnregisteredAssetSelector.get_by_code('UNR-20260526-ABC123')
@@ -87,6 +87,28 @@ class UnregisteredAssetSelector:
             return None
 
     @staticmethod
+    def get_by_code_for_update(unregistered_code: str) -> Optional["UnregisteredAsset"]:
+        """
+        根据未登记资产编码获取记录(行级锁,供并发写场景使用)
+
+        与 get_by_code 的区别:使用 select_for_update 锁定行,
+        配合 @transaction.atomic 防止并发审批/删除导致的竞态条件。
+
+        Args:
+            unregistered_code: 未登记资产编码
+
+        Returns:
+            UnregisteredAsset: 找到的记录,不存在则返回 None
+        """
+        from apps.unregisteredasset.models import UnregisteredAsset
+
+        return (
+            UnregisteredAsset.objects.select_for_update()
+            .filter(unregistered_code=unregistered_code, is_deleted=False)
+            .first()
+        )
+
+    @staticmethod
     def get_by_id(asset_id: int) -> Optional["UnregisteredAsset"]:
         """
         根据 ID 获取未登记资产记录
@@ -95,7 +117,7 @@ class UnregisteredAssetSelector:
             asset_id: 记录主键 ID
 
         Returns:
-            UnregisteredAsset: 找到的记录，不存在则返回 None
+            UnregisteredAsset: 找到的记录,不存在则返回 None
 
         Example:
             >>> asset = UnregisteredAssetSelector.get_by_id(1)
@@ -118,11 +140,11 @@ class UnregisteredAssetSelector:
         """
         根据条件筛选未登记资产列表
 
-        所有参数均为可选，不传则不过滤该条件。
+        所有参数均为可选,不传则不过滤该条件。
 
         Args:
-            scenario_type: 场景类型（s1_no_record/s2_no_outasset/s3_status_mismatch）
-            approval_status: 审批状态（pending/approved/rejected）
+            scenario_type: 场景类型(s1_no_record/s2_no_outasset/s3_status_mismatch)
+            approval_status: 审批状态(pending/approved/rejected)
             discovery_person: 发现人工号
             handle_type: 处理方式
             related_asset: 关联资产编码
@@ -172,7 +194,7 @@ class UnregisteredAssetSelector:
 
         Args:
             discovery_person: 发现人工号
-            approval_status: 可选，筛选特定审批状态
+            approval_status: 可选,筛选特定审批状态
 
         Returns:
             QuerySet[UnregisteredAsset]: 该发现人的记录列表
@@ -208,7 +230,7 @@ class UnregisteredAssetSelector:
         获取指定场景类型的未登记资产记录
 
         Args:
-            scenario_type: 场景类型（s1_no_record/s2_no_outasset/s3_status_mismatch）
+            scenario_type: 场景类型(s1_no_record/s2_no_outasset/s3_status_mismatch)
 
         Returns:
             QuerySet[UnregisteredAsset]: 该场景的记录列表
@@ -228,7 +250,7 @@ class UnregisteredAssetSelector:
             unregistered_code: 未登记资产编码
 
         Returns:
-            bool: 是否存在（未删除的）记录
+            bool: 是否存在(未删除的)记录
 
         Example:
             >>> if UnregisteredAssetSelector.exists_by_code('UNR-20260526-ABC123'):

@@ -1,7 +1,7 @@
 """
 未登记资产测试配置文件
 
-提供测试用的 fixtures，包括：
+提供测试用的 fixtures,包括:
 - 测试用户
 - 测试部门
 - 测试仓库
@@ -23,7 +23,7 @@ from apps.usermanagement.models import Department, Employee, EmployeeRole
 @pytest.fixture
 def auth_user(db):
     """
-    测试认证用户（用于API认证）
+    测试认证用户(用于API认证)
     """
     return AuthUser.objects.create_user(auth_username="testuser", password="testpass123", auth_phone="13800138000")
 
@@ -31,11 +31,23 @@ def auth_user(db):
 @pytest.fixture
 def admin_auth_user(db):
     """
-    测试管理员认证用户（用于需要管理员权限的API测试）
+    测试系统管理员认证用户(用于需要管理员权限的API测试)
+
+    RBAC 系统管理员:Employee.role=system_admin,无部门(全局角色不受无部门兜底影响)。
+    删除操作使用 IsSystemAdmin(替代遗留 is_staff 门禁),故夹具不依赖 auth_is_staff。
     """
-    return AuthUser.objects.create_user(
-        auth_username="adminuser", password="adminpass123", auth_phone="13800138001", auth_is_staff=True
+    user = AuthUser.objects.create_user(
+        auth_username="adminuser", password="adminpass123", auth_phone="13800138001"
     )
+    Employee.objects.create(
+        employee_jobcode="adminuser",
+        employee_name="系统管理员",
+        employee_department=None,
+        role=EmployeeRole.SYSTEM_ADMIN,
+        employee_phone="13800138001",
+        employee_location="测试地点",
+    )
+    return user
 
 
 @pytest.fixture
@@ -68,18 +80,24 @@ def admin_employee(db):
 
 @pytest.fixture
 def dept_manager_user(db):
-    """部门经理用户（用于审批测试）"""
+    """部门经理用户(用于审批测试)"""
     dept = Department.objects.create(
-        department_code="DM_DEPT", department_name="审批部门",
+        department_code="DM_DEPT",
+        department_name="审批部门",
         department_information="info",
     )
     user = AuthUser.objects.create_user(
-        auth_username="dmuser", password="dmpass123", auth_phone="13800138002",
+        auth_username="dmuser",
+        password="dmpass123",
+        auth_phone="13800138002",
     )
     Employee.objects.create(
-        employee_jobcode="dmuser", employee_name="部门经理",
-        employee_department=dept, role=EmployeeRole.DEPT_MANAGER,
-        employee_phone="13800138002", employee_location="测试地点",
+        employee_jobcode="dmuser",
+        employee_name="部门经理",
+        employee_department=dept,
+        role=EmployeeRole.DEPT_MANAGER,
+        employee_phone="13800138002",
+        employee_location="测试地点",
     )
     return user
 
@@ -96,9 +114,7 @@ def asset_type(db):
     """
     测试资产类型
     """
-    return AssetType.objects.create(
-        type_code="TYPE001", type_name="测试大类"
-    )
+    return AssetType.objects.create(type_code="TYPE001", type_name="测试大类")
 
 
 @pytest.fixture
@@ -112,7 +128,7 @@ def storage(db):
 @pytest.fixture
 def existing_asset(db, storage, asset_type):
     """
-    测试已存在资产（用于 S2/S3 场景）
+    测试已存在资产(用于 S2/S3 场景)
     """
     return Asset.objects.create(
         asset_code="EXIST001",
@@ -129,7 +145,7 @@ def existing_asset(db, storage, asset_type):
 @pytest.fixture
 def unregistered_asset_s1(db, employee, storage, asset_type):
     """
-    测试未登记资产 - S1场景（实物有系统无）
+    测试未登记资产 - S1场景(实物有系统无)
     """
     return UnregisteredAsset.objects.create(
         scenario_type="s1_no_record",
@@ -149,7 +165,7 @@ def unregistered_asset_s1(db, employee, storage, asset_type):
 @pytest.fixture
 def unregistered_asset_s2(db, employee, storage, asset_type, existing_asset):
     """
-    测试未登记资产 - S2场景（系统有无出库）
+    测试未登记资产 - S2场景(系统有无出库)
     """
     return UnregisteredAsset.objects.create(
         scenario_type="s2_no_outasset",
@@ -167,7 +183,7 @@ def unregistered_asset_s2(db, employee, storage, asset_type, existing_asset):
 @pytest.fixture
 def unregistered_asset_s3(db, employee, storage, existing_asset):
     """
-    测试未登记资产 - S3场景（状态异常）
+    测试未登记资产 - S3场景(状态异常)
     """
     return UnregisteredAsset.objects.create(
         scenario_type="s3_status_mismatch",

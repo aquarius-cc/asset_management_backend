@@ -1,18 +1,18 @@
 """
 未登记资产审计适配器
 
-该模块封装对 assetmanagement.operation_log_service.OperationLogService 的调用，
+该模块封装对 assetmanagement.operation_log_service.OperationLogService 的调用,
 为 unregisteredasset 应用提供统一的审计日志记录接口。
 
 【设计目的】
-1. 解耦：unregisteredasset 不直接依赖 OperationLogService 的具体实现
-2. 统一：提供语义化的方法名，统一日志格式
-3. 扩展性：可在适配层添加额外的审计逻辑（如发送通知）
+1. 解耦:unregisteredasset 不直接依赖 OperationLogService 的具体实现
+2. 统一:提供语义化的方法名,统一日志格式
+3. 扩展性:可在适配层添加额外的审计逻辑(如发送通知)
 
 【AGENTS 规范 - 适配器模式】
-- 单一职责：仅封装审计日志调用，不处理业务逻辑
-- 延迟导入：方法内部导入 OperationLogService，避免模块级循环依赖
-- 异常处理：捕获并记录日志异常，不影响主流程
+- 单一职责:仅封装审计日志调用,不处理业务逻辑
+- 延迟导入:方法内部导入 OperationLogService,避免模块级循环依赖
+- 异常处理:捕获并记录日志异常,不影响主流程
 
 【使用方式】
     from .audit_adapter import UnregisteredAssetAuditAdapter
@@ -45,8 +45,8 @@ class UnregisteredAssetAuditAdapter:
     """
     未登记资产审计适配器
 
-    封装审计日志的创建，提供语义化的方法。
-    所有方法均为静态方法，无需实例化。
+    封装审计日志的创建,提供语义化的方法。
+    所有方法均为静态方法,无需实例化。
 
     【方法列表】
     - log_create(): 记录创建操作
@@ -55,7 +55,7 @@ class UnregisteredAssetAuditAdapter:
     - log_delete(): 记录删除操作
 
     【异常处理】
-    所有方法捕获异常并记录到日志，不向上抛出，确保不影响主业务流程。
+    所有方法捕获异常并记录到日志,不向上抛出,确保不影响主业务流程。
 
     Example:
         >>> from apps.unregisteredasset.audit_adapter import UnregisteredAssetAuditAdapter
@@ -83,7 +83,7 @@ class UnregisteredAssetAuditAdapter:
         Args:
             unregistered: 未登记资产记录
             operator_jobcode: 操作人工号
-            operator_name: 操作人姓名（可选）
+            operator_name: 操作人姓名(可选)
 
         Example:
             >>> UnregisteredAssetAuditAdapter.log_create(unregistered, 'EMP001')
@@ -105,7 +105,7 @@ class UnregisteredAssetAuditAdapter:
                 },
             )
         except Exception as e:
-            # 记录日志异常，不影响主流程
+            # 记录日志异常,不影响主流程
             logger.error(f"记录未登记资产创建日志失败: {e}", exc_info=True)
 
     @staticmethod
@@ -127,7 +127,7 @@ class UnregisteredAssetAuditAdapter:
             before_data: 变更前数据
             after_data: 变更后数据
             operator_jobcode: 操作人工号
-            operator_name: 操作人姓名（可选）
+            operator_name: 操作人姓名(可选)
 
         Example:
             >>> UnregisteredAssetAuditAdapter.log_update(
@@ -171,7 +171,7 @@ class UnregisteredAssetAuditAdapter:
             handle_type: 处理方式
             result: 处理结果
             operator_jobcode: 操作人工号
-            operator_name: 操作人姓名（可选）
+            operator_name: 操作人姓名(可选)
 
         Example:
             >>> UnregisteredAssetAuditAdapter.log_approve(
@@ -218,7 +218,7 @@ class UnregisteredAssetAuditAdapter:
         Args:
             unregistered: 未登记资产记录
             operator_jobcode: 操作人工号
-            operator_name: 操作人姓名（可选）
+            operator_name: 操作人姓名(可选)
 
         Example:
             >>> UnregisteredAssetAuditAdapter.log_delete(unregistered, 'EMP001')

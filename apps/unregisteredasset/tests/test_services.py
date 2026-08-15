@@ -1,10 +1,10 @@
 """
 未登记资产服务层测试
 
-测试 UnregisteredAssetService 的：
+测试 UnregisteredAssetService 的:
 - 创建未登记资产
 - 更新未登记资产
-- 审批处理（各种场景）
+- 审批处理(各种场景)
 - 删除未登记资产
 - 异常处理
 """

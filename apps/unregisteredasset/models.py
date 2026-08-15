@@ -1,21 +1,21 @@
 """
 未登记资产管理模型
 
-该模块定义未登记资产的数据模型，管理不在账资产的发现、核实、处理全流程。
+该模块定义未登记资产的数据模型,管理不在账资产的发现、核实、处理全流程。
 
 【AGENTS 规范 - 模型设计】
 - 继承 BaseModel 获得软删除和时间戳功能
 - 字段数量控制在 25 个以内
-- 使用字符串形式引用跨应用模型（'app.Model'）
+- 使用字符串形式引用跨应用模型('app.Model')
 - 定义清晰的 choices 和 help_text
 
 【跨应用关联】
-- assetmanagement.Asset: 关联资产（字符串引用）
-- assetmanagement.AssetType: 资产类型（字符串引用）
-- assetmanagement.Storage: 仓库（字符串引用）
-- assetmanagement.RecycleAsset: 回收记录（字符串引用）
-- assetmanagement.DamagedAsset: 待报废记录（字符串引用）
-- usermanagement.Employee: 人员（字符串引用）
+- assetmanagement.Asset: 关联资产(字符串引用)
+- assetmanagement.AssetType: 资产类型(字符串引用)
+- assetmanagement.Storage: 仓库(字符串引用)
+- assetmanagement.RecycleAsset: 回收记录(字符串引用)
+- assetmanagement.DamagedAsset: 待报废记录(字符串引用)
+- usermanagement.Employee: 人员(字符串引用)
 
 【场景说明】
 - S1 (s1_no_record): 实物有系统无 → 创建新资产
@@ -41,7 +41,7 @@ class UnregisteredAsset(BaseModel):
     """
     未登记资产管理模型
 
-    管理不在账资产的全生命周期：发现 → 申请 → 审批 → 处理。
+    管理不在账资产的全生命周期:发现 → 申请 → 审批 → 处理。
 
     【状态流转】
     pending → approved → 根据 handle_type 创建对应记录
@@ -49,9 +49,9 @@ class UnregisteredAsset(BaseModel):
 
     【关键字段】
     - unregistered_code: 系统自动生成的唯一编码
-    - scenario_type: 场景类型（S1/S2/S3）
+    - scenario_type: 场景类型(S1/S2/S3)
     - approval_status: 审批状态
-    - handle_type: 处理方式（审批时确定）
+    - handle_type: 处理方式(审批时确定)
     - result_*: 处理结果追踪字段
 
     【约束】
@@ -59,8 +59,8 @@ class UnregisteredAsset(BaseModel):
     - 删除仅允许待审批状态
 
     Attributes:
-        objects: 默认管理器（过滤已删除）
-        all_objects: 完整管理器（包含已删除）
+        objects: 默认管理器(过滤已删除)
+        all_objects: 完整管理器(包含已删除)
     """
 
     RECORDCODE_PREFIX = "UNREG"
@@ -101,17 +101,17 @@ class UnregisteredAsset(BaseModel):
         REJECTED = "rejected", "已拒绝"
 
     # ==========================================
-    # 基础信息（发现时采集）
+    # 基础信息(发现时采集)
     # ==========================================
     unregistered_code = models.CharField(
-        max_length=32, verbose_name="未登记资产编码", help_text="系统自动生成的唯一编码，格式：UNR-YYYYMMDD-XXXXXX"
+        max_length=32, verbose_name="未登记资产编码", help_text="系统自动生成的唯一编码,格式:UNR-YYYYMMDD-XXXXXX"
     )
-    version = models.IntegerField(default=1, verbose_name="版本号", help_text="记录版本号，每次修改自动递增")
+    version = models.IntegerField(default=1, verbose_name="版本号", help_text="记录版本号,每次修改自动递增")
     scenario_type = models.CharField(
         max_length=20,
         choices=ScenarioType.choices,
         verbose_name="场景类型",
-        help_text="不在账资产的具体场景：S1实物有系统无/S2系统有无出库/S3状态异常",
+        help_text="不在账资产的具体场景:S1实物有系统无/S2系统有无出库/S3状态异常",
     )
     discovery_date = models.DateField(verbose_name="发现日期", help_text="发现资产的日期")
     discovery_location = models.CharField(max_length=200, verbose_name="发现地点", help_text="资产发现的具体位置")
@@ -121,18 +121,18 @@ class UnregisteredAsset(BaseModel):
         on_delete=models.DO_NOTHING,
         related_name="unregistered_discovered",
         verbose_name="发现人",
-        help_text="发现资产的人员工号（通过 recordcode 关联）",
+        help_text="发现资产的人员工号(通过 recordcode 关联)",
     )
 
     # ==========================================
-    # 资产信息（发现时采集）
+    # 资产信息(发现时采集)
     # ==========================================
     asset_name = models.CharField(max_length=100, verbose_name="资产名称", help_text="资产的名称")
     asset_brand = models.CharField(
-        max_length=100, blank=True, null=True, verbose_name="资产品牌", help_text="资产的品牌（可选）"
+        max_length=100, blank=True, null=True, verbose_name="资产品牌", help_text="资产的品牌(可选)"
     )
     asset_specification = models.CharField(
-        max_length=100, blank=True, null=True, verbose_name="资产规格", help_text="资产的规格型号（可选）"
+        max_length=100, blank=True, null=True, verbose_name="资产规格", help_text="资产的规格型号(可选)"
     )
     unregistered_asset_type = models.ForeignKey(
         "assetmanagement.AssetType",
@@ -142,7 +142,7 @@ class UnregisteredAsset(BaseModel):
         blank=True,
         related_name="unregistered_assets",
         verbose_name="资产类型",
-        help_text="资产的分类（可选，通过 recordcode 关联）",
+        help_text="资产的分类(可选,通过 recordcode 关联)",
     )
     estimated_value = models.DecimalField(
         max_digits=10,
@@ -150,11 +150,11 @@ class UnregisteredAsset(BaseModel):
         blank=True,
         null=True,
         verbose_name="预估价值",
-        help_text="资产的预估价值（元，可选）",
+        help_text="资产的预估价值(元,可选)",
     )
 
     # ==========================================
-    # 关联资产（S2/S3场景使用）
+    # 关联资产(S2/S3场景使用)
     # ==========================================
     related_asset = models.ForeignKey(
         "assetmanagement.Asset",
@@ -164,11 +164,11 @@ class UnregisteredAsset(BaseModel):
         blank=True,
         related_name="unregistered_records",
         verbose_name="关联资产",
-        help_text="系统中已存在的资产（S2/S3场景必填，通过 recordcode 关联）",
+        help_text="系统中已存在的资产(S2/S3场景必填,通过 recordcode 关联)",
     )
 
     # ==========================================
-    # 处理信息（审批时确定）
+    # 处理信息(审批时确定)
     # ==========================================
     handle_type = models.CharField(
         max_length=30,
@@ -186,10 +186,10 @@ class UnregisteredAsset(BaseModel):
         blank=True,
         related_name="unregistered_targets",
         verbose_name="目标仓库",
-        help_text="回收后存放的仓库（通过 recordcode 关联）",
+        help_text="回收后存放的仓库(通过 recordcode 关联)",
     )
     handle_description = models.TextField(
-        blank=True, null=True, verbose_name="处理说明", help_text="处理的补充说明（可选）"
+        blank=True, null=True, verbose_name="处理说明", help_text="处理的补充说明(可选)"
     )
 
     # ==========================================
@@ -200,7 +200,7 @@ class UnregisteredAsset(BaseModel):
         choices=ApprovalStatus.choices,
         default=ApprovalStatus.PENDING,
         verbose_name="审批状态",
-        help_text="审批的当前状态：待审批/已批准/已拒绝",
+        help_text="审批的当前状态:待审批/已批准/已拒绝",
     )
     approver = models.ForeignKey(
         "usermanagement.Employee",
@@ -210,15 +210,13 @@ class UnregisteredAsset(BaseModel):
         blank=True,
         related_name="unregistered_approved",
         verbose_name="审批人",
-        help_text="审批人的人员工号（通过 recordcode 关联）",
+        help_text="审批人的人员工号(通过 recordcode 关联)",
     )
     approval_date = models.DateField(blank=True, null=True, verbose_name="审批日期", help_text="审批完成的日期")
-    approval_remark = models.TextField(
-        blank=True, null=True, verbose_name="审批备注", help_text="审批的备注说明（可选）"
-    )
+    approval_remark = models.TextField(blank=True, null=True, verbose_name="审批备注", help_text="审批的备注说明(可选)")
 
     # ==========================================
-    # 结果追踪（处理完成后填充）
+    # 结果追踪(处理完成后填充)
     # ==========================================
     result_asset = models.ForeignKey(
         "assetmanagement.Asset",
@@ -228,7 +226,7 @@ class UnregisteredAsset(BaseModel):
         blank=True,
         related_name="unregistered_source",
         verbose_name="结果资产",
-        help_text="处理后创建的资产（通过 recordcode 关联）",
+        help_text="处理后创建的资产(通过 recordcode 关联)",
     )
     result_recycle_asset = models.ForeignKey(
         "assetmanagement.RecycleAsset",
@@ -250,10 +248,10 @@ class UnregisteredAsset(BaseModel):
     )
 
     # ==========================================
-    # 凭证附件（JSON格式存储文件路径列表）
+    # 凭证附件(JSON格式存储文件路径列表)
     # ==========================================
     attachments = models.JSONField(
-        default=list, blank=True, verbose_name="附件列表", help_text="照片/凭证文件路径列表（JSON数组格式）"
+        default=list, blank=True, verbose_name="附件列表", help_text="照片/凭证文件路径列表(JSON数组格式)"
     )
 
     class Meta:
@@ -272,7 +270,7 @@ class UnregisteredAsset(BaseModel):
             models.Index(fields=["approval_status"]),
             # 按发现人查询
             models.Index(fields=["discovery_person"]),
-            # 复合索引：发现人 + 审批状态
+            # 复合索引:发现人 + 审批状态
             models.Index(fields=["discovery_person", "approval_status"]),
         ]
         constraints = [
@@ -287,8 +285,8 @@ class UnregisteredAsset(BaseModel):
         """
         保存模型实例
 
-        自动生成未登记资产编码（如果未提供）。
-        编码格式：UNR-YYYYMMDD-XXXXXX（6位随机字符）
+        自动生成未登记资产编码(如果未提供)。
+        编码格式:UNR-YYYYMMDD-XXXXXX(6位随机字符)
 
         Args:
             *args: 位置参数
@@ -335,7 +333,7 @@ class UnregisteredAsset(BaseModel):
         """
         检查记录是否允许删除
 
-        只有待审批状态的记录允许删除（软删除）。
+        只有待审批状态的记录允许删除(软删除)。
 
         Returns:
             bool: 是否允许删除

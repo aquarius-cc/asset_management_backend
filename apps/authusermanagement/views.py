@@ -33,6 +33,7 @@ from apps.authusermanagement.services import AuthService
 from core.exceptions import AppValidationError
 from core.permissions import IsSystemAdmin
 from utils.response_utils import error_response, success_response
+from utils.user_utils import resolve_operator
 
 
 class AuthUserViewSet(viewsets.ModelViewSet):
@@ -123,8 +124,8 @@ class AuthUserViewSet(viewsets.ModelViewSet):
             user = AuthService.update_user(
                 auth_id=instance.auth_id,
                 update_data=serializer.validated_data,
-                operator_jobcode=request.user.auth_id,
-                operator_name=request.user.auth_username,
+                operator_jobcode=resolve_operator(request.user)[0],
+                operator_name=resolve_operator(request.user)[1],
             )
             return success_response(data=self.get_serializer(user).data, message="更新成功")
         return error_response(message="更新失败", errors=serializer.errors, status_code=status.HTTP_400_BAD_REQUEST)

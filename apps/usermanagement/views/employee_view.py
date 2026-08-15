@@ -31,6 +31,7 @@ from core.mixins import LoggingMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
 from core.permissions import IsSystemAdmin
 from utils.response_utils import error_response, success_response
+from utils.user_utils import resolve_operator
 
 
 logger = logging.getLogger(__name__)
@@ -525,8 +526,7 @@ class EmployeeViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSet)
             if not auth_username:
                 return error_response(message="请提供 auth_username 参数")
 
-            operator_jobcode = request.user.auth_username if hasattr(request.user, "auth_username") else None
-            operator_name = str(request.user) if hasattr(request.user, "__str__") else None
+            operator_jobcode, operator_name = resolve_operator(request.user)
 
             employee = EmployeeService.bind_auth_user(
                 employee_jobcode=pk,
@@ -556,8 +556,7 @@ class EmployeeViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSet)
         权限要求:system_admin
         """
         try:
-            operator_jobcode = request.user.auth_username if hasattr(request.user, "auth_username") else None
-            operator_name = str(request.user) if hasattr(request.user, "__str__") else None
+            operator_jobcode, operator_name = resolve_operator(request.user)
 
             employee = EmployeeService.unbind_auth_user(
                 employee_jobcode=pk,
@@ -600,8 +599,7 @@ class EmployeeViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSet)
             if not new_auth_username:
                 return error_response(message="请提供 auth_username 参数")
 
-            operator_jobcode = request.user.auth_username if hasattr(request.user, "auth_username") else None
-            operator_name = str(request.user) if hasattr(request.user, "__str__") else None
+            operator_jobcode, operator_name = resolve_operator(request.user)
 
             employee = EmployeeService.replace_auth_user(
                 employee_jobcode=pk,

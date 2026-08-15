@@ -281,6 +281,8 @@ class RoleService:
         request = get_current_request()
         user = getattr(request, "user", None) if request else None
         if user is not None and getattr(user, "is_authenticated", False):
-            return user.auth_username, user.auth_username
+            from utils.user_utils import resolve_operator
+
+            return resolve_operator(user)
 
         return None, None

@@ -28,6 +28,7 @@ from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMi
 from core.pagination import CustomPageNumberPagination
 from core.permissions import IsAssetAdminOrAbove
 from utils.response_utils import error_response, success_response
+from utils.user_utils import resolve_operator
 
 from ._export_mixin import ExportExcelMixin
 from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
@@ -117,8 +118,8 @@ class RecycleAssetViewSet(
         serializer.is_valid(raise_exception=True)
         recycle = RecycleAssetService.create_recycle_asset(
             serializer.validated_data,
-            operator_jobcode=request.user.auth_username,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         return success_response(
             data=RecycleAssetCreateSerializer(recycle).data, message="回收成功", status_code=status.HTTP_201_CREATED
@@ -131,8 +132,8 @@ class RecycleAssetViewSet(
         recycle = RecycleAssetService.update_recycle_asset(
             recordcode=recordcode,
             update_data=serializer.validated_data,
-            operator_jobcode=request.user.auth_username,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         return success_response(data=RecycleAssetDetailSerializer(recycle).data, message="更新成功")
 
@@ -191,7 +192,9 @@ class RecycleAssetViewSet(
             mapped_items.append(mapped)
 
         result = RecycleAssetService.batch_create_recycle_asset(
-            mapped_items, operator_jobcode=request.user.auth_username, operator_name=request.user.auth_username
+            mapped_items,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         success_serializer = RecycleAssetCreateSerializer(result["success_items"], many=True)
         return success_response(
@@ -209,8 +212,8 @@ class RecycleAssetViewSet(
         asset_recordcode = self.get_object()
         result = RecycleAssetService.batch_delete_recycle_asset(
             recordcodes=[asset_recordcode.recordcode],
-            operator_jobcode=request.user.auth_username,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         if result["fail_count"] > 0:
             fail_item = result["fail_items"][0]
@@ -225,8 +228,8 @@ class RecycleAssetViewSet(
         serializer.is_valid(raise_exception=True)
         result = RecycleAssetService.batch_delete_recycle_asset(
             serializer.validated_data["ids"],
-            operator_jobcode=request.user.auth_username,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         return success_response(
             data={
@@ -245,8 +248,8 @@ class RecycleAssetViewSet(
         recycle = self.get_object()
         result = RecycleAssetService.batch_delete_recycle_asset(
             recordcodes=[recycle.recordcode],
-            operator_jobcode=request.user.auth_username,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         if result["fail_count"] > 0:
             fail_item = result["fail_items"][0]
@@ -260,8 +263,8 @@ class RecycleAssetViewSet(
         """POST /recycle-assets/{recordcode}/reissue/ — 重新发放已回收资产"""
         outasset = RecycleAssetService.reissue_recycle_asset(
             recordcode=recordcode,
-            operator_jobcode=request.user.auth_username,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         return success_response(
             data=OutAssetDetailSerializer(outasset).data,

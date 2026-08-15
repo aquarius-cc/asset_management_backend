@@ -30,6 +30,7 @@ from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMi
 from core.pagination import CustomPageNumberPagination
 from core.permissions import IsAssetAdminOrAbove
 from utils.response_utils import error_response, success_response
+from utils.user_utils import resolve_operator
 
 from ._export_mixin import ExportExcelMixin
 from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
@@ -127,8 +128,8 @@ class AssetViewSet(
         serializer.is_valid(raise_exception=True)
         assets = AssetService.create_asset(
             serializer.validated_data,
-            operator_jobcode=request.user.auth_id,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         response_serializer = AssetDetailSerializer(assets, many=True)
         count = len(assets)
@@ -140,8 +141,8 @@ class AssetViewSet(
         asset = AssetService.update_asset(
             asset_code=asset_code,
             update_data=request.data,
-            operator_jobcode=request.user.auth_id,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         serializer = AssetDetailSerializer(asset)
         return success_response(data=serializer.data, message="更新成功")
@@ -153,8 +154,8 @@ class AssetViewSet(
         asset_code = self.kwargs.get("recordcode")
         AssetService.delete_asset(
             asset_code=asset_code,
-            operator_jobcode=request.user.auth_id,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         return success_response(message="删除成功")
 
@@ -271,8 +272,8 @@ class AssetViewSet(
             asset_code,
             new_status,
             description,
-            operator_jobcode=request.user.auth_id,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         serializer = AssetDetailSerializer(asset)
         return success_response(
@@ -328,8 +329,8 @@ class AssetViewSet(
             return error_response(message="参数验证失败", status_code=400, errors=serializer.errors)
         result = AssetService.batch_create_asset(
             serializer.validated_data["items"],
-            operator_jobcode=request.user.auth_id,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         success_serializer = AssetDetailSerializer(result["success_items"], many=True)
         return success_response(
@@ -349,8 +350,8 @@ class AssetViewSet(
         serializer.is_valid(raise_exception=True)
         result = AssetService.batch_delete_asset(
             serializer.validated_data["ids"],
-            operator_jobcode=request.user.auth_id,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         return success_response(
             data={
@@ -371,8 +372,8 @@ class AssetViewSet(
             asset_code=asset.asset_code,
             broken_reason=request.data.get("broken_reason", ""),
             broken_description=request.data.get("broken_description", ""),
-            operator_jobcode=request.user.auth_id,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         return success_response(data=AssetDetailSerializer(asset).data, message="资产已标记为损坏")
 
@@ -385,8 +386,8 @@ class AssetViewSet(
             lost_reason=request.data.get("lost_reason", ""),
             last_known_location=request.data.get("last_known_location", ""),
             lost_description=request.data.get("lost_description", ""),
-            operator_jobcode=request.user.auth_id,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         return success_response(data=AssetDetailSerializer(asset).data, message="资产已标记为遗失")
 
@@ -397,8 +398,8 @@ class AssetViewSet(
             asset_code=asset.asset_code,
             found_location=request.data.get("found_location", ""),
             found_description=request.data.get("found_description", ""),
-            operator_jobcode=request.user.auth_id,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         return success_response(data=AssetDetailSerializer(asset).data, message="遗失资产已找回并入库")
 
@@ -412,8 +413,8 @@ class AssetViewSet(
             repair_reason=request.data.get("repair_reason", ""),
             repair_date=request.data.get("repair_date", ""),
             repair_description=request.data.get("repair_description", ""),
-            operator_jobcode=request.user.auth_id,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         return success_response(
             data=RepairAssetDetailSerializer(repair_record).data, message="Asset sent for repair"
@@ -428,8 +429,8 @@ class AssetViewSet(
             asset_code=asset.asset_code,
             actual_return_date=request.data.get("actual_return_date", ""),
             physical_grade_after=request.data.get("physical_grade_after", ""),
-            operator_jobcode=request.user.auth_id,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         return success_response(data=RepairAssetDetailSerializer(repair_record).data, message="Repair completed")
 
@@ -440,8 +441,8 @@ class AssetViewSet(
 
         repair_record = RepairAssetService.fail_repair(
             asset_code=asset.asset_code,
-            operator_jobcode=request.user.auth_id,
-            operator_name=request.user.auth_username,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         return success_response(data=RepairAssetDetailSerializer(repair_record).data, message="Repair failed")
 

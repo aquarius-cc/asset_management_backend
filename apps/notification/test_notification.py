@@ -5,16 +5,20 @@
 - Notification 模型创建与字段验证
 - send_notification_sync 持久化 + WebSocket 推送
 - notify_dept_managers 路由逻辑
+- send_notification_on_commit 事务提交后发送(B6)
 - API 视图:列表、未读计数、标记已读、全部已读
 """
 
+import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.db.transaction import TransactionManagementError
+from django.test import TestCase as DjangoTestCase
 from rest_framework.test import APIClient
 
-from apps.notification.helpers import notify_dept_managers
+from apps.notification.helpers import notify_dept_managers, send_notification_on_commit
 from apps.notification.models import Notification
 from apps.notification.service import send_notification_sync
 
@@ -135,6 +139,71 @@ class TestNotifyDeptManagers:
                 )
                 # 通知仍应被持久化
                 assert Notification.objects.filter(recipient_jobcode="MGR001").count() == 1
+
+
+@pytest.mark.django_db
+class TestSendNotificationOnCommit:
+    """send_notification_on_commit 事务提交后发送(B6)"""
+
+    def test_registers_callback_sent_on_commit(self):
+        """注册回调,提交前不发送,事务提交(模拟)后调用 notify_dept_managers"""
+        mock_asset = MagicMock()
+        mock_asset.asset_code = "AST_ONC"
+
+        with patch("apps.notification.helpers.notify_dept_managers") as mock_notify:
+            with DjangoTestCase.captureOnCommitCallbacks(execute=False) as callbacks:
+                send_notification_on_commit(
+                    asset=mock_asset,
+                    notification_type="status_change",
+                    title="状态变更",
+                    message="资产已出库",
+                    priority="high",
+                    related_url="/main/assetdetails/AST_ONC",
+                )
+                mock_notify.assert_not_called()
+            assert len(callbacks) == 1
+            callbacks[0]()
+        mock_notify.assert_called_once_with(
+            asset=mock_asset,
+            notification_type="status_change",
+            title="状态变更",
+            message="资产已出库",
+            priority="high",
+            related_url="/main/assetdetails/AST_ONC",
+        )
+
+    def test_callback_exception_is_swallowed_and_logged(self, caplog):
+        """回调内异常被吞掉并记录日志,不影响业务(robust 语义,缺陷B回归护栏)"""
+        mock_asset = MagicMock()
+        mock_asset.asset_code = "AST_FAIL"
+
+        with patch(
+            "apps.notification.helpers.notify_dept_managers", side_effect=RuntimeError("notify boom")
+        ):
+            with caplog.at_level(logging.ERROR, logger="apps.notification.helpers"):
+                with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+                    send_notification_on_commit(
+                        asset=mock_asset,
+                        notification_type="status_change",
+                        title="状态变更",
+                        message="消息",
+                    )
+        messages = [r.message for r in caplog.records]
+        assert any("AST_FAIL" in m and "notify boom" in m for m in messages)
+
+
+def test_send_notification_on_commit_raises_outside_atomic_block():
+    """非事务块内调用应抛出 TransactionManagementError,阻止通知过早发送(不包裹事务,保证 in_atomic_block=False)"""
+    mock_asset = MagicMock()
+    mock_asset.asset_code = "AST_X"
+
+    with pytest.raises(TransactionManagementError):
+        send_notification_on_commit(
+            asset=mock_asset,
+            notification_type="system",
+            title="t",
+            message="m",
+        )
 
 
 @pytest.mark.django_db

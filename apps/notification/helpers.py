@@ -7,7 +7,8 @@
 import logging
 from typing import TYPE_CHECKING
 
-from django.db import transaction
+from django.db import connection, transaction
+from django.db.transaction import TransactionManagementError
 
 from apps.notification.service import send_notification_sync
 
@@ -82,6 +83,7 @@ def send_notification_on_commit(
 
     必须与 @transaction.atomic 配合使用:将通知注册到 on_commit,
     确保数据提交成功后才推送,避免事务回滚导致误报。
+    在非事务块内调用会立即抛出 TransactionManagementError,防止通知过早发送。
 
     Args:
         asset: 资产实例
@@ -91,13 +93,26 @@ def send_notification_on_commit(
         priority: 优先级(low/medium/high)
         related_url: 关联页面路径
     """
-    transaction.on_commit(
-        lambda: notify_dept_managers(
-            asset=asset,
-            notification_type=notification_type,
-            title=title,
-            message=message,
-            priority=priority,
-            related_url=related_url,
-        )
-    )
+    if not connection.in_atomic_block:
+        raise TransactionManagementError("send_notification_on_commit 必须在 @transaction.atomic 事务块内调用")
+
+    def _notify_after_commit() -> None:
+        try:
+            notify_dept_managers(
+                asset=asset,
+                notification_type=notification_type,
+                title=title,
+                message=message,
+                priority=priority,
+                related_url=related_url,
+            )
+        except Exception as e:
+            logger.error(
+                "on_commit 通知发送失败 (asset=%s, notification_type=%s): %s",
+                asset.asset_code,
+                notification_type,
+                e,
+                exc_info=True,
+            )
+
+    transaction.on_commit(_notify_after_commit, robust=True)

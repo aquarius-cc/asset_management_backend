@@ -39,7 +39,7 @@ def department(db):
     """
     测试部门
 
-    【修复】Department 模型没有 department_status 字段，移除该参数
+    【修复】Department 模型没有 department_status 字段,移除该参数
     """
     return Department.objects.create(
         department_code="D001",
@@ -52,7 +52,7 @@ def user(db, department):
     """
     测试用户
 
-    【修复】Employee 模型的部门外键字段名为 employee_department（非 employee_department_code）
+    【修复】Employee 模型的部门外键字段名为 employee_department(非 employee_department_code)
     """
     return Employee.objects.create(employee_jobcode="U001", employee_name="测试用户", employee_department=department)
 
@@ -77,7 +77,7 @@ def asset_type(db):
     """
     测试资产类型
 
-    Asset.asset_type_code 是必填的 ForeignKey 字段，
+    Asset.asset_type_code 是必填的 ForeignKey 字段,
     测试中创建 Asset 前必须先创建 AssetType 实例。
     """
     return AssetType.objects.create(
@@ -91,7 +91,7 @@ def asset(db, storage, asset_type):
     """
     测试资产
 
-    【修复】添加 asset_type_code 必填外键，
+    【修复】添加 asset_type_code 必填外键,
     避免 IntegrityError: Column 'asset_type_code_id' cannot be null
     """
     return Asset.objects.create(
@@ -112,7 +112,7 @@ def outasset(db, asset, user):
     测试出库记录
 
     【AGENTS 规范 - 去除冗余】outasset_applicant_jobcode/manager_jobcode/using_location 已删除
-    这些字段现在统一存储在 Asset 模型中，出库记录只保留 outasset_code 关联
+    这些字段现在统一存储在 Asset 模型中,出库记录只保留 outasset_code 关联
     """
     # 【AGENTS 规范 - 去除冗余】将人员/地点信息设置到 Asset 模型
     asset.asset_applicant_recordcode = user
@@ -134,7 +134,7 @@ def outasset(db, asset, user):
 @pytest.fixture
 def auth_user(db):
     """
-    测试认证用户（用于API认证）
+    测试认证用户(用于API认证)
     """
     return AuthUser.objects.create_user(auth_username="testuser", password="testpass123", auth_phone="13800138000")
 
@@ -142,7 +142,7 @@ def auth_user(db):
 @pytest.fixture
 def admin_auth_user(db):
     """
-    测试管理员认证用户（用于需要管理员权限的API测试）
+    测试管理员认证用户(用于需要管理员权限的API测试)
     创建 superuser 以通过 IsAssetAdminOrAbove 权限检查
     """
     return AuthUser.objects.create_superuser(
@@ -153,7 +153,7 @@ def admin_auth_user(db):
 @pytest.fixture
 def admin_employee(db, department):
     """
-    管理员员工，与 admin_auth_user 关联
+    管理员员工,与 admin_auth_user 关联
     """
     return Employee.objects.create(
         employee_jobcode="adminuser",
@@ -195,8 +195,12 @@ def employee(db, department):
 def damaged_asset(db, asset, employee):
     """
     测试待报废资产
+
+    与业务一致:存在待报废记录时,资产必须已流转为 damaged 状态
+    (create_damaged_asset 在事务内同步流转,见 damaged_asset_service)
     """
-    from apps.assetmanagement.models import DamagedAsset
+    asset.asset_current_status = "damaged"
+    asset.save(update_fields=["asset_current_status", "updated_at"])
     return DamagedAsset.objects.create(
         asset_recordcode=asset,
         damaged_date="2024-06-01",
@@ -212,7 +216,6 @@ def recycle_asset(db, outasset, asset, employee):
     """
     测试回收资产
     """
-    from apps.assetmanagement.models import RecycleAsset
     return RecycleAsset.objects.create(
         outasset_recordcode=outasset,
         asset_recordcode=asset,
@@ -272,6 +275,7 @@ def repair_asset(db, asset, employee):
     测试维修资产
     """
     from apps.assetmanagement.models import RepairAsset
+
     return RepairAsset.objects.create(
         asset_recordcode=asset,
         repair_reason="测试维修原因",

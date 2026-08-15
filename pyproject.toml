@@ -102,6 +102,10 @@ select = [
 ignore = [
     "E501",  # 行长度（由 line-length 控制）
     "E203",  # 与 black 冲突
+    "RUF012",  # mutable class attribute: 项目采用类属性常量/列表设计
+    "B904",  # raise from: 存量代码风格, 后续逐步改进
+    "F405",  # settings: base 通配导入的合法用法
+    "F403",  # settings: Django settings 通配导入惯例
 ]
 
 # 自动修复规则
@@ -119,6 +123,14 @@ exclude = [
     "build",
     "dist",
 ]
+
+[tool.ruff.per-file-ignores]
+# 顶层工具脚本: 顶层 import 属于脚本模式
+"check_*.py" = ["E402"]
+"fix_*.py" = ["E402"]
+"clear_database.py" = ["E402"]
+"manage.py" = ["E402"]
+"append_serializers.py" = ["E402"]
 
 # ==================== Ruff Import 规则 ====================
 [tool.ruff.isort]

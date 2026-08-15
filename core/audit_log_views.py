@@ -2,13 +2,13 @@
 通用审计日志查询视图
 
 【AGENTS 规范 - 架构优化】
-提供只读的通用审计日志查询 API，与 AssetOperationLog 结构一致。
+提供只读的通用审计日志查询 API,与 AssetOperationLog 结构一致。
 支持按应用标识、操作类型、操作人、时间范围等维度查询。
 
-设计原则：
-1. 只读接口，不允许修改或删除审计记录
-2. 统一响应格式（使用 CustomPageNumberPagination + success_response/error_response）
-3. 查询逻辑委托给 AuditLogQueryService，View 仅负责参数解析和响应格式化
+设计原则:
+1. 只读接口,不允许修改或删除审计记录
+2. 统一响应格式(使用 CustomPageNumberPagination + success_response/error_response)
+3. 查询逻辑委托给 AuditLogQueryService,View 仅负责参数解析和响应格式化
 """
 
 from datetime import datetime, timedelta
@@ -65,97 +65,95 @@ class AuditLogListView(ResponseWrapperMixin, APIView):
     【只读接口】
     支持按应用标识、操作类型、操作人、记录编码、时间范围查询审计记录。
 
-    查询参数：
-    - app_label: 应用标识（department / employee / authuser）
-    - operation_type: 操作类型（create / update / delete / approve / login / logout / permission_change / state_change）
+    查询参数:
+    - app_label: 应用标识(department / employee / authuser)
+    - operation_type: 操作类型(create / update / delete / approve / login / logout / permission_change / state_change)
     - operator_jobcode: 操作人工号
-    - record_code: 被操作记录编码（精确匹配）
-    - start_date: 开始日期（YYYY-MM-DD）
-    - end_date: 结束日期（YYYY-MM-DD）
-    - days: 最近 N 天（与日期范围互斥）
+    - record_code: 被操作记录编码(精确匹配)
+    - start_date: 开始日期(YYYY-MM-DD)
+    - end_date: 结束日期(YYYY-MM-DD)
+    - days: 最近 N 天(与日期范围互斥)
     """
 
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
         summary="查询通用审计日志",
-        description="查询通用审计日志列表，支持多种筛选条件",
+        description="查询通用审计日志列表,支持多种筛选条件",
         parameters=[
             OpenApiParameter(
-                name='app_label',
+                name="app_label",
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.QUERY,
-                description='应用标识（department / employee / authuser）',
+                description="应用标识(department / employee / authuser)",
                 required=False,
             ),
             OpenApiParameter(
-                name='operation_type',
+                name="operation_type",
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.QUERY,
-                description='操作类型',
-                enum=['create', 'update', 'delete', 'approve', 'login', 'logout', 'permission_change', 'state_change'],
+                description="操作类型",
+                enum=["create", "update", "delete", "approve", "login", "logout", "permission_change", "state_change"],
                 required=False,
             ),
             OpenApiParameter(
-                name='operator_jobcode',
+                name="operator_jobcode",
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.QUERY,
-                description='操作人工号',
+                description="操作人工号",
                 required=False,
             ),
             OpenApiParameter(
-                name='record_code',
+                name="record_code",
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.QUERY,
-                description='被操作记录编码（精确匹配）',
+                description="被操作记录编码(精确匹配)",
                 required=False,
             ),
             OpenApiParameter(
-                name='start_date',
+                name="start_date",
                 type=OpenApiTypes.DATE,
                 location=OpenApiParameter.QUERY,
-                description='开始日期（YYYY-MM-DD）',
+                description="开始日期(YYYY-MM-DD)",
                 required=False,
             ),
             OpenApiParameter(
-                name='end_date',
+                name="end_date",
                 type=OpenApiTypes.DATE,
                 location=OpenApiParameter.QUERY,
-                description='结束日期（YYYY-MM-DD）',
+                description="结束日期(YYYY-MM-DD)",
                 required=False,
             ),
             OpenApiParameter(
-                name='days',
+                name="days",
                 type=OpenApiTypes.INT,
                 location=OpenApiParameter.QUERY,
-                description='最近N天（与日期范围互斥）',
+                description="最近N天(与日期范围互斥)",
                 required=False,
             ),
         ],
         responses={
-            200: {'description': '审计日志列表'},
-            400: {'description': '参数错误'},
+            200: {"description": "审计日志列表"},
+            400: {"description": "参数错误"},
         },
     )
     def get(self, request) -> Response:
         """获取审计日志列表"""
-        app_label = request.query_params.get('app_label')
-        operation_type = request.query_params.get('operation_type')
-        operator_jobcode = request.query_params.get('operator_jobcode')
-        record_code = request.query_params.get('record_code')
-        start_date = request.query_params.get('start_date')
-        end_date = request.query_params.get('end_date')
-        days = request.query_params.get('days')
+        app_label = request.query_params.get("app_label")
+        operation_type = request.query_params.get("operation_type")
+        operator_jobcode = request.query_params.get("operator_jobcode")
+        record_code = request.query_params.get("record_code")
+        start_date = request.query_params.get("start_date")
+        end_date = request.query_params.get("end_date")
+        days = request.query_params.get("days")
 
-        # 参数校验：操作类型合法性
+        # 参数校验:操作类型合法性
         if operation_type:
             valid_types = [choice[0] for choice in AuditLog.OPERATION_TYPE_CHOICES]
             if operation_type not in valid_types:
-                return error_response(
-                    message=f"无效的操作类型: {operation_type}. 必须是以下之一: {valid_types}"
-                )
+                return error_response(message=f"无效的操作类型: {operation_type}. 必须是以下之一: {valid_types}")
 
-        # 参数校验与转换：时间条件
+        # 参数校验与转换:时间条件
         start_time = None
         end_time = None
 
@@ -168,16 +166,16 @@ class AuditLogListView(ResponseWrapperMixin, APIView):
         else:
             if start_date:
                 try:
-                    start_time = datetime.strptime(start_date, '%Y-%m-%d')
+                    start_time = datetime.strptime(start_date, "%Y-%m-%d")
                 except ValueError:
-                    return error_response(message="start_date 格式错误，应为 YYYY-MM-DD")
+                    return error_response(message="start_date 格式错误,应为 YYYY-MM-DD")
 
             if end_date:
                 try:
-                    end_time = datetime.strptime(end_date, '%Y-%m-%d')
+                    end_time = datetime.strptime(end_date, "%Y-%m-%d")
                     end_time = end_time.replace(hour=23, minute=59, second=59)
                 except ValueError:
-                    return error_response(message="end_date 格式错误，应为 YYYY-MM-DD")
+                    return error_response(message="end_date 格式错误,应为 YYYY-MM-DD")
 
         # 【AGENTS 规范 - P1-09】调用 Service 层执行查询
         logs = AuditLogQueryService.query_logs(
@@ -214,8 +212,8 @@ class AuditLogDetailView(ResponseWrapperMixin, APIView):
         summary="获取审计日志详情",
         description="根据 ID 获取单条审计记录的详细信息",
         responses={
-            200: {'description': '审计记录详情'},
-            404: {'description': '记录不存在'},
+            200: {"description": "审计记录详情"},
+            404: {"description": "记录不存在"},
         },
     )
     def get(self, request, pk: int) -> Response:
@@ -247,16 +245,16 @@ class AuditLogByLoggingIdView(ResponseWrapperMixin, APIView):
         description="根据 logging_id 获取单条审计记录的详细信息",
         parameters=[
             OpenApiParameter(
-                name='logging_id',
+                name="logging_id",
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.PATH,
-                description='日志记录唯一标识',
+                description="日志记录唯一标识",
                 required=True,
             ),
         ],
         responses={
-            200: {'description': '审计记录详情'},
-            404: {'description': '记录不存在'},
+            200: {"description": "审计记录详情"},
+            404: {"description": "记录不存在"},
         },
     )
     def get(self, request, logging_id: str) -> Response:
@@ -278,31 +276,31 @@ class RecentAuditLogsView(ResponseWrapperMixin, APIView):
     最近审计日志 API
 
     【只读接口】
-    获取最近 N 天的审计日志，用于监控和审计。
+    获取最近 N 天的审计日志,用于监控和审计。
     """
 
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
         summary="获取最近审计日志",
-        description="获取最近 N 天的审计日志，默认 7 天",
+        description="获取最近 N 天的审计日志,默认 7 天",
         parameters=[
             OpenApiParameter(
-                name='days',
+                name="days",
                 type=OpenApiTypes.INT,
                 location=OpenApiParameter.QUERY,
-                description='最近 N 天，默认 7 天',
+                description="最近 N 天,默认 7 天",
                 default=7,
                 required=False,
             ),
         ],
         responses={
-            200: {'description': '审计日志列表'},
+            200: {"description": "审计日志列表"},
         },
     )
     def get(self, request) -> Response:
         """获取最近审计日志"""
-        days = request.query_params.get('days', '7')
+        days = request.query_params.get("days", "7")
 
         try:
             days_int = int(days)
@@ -339,16 +337,16 @@ class AuditLogsByAppLabelView(ResponseWrapperMixin, APIView):
         description="获取指定应用的所有审计日志",
         parameters=[
             OpenApiParameter(
-                name='app_label',
+                name="app_label",
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.PATH,
-                description='应用标识（department / employee / authuser）',
+                description="应用标识(department / employee / authuser)",
                 required=True,
             ),
         ],
         responses={
-            200: {'description': '审计日志列表'},
-            404: {'description': '该应用没有审计记录'},
+            200: {"description": "审计日志列表"},
+            404: {"description": "该应用没有审计记录"},
         },
     )
     def get(self, request, app_label: str) -> Response:
@@ -387,16 +385,16 @@ class AuditLogsByOperatorView(ResponseWrapperMixin, APIView):
         description="获取指定操作人的所有审计日志",
         parameters=[
             OpenApiParameter(
-                name='operator_jobcode',
+                name="operator_jobcode",
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.PATH,
-                description='操作人工号',
+                description="操作人工号",
                 required=True,
             ),
         ],
         responses={
-            200: {'description': '审计日志列表'},
-            404: {'description': '该操作人没有审计记录'},
+            200: {"description": "审计日志列表"},
+            404: {"description": "该操作人没有审计记录"},
         },
     )
     def get(self, request, operator_jobcode: str) -> Response:

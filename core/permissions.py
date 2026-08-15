@@ -62,17 +62,19 @@ def _get_user_role(user) -> str | None:
     """
     获取用户角色。
 
-    延迟导入 EmployeeSelector 避免循环依赖。
+    延迟导入避免循环依赖。
     is_superuser 直接返回 system_admin,不查数据库。
+    部门级角色但无部门 → 返回 None:写权限判定降级为无角色权限,
+    与权限码(read-only)与数据范围(空)语义一致(最严兜底)。
     """
     if getattr(user, "is_superuser", False):
         return _ROLE_SYSTEM_ADMIN
-    from apps.usermanagement.selectors import EmployeeSelector
 
-    employee = EmployeeSelector.get_employee_by_jobcode(user.auth_username)
-    # 缓存到 request cycle
-    if not hasattr(user, "_rbac_employee"):
-        user._rbac_employee = employee
+    from core.department_scope import get_employee_for_user, is_no_department_dept_scoped
+
+    employee = get_employee_for_user(user)
+    if is_no_department_dept_scoped(user):
+        return None
     return employee.role if employee else None
 
 

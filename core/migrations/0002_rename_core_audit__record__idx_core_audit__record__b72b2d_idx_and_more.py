@@ -23,11 +23,11 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='auditlog',
             name='app_label',
-            field=models.CharField(db_index=True, help_text='操作所属的应用（如 department、employee、authuser）', max_length=50, verbose_name='应用标识'),
+            field=models.CharField(db_index=True, help_text='操作所属的应用(如 department、employee、authuser)', max_length=50, verbose_name='应用标识'),
         ),
         migrations.AlterField(
             model_name='auditlog',
             name='record_code',
-            field=models.CharField(db_index=True, help_text='被操作记录的唯一编码（如部门编码、员工工号、用户名等）', max_length=64, verbose_name='记录编码'),
+            field=models.CharField(db_index=True, help_text='被操作记录的唯一编码(如部门编码、员工工号、用户名等)', max_length=64, verbose_name='记录编码'),
         ),
     ]

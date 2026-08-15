@@ -203,14 +203,11 @@ class RegisterAPIView(APIView):
         """
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
-            try:
-                user = serializer.save()
-                data = {"user": AuthUserSerializer(user).data, **AuthService.issue_tokens(user)}
-                response = success_response(data=data, message="注册成功", status_code=status.HTTP_201_CREATED)
-                set_auth_cookies(request, response, data["access"], data["refresh"])
-                return response
-            except Exception as e:
-                return error_response(message=str(e), status_code=status.HTTP_400_BAD_REQUEST)
+            user = serializer.save()
+            data = {"user": AuthUserSerializer(user).data, **AuthService.issue_tokens(user)}
+            response = success_response(data=data, message="注册成功", status_code=status.HTTP_201_CREATED)
+            set_auth_cookies(request, response, data["access"], data["refresh"])
+            return response
         return error_response(message="注册失败", errors=serializer.errors, status_code=status.HTTP_400_BAD_REQUEST)
 
 

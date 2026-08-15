@@ -1,5 +1,7 @@
 """硬盘序列号服务测试"""
 
+from typing import Any
+
 import pytest
 
 from apps.assetmanagement.models import HardDiskSN
@@ -119,3 +121,32 @@ class TestHardDiskSNBatchSave:
         with pytest.raises(AppValidationError) as exc_info:
             HardDiskSNService.batch_save(asset.recordcode, disks)
         assert exc_info.value.error_code == "DUPLICATE_SN_CODE"
+
+    def test_batch_save_create_success(self, db: Any, asset: Any) -> None:
+        """批量保存创建路径(asset_recordcode 传实例时正常落库)"""
+        result = HardDiskSNService.batch_save(
+            asset,
+            [{"harddisk_sn_code": "BSN_OK", "harddisk_type": "SSD"}],
+        )
+        assert result["created"] == 1
+        assert result["updated"] == 0
+        assert result["total"] == 1
+
+    def test_batch_save_update_existing(self, db: Any, asset: Any) -> None:
+        """批量保存更新路径:传入 recordcode 命中已有记录则更新"""
+        hd = HardDiskSNService.create(
+            {
+                "asset_recordcode": asset,
+                "harddisk_sn_code": "BSN_UPD",
+                "harddisk_type": "SSD",
+            }
+        )
+        result = HardDiskSNService.batch_save(
+            asset,
+            [{"recordcode": hd.recordcode, "harddisk_type": "NVMe"}],
+        )
+        assert result["created"] == 0
+        assert result["updated"] == 1
+        assert result["total"] == 1
+        hd.refresh_from_db()
+        assert hd.harddisk_type == "NVMe"

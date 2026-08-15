@@ -2,8 +2,6 @@
 员工管理视图
 """
 
-import logging
-
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.openapi import OpenApiParameter
@@ -32,9 +30,6 @@ from core.pagination import CustomPageNumberPagination
 from core.permissions import IsSystemAdmin
 from utils.response_utils import error_response, success_response
 from utils.user_utils import resolve_operator
-
-
-logger = logging.getLogger(__name__)
 
 
 class EmployeeViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSet):
@@ -181,13 +176,9 @@ class EmployeeViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSet)
     @action(detail=False, methods=["get"], url_path="employees/(?P<employee_jobcode>[^/.]+)")
     def get_employee_by_jobcode(self, request, employee_jobcode=None):
         """根据工号查询员工(统一格式)"""
-        try:
-            employee = get_object_or_404(self.queryset, employee_jobcode=employee_jobcode)
-            serializer = EmployeeDetailSerializer(employee)
-            return success_response(data=serializer.data)
-        except Exception:
-            logger.exception("get_employee_by_jobcode 操作失败")
-            return error_response(message="操作失败,请稍后重试")
+        employee = get_object_or_404(self.queryset, employee_jobcode=employee_jobcode)
+        serializer = EmployeeDetailSerializer(employee)
+        return success_response(data=serializer.data)
 
     @action(detail=False, methods=["post"], url_path="batch-create")
     def batch_create(self, request):
@@ -246,63 +237,51 @@ class EmployeeViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSet)
     @action(detail=False, methods=["get"], url_path="statistics")
     def statistics(self, request):
         """获取员工统计信息(统一格式)"""
-        try:
-            # 【AGENTS 规范 - P1-10】统计逻辑迁移到 EmployeeSelector.get_employee_statistics()
-            stats = EmployeeSelector.get_employee_statistics()
-            return success_response(data=stats)
-        except Exception:
-            logger.exception("statistics 操作失败")
-            return error_response(message="操作失败,请稍后重试")
+        # 【AGENTS 规范 - P1-10】统计逻辑迁移到 EmployeeSelector.get_employee_statistics()
+        stats = EmployeeSelector.get_employee_statistics()
+        return success_response(data=stats)
 
     # 显式指定 url_path 后,后端实际路径以 url_path 值为准。
     # @action 装饰器未指定 url_path,会默认使用方法名 active_employees
     @action(detail=False, methods=["get"], url_path="active_employees")
     def active_employees(self, request):
         """获取所有在职员工列表(统一格式)"""
-        try:
-            # 【AGENTS 规范 - P1-10】使用 EmployeeSelector.get_active_employees() 替代直接 ORM 调用
-            queryset = EmployeeSelector.get_active_employees()
+        # 【AGENTS 规范 - P1-10】使用 EmployeeSelector.get_active_employees() 替代直接 ORM 调用
+        queryset = EmployeeSelector.get_active_employees()
 
-            page = self.paginate_queryset(queryset)
-            if page is not None:
-                serializer = self.get_serializer(page, many=True)
-                return self.get_paginated_response(serializer.data)
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
 
-            serializer = self.get_serializer(queryset, many=True)
-            return success_response(
-                data={
-                    # 【P2-07 修复】使用 queryset.count() 替代 len(serializer.data),避免不必要的序列化
-                    "count": queryset.count(),
-                    "results": serializer.data,
-                }
-            )
-        except Exception:
-            logger.exception("active_employees 操作失败")
-            return error_response(message="操作失败,请稍后重试")
+        serializer = self.get_serializer(queryset, many=True)
+        return success_response(
+            data={
+                # 【P2-07 修复】使用 queryset.count() 替代 len(serializer.data),避免不必要的序列化
+                "count": queryset.count(),
+                "results": serializer.data,
+            }
+        )
 
     @action(detail=True, methods=["post"])
     def change_status(self, request, pk=None):
         """更改员工状态(统一格式)"""
-        try:
-            employee = self.get_object()
-            new_status = request.data.get("status")
+        employee = self.get_object()
+        new_status = request.data.get("status")
 
-            if not new_status:
-                return error_response(message="请提供要更改的状态值")
+        if not new_status:
+            return error_response(message="请提供要更改的状态值")
 
-            # 【AGENTS 规范 - P1-10】状态变更逻辑迁移到 EmployeeService.change_employee_status()
-            employee = EmployeeService.change_employee_status(employee, new_status)
+        # 【AGENTS 规范 - P1-10】状态变更逻辑迁移到 EmployeeService.change_employee_status()
+        employee = EmployeeService.change_employee_status(employee, new_status)
 
-            serializer = EmployeeDetailSerializer(employee)
-            return success_response(
-                data={
-                    "message": f"员工状态已更改为: {dict(Employee.EMPLOYEE_STATUS_CHOICES)[new_status]}",
-                    "employee": serializer.data,
-                }
-            )
-        except Exception:
-            logger.exception("change_status 操作失败")
-            return error_response(message="操作失败,请稍后重试")
+        serializer = EmployeeDetailSerializer(employee)
+        return success_response(
+            data={
+                "message": f"员工状态已更改为: {dict(Employee.EMPLOYEE_STATUS_CHOICES)[new_status]}",
+                "employee": serializer.data,
+            }
+        )
 
     @extend_schema(
         summary="全局模糊搜索员工",
@@ -362,21 +341,17 @@ class EmployeeViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSet)
         Service 层负责工号唯一性校验(抛出 ValidationError),
         视图层仅负责序列化验证和响应格式化。
         """
-        try:
-            serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-            # 【AGENTS 规范 - P3-44】调用 Service 层创建,包含工号唯一性校验
-            employee = EmployeeService.create_employee(serializer.validated_data)
+        # 【AGENTS 规范 - P3-44】调用 Service 层创建,包含工号唯一性校验
+        employee = EmployeeService.create_employee(serializer.validated_data)
 
-            return success_response(
-                data=EmployeeDetailSerializer(employee).data,
-                message="员工创建成功",
-                status_code=status.HTTP_201_CREATED,
-            )
-        except Exception:
-            logger.exception("create 操作失败")
-            return error_response(message="操作失败,请稍后重试")
+        return success_response(
+            data=EmployeeDetailSerializer(employee).data,
+            message="员工创建成功",
+            status_code=status.HTTP_201_CREATED,
+        )
 
     @action(detail=False, methods=["put"], url_path="sort")
     def batch_sort(self, request):
@@ -455,47 +430,43 @@ class EmployeeViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSet)
                     status_code=status.HTTP_403_FORBIDDEN,
                 )
 
+        # 1. 查找员工
+        employee = EmployeeSelector.get_employee_by_jobcode(employee_jobcode)
+        if not employee:
+            return error_response(
+                message="员工不存在",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        # 2. 查找对应的 AuthUser(通过 employee_jobcode == auth_username)
+        # 【P1-6 顺带修复】AuthUser 模型无 is_deleted 字段,原过滤导致 FieldError→400
         try:
-            # 1. 查找员工
-            employee = EmployeeSelector.get_employee_by_jobcode(employee_jobcode)
-            if not employee:
-                return error_response(
-                    message="员工不存在",
-                    status_code=status.HTTP_404_NOT_FOUND,
-                )
-
-            # 2. 查找对应的 AuthUser(通过 employee_jobcode == auth_username)
-            # 【P1-6 顺带修复】AuthUser 模型无 is_deleted 字段,原过滤导致 FieldError→400
-            try:
-                auth_user = AuthUser.objects.get(auth_username=employee_jobcode)
-            except AuthUser.DoesNotExist:
-                # 员工没有对应的 AuthUser,返回空权限
-                return success_response(
-                    data={
-                        "employee_jobcode": employee_jobcode,
-                        "employee_name": employee.employee_name,
-                        "permissions": [],
-                        "data_scope": {"scope_type": "departments", "department_codes": [], "include_children": False},
-                    }
-                )
-
-            # 3. 获取权限列表(G1-B 收敛:单入口)
-            permissions = PermissionService.get_effective_permissions_for_user(auth_user)
-
-            # 4. 获取数据范围(G1-B flavor a:直接派生自 Employee)
-            data_scope = get_effective_data_scope_for_user(auth_user)
-
+            auth_user = AuthUser.objects.get(auth_username=employee_jobcode)
+        except AuthUser.DoesNotExist:
+            # 员工没有对应的 AuthUser,返回空权限
             return success_response(
                 data={
                     "employee_jobcode": employee_jobcode,
                     "employee_name": employee.employee_name,
-                    "permissions": permissions,
-                    "data_scope": data_scope,
+                    "permissions": [],
+                    "data_scope": {"scope_type": "departments", "department_codes": [], "include_children": False},
                 }
             )
-        except Exception:
-            logger.exception("get_employee_permissions 操作失败")
-            return error_response(message="操作失败,请稍后重试")
+
+        # 3. 获取权限列表(G1-B 收敛:单入口)
+        permissions = PermissionService.get_effective_permissions_for_user(auth_user)
+
+        # 4. 获取数据范围(G1-B flavor a:直接派生自 Employee)
+        data_scope = get_effective_data_scope_for_user(auth_user)
+
+        return success_response(
+            data={
+                "employee_jobcode": employee_jobcode,
+                "employee_name": employee.employee_name,
+                "permissions": permissions,
+                "data_scope": data_scope,
+            }
+        )
 
     @extend_schema(
         summary="绑定认证账号",
@@ -521,25 +492,21 @@ class EmployeeViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSet)
 
         权限要求:system_admin
         """
-        try:
-            auth_username = request.data.get("auth_username")
-            if not auth_username:
-                return error_response(message="请提供 auth_username 参数")
+        auth_username = request.data.get("auth_username")
+        if not auth_username:
+            return error_response(message="请提供 auth_username 参数")
 
-            operator_jobcode, operator_name = resolve_operator(request.user)
+        operator_jobcode, operator_name = resolve_operator(request.user)
 
-            employee = EmployeeService.bind_auth_user(
-                employee_jobcode=pk,
-                auth_username=auth_username,
-                operator_jobcode=operator_jobcode,
-                operator_name=operator_name,
-            )
+        employee = EmployeeService.bind_auth_user(
+            employee_jobcode=pk,
+            auth_username=auth_username,
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+        )
 
-            serializer = EmployeeDetailSerializer(employee)
-            return success_response(data=serializer.data, message="绑定成功")
-        except Exception:
-            logger.exception("bind_auth_user 操作失败")
-            return error_response(message="操作失败,请稍后重试")
+        serializer = EmployeeDetailSerializer(employee)
+        return success_response(data=serializer.data, message="绑定成功")
 
     @extend_schema(
         summary="解绑认证账号",
@@ -555,20 +522,16 @@ class EmployeeViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSet)
 
         权限要求:system_admin
         """
-        try:
-            operator_jobcode, operator_name = resolve_operator(request.user)
+        operator_jobcode, operator_name = resolve_operator(request.user)
 
-            employee = EmployeeService.unbind_auth_user(
-                employee_jobcode=pk,
-                operator_jobcode=operator_jobcode,
-                operator_name=operator_name,
-            )
+        employee = EmployeeService.unbind_auth_user(
+            employee_jobcode=pk,
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+        )
 
-            serializer = EmployeeDetailSerializer(employee)
-            return success_response(data=serializer.data, message="解绑成功")
-        except Exception:
-            logger.exception("unbind_auth_user 操作失败")
-            return error_response(message="操作失败,请稍后重试")
+        serializer = EmployeeDetailSerializer(employee)
+        return success_response(data=serializer.data, message="解绑成功")
 
     @extend_schema(
         summary="替换认证账号",
@@ -594,22 +557,18 @@ class EmployeeViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSet)
 
         权限要求:system_admin
         """
-        try:
-            new_auth_username = request.data.get("auth_username")
-            if not new_auth_username:
-                return error_response(message="请提供 auth_username 参数")
+        new_auth_username = request.data.get("auth_username")
+        if not new_auth_username:
+            return error_response(message="请提供 auth_username 参数")
 
-            operator_jobcode, operator_name = resolve_operator(request.user)
+        operator_jobcode, operator_name = resolve_operator(request.user)
 
-            employee = EmployeeService.replace_auth_user(
-                employee_jobcode=pk,
-                new_auth_username=new_auth_username,
-                operator_jobcode=operator_jobcode,
-                operator_name=operator_name,
-            )
+        employee = EmployeeService.replace_auth_user(
+            employee_jobcode=pk,
+            new_auth_username=new_auth_username,
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+        )
 
-            serializer = EmployeeDetailSerializer(employee)
-            return success_response(data=serializer.data, message="替换成功")
-        except Exception:
-            logger.exception("replace_auth_user 操作失败")
-            return error_response(message="操作失败,请稍后重试")
+        serializer = EmployeeDetailSerializer(employee)
+        return success_response(data=serializer.data, message="替换成功")

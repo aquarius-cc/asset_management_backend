@@ -1,7 +1,7 @@
 """
 认证后端
 
-提供自定义用户认证逻辑，支持使用用户名、邮箱或手机号登录
+提供自定义用户认证逻辑,支持使用用户名、邮箱或手机号登录
 """
 
 from typing import Any
@@ -33,14 +33,14 @@ class AuthUserBackend(ModelBackend):
             password: 用户密码
 
         Returns:
-            认证成功返回用户对象，失败返回None
+            认证成功返回用户对象,失败返回None
         """
         if not username or not password:
             return None
 
         try:
-            # 【软删除兼容】认证时只查询激活用户，避免 MultipleObjectsReturned
-            # 原因：auth_username 改为条件唯一后，可能存在同名禁用用户
+            # 【软删除兼容】认证时只查询激活用户,避免 MultipleObjectsReturned
+            # 原因:auth_username 改为条件唯一后,可能存在同名禁用用户
             query_condition = (
                 Q(auth_username=username, auth_is_active=True)
                 | Q(email=username, auth_is_active=True)

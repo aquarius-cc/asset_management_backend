@@ -260,7 +260,9 @@ class TestRepairAssetViewSet:
         assert len(response.data["data"]["results"]) == 1
 
     def test_create_repair_asset(self, admin_authenticated_client, asset, employee):
-        """测试创建维修资产记录"""
+        """测试创建维修资产记录(broken 资产送修,经 RepairAssetService)"""
+        asset.asset_current_status = "broken"
+        asset.save(update_fields=["asset_current_status"])
         url = reverse("repair-assets-list")
         data = {
             "asset_recordcode": asset.recordcode,
@@ -273,6 +275,8 @@ class TestRepairAssetViewSet:
         assert response.data["code"] == 0
         # asset_recordcode is write_only in serializer, check recordcode instead
         assert "recordcode" in response.data["data"]
+        asset.refresh_from_db()
+        assert asset.asset_current_status == "repairing"
 
     def test_retrieve_repair_asset(self, authenticated_client, repair_asset):
         """测试获取维修资产详情"""
@@ -299,9 +303,17 @@ class TestRepairAssetViewSet:
         assert response.data["data"]["repair_reason"] == "部分更新后的维修原因"
 
     def test_destroy_repair_asset(self, admin_authenticated_client, repair_asset):
-        """测试删除维修资产记录"""
+        """已完成维修记录可删除"""
+        RepairAsset.objects.filter(recordcode=repair_asset.recordcode).update(repair_status="completed")
         url = reverse("repair-assets-detail", kwargs={"recordcode": repair_asset.recordcode})
         response = admin_authenticated_client.delete(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data["code"] == 0
         assert not RepairAsset.objects.filter(recordcode=repair_asset.recordcode).exists()
+
+    def test_destroy_repair_asset_in_progress_rejected(self, admin_authenticated_client, repair_asset):
+        """进行中的维修记录拒绝删除,防止资产卡死 repairing"""
+        url = reverse("repair-assets-detail", kwargs={"recordcode": repair_asset.recordcode})
+        response = admin_authenticated_client.delete(url)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert RepairAsset.objects.filter(recordcode=repair_asset.recordcode).exists()

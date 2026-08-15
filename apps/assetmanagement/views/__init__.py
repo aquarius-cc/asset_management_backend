@@ -8,7 +8,6 @@ from .asset_lifecycle_view import (
     BrokenAssetViewSet,
     FoundAssetViewSet,
     LostAssetViewSet,
-    RepairAssetViewSet,
 )
 from .asset_type_view import AssetTypeViewSet
 from .asset_view import AssetViewSet
@@ -18,6 +17,7 @@ from .dashboard_view import DashboardViewSet
 from .hard_disk_sn_view import HardDiskSNViewSet
 from .out_asset_view import OutAssetViewSet
 from .recycle_asset_view import RecycleAssetViewSet
+from .repair_asset_view import RepairAssetViewSet
 from .storage_view import StorageViewSet
 from .waste_asset_view import WasteAssetViewSet
 

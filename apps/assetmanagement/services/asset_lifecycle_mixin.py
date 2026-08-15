@@ -1,21 +1,15 @@
 """
 资产生命周期管理 Mixin
 
-提供资产状态流转相关的业务方法:标记损坏/遗失、找回、送修、维修完成/失败。
+提供资产状态流转相关的业务方法:标记损坏/遗失、找回、维修记录删除。
+维修状态流转(送修/完成/失败)统一收敛至 RepairAssetService,禁止在
+本 Mixin 重复实现。
 被 AssetService 继承以保持统一 API。
 """
-
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
 
 from django.db import transaction
 
 from apps.assetmanagement.audit import AuditLogger
-
-
-if TYPE_CHECKING:
-    from apps.assetmanagement.models import RepairAsset
 from apps.assetmanagement.models import Asset, BrokenAsset, FoundAsset, LostAsset
 from apps.assetmanagement.state_machine import AssetFSM
 
@@ -152,130 +146,37 @@ class AssetLifecycleMixin:
 
     @staticmethod
     @transaction.atomic
-    def repair_asset(
-        asset_code: str,
-        repair_reason: str,
-        repair_date: str,
-        repair_description: str = "",
+    def delete_repair_asset(
+        recordcode: str,
         operator_jobcode: str = "",
         operator_name: str = "",
-    ) -> RepairAsset:
-        """送修资产: broken -> repairing"""
-        asset = Asset.objects.select_for_update().get(asset_code=asset_code)
-
-        from apps.usermanagement.selectors import EmployeeSelector
-
-        operator = EmployeeSelector.get_employee_by_jobcode(operator_jobcode)
-
-        AssetFSM.repair(asset)
-        asset.save(update_fields=["asset_current_status", "updated_at"])
-
-        from apps.assetmanagement.models import AssetOperationLog, RepairAsset
-
-        repair_record = RepairAsset.objects.create(
-            asset_recordcode=asset,
-            repair_date=repair_date,
-            repair_reason=repair_reason,
-            repair_description=repair_description or None,
-            operator_employee=operator,
-            physical_grade_before=asset.physical_grade,
-        )
-        AssetOperationLog.objects.create(
-            asset_code=asset.asset_code,
-            asset_name=asset.asset_name,
-            asset_specification=asset.asset_specification,
-            operation_type="repair",
-            operator_jobcode=operator_jobcode,
-            operator_name=operator_name,
-            description=f"Asset sent for repair: {repair_reason}",
-        )
-        return repair_record
-
-    @staticmethod
-    @transaction.atomic
-    def repair_done(
-        asset_code: str,
-        actual_return_date: str = "",
-        physical_grade_after: str = "",
-        operator_jobcode: str = "",
-        operator_name: str = "",
-    ) -> RepairAsset:
-        """维修完成: repairing -> recycled_pending"""
-        asset = Asset.objects.select_for_update().get(asset_code=asset_code)
-
+    ) -> dict:
+        """软删除维修记录(进行中的记录拒绝,防止资产卡死 repairing)"""
         from apps.assetmanagement.models import RepairAsset
 
-        repair_record = RepairAsset.objects.filter(asset_recordcode=asset, repair_status="in_progress").first()
-        if not repair_record:
+        obj = RepairAsset.objects.select_for_update().get(recordcode=recordcode, is_deleted=False)
+
+        if obj.repair_status == RepairAsset.RepairStatus.IN_PROGRESS:
             from core.exceptions import AppValidationError
 
-            raise AppValidationError("No in-progress repair record found for this asset")
+            raise AppValidationError(
+                detail=f"维修记录 {recordcode} 正在进行中,不可删除",
+                error_code="REPAIR_IN_PROGRESS",
+            )
 
-        AssetFSM.repair_done(asset)
-        if physical_grade_after:
-            asset.physical_grade = physical_grade_after
-        asset.save(update_fields=["asset_current_status", "physical_grade", "updated_at"])
+        obj.is_deleted = True
+        obj.save(update_fields=["is_deleted", "updated_at"])
 
-        from django.utils import timezone
-
-        repair_record.repair_status = "completed"
-        repair_record.actual_return_date = actual_return_date or timezone.now().date()
-        repair_record.physical_grade_after = physical_grade_after or None
-        repair_record.save(update_fields=["repair_status", "actual_return_date", "physical_grade_after", "updated_at"])
-
-        from apps.assetmanagement.models import AssetOperationLog
-
-        AssetOperationLog.objects.create(
-            asset_code=asset.asset_code,
-            asset_name=asset.asset_name,
-            asset_specification=asset.asset_specification,
-            operation_type="repair_done",
+        AuditLogger.log_operation(
+            asset_code=obj.asset_recordcode.asset_code,
+            asset_name=obj.asset_recordcode.asset_name,
+            asset_specification=obj.asset_recordcode.asset_specification,
+            operation_type="delete",
+            description=f"维修记录删除: {recordcode}",
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
-            description="Repair completed, asset moved to recycled_pending",
         )
-        return repair_record
-
-    @staticmethod
-    @transaction.atomic
-    def repair_failed(
-        asset_code: str,
-        operator_jobcode: str = "",
-        operator_name: str = "",
-    ) -> RepairAsset:
-        """维修失败: repairing -> damaged"""
-        asset = Asset.objects.select_for_update().get(asset_code=asset_code)
-
-        from apps.assetmanagement.models import RepairAsset
-
-        repair_record = RepairAsset.objects.filter(asset_recordcode=asset, repair_status="in_progress").first()
-        if not repair_record:
-            from core.exceptions import AppValidationError
-
-            raise AppValidationError("No in-progress repair record found for this asset")
-
-        AssetFSM.repair_failed(asset)
-        asset.save(update_fields=["asset_current_status", "updated_at"])
-
-        repair_record.repair_status = "failed"
-        repair_record.save(update_fields=["repair_status", "updated_at"])
-
-        from apps.assetmanagement.models import AssetOperationLog, DamagedAsset
-
-        DamagedAsset.objects.create(
-            asset_recordcode=asset,
-            damaged_asset_number=1,
-        )
-        AssetOperationLog.objects.create(
-            asset_code=asset.asset_code,
-            asset_name=asset.asset_name,
-            asset_specification=asset.asset_specification,
-            operation_type="repair_failed",
-            operator_jobcode=operator_jobcode,
-            operator_name=operator_name,
-            description="Repair failed, asset moved to pending scrap",
-        )
-        return repair_record
+        return {"recordcode": recordcode, "status": "deleted"}
 
     @staticmethod
     @transaction.atomic

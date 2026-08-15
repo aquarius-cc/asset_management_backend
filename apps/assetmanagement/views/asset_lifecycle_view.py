@@ -1,8 +1,8 @@
 """
 资产生命周期事件视图集
 
-包含 BrokenAsset(损坏)、LostAsset(遗失)、FoundAsset(找回)、RepairAsset(维修)视图集。
-这些视图集结构高度相似,统一管理。
+包含 BrokenAsset(损坏)、LostAsset(遗失)、FoundAsset(找回)视图集。
+这些视图集结构高度相似,统一管理。RepairAsset(维修)已拆分至 repair_asset_view.py。
 """
 
 from django_filters.rest_framework import DjangoFilterBackend
@@ -11,12 +11,11 @@ from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 
-from apps.assetmanagement.models import BrokenAsset, FoundAsset, LostAsset, RepairAsset
+from apps.assetmanagement.models import BrokenAsset, FoundAsset, LostAsset
 from apps.assetmanagement.selectors import (
     BrokenAssetSelector,
     FoundAssetSelector,
     LostAssetSelector,
-    RepairAssetSelector,
 )
 from apps.assetmanagement.serializers import (
     BrokenAssetCreateSerializer,
@@ -31,10 +30,6 @@ from apps.assetmanagement.serializers import (
     LostAssetDetailSerializer,
     LostAssetListSerializer,
     LostAssetUpdateSerializer,
-    RepairAssetCreateSerializer,
-    RepairAssetDetailSerializer,
-    RepairAssetListSerializer,
-    RepairAssetUpdateSerializer,
 )
 from apps.assetmanagement.services.asset_lifecycle_mixin import AssetLifecycleMixin
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
@@ -251,43 +246,3 @@ class FoundAssetViewSet(
             },
             message=f"Batch delete done: {len(success_ids)} success, {len(fail_items)} fail",
         )
-
-
-@extend_schema(tags=["维修记录"])
-class RepairAssetViewSet(
-    RecordcodeLookupMixin,
-    AdminWritePermissionMixin,
-    ExportExcelMixin,
-    PaginateAndRespondMixin,
-    LoggingMixin,
-    ResponseWrapperMixin,
-    viewsets.ModelViewSet,
-):
-    queryset = RepairAsset.objects.select_related(
-        "asset_recordcode",
-        "operator_employee",
-    ).all()
-    pagination_class = CustomPageNumberPagination
-    lookup_field = "recordcode"
-
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    search_fields = ["asset_recordcode__asset_name", "repair_reason"]
-    ordering_fields = ["repair_date", "created_at"]
-    ordering = ["-repair_date"]
-
-    def get_permissions(self):
-        if self.action in ("create", "update", "partial_update", "destroy"):
-            return [IsAssetAdminOrAbove()]
-        return [permissions.IsAuthenticated()]
-
-    def get_queryset(self):
-        return RepairAssetSelector.get_queryset_for_user(self.request.user)
-
-    def get_serializer_class(self) -> type:
-        if self.action == "list":
-            return RepairAssetListSerializer
-        elif self.action == "create":
-            return RepairAssetCreateSerializer
-        elif self.action in ["update", "partial_update"]:
-            return RepairAssetUpdateSerializer
-        return RepairAssetDetailSerializer

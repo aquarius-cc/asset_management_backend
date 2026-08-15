@@ -6,7 +6,10 @@ change_asset_status, change_outasset_employee, get_asset_statistics,
 以及 AssetLifecycleMixin 中的状态流转方法。
 """
 
+from unittest import mock
+
 import pytest
+from django.db import OperationalError
 
 from apps.assetmanagement.models import (
     Asset,
@@ -16,9 +19,10 @@ from apps.assetmanagement.models import (
     RepairAsset,
 )
 from apps.assetmanagement.services.asset_service import AssetService
+from apps.assetmanagement.services.repair_asset_service import RepairAssetService
 from apps.assetmanagement.state_machine import InvalidTransitionError
 from apps.usermanagement.models import Employee
-from core.exceptions import AppValidationError
+from core.exceptions import AppValidationError, ResourceConflictError
 
 
 @pytest.mark.django_db
@@ -337,7 +341,7 @@ class TestFindAndReturnAsset:
 
 @pytest.mark.django_db
 class TestRepairAsset:
-    """repair_asset 测试"""
+    """create_repair_asset 测试(维修唯一实现 RepairAssetService)"""
 
     def _make_broken_asset(self, asset, user):
         """辅助:将资产标记为 broken"""
@@ -347,7 +351,7 @@ class TestRepairAsset:
 
     def test_repair_asset_success(self, asset, user):
         self._make_broken_asset(asset, user)
-        result = AssetService.repair_asset(
+        result = RepairAssetService.create_repair_asset(
             asset_code="A001",
             repair_reason="主板故障",
             repair_date="2024-06-01",
@@ -360,8 +364,8 @@ class TestRepairAsset:
 
     def test_repair_asset_invalid_transition(self, asset, user):
         """in_store 状态不能送修"""
-        with pytest.raises(InvalidTransitionError):
-            AssetService.repair_asset(
+        with pytest.raises(AppValidationError):
+            RepairAssetService.create_repair_asset(
                 asset_code="A001",
                 repair_reason="x",
                 repair_date="2024-06-01",
@@ -369,10 +373,47 @@ class TestRepairAsset:
                 operator_name=user.employee_name,
             )
 
+    def test_repair_asset_duplicate_in_progress_rejected(self, asset, user):
+        """已存在 in_progress 维修记录时不可重复送修"""
+        self._make_broken_asset(asset, user)
+        RepairAsset.objects.create(
+            asset_recordcode=asset,
+            repair_date="2024-06-01",
+            repair_reason="主板故障",
+            repair_status="in_progress",
+            operator_employee=user,
+        )
+        with pytest.raises(AppValidationError) as exc:
+            RepairAssetService.create_repair_asset(
+                asset_code="A001",
+                repair_reason="主板故障",
+                repair_date="2024-06-01",
+                operator_jobcode=user.employee_jobcode,
+                operator_name=user.employee_name,
+            )
+        assert exc.value.error_code == "DUPLICATE_REPAIR_IN_PROGRESS"
+
+    def test_repair_asset_lock_timeout_rejected(self, asset, user):
+        """select_for_update 锁超时返回 409 ASSET_LOCKED"""
+        with mock.patch.object(
+            type(Asset.objects.select_for_update()),
+            "get",
+            side_effect=OperationalError("database is locked"),
+        ):
+            with pytest.raises(ResourceConflictError) as exc:
+                RepairAssetService.create_repair_asset(
+                    asset_code="A001",
+                    repair_reason="主板故障",
+                    repair_date="2024-06-01",
+                    operator_jobcode=user.employee_jobcode,
+                    operator_name=user.employee_name,
+                )
+        assert exc.value.error_code == "ASSET_LOCKED"
+
 
 @pytest.mark.django_db
 class TestRepairDone:
-    """repair_done 测试"""
+    """complete_repair 测试(维修唯一实现 RepairAssetService)"""
 
     def _make_repairing_asset(self, asset, user):
         """辅助:将资产标记为 repairing 并创建维修记录"""
@@ -388,7 +429,7 @@ class TestRepairDone:
 
     def test_repair_done_success(self, asset, user):
         self._make_repairing_asset(asset, user)
-        result = AssetService.repair_done(
+        result = RepairAssetService.complete_repair(
             asset_code="A001",
             actual_return_date="2024-06-10",
             physical_grade_after="良好",
@@ -406,7 +447,7 @@ class TestRepairDone:
         asset.asset_current_status = "repairing"
         asset.save()
         with pytest.raises(AppValidationError):
-            AssetService.repair_done(
+            RepairAssetService.complete_repair(
                 asset_code="A001",
                 operator_jobcode=user.employee_jobcode,
                 operator_name=user.employee_name,
@@ -415,7 +456,7 @@ class TestRepairDone:
 
 @pytest.mark.django_db
 class TestRepairFailed:
-    """repair_failed 测试"""
+    """fail_repair 测试(维修唯一实现 RepairAssetService)"""
 
     def _make_repairing_asset(self, asset, user):
         """辅助:将资产标记为 repairing 并创建维修记录"""
@@ -431,7 +472,7 @@ class TestRepairFailed:
 
     def test_repair_failed_success(self, asset, user):
         self._make_repairing_asset(asset, user)
-        result = AssetService.repair_failed(
+        result = RepairAssetService.fail_repair(
             asset_code="A001",
             operator_jobcode=user.employee_jobcode,
             operator_name=user.employee_name,
@@ -440,14 +481,15 @@ class TestRepairFailed:
         assert result.repair_status == "failed"
         asset.refresh_from_db()
         assert asset.asset_current_status == "damaged"
-        assert DamagedAsset.objects.filter(asset_recordcode=asset).exists()
+        damaged = DamagedAsset.objects.get(asset_recordcode=asset)
+        assert damaged.original_status == "repairing"
 
     def test_repair_failed_no_in_progress_record(self, asset, user):
         """没有进行中的维修记录时应报错"""
         asset.asset_current_status = "repairing"
         asset.save()
         with pytest.raises(AppValidationError):
-            AssetService.repair_failed(
+            RepairAssetService.fail_repair(
                 asset_code="A001",
                 operator_jobcode=user.employee_jobcode,
                 operator_name=user.employee_name,

@@ -93,14 +93,20 @@ class ResourceConflictError(APIException):
     资源冲突错误
 
     用于资源状态冲突的场景,如重复提交、并发修改等。
+    支持通过 error_code 参数携带业务错误码,供批量操作使用。
 
     Example:
         raise ResourceConflictError('该资源已被其他用户修改')
+        raise ResourceConflictError(detail='资产被其他用户锁定', error_code='ASSET_LOCKED')
     """
 
     status_code = status.HTTP_409_CONFLICT
     default_detail = "资源冲突"
     default_code = "resource_conflict"
+
+    def __init__(self, detail=None, code=None, error_code=None):
+        super().__init__(detail, code)
+        self.error_code = error_code
 
 
 # 【P2-29 修复】保留旧名称作为别名,保持向后兼容

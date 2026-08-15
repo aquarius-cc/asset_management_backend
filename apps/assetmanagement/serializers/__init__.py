@@ -120,6 +120,7 @@ from apps.assetmanagement.serializers.recycle_asset_serializers import (
     RecycleAssetUpdateSerializer,
 )
 from apps.assetmanagement.serializers.repair_asset_serializers import (
+    RepairAssetBatchDeleteSerializer,
     RepairAssetCreateSerializer,
     RepairAssetDetailSerializer,
     RepairAssetListSerializer,
@@ -211,6 +212,7 @@ __all__ = [
     "RecycleAssetListSerializer",
     "RecycleAssetSerializer",  # 向后兼容别名
     "RecycleAssetUpdateSerializer",
+    "RepairAssetBatchDeleteSerializer",
     "RepairAssetCreateSerializer",
     "RepairAssetDetailSerializer",
     # RepairAsset 序列化器

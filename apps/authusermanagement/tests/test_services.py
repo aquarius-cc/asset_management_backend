@@ -6,6 +6,8 @@ import pytest
 
 from apps.authusermanagement.services import AuthService
 from core.exceptions import AppValidationError
+
+
 ValidationError = AppValidationError  # 测试中统一使用 AppValidationError
 
 

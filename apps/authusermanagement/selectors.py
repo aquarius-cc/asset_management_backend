@@ -22,7 +22,7 @@ class AuthUserSelector:
         通过用户名获取激活用户
 
         【软删除兼容】只查询 auth_is_active=True 的用户
-        原因：auth_username 改为条件唯一后，可能存在同名禁用用户
+        原因:auth_username 改为条件唯一后,可能存在同名禁用用户
 
         Args:
             auth_username: 用户名
@@ -77,7 +77,7 @@ class AuthUserSelector:
         通过邮箱获取激活用户
 
         【软删除兼容】只查询 auth_is_active=True 的用户
-        原因：email 改为条件唯一后，可能存在相同邮箱的禁用用户
+        原因:email 改为条件唯一后,可能存在相同邮箱的禁用用户
 
         Args:
             email: 邮箱地址
@@ -90,7 +90,7 @@ class AuthUserSelector:
         except AuthUser.DoesNotExist:
             return None
 
-    # 【AGENTS 规范 - P2-02】以下 exists 方法供 AuthService.register_user 使用，
+    # 【AGENTS 规范 - P2-02】以下 exists 方法供 AuthService.register_user 使用,
     # 避免 Service 层直接调用 AuthUser.objects.filter(...).exists()
 
     @staticmethod
@@ -100,7 +100,7 @@ class AuthUserSelector:
 
         【AGENTS 规范 - P2-02】供 AuthService.register_user 使用
         【软删除兼容】只检查 auth_is_active=True 的用户
-        原因：禁用的用户名可以重新注册
+        原因:禁用的用户名可以重新注册
 
         Args:
             auth_username: 用户名
@@ -117,7 +117,7 @@ class AuthUserSelector:
 
         【AGENTS 规范 - P2-02】供 AuthService.register_user 使用
         【软删除兼容】只检查 auth_is_active=True 的用户
-        原因：禁用的邮箱可以重新注册
+        原因:禁用的邮箱可以重新注册
 
         Args:
             email: 邮箱地址
@@ -134,7 +134,7 @@ class AuthUserSelector:
 
         【AGENTS 规范 - P2-02】供 AuthService.register_user 使用
         【软删除兼容】只检查 auth_is_active=True 的用户
-        原因：禁用的手机号可以重新注册
+        原因:禁用的手机号可以重新注册
 
         Args:
             auth_phone: 手机号

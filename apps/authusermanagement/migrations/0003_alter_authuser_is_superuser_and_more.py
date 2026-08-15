@@ -18,6 +18,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='authuser',
             name='recordcode',
-            field=models.CharField(blank=True, help_text='后端生成的全局唯一编码，用于外键引用', max_length=64, null=True, unique=True, verbose_name='记录编码'),
+            field=models.CharField(blank=True, help_text='后端生成的全局唯一编码,用于外键引用', max_length=64, null=True, unique=True, verbose_name='记录编码'),
         ),
     ]

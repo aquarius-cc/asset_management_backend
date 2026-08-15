@@ -24,7 +24,7 @@ from apps.assetmanagement.serializers import (
     CombinedAssetSerializer,
     ContractDetailSerializer,
 )
-from apps.assetmanagement.services import AssetService
+from apps.assetmanagement.services import AssetService, RepairAssetService
 from core.constants import ASSET_STATUS_CHOICES
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
@@ -407,7 +407,7 @@ class AssetViewSet(
         asset = self.get_object()
         from apps.assetmanagement.serializers.repair_asset_serializers import RepairAssetDetailSerializer
 
-        repair_record = AssetService.repair_asset(
+        repair_record = RepairAssetService.create_repair_asset(
             asset_code=asset.asset_code,
             repair_reason=request.data.get("repair_reason", ""),
             repair_date=request.data.get("repair_date", ""),
@@ -424,7 +424,7 @@ class AssetViewSet(
         asset = self.get_object()
         from apps.assetmanagement.serializers.repair_asset_serializers import RepairAssetDetailSerializer
 
-        repair_record = AssetService.repair_done(
+        repair_record = RepairAssetService.complete_repair(
             asset_code=asset.asset_code,
             actual_return_date=request.data.get("actual_return_date", ""),
             physical_grade_after=request.data.get("physical_grade_after", ""),
@@ -438,7 +438,7 @@ class AssetViewSet(
         asset = self.get_object()
         from apps.assetmanagement.serializers.repair_asset_serializers import RepairAssetDetailSerializer
 
-        repair_record = AssetService.repair_failed(
+        repair_record = RepairAssetService.fail_repair(
             asset_code=asset.asset_code,
             operator_jobcode=request.user.auth_id,
             operator_name=request.user.auth_username,
@@ -466,11 +466,10 @@ class AssetViewSet(
         """GET /assets/{recordcode}/qr-code-image/ — 生成资产二维码 PNG 图片"""
         asset = self.get_object()
         try:
+            from django.conf import settings
             from django.http import HttpResponse
 
             from apps.assetmanagement.services import AssetService
-
-            from django.conf import settings
 
             base_url = settings.FRONTEND_BASE_URL
             png_data = AssetService.generate_qr_code_image(asset, base_url)

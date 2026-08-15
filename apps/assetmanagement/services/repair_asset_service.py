@@ -1,22 +1,17 @@
 """
 维修资产管理服务 - 提供资产维修的统一业务逻辑,防止通过不同入口创建重复维修记录。
 
+维修状态流转的唯一实现,AssetViewSet 的 repair/repair-done/repair-failed
+action 与 RepairAssetViewSet 的 create 均委托本服务,禁止绕过。
+
 Class:
   - RepairAssetService: 维修资产管理服务
     - create_repair_asset: 创建维修记录(触发 broken→repairing 状态流转)
     - complete_repair: 完成维修(触发 repairing→recycled_pending 状态流转)
     - fail_repair: 维修失败(触发 repairing→damaged 状态流转)
-    - found_and_return: 找回(触发 lost→recycled_pending 状态流转)
-
-  - AssetService: 资产服务
-    - found_and_return: 找回(触发 lost→recycled_pending 状态流转)
-    - repair_done: 维修完成(触发 repairing→recycled_pending 状态流转)
-    - repair_failed: 维修失败(触发 repairing→damaged 状态流转)
-    - reject_to_broken: 审批拒绝(损坏)(触发 damaged→broken 状态流转)
-    - recycle_pending: 回收待发放资产(触发 recycled_pending→in_use 状态流转)
 
 调用链:
-  本模块被 -> RepairAssetViewSet 调用
+  View -> RepairAssetService -> AssetFSM/EmployeeSelector/RepairAsset
   本模块依赖 -> Asset, RepairAsset, DamagedAsset, AssetFSM, AuditLogger
 """
 
@@ -94,11 +89,11 @@ class RepairAssetService:
 
         # AC-61: 记录状态变更日志
 
-        AuditLogger.log_asset_state_change(
+        AuditLogger.log_state_change(
             asset=asset,
             from_state=from_state,
-            to_state="repairing",
-            reason=repair_reason,
+            to_state=Asset.AssetStatus.REPAIRING,
+            trigger="repair",
             operator_jobcode=operator_jobcode,
         )
         return from_state
@@ -206,12 +201,11 @@ class RepairAssetService:
 
         # AC-61: 记录状态变更日志
 
-        AuditLogger.log_asset_state_change(
+        AuditLogger.log_state_change(
             asset=asset,
             from_state=from_state,
             to_state=Asset.AssetStatus.RECYCLED_PENDING,
-            reason="维修完成,资产转入待发放状态",
-            business_doc_no=repair_record.recordcode,
+            trigger="repair_done",
             operator_jobcode=operator_jobcode,
         )
 
@@ -251,12 +245,11 @@ class RepairAssetService:
 
         # AC-61: 记录状态变更日志
 
-        AuditLogger.log_asset_state_change(
+        AuditLogger.log_state_change(
             asset=asset,
             from_state=from_state,
             to_state=Asset.AssetStatus.DAMAGED,
-            reason="维修失败,资产转入待报废",
-            business_doc_no=repair_record.recordcode,
+            trigger="repair_failed",
             operator_jobcode=operator_jobcode,
         )
 

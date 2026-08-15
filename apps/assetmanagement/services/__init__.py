@@ -9,6 +9,7 @@
 - asset_service.py: 资产管理服务 (AssetService, AssetCodeGenerator)
 - out_asset_service.py: 出库资产管理服务 (OutAssetService)
 - recycle_asset_service.py: 回收资产管理服务 (RecycleAssetService)
+- repair_asset_service.py: 维修资产管理服务 (RepairAssetService)
 - damaged_asset_service.py: 待报废资产管理服务 (DamagedAssetService)
 - waste_asset_service.py: 已报废资产管理服务 (WasteAssetService)
 - contract_service.py: 合同管理服务 (ContractService)
@@ -41,6 +42,7 @@ from apps.assetmanagement.services.out_asset_service import (
     OutAssetService,
 )
 from apps.assetmanagement.services.recycle_asset_service import RecycleAssetService
+from apps.assetmanagement.services.repair_asset_service import RepairAssetService
 from apps.assetmanagement.services.storage_service import StorageService
 from apps.assetmanagement.services.waste_asset_service import WasteAssetService
 
@@ -57,6 +59,7 @@ __all__ = [
     "OperationLogService",
     "OutAssetService",
     "RecycleAssetService",
+    "RepairAssetService",
     "StorageService",
     "WasteAssetService",
 ]

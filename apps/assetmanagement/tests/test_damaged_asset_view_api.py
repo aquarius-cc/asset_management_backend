@@ -1,7 +1,7 @@
 """
 待报废资产管理 ViewSet API 测试
 
-测试 DamagedAssetViewSet 的 API 端点：
+测试 DamagedAssetViewSet 的 API 端点:
 - list
 - create
 - retrieve
@@ -14,10 +14,6 @@
 import pytest
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APIClient
-
-from apps.assetmanagement.models import Asset, DamagedAsset
-from apps.assetmanagement.state_machine import AssetFSM
 
 
 @pytest.fixture
@@ -48,8 +44,8 @@ class TestDamagedAssetViewSet:
         assert len(response.data["data"]["results"]) == 1
 
     def test_create_damaged_asset(self, admin_authenticated_client, asset, employee):
-        """测试创建待报废资产（资产需处于 in_use 或 recycled_pending 状态）"""
-        # 将资产从 in_store 转为 in_use，以满足 damaged() FSM 要求
+        """测试创建待报废资产(资产需处于 in_use 或 recycled_pending 状态)"""
+        # 将资产从 in_store 转为 in_use,以满足 damaged() FSM 要求
         asset.asset_current_status = "in_use"
         asset.save(update_fields=["asset_current_status"])
 
@@ -97,7 +93,11 @@ class TestDamagedAssetViewSet:
         url = reverse("damaged-assets-detail", kwargs={"recordcode": damaged_asset.recordcode})
         response = admin_authenticated_client.delete(url)
         # Asset must be in 'damaged_pending' state for cancel — accept error for in_store asset
-        assert response.status_code in [status.HTTP_200_OK, status.HTTP_400_BAD_REQUEST, status.HTTP_500_INTERNAL_SERVER_ERROR]
+        assert response.status_code in [
+            status.HTTP_200_OK,
+            status.HTTP_400_BAD_REQUEST,
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+        ]
 
     def test_approve(self, admin_authenticated_client, damaged_asset, employee):
         """测试审批通过待报废资产"""
@@ -108,7 +108,11 @@ class TestDamagedAssetViewSet:
         }
         response = admin_authenticated_client.post(url, data, format="json")
         # Asset must be in 'damaged_pending' state for approve — accept error for in_store asset
-        assert response.status_code in [status.HTTP_200_OK, status.HTTP_400_BAD_REQUEST, status.HTTP_500_INTERNAL_SERVER_ERROR]
+        assert response.status_code in [
+            status.HTTP_200_OK,
+            status.HTTP_400_BAD_REQUEST,
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+        ]
 
     def test_reject(self, admin_authenticated_client, damaged_asset, employee):
         """测试拒绝待报废资产"""

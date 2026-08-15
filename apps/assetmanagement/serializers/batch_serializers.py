@@ -1,8 +1,8 @@
 """
 通用批量操作序列化器
 
-包含 Contract、Storage、AssetType 的批量创建/删除序列化器，
-这些不隶属于特定模型模块，统一归入 batch_serializers。
+包含 Contract、Storage、AssetType 的批量创建/删除序列化器,
+这些不隶属于特定模型模块,统一归入 batch_serializers。
 """
 
 from rest_framework import serializers
@@ -154,12 +154,11 @@ class AssetTypeBatchDeleteSerializer(serializers.Serializer):
 class AssetTypeBatchCreateItemSerializer(serializers.Serializer):
     """单条资产类型批量创建数据校验"""
 
-    row_number = serializers.IntegerField(required=False, help_text="Excel 行号（前端传入，用于错误定位）")
+    row_number = serializers.IntegerField(required=False, help_text="Excel 行号(前端传入,用于错误定位)")
     type_code = serializers.CharField(required=True, max_length=30, help_text="资产类型编码")
     type_name = serializers.CharField(required=True, max_length=100, help_text="资产类型名称")
     parent_type_code = serializers.CharField(
-        required=False, allow_blank=True, allow_null=True, default="",
-        help_text="父级类型业务编码"
+        required=False, allow_blank=True, allow_null=True, default="", help_text="父级类型业务编码"
     )
     level = serializers.IntegerField(required=False, default=0, help_text="层级")
     type_description = serializers.CharField(

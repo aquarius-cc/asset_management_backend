@@ -1,7 +1,8 @@
 """合同管理服务测试"""
 
-import pytest
 from decimal import Decimal
+
+import pytest
 
 from apps.assetmanagement.models import Contract
 from apps.assetmanagement.services.contract_service import ContractService
@@ -40,7 +41,7 @@ class TestCreateContract:
 @pytest.mark.django_db
 class TestAddPaymentRecord:
     def test_add_payment_success(self):
-        c = ContractService.create_contract(_contract_data(contract_amount=Decimal("50000.00")))
+        _ = ContractService.create_contract(_contract_data(contract_amount=Decimal("50000.00")))
         result = ContractService.add_payment_record("C001", Decimal("10000.00"), "首付款")
         assert result.amount_paid == Decimal("10000.00")
         assert result.amount_unpaid == Decimal("40000.00")
@@ -63,14 +64,14 @@ class TestAddPaymentRecord:
             ContractService.add_payment_record("C001", Decimal("-100"))
 
     def test_add_payment_cumulative(self):
-        c = ContractService.create_contract(_contract_data(contract_amount=Decimal("50000.00")))
+        _ = ContractService.create_contract(_contract_data(contract_amount=Decimal("50000.00")))
         ContractService.add_payment_record("C001", Decimal("10000.00"))
         result = ContractService.add_payment_record("C001", Decimal("5000.00"))
         assert result.amount_paid == Decimal("15000.00")
         assert result.amount_unpaid == Decimal("35000.00")
 
     def test_add_payment_settlement_status_uses_settlemented_price(self):
-        c = ContractService.create_contract(
+        _ = ContractService.create_contract(
             _contract_data(
                 contract_amount=Decimal("50000.00"),
                 settlemented_price=Decimal("45000.00"),
@@ -137,13 +138,20 @@ class TestDeleteContract:
         c = ContractService.create_contract(_contract_data())
         at = AssetType.objects.create(type_code="AT_CON", type_name="AT_CON")
         s = Storage.objects.create(
-            storage_code="S_CON", storage_name="S_CON", storage_address="addr",
-            storage_capacity=100, sort_order=0,
+            storage_code="S_CON",
+            storage_name="S_CON",
+            storage_address="addr",
+            storage_capacity=100,
+            sort_order=0,
         )
         Asset.objects.create(
-            asset_code="A_CON", asset_name="A_CON", asset_purchase_price=100,
-            asset_purchase_date="2024-01-01", asset_entry_date="2024-01-01",
-            asset_storage_recordcode=s, asset_type_recordcode=at,
+            asset_code="A_CON",
+            asset_name="A_CON",
+            asset_purchase_price=100,
+            asset_purchase_date="2024-01-01",
+            asset_entry_date="2024-01-01",
+            asset_storage_recordcode=s,
+            asset_type_recordcode=at,
             asset_contract_recordcode=c,
         )
         with pytest.raises(AppValidationError) as exc_info:
@@ -173,7 +181,9 @@ class TestBatchCreateContract:
         assert result["fail_count"] == 1
 
     def test_batch_create_exceeds_limit_raises(self):
-        data = [{"contract_code": f"CC{i}", "contract_name": f"C{i}", "contract_amount": Decimal("100")} for i in range(101)]
+        data = [
+            {"contract_code": f"CC{i}", "contract_name": f"C{i}", "contract_amount": Decimal("100")} for i in range(101)
+        ]
         with pytest.raises(AppValidationError) as exc_info:
             ContractService.batch_create_contract(data)
         assert exc_info.value.error_code == "BATCH_SIZE_EXCEEDED"

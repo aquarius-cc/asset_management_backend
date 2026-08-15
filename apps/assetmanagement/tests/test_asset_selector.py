@@ -3,12 +3,10 @@
 """
 
 import pytest
-from django.contrib.auth import get_user_model
 
 from apps.assetmanagement.selectors.asset_selector import AssetSelector, AssetTypeSelector
-from apps.assetmanagement.models import Asset, AssetType
-from apps.usermanagement.models import Department, Employee
 from apps.authusermanagement.models import AuthUser
+from apps.usermanagement.models import Department, Employee
 
 
 @pytest.mark.django_db
@@ -23,10 +21,8 @@ class TestAssetSelector:
             employee_name="系统管理员",
             employee_department=Department.objects.first(),
         )
-        # 模拟系统管理员权限（is_superuser=True）
-        auth_user = AuthUser.objects.create_superuser(
-            auth_username="admin", password="test123"
-        )
+        # 模拟系统管理员权限(is_superuser=True)
+        auth_user = AuthUser.objects.create_superuser(auth_username="admin", password="test123")
         employee.auth_user = auth_user
         employee.save()
 
@@ -40,17 +36,15 @@ class TestAssetSelector:
             department_code="D002",
             department_name="其他部门",
         )
-        # employee_jobcode 必须匹配 auth_username，否则 get_employee_for_user 查不到
-        other_employee = Employee.objects.create(
+        # employee_jobcode 必须匹配 auth_username,否则 get_employee_for_user 查不到
+        _ = Employee.objects.create(
             employee_jobcode="other",
             employee_name="其他用户",
             employee_department=other_department,
         )
-        other_user = AuthUser.objects.create_user(
-            auth_username="other", password="test123"
-        )
+        other_user = AuthUser.objects.create_user(auth_username="other", password="test123")
 
-        # 普通用户应看不到资产（因为资产在测试部门）
+        # 普通用户应看不到资产(因为资产在测试部门)
         queryset = AssetSelector.get_queryset_for_user(other_user)
         assert queryset.count() == 0
 
@@ -71,9 +65,9 @@ class TestAssetSelector:
         assert queryset.count() == 1
 
     def test_get_available_assets(self, asset):
-        """应返回可用资产（in_store 或 recycled_pending）"""
+        """应返回可用资产(in_store 或 recycled_pending)"""
         queryset = AssetSelector.get_available_assets()
-        # 当前资产状态是 in_store，应该返回
+        # 当前资产状态是 in_store,应该返回
         assert queryset.count() == 1
 
     def test_get_available_assets_with_code_filter(self, asset):
@@ -158,10 +152,7 @@ class TestAssetSelector:
 
     def test_combine_search(self, asset):
         """组合搜索"""
-        queryset = AssetSelector.combine_search(
-            field_filters={"asset_code": "A001"},
-            exact_filters={}
-        )
+        queryset = AssetSelector.combine_search(field_filters={"asset_code": "A001"}, exact_filters={})
         assert queryset.count() == 1
 
 
@@ -231,12 +222,12 @@ class TestAssetTypeSelector:
 
     def test_get_type_path(self, asset_type):
         """获取类型路径"""
-        # get_type_path 解析 path 中的 type_code 片段，path 格式为 /type_code1/type_code2
+        # get_type_path 解析 path 中的 type_code 片段,path 格式为 /type_code1/type_code2
         asset_type.path = f"/{asset_type.type_code}"
         asset_type.save()
 
         path = AssetTypeSelector.get_type_path("AT001")
-        # 当前类型是顶级，路径应只包含自身
+        # 当前类型是顶级,路径应只包含自身
         assert len(path) == 1
         assert path[0].type_code == "AT001"
 

@@ -24,6 +24,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='wasteasset',
             name='damaged_recordcode',
-            field=models.OneToOneField(blank=True, help_text='关联的待报废记录的资产唯一标识码，用于追溯来源', null=True, on_delete=django.db.models.deletion.PROTECT, related_name='waste_asset_record', to='assetmanagement.damagedasset', to_field='recordcode', verbose_name='来源待报废记录的资产唯一标识码'),
+            field=models.OneToOneField(blank=True, help_text='关联的待报废记录的资产唯一标识码,用于追溯来源', null=True, on_delete=django.db.models.deletion.PROTECT, related_name='waste_asset_record', to='assetmanagement.damagedasset', to_field='recordcode', verbose_name='来源待报废记录的资产唯一标识码'),
         ),
     ]

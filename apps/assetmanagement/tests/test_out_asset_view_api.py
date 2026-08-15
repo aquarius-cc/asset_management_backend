@@ -1,7 +1,7 @@
 """
 出库资产管理 ViewSet API 测试
 
-测试 OutAssetViewSet 的 API 端点：
+测试 OutAssetViewSet 的 API 端点:
 - list
 - create
 - retrieve
@@ -14,7 +14,6 @@
 import pytest
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APIClient
 
 from apps.assetmanagement.models import OutAsset
 
@@ -118,7 +117,11 @@ class TestOutAssetViewSet:
         # Batch serializer/service field mismatch (Asset object not JSON serializable) — accept error
         try:
             response = admin_authenticated_client.post(url, data, format="json")
-            assert response.status_code in [status.HTTP_200_OK, status.HTTP_400_BAD_REQUEST, status.HTTP_500_INTERNAL_SERVER_ERROR]
+            assert response.status_code in [
+                status.HTTP_200_OK,
+                status.HTTP_400_BAD_REQUEST,
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+            ]
         except Exception:
             pass  # Server-side 500 raised by test client — expected for this known bug
 

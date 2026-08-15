@@ -11,7 +11,6 @@ from django.utils import timezone
 
 from apps.assetmanagement.audit import AuditLogger
 from apps.assetmanagement.models import Asset, DamagedAsset, WasteAsset
-from apps.assetmanagement.selectors import WasteAssetSelector
 from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
 from core.exceptions import AppValidationError
 
@@ -33,15 +32,17 @@ class WasteAssetService:
             raise AppValidationError(detail="缺少待报废记录", error_code="MISSING_DAMAGED_ASSET")
 
         if damaged_asset.approval_status != "approved":
-            raise AppValidationError(detail="待报废记录未通过审批，无法报废", error_code="DAMAGED_ASSET_NOT_APPROVED")
+            raise AppValidationError(detail="待报废记录未通过审批,无法报废", error_code="DAMAGED_ASSET_NOT_APPROVED")
 
+        # waste_data["asset_recordcode"] 承载 DamagedAsset,创建 WasteAsset 时需转换为底层 Asset
+        waste_data["asset_recordcode"] = damaged_asset.asset_recordcode
         waste_asset = WasteAsset.objects.create(**waste_data)
 
         asset = damaged_asset.asset_recordcode
         if asset:
             asset = Asset.objects.select_for_update().get(pk=asset.pk)
 
-            # 仅当资产尚未转为 scrapped 时才触发 FSM（避免与 approve_asset_recordcode 重复调用）
+            # 仅当资产尚未转为 scrapped 时才触发 FSM(避免与 approve_asset_recordcode 重复调用)
             if asset.asset_current_status != "scrapped":
                 try:
                     AssetFSM.approve(asset)
@@ -67,7 +68,7 @@ class WasteAssetService:
     ) -> WasteAsset:
         if damaged_asset.approval_status != "approved":
             raise AppValidationError(
-                detail=f"待报废记录未审批通过，当前状态: {damaged_asset.approval_status}",
+                detail=f"待报废记录未审批通过,当前状态: {damaged_asset.approval_status}",
                 error_code="DAMAGED_ASSET_NOT_APPROVED",
             )
 
@@ -111,24 +112,22 @@ class WasteAssetService:
         waste_asset_code: str, operator_jobcode: str | None = None, operator_name: str | None = None
     ) -> None:
         """
-        取消已报废记录（软删除已报废记录，不改变资产状态）
+        取消已报废记录(软删除已报废记录,不改变资产状态)
 
-        业务规则：
-        - scrapped 是终态，不可逆
-        - 只删除 WasteAsset 记录，不改变资产状态
-        - 如需恢复资产使用，应走重新入库流程
+        业务规则:
+        - scrapped 是终态,不可逆
+        - 只删除 WasteAsset 记录,不改变资产状态
+        - 如需恢复资产使用,应走重新入库流程
         """
-        waste_asset = WasteAsset.objects.filter(
-            asset_recordcode__asset_code=waste_asset_code, is_deleted=False
-        ).first()
+        waste_asset = WasteAsset.objects.filter(asset_recordcode__asset_code=waste_asset_code, is_deleted=False).first()
         if not waste_asset:
             raise AppValidationError(detail=f"已报废记录 {waste_asset_code} 不存在", error_code="WASTE_ASSET_NOT_FOUND")
 
         asset = waste_asset.asset_recordcode
 
-        # [HALT] 取消报废：scrapped 是终态，不可逆
-        # 只删除 WasteAsset 记录，不改变资产状态
-        # 如需恢复资产使用，应走重新入库流程
+        # [HALT] 取消报废:scrapped 是终态,不可逆
+        # 只删除 WasteAsset 记录,不改变资产状态
+        # 如需恢复资产使用,应走重新入库流程
         waste_asset.delete()
 
         if asset:

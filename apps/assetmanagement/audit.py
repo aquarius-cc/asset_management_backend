@@ -2,11 +2,11 @@
 操作审计模块
 
 【AGENTS规范 - 显式审计机制】
-替代Signal隐式调用，使用显式的上下文管理器和装饰器。
+替代Signal隐式调用,使用显式的上下文管理器和装饰器。
 
 设计原则:
 1. 显式调用 - 代码路径清晰可见
-2. 简约实现 - 使用标准Python语法，无魔法
+2. 简约实现 - 使用标准Python语法,无魔法
 3. 事务安全 - 日志记录与业务逻辑在同一事务中
 4. 容错设计 - 日志失败不影响主业务流程
 
@@ -41,7 +41,7 @@ class AuditContext:
     """
     审计上下文
 
-    【显式设计】通过with语句使用，日志时机一目了然。
+    【显式设计】通过with语句使用,日志时机一目了然。
     用于包裹需要记录审计信息的操作块。
 
     Example:
@@ -55,7 +55,7 @@ class AuditContext:
     operator_jobcode: str | None = None
     operator_name: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-    # 【P2-33 修复】使用 timezone.now() 替代 datetime.now()，兼容 USE_TZ=True
+    # 【P2-33 修复】使用 timezone.now() 替代 datetime.now(),兼容 USE_TZ=True
     _start_time: datetime = field(default_factory=timezone.now)
 
     def __enter__(self):
@@ -64,7 +64,7 @@ class AuditContext:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """退出上下文，记录结果"""
+        """退出上下文,记录结果"""
         # 【P2-33 修复】使用 timezone.now() 替代 datetime.now()
         duration = (timezone.now() - self._start_time).total_seconds()
 
@@ -84,8 +84,8 @@ class AuditLogger:
     """
     操作日志记录器
 
-    【显式依赖】Service直接调用，调用链清晰可见。
-    所有日志方法都保证不抛出异常，不影响主业务流程。
+    【显式依赖】Service直接调用,调用链清晰可见。
+    所有日志方法都保证不抛出异常,不影响主业务流程。
     """
 
     @staticmethod
@@ -267,7 +267,7 @@ class AuditLogger:
         operator_jobcode: str | None = None,
         operator_name: str | None = None,
     ) -> bool:
-        """记录资产操作日志（通用方法）"""
+        """记录资产操作日志(通用方法)"""
         return AuditLogger._safe_log(
             OperationLogService.log_operation,
             asset_code=asset_code,
@@ -282,9 +282,9 @@ class AuditLogger:
 
 def audit_operation(operation_type: str):
     """
-    操作审计装饰器（简化版）
+    操作审计装饰器(简化版)
 
-    【适用场景】简单的CRUD操作，无需复杂的前后数据对比。
+    【适用场景】简单的CRUD操作,无需复杂的前后数据对比。
 
     【注意】复杂场景建议使用显式 AuditLogger 调用或 AuditContext。
 
@@ -304,7 +304,7 @@ def audit_operation(operation_type: str):
             # 执行原方法
             result = func(*args, **kwargs)
 
-            # 记录日志（失败不影响主流程）
+            # 记录日志(失败不影响主流程)
             try:
                 if operation_type == "create" and hasattr(result, "asset_code"):
                     AuditLogger.log_asset_create(

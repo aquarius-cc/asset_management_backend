@@ -2,8 +2,6 @@
 出库资产管理视图集
 """
 
-import logging
-
 from django.db.models import Q, QuerySet
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.openapi import OpenApiParameter
@@ -13,12 +11,6 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
-
-from core.exceptions import AppValidationError
-from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
-from core.pagination import CustomPageNumberPagination
-from core.permissions import IsAssetAdminOrAbove
-from utils.response_utils import error_response, success_response
 
 from apps.assetmanagement.models import OutAsset
 from apps.assetmanagement.selectors import AssetSelector, OutAssetSelector
@@ -31,11 +23,16 @@ from apps.assetmanagement.serializers import (
     OutAssetUpdateSerializer,
 )
 from apps.assetmanagement.services import OutAssetService
+from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
+from core.pagination import CustomPageNumberPagination
+from core.permissions import IsAssetAdminOrAbove
+from utils.response_utils import error_response, success_response
 
-from ._mixins import AdminWritePermissionMixin, OperatorContextMixin, RecordcodeLookupMixin
 from ._export_mixin import ExportExcelMixin
+from ._mixins import AdminWritePermissionMixin, OperatorContextMixin, RecordcodeLookupMixin
 
-OUTASSET_STATUS_MAP = dict(OutAsset.OUTASSET_STATUS_CHOICES) if hasattr(OutAsset, 'OUTASSET_STATUS_CHOICES') else {}
+
+OUTASSET_STATUS_MAP = dict(OutAsset.OUTASSET_STATUS_CHOICES) if hasattr(OutAsset, "OUTASSET_STATUS_CHOICES") else {}
 
 
 @extend_schema(tags=["出库管理"])
@@ -57,8 +54,12 @@ class OutAssetViewSet(
     ordering = ["-outasset_date"]
     lookup_field = "recordcode"
     admin_actions = [
-        "create", "update", "partial_update", "destroy",
-        "batch_create", "batch_delete",
+        "create",
+        "update",
+        "partial_update",
+        "destroy",
+        "batch_create",
+        "batch_delete",
         "cancel_outasset",
     ]
 
@@ -75,7 +76,7 @@ class OutAssetViewSet(
     export_sheet_name = "出库记录"
 
     def get_permissions(self):
-        """RBAC: 写操作需 asset_admin+，读操作需认证"""
+        """RBAC: 写操作需 asset_admin+,读操作需认证"""
         if self.action in self.admin_actions:
             return [IsAssetAdminOrAbove()]
         return [permissions.IsAuthenticated()]
@@ -181,33 +182,21 @@ class OutAssetViewSet(
         data.pop("recordcode", None)
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
-        try:
-            outasset = OutAssetService.create_outasset(
-                serializer.validated_data,
-                **self.get_operator_context(),
-            )
-            return success_response(
-                data=OutAssetCreateSerializer(outasset).data, message="出库成功", status_code=status.HTTP_201_CREATED
-            )
-        except AppValidationError as e:
-            return error_response(message=str(e), status_code=400)
-        except Exception:
-            logging.exception("出库创建失败")
-            return error_response(message="出库失败，服务器内部错误", status_code=500)
+        outasset = OutAssetService.create_outasset(
+            serializer.validated_data,
+            **self.get_operator_context(),
+        )
+        return success_response(
+            data=OutAssetCreateSerializer(outasset).data, message="出库成功", status_code=status.HTTP_201_CREATED
+        )
 
     def update(self, request, *args, **kwargs):
         recordcode = self.kwargs.get("recordcode")
-        try:
-            outasset = OutAssetService.update_outasset(
-                recordcode=recordcode,
-                update_data=request.data,
-            )
-            return success_response(data=OutAssetDetailSerializer(outasset).data, message="更新成功")
-        except AppValidationError as e:
-            return error_response(message=str(e), status_code=400)
-        except Exception:
-            logging.exception("出库记录更新失败")
-            return error_response(message="更新失败，请稍后重试", status_code=500)
+        outasset = OutAssetService.update_outasset(
+            recordcode=recordcode,
+            update_data=request.data,
+        )
+        return success_response(data=OutAssetDetailSerializer(outasset).data, message="更新成功")
 
     def partial_update(self, request, *args, **kwargs):
         return self.update(request, *args, **kwargs)
@@ -230,28 +219,22 @@ class OutAssetViewSet(
                 "success_items": success_serializer.data,
                 "fail_items": result["fail_items"],
             },
-            message=f"批量出库完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条",
+            message=f"批量出库完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
 
     def destroy(self, request, *args, **kwargs):
-        try:
-            outasset = self.get_object()
-            result = OutAssetService.batch_delete_outasset(
-                recordcodes=[outasset.recordcode],
-                operator_jobcode=request.user.auth_username,
-                operator_name=request.user.auth_username,
+        outasset = self.get_object()
+        result = OutAssetService.batch_delete_outasset(
+            recordcodes=[outasset.recordcode],
+            operator_jobcode=request.user.auth_username,
+            operator_name=request.user.auth_username,
+        )
+        if result["fail_count"] > 0:
+            fail_item = result["fail_items"][0]
+            return error_response(
+                message=fail_item["error_message"], status_code=400, business_code=fail_item.get("error_code")
             )
-            if result["fail_count"] > 0:
-                fail_item = result["fail_items"][0]
-                return error_response(
-                    message=fail_item["error_message"], status_code=400, business_code=fail_item.get("error_code")
-                )
-            return success_response(message="删除成功")
-        except AppValidationError as e:
-            return error_response(message=str(e.detail), status_code=400)
-        except Exception:
-            logging.exception("删除失败")
-            return error_response(message="删除失败，请稍后重试", status_code=500)
+        return success_response(message="删除成功")
 
     @action(detail=False, methods=["post"], url_path="batch-delete")
     def batch_delete(self, request):
@@ -270,7 +253,7 @@ class OutAssetViewSet(
                 "success_ids": result["success_ids"],
                 "fail_items": result["fail_items"],
             },
-            message=f"批量删除完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条",
+            message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
 
     @extend_schema(
@@ -304,25 +287,19 @@ class OutAssetViewSet(
 
     @action(detail=True, methods=["post"], url_path="cancel", permission_classes=[IsAssetAdminOrAbove])
     def cancel_outasset(self, request, recordcode=None):
-        """POST /out-assets/{recordcode}/cancel/ — 取消出库，恢复资产状态"""
+        """POST /out-assets/{recordcode}/cancel/ — 取消出库,恢复资产状态"""
         outasset = self.get_object()
-        try:
-            result = OutAssetService.batch_delete_outasset(
-                recordcodes=[outasset.recordcode],
-                operator_jobcode=request.user.auth_username,
-                operator_name=request.user.auth_username,
+        result = OutAssetService.batch_delete_outasset(
+            recordcodes=[outasset.recordcode],
+            operator_jobcode=request.user.auth_username,
+            operator_name=request.user.auth_username,
+        )
+        if result["fail_count"] > 0:
+            fail_item = result["fail_items"][0]
+            return error_response(
+                message=fail_item["error_message"], status_code=400, business_code=fail_item.get("error_code")
             )
-            if result["fail_count"] > 0:
-                fail_item = result["fail_items"][0]
-                return error_response(
-                    message=fail_item["error_message"], status_code=400, business_code=fail_item.get("error_code")
-                )
-            return success_response(message="取消出库成功，资产状态已恢复")
-        except AppValidationError as e:
-            return error_response(message=str(e), status_code=400)
-        except Exception:
-            logging.exception("取消出库失败")
-            return error_response(message="取消出库失败，请稍后重试", status_code=500)
+        return success_response(message="取消出库成功,资产状态已恢复")
 
     @action(detail=False, methods=["get"])
     def statistics(self, request) -> Response:

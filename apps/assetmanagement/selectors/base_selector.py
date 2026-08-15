@@ -32,7 +32,7 @@ class StorageSelector:
 
     @staticmethod
     def exists_by_code(storage_code: str) -> bool:
-        # 【P0-21 修复】显式过滤 is_deleted=False，防御性编码
+        # 【P0-21 修复】显式过滤 is_deleted=False,防御性编码
         return Storage.objects.filter(storage_code=storage_code, is_deleted=False).exists()
 
     @staticmethod
@@ -82,7 +82,7 @@ class ContractSelector:
 
     @staticmethod
     def exists_by_code(contract_code: str) -> bool:
-        # 【P0-23 修复】显式过滤 is_deleted=False，防御性编码
+        # 【P0-23 修复】显式过滤 is_deleted=False,防御性编码
         return Contract.objects.filter(contract_code=contract_code, is_deleted=False).exists()
 
     @staticmethod
@@ -108,7 +108,7 @@ class HardDiskSNSelector:
 
     @staticmethod
     def get_queryset_for_user(user):
-        """RBAC 行级过滤（硬盘通过 asset_recordcode 关联到 Asset）"""
+        """RBAC 行级过滤(硬盘通过 asset_recordcode 关联到 Asset)"""
         return get_asset_linked_queryset_for_user(user, HardDiskSN.objects.filter(is_deleted=False))
 
     @staticmethod
@@ -138,16 +138,14 @@ class HardDiskSNSelector:
     @staticmethod
     def exists_by_sn_code(sn_code: str) -> bool:
         """检查序列号是否已存在"""
-        return HardDiskSN.objects.filter(
-            harddisk_sn_code=sn_code, is_deleted=False
-        ).exists()
+        return HardDiskSN.objects.filter(harddisk_sn_code=sn_code, is_deleted=False).exists()
 
     @staticmethod
     def get_by_asset(asset_recordcode: str) -> QuerySet[HardDiskSN]:
         """查询某资产的所有硬盘"""
-        return HardDiskSN.objects.filter(
-            asset_recordcode=asset_recordcode, is_deleted=False
-        ).order_by("harddisk_sn_code")
+        return HardDiskSN.objects.filter(asset_recordcode=asset_recordcode, is_deleted=False).order_by(
+            "harddisk_sn_code"
+        )
 
     @staticmethod
     def get_by_asset_code(asset_code: str) -> QuerySet[HardDiskSN]:
@@ -161,16 +159,12 @@ class HardDiskSNSelector:
     @staticmethod
     def count_by_asset(asset_recordcode: str) -> int:
         """统计某资产的硬盘数量"""
-        return HardDiskSN.objects.filter(
-            asset_recordcode=asset_recordcode, is_deleted=False
-        ).count()
+        return HardDiskSN.objects.filter(asset_recordcode=asset_recordcode, is_deleted=False).count()
 
     @staticmethod
     def get_by_status(status: str) -> QuerySet[HardDiskSN]:
         """按状态查询"""
-        return HardDiskSN.objects.filter(
-            harddisk_status=status, is_deleted=False
-        )
+        return HardDiskSN.objects.filter(harddisk_status=status, is_deleted=False)
 
 
 class DashboardSelector:
@@ -197,7 +191,7 @@ class DashboardSelector:
 
     @staticmethod
     def get_overview_statistics() -> dict[str, Any]:
-        """获取仪表盘概览统计（资产+合同+在用资产）"""
+        """获取仪表盘概览统计(资产+合同+在用资产)"""
         asset_stats = Asset.objects.filter(is_deleted=False).aggregate(
             total=Count("id"), total_value=Sum("asset_purchase_price")
         )
@@ -253,7 +247,7 @@ class DashboardSelector:
 
     @staticmethod
     def get_asset_trend(days: int = 30) -> dict[str, Any]:
-        """获取资产趋势数据（按日统计）"""
+        """获取资产趋势数据(按日统计)"""
         from datetime import timedelta
 
         from django.db.models.functions import TruncDate
@@ -349,7 +343,7 @@ class DashboardSelector:
 
     @staticmethod
     def get_expiring_assets(days: int = 30) -> list:
-        """获取即将到期的资产（保修期即将结束）"""
+        """获取即将到期的资产(保修期即将结束)"""
         expiring_assets = (
             Asset.objects.filter(is_deleted=False, asset_warranty_period__gt=0, asset_purchase_date__isnull=False)
             .select_related("asset_type_recordcode", "asset_storage_recordcode", "asset_manager_recordcode")
@@ -359,6 +353,7 @@ class DashboardSelector:
         result = []
         for asset in expiring_assets:
             from datetime import date
+
             from dateutil.relativedelta import relativedelta
 
             warranty_end = asset.asset_purchase_date + relativedelta(months=asset.asset_warranty_period * 12)
@@ -405,9 +400,7 @@ class DashboardSelector:
                         "asset_name": asset.asset_name,
                         "asset_entry_date": asset.asset_entry_date.isoformat(),
                         "usage_months": usage_months,
-                        "asset_type": asset.asset_type_recordcode.type_name
-                        if asset.asset_type_recordcode
-                        else None,
+                        "asset_type": asset.asset_type_recordcode.type_name if asset.asset_type_recordcode else None,
                         "asset_manager": asset.asset_manager_recordcode.employee_name
                         if asset.asset_manager_recordcode
                         else None,

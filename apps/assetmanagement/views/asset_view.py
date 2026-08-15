@@ -2,8 +2,6 @@
 资产管理视图集
 """
 
-import logging
-
 from django.db.models import Q, QuerySet
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.openapi import OpenApiParameter
@@ -13,12 +11,6 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
-
-from core.constants import ASSET_STATUS_CHOICES
-from core.exceptions import AppValidationError, NotFoundError
-from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
-from core.pagination import CustomPageNumberPagination
-from utils.response_utils import error_response, success_response
 
 from apps.assetmanagement.models import Asset
 from apps.assetmanagement.selectors import AssetSelector
@@ -33,11 +25,15 @@ from apps.assetmanagement.serializers import (
     ContractDetailSerializer,
 )
 from apps.assetmanagement.services import AssetService
-
+from core.constants import ASSET_STATUS_CHOICES
+from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
+from core.pagination import CustomPageNumberPagination
 from core.permissions import IsAssetAdminOrAbove
+from utils.response_utils import error_response, success_response
 
-from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
 from ._export_mixin import ExportExcelMixin
+from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
+
 
 ASSET_STATUS_MAP = dict(ASSET_STATUS_CHOICES)
 
@@ -59,10 +55,18 @@ class AssetViewSet(
     pagination_class = CustomPageNumberPagination
     lookup_field = "recordcode"
     admin_actions = [
-        "create", "update", "partial_update", "destroy",
-        "batch_create", "batch_delete",
-        "change_status", "change_outasset_employee",
-        "found_and_return", "repair", "repair_done", "repair_failed",
+        "create",
+        "update",
+        "partial_update",
+        "destroy",
+        "batch_create",
+        "batch_delete",
+        "change_status",
+        "change_outasset_employee",
+        "found_and_return",
+        "repair",
+        "repair_done",
+        "repair_failed",
     ]
 
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -70,7 +74,7 @@ class AssetViewSet(
     ordering_fields = ["asset_code", "asset_entry_date", "asset_purchase_price", "asset_name"]
     ordering = ["-asset_entry_date"]
 
-    # 导出配置（HIGH-12: 使用 ExportExcelMixin 替代自定义导出）
+    # 导出配置(HIGH-12: 使用 ExportExcelMixin 替代自定义导出)
     export_columns = [
         {"header": "资产编码", "field": "asset_code"},
         {"header": "资产名称", "field": "asset_name"},
@@ -87,7 +91,7 @@ class AssetViewSet(
     export_sheet_name = "资产列表"
 
     def get_permissions(self):
-        """RBAC: 写操作需 asset_admin+，读操作需认证"""
+        """RBAC: 写操作需 asset_admin+,读操作需认证"""
         if self.action in self.admin_actions:
             return [IsAssetAdminOrAbove()]
         return [permissions.IsAuthenticated()]
@@ -128,47 +132,31 @@ class AssetViewSet(
         )
         response_serializer = AssetDetailSerializer(assets, many=True)
         count = len(assets)
-        message = f"创建成功，共创建 {count} 条资产记录" if count > 1 else "创建成功"
+        message = f"创建成功,共创建 {count} 条资产记录" if count > 1 else "创建成功"
         return success_response(data=response_serializer.data, message=message, status_code=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
         asset_code = self.kwargs.get("recordcode")
-        try:
-            asset = AssetService.update_asset(
-                asset_code=asset_code,
-                update_data=request.data,
-                operator_jobcode=request.user.auth_id,
-                operator_name=request.user.auth_username,
-            )
-            serializer = AssetDetailSerializer(asset)
-            return success_response(data=serializer.data, message="更新成功")
-        except AppValidationError as e:
-            return error_response(message=str(e), status_code=400)
-        except NotFoundError as e:
-            return error_response(message=str(e), status_code=404)
-        except Exception:
-            logging.exception("资产更新失败")
-            return error_response(message="更新失败，请稍后重试", status_code=500)
+        asset = AssetService.update_asset(
+            asset_code=asset_code,
+            update_data=request.data,
+            operator_jobcode=request.user.auth_id,
+            operator_name=request.user.auth_username,
+        )
+        serializer = AssetDetailSerializer(asset)
+        return success_response(data=serializer.data, message="更新成功")
 
     def partial_update(self, request, *args, **kwargs):
         return self.update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
         asset_code = self.kwargs.get("recordcode")
-        try:
-            AssetService.delete_asset(
-                asset_code=asset_code,
-                operator_jobcode=request.user.auth_id,
-                operator_name=request.user.auth_username,
-            )
-            return success_response(message="删除成功")
-        except AppValidationError as e:
-            return error_response(message=str(e), status_code=400)
-        except NotFoundError as e:
-            return error_response(message=str(e), status_code=404)
-        except Exception:
-            logging.exception("资产删除失败")
-            return error_response(message="删除失败，请稍后重试", status_code=500)
+        AssetService.delete_asset(
+            asset_code=asset_code,
+            operator_jobcode=request.user.auth_id,
+            operator_name=request.user.auth_username,
+        )
+        return success_response(message="删除成功")
 
     @extend_schema(
         parameters=[
@@ -197,7 +185,14 @@ class AssetViewSet(
     def combine_search(self, request) -> Response:
         field_filters = {}
         exact_filters = {}
-        for param in ["asset_name", "asset_specification", "asset_brand", "asset_code", "asset_contract", "asset_contract_name"]:
+        for param in [
+            "asset_name",
+            "asset_specification",
+            "asset_brand",
+            "asset_code",
+            "asset_contract",
+            "asset_contract_name",
+        ]:
             value = request.query_params.get(param, "").strip()
             if value:
                 field_filters[param] = value
@@ -221,8 +216,11 @@ class AssetViewSet(
         storage_code = request.query_params.get("storage_code", "").strip() or None
         contract_code = request.query_params.get("contract_code", "").strip() or None
         assets = AssetSelector.search_assets(
-            keyword=keyword, status=status_filter, asset_type=asset_type,
-            storage_code=storage_code, contract_code=contract_code,
+            keyword=keyword,
+            status=status_filter,
+            asset_type=asset_type,
+            storage_code=storage_code,
+            contract_code=contract_code,
         )
         page = self.paginate_queryset(assets)
         if page is not None:
@@ -236,7 +234,9 @@ class AssetViewSet(
         stats = AssetService.get_asset_statistics()
         return success_response(data=stats, message="查询成功")
 
-    @action(detail=False, methods=["get"], url_path="search_available", permission_classes=[permissions.IsAuthenticated])
+    @action(
+        detail=False, methods=["get"], url_path="search_available", permission_classes=[permissions.IsAuthenticated]
+    )
     def search_available(self, request) -> Response:
         available = AssetSelector.get_available_assets(
             asset_code=request.query_params.get("asset_code"),
@@ -253,27 +253,39 @@ class AssetViewSet(
         serializer = self.get_serializer(available, many=True)
         return success_response(data={"count": available.count(), "results": serializer.data})
 
+    @extend_schema(
+        deprecated=True,
+        description=(
+            "[已废弃] UI 已切换至专用状态接口(出库/回收/送修/报废等), 此端点仅供系统管理员数据修复使用. "
+            "注意: 仅执行状态机合法边转换并记录审计, 不创建任何业务单据, 变更后须人工补录对应单据."
+        ),
+    )
     @action(detail=True, methods=["post"], url_path="change_status")
     def change_status(self, request, recordcode=None) -> Response:
-        asset_code = self.kwargs.get("recordcode")
+        """废弃端点: 手动状态变更(仅限系统管理员数据修复, 不创建业务单据)"""
+        asset = self.get_object()
+        asset_code = asset.asset_code
         new_status = request.data.get("status")
         description = request.data.get("description", "")
-        try:
-            asset = AssetService.change_asset_status(asset_code, new_status, description)
-            serializer = AssetDetailSerializer(asset)
-            return success_response(
-                data={"asset": serializer.data},
-                message=f"状态已更改为: {ASSET_STATUS_MAP.get(new_status, new_status)}",
-            )
-        except AppValidationError as e:
-            return error_response(message=str(e), status_code=400)
-        except NotFoundError as e:
-            return error_response(message=str(e), status_code=404)
+        asset = AssetService.change_asset_status(
+            asset_code,
+            new_status,
+            description,
+            operator_jobcode=request.user.auth_id,
+            operator_name=request.user.auth_username,
+        )
+        serializer = AssetDetailSerializer(asset)
+        return success_response(
+            data={"asset": serializer.data},
+            message=f"状态已更改为: {ASSET_STATUS_MAP.get(new_status, new_status)}",
+        )
 
     @extend_schema(
         description="更新资产申请人和资产保管人信息",
         parameters=[
-            OpenApiParameter(name="change_outasset_employee", description="更新资产申请人和资产保管人信息", required=False, type=str)
+            OpenApiParameter(
+                name="change_outasset_employee", description="更新资产申请人和资产保管人信息", required=False, type=str
+            )
         ],
     )
     @action(detail=True, methods=["POST"], url_path="change_outasset_employee")
@@ -281,17 +293,12 @@ class AssetViewSet(
         asset_code = self.kwargs.get("recordcode")
         applicant_jobcode = request.data.get("applicant_jobcode")
         manager_jobcode = request.data.get("manager_jobcode")
-        try:
-            asset = AssetService.change_outasset_employee(asset_code, applicant_jobcode, manager_jobcode)
-            serializer = AssetDetailSerializer(asset)
-            return success_response(
-                data={"asset": serializer.data},
-                message=f"资产 {asset_code} 已更新资产申请人 {applicant_jobcode} 和资产保管人 {manager_jobcode}",
-            )
-        except AppValidationError as e:
-            return error_response(message=str(e), status_code=400)
-        except NotFoundError as e:
-            return error_response(message=str(e), status_code=404)
+        asset = AssetService.change_outasset_employee(asset_code, applicant_jobcode, manager_jobcode)
+        serializer = AssetDetailSerializer(asset)
+        return success_response(
+            data={"asset": serializer.data},
+            message=f"资产 {asset_code} 已更新资产申请人 {applicant_jobcode} 和资产保管人 {manager_jobcode}",
+        )
 
     @action(detail=False, methods=["get"], url_path="combined_details")
     def combined_details(self, request) -> Response:
@@ -333,7 +340,7 @@ class AssetViewSet(
                 "success_items": success_serializer.data,
                 "fail_items": result["fail_items"],
             },
-            message=f"批量创建完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条",
+            message=f"批量创建完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
 
     @action(detail=False, methods=["post"], url_path="batch-delete")
@@ -353,107 +360,94 @@ class AssetViewSet(
                 "success_ids": result["success_ids"],
                 "fail_items": result["fail_items"],
             },
-            message=f"批量删除完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条",
+            message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
 
     @action(detail=True, methods=["post"], url_path="mark-broken", permission_classes=[IsAssetAdminOrAbove])
     def mark_broken(self, request, recordcode=None):
         """POST /assets/{recordcode}/mark-broken/ — 标记资产损坏"""
         asset = self.get_object()
-        try:
-            asset = AssetService.mark_asset_broken(
-                asset_code=asset.asset_code,
-                broken_reason=request.data.get("broken_reason", ""),
-                broken_description=request.data.get("broken_description", ""),
-                operator_jobcode=request.user.auth_id,
-                operator_name=request.user.auth_username,
-            )
-            return success_response(data=AssetDetailSerializer(asset).data, message="资产已标记为损坏")
-        except AppValidationError as e:
-            return error_response(message=str(e), status_code=400)
+        asset = AssetService.mark_asset_broken(
+            asset_code=asset.asset_code,
+            broken_reason=request.data.get("broken_reason", ""),
+            broken_description=request.data.get("broken_description", ""),
+            operator_jobcode=request.user.auth_id,
+            operator_name=request.user.auth_username,
+        )
+        return success_response(data=AssetDetailSerializer(asset).data, message="资产已标记为损坏")
 
     @action(detail=True, methods=["post"], url_path="mark-lost", permission_classes=[IsAssetAdminOrAbove])
     def mark_lost(self, request, recordcode=None):
         """POST /assets/{recordcode}/mark-lost/ — 标记资产遗失"""
         asset = self.get_object()
-        try:
-            asset = AssetService.mark_asset_lost(
-                asset_code=asset.asset_code,
-                lost_reason=request.data.get("lost_reason", ""),
-                last_known_location=request.data.get("last_known_location", ""),
-                lost_description=request.data.get("lost_description", ""),
-                operator_jobcode=request.user.auth_id,
-                operator_name=request.user.auth_username,
-            )
-            return success_response(data=AssetDetailSerializer(asset).data, message="资产已标记为遗失")
-        except AppValidationError as e:
-            return error_response(message=str(e), status_code=400)
+        asset = AssetService.mark_asset_lost(
+            asset_code=asset.asset_code,
+            lost_reason=request.data.get("lost_reason", ""),
+            last_known_location=request.data.get("last_known_location", ""),
+            lost_description=request.data.get("lost_description", ""),
+            operator_jobcode=request.user.auth_id,
+            operator_name=request.user.auth_username,
+        )
+        return success_response(data=AssetDetailSerializer(asset).data, message="资产已标记为遗失")
 
     @action(detail=True, methods=["post"], url_path="found")
     def found_and_return(self, request, recordcode=None):
         asset = self.get_object()
-        try:
-            asset = AssetService.find_and_return_asset(
-                asset_code=asset.asset_code,
-                found_location=request.data.get("found_location", ""),
-                found_description=request.data.get("found_description", ""),
-                operator_jobcode=request.user.auth_id,
-                operator_name=request.user.auth_username,
-            )
-            return success_response(data=AssetDetailSerializer(asset).data, message="遗失资产已找回并入库")
-        except AppValidationError as e:
-            return error_response(message=str(e), status_code=400)
+        asset = AssetService.find_and_return_asset(
+            asset_code=asset.asset_code,
+            found_location=request.data.get("found_location", ""),
+            found_description=request.data.get("found_description", ""),
+            operator_jobcode=request.user.auth_id,
+            operator_name=request.user.auth_username,
+        )
+        return success_response(data=AssetDetailSerializer(asset).data, message="遗失资产已找回并入库")
 
     @action(detail=True, methods=["post"], url_path="repair")
     def repair(self, request, recordcode=None):
         asset = self.get_object()
-        try:
-            from apps.assetmanagement.serializers.repair_asset_serializers import RepairAssetDetailSerializer
-            repair_record = AssetService.repair_asset(
-                asset_code=asset.asset_code,
-                repair_reason=request.data.get("repair_reason", ""),
-                repair_date=request.data.get("repair_date", ""),
-                repair_description=request.data.get("repair_description", ""),
-                operator_jobcode=request.user.auth_id,
-                operator_name=request.user.auth_username,
-            )
-            return success_response(data=RepairAssetDetailSerializer(repair_record).data, message="Asset sent for repair")
-        except AppValidationError as e:
-            return error_response(message=str(e), status_code=400)
+        from apps.assetmanagement.serializers.repair_asset_serializers import RepairAssetDetailSerializer
+
+        repair_record = AssetService.repair_asset(
+            asset_code=asset.asset_code,
+            repair_reason=request.data.get("repair_reason", ""),
+            repair_date=request.data.get("repair_date", ""),
+            repair_description=request.data.get("repair_description", ""),
+            operator_jobcode=request.user.auth_id,
+            operator_name=request.user.auth_username,
+        )
+        return success_response(
+            data=RepairAssetDetailSerializer(repair_record).data, message="Asset sent for repair"
+        )
 
     @action(detail=True, methods=["post"], url_path="repair-done")
     def repair_done(self, request, recordcode=None):
         asset = self.get_object()
-        try:
-            from apps.assetmanagement.serializers.repair_asset_serializers import RepairAssetDetailSerializer
-            repair_record = AssetService.repair_done(
-                asset_code=asset.asset_code,
-                actual_return_date=request.data.get("actual_return_date", ""),
-                physical_grade_after=request.data.get("physical_grade_after", ""),
-                operator_jobcode=request.user.auth_id,
-                operator_name=request.user.auth_username,
-            )
-            return success_response(data=RepairAssetDetailSerializer(repair_record).data, message="Repair completed")
-        except AppValidationError as e:
-            return error_response(message=str(e), status_code=400)
+        from apps.assetmanagement.serializers.repair_asset_serializers import RepairAssetDetailSerializer
+
+        repair_record = AssetService.repair_done(
+            asset_code=asset.asset_code,
+            actual_return_date=request.data.get("actual_return_date", ""),
+            physical_grade_after=request.data.get("physical_grade_after", ""),
+            operator_jobcode=request.user.auth_id,
+            operator_name=request.user.auth_username,
+        )
+        return success_response(data=RepairAssetDetailSerializer(repair_record).data, message="Repair completed")
 
     @action(detail=True, methods=["post"], url_path="repair-failed")
     def repair_failed(self, request, recordcode=None):
         asset = self.get_object()
-        try:
-            from apps.assetmanagement.serializers.repair_asset_serializers import RepairAssetDetailSerializer
-            repair_record = AssetService.repair_failed(
-                asset_code=asset.asset_code,
-                operator_jobcode=request.user.auth_id,
-                operator_name=request.user.auth_username,
-            )
-            return success_response(data=RepairAssetDetailSerializer(repair_record).data, message="Repair failed")
-        except AppValidationError as e:
-            return error_response(message=str(e), status_code=400)
+        from apps.assetmanagement.serializers.repair_asset_serializers import RepairAssetDetailSerializer
+
+        repair_record = AssetService.repair_failed(
+            asset_code=asset.asset_code,
+            operator_jobcode=request.user.auth_id,
+            operator_name=request.user.auth_username,
+        )
+        return success_response(data=RepairAssetDetailSerializer(repair_record).data, message="Repair failed")
 
     # =====================================================================
-    # P1-6: 以资产为中心的 Action 端点（规范文档路径对齐）
-    # 这些端点是对现有子资源 API 的补充，提供规范文档定义的路径风格
+    # P1-6: 以资产为中心的 Action 端点(规范文档路径对齐)
+    # 这些端点是对现有子资源 API 的补充,提供规范文档定义的路径风格
     # =====================================================================
 
     @action(detail=True, methods=["get"], url_path="logs", permission_classes=[permissions.IsAuthenticated])
@@ -463,6 +457,7 @@ class AssetViewSet(
         from apps.assetmanagement.selectors import AssetSelector
         from apps.assetmanagement.serializers import AssetOperationLogListSerializer
         from utils.response_utils import success_response
+
         logs = AssetSelector.get_operation_logs_for_asset(asset)
         return success_response(data=AssetOperationLogListSerializer(logs, many=True).data)
 
@@ -472,11 +467,15 @@ class AssetViewSet(
         asset = self.get_object()
         try:
             from django.http import HttpResponse
+
             from apps.assetmanagement.services import AssetService
-            base_url = f"{request.scheme}://{request.get_host()}"
+
+            from django.conf import settings
+
+            base_url = settings.FRONTEND_BASE_URL
             png_data = AssetService.generate_qr_code_image(asset, base_url)
             response = HttpResponse(png_data, content_type="image/png")
             response["Content-Disposition"] = f'inline; filename="qr_{asset.asset_code}.png"'
             return response
         except ImportError:
-            return error_response(message="缺少 qrcode 依赖，请安装：pip install qrcode[pil]", status_code=500)
+            return error_response(message="缺少 qrcode 依赖,请安装:pip install qrcode[pil]", status_code=500)

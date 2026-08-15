@@ -43,7 +43,7 @@ class BrokenAsset(BaseModel):
     """
     已损坏资产管理模型
 
-    记录资产损坏信息，直接生效无需审批。
+    记录资产损坏信息,直接生效无需审批。
     """
 
     if TYPE_CHECKING:

@@ -10,7 +10,7 @@ from django.db import transaction
 
 from apps.assetmanagement.audit import AuditLogger
 from apps.assetmanagement.models import HardDiskSN
-from apps.assetmanagement.selectors import AssetSelector, HardDiskSNSelector
+from apps.assetmanagement.selectors import HardDiskSNSelector
 from core.exceptions import AppValidationError
 
 
@@ -18,13 +18,15 @@ class HardDiskSNService:
     """
     硬盘序列号业务服务
 
-    采用"先验证后执行"策略，所有校验通过后才执行数据库操作。
+    采用"先验证后执行"策略,所有校验通过后才执行数据库操作。
     使用数据库事务确保批量操作的原子性。
     """
 
     @staticmethod
     @transaction.atomic
-    def create(data: dict[str, Any], operator_jobcode: str | None = None, operator_name: str | None = None) -> HardDiskSN:
+    def create(
+        data: dict[str, Any], operator_jobcode: str | None = None, operator_name: str | None = None
+    ) -> HardDiskSN:
         """
         创建单条硬盘记录
         - 校验序列号唯一性
@@ -55,12 +57,14 @@ class HardDiskSNService:
     @staticmethod
     @transaction.atomic
     def update(
-        recordcode: str, update_data: dict[str, Any],
-        operator_jobcode: str | None = None, operator_name: str | None = None,
+        recordcode: str,
+        update_data: dict[str, Any],
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
     ) -> HardDiskSN:
         """
         更新硬盘记录
-        - 若修改序列号，校验新唯一性
+        - 若修改序列号,校验新唯一性
         """
         harddisk = HardDiskSNSelector.get_by_recordcode(recordcode)
         if not harddisk:
@@ -113,7 +117,7 @@ class HardDiskSNService:
     @transaction.atomic
     def batch_save(asset_recordcode: str, disks: list[dict[str, Any]]) -> dict[str, Any]:
         """
-        批量保存硬盘（资产入库时调用）
+        批量保存硬盘(资产入库时调用)
         - 有 recordcode → 更新
         - 无 recordcode → 创建
         - 校验序列号唯一性
@@ -126,11 +130,11 @@ class HardDiskSNService:
             )
 
         sn_codes = [d.get("harddisk_sn_code", "").strip() for d in disks]
-        # 批量唯一性校验（排除自身已软删除的记录）
+        # 批量唯一性校验(排除自身已软删除的记录)
         existing = set(
-            HardDiskSN.objects.filter(
-                harddisk_sn_code__in=sn_codes, is_deleted=False
-            ).values_list("harddisk_sn_code", flat=True)
+            HardDiskSN.objects.filter(harddisk_sn_code__in=sn_codes, is_deleted=False).values_list(
+                "harddisk_sn_code", flat=True
+            )
         )
         duplicates = [s for s in sn_codes if s in existing]
         if duplicates:

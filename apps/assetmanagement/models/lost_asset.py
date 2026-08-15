@@ -43,7 +43,7 @@ class LostAsset(BaseModel):
     """
     已遗失资产管理模型
 
-    记录资产遗失信息，直接生效无需审批。
+    记录资产遗失信息,直接生效无需审批。
     """
 
     if TYPE_CHECKING:

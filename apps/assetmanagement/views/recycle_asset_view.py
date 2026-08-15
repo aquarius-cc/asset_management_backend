@@ -2,10 +2,7 @@
 回收资产管理视图集
 """
 
-import logging
-
 from django.db.models import QuerySet
-from django.http import Http404
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.openapi import OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
@@ -15,15 +12,10 @@ from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 
-from core.exceptions import AppValidationError
-from core.permissions import IsAssetAdminOrAbove
-from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
-from core.pagination import CustomPageNumberPagination
-from utils.response_utils import error_response, success_response
-
 from apps.assetmanagement.models import RecycleAsset
 from apps.assetmanagement.selectors import AssetSelector, RecycleAssetSelector
 from apps.assetmanagement.serializers import (
+    OutAssetDetailSerializer,
     RecycleAssetBatchCreateSerializer,
     RecycleAssetBatchDeleteSerializer,
     RecycleAssetCreateSerializer,
@@ -32,10 +24,13 @@ from apps.assetmanagement.serializers import (
     RecycleAssetUpdateSerializer,
 )
 from apps.assetmanagement.services import RecycleAssetService
-from apps.assetmanagement.serializers import OutAssetDetailSerializer
+from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
+from core.pagination import CustomPageNumberPagination
+from core.permissions import IsAssetAdminOrAbove
+from utils.response_utils import error_response, success_response
 
-from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
 from ._export_mixin import ExportExcelMixin
+from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
 
 
 @extend_schema(tags=["回收管理"])
@@ -65,9 +60,14 @@ class RecycleAssetViewSet(
     ordering = ["-recycle_asset_date"]
     lookup_field = "recordcode"
     admin_actions = [
-        "create", "update", "partial_update", "destroy",
-        "batch_create", "batch_delete",
-        "cancel_recycle", "reissue",
+        "create",
+        "update",
+        "partial_update",
+        "destroy",
+        "batch_create",
+        "batch_delete",
+        "cancel_recycle",
+        "reissue",
     ]
 
     # 导出配置
@@ -81,12 +81,12 @@ class RecycleAssetViewSet(
     export_filename = "recycle_assets_export.xlsx"
     export_sheet_name = "回收记录"
 
-
     def get_permissions(self):
-        """RBAC: 写操作需 IsAssetAdminOrAbove+，读操作需认证"""
+        """RBAC: 写操作需 IsAssetAdminOrAbove+,读操作需认证"""
         if self.action in self.admin_actions:
             return [IsAssetAdminOrAbove()]
         return [permissions.IsAuthenticated()]
+
     def get_serializer_class(self) -> type:
         if self.action == "list":
             return RecycleAssetListSerializer
@@ -115,38 +115,26 @@ class RecycleAssetViewSet(
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        try:
-            recycle = RecycleAssetService.create_recycle_asset(
-                serializer.validated_data,
-                operator_jobcode=request.user.auth_username,
-                operator_name=request.user.auth_username,
-            )
-            return success_response(
-                data=RecycleAssetCreateSerializer(recycle).data, message="回收成功", status_code=status.HTTP_201_CREATED
-            )
-        except AppValidationError as e:
-            return error_response(message=str(e), status_code=400)
-        except Exception:
-            logging.exception("回收创建失败")
-            return error_response(message="回收失败，服务器内部错误", status_code=500)
+        recycle = RecycleAssetService.create_recycle_asset(
+            serializer.validated_data,
+            operator_jobcode=request.user.auth_username,
+            operator_name=request.user.auth_username,
+        )
+        return success_response(
+            data=RecycleAssetCreateSerializer(recycle).data, message="回收成功", status_code=status.HTTP_201_CREATED
+        )
 
     def update(self, request, *args, **kwargs):
         recordcode = self.kwargs.get("recordcode")
-        try:
-            serializer = RecycleAssetUpdateSerializer(data=request.data, partial=True)
-            serializer.is_valid(raise_exception=True)
-            recycle = RecycleAssetService.update_recycle_asset(
-                recordcode=recordcode,
-                update_data=serializer.validated_data,
-                operator_jobcode=request.user.auth_username,
-                operator_name=request.user.auth_username,
-            )
-            return success_response(data=RecycleAssetDetailSerializer(recycle).data, message="更新成功")
-        except AppValidationError as e:
-            return error_response(message=str(e), status_code=400)
-        except Exception:
-            logging.exception("回收记录更新失败")
-            return error_response(message="更新失败，请稍后重试", status_code=500)
+        serializer = RecycleAssetUpdateSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        recycle = RecycleAssetService.update_recycle_asset(
+            recordcode=recordcode,
+            update_data=serializer.validated_data,
+            operator_jobcode=request.user.auth_username,
+            operator_name=request.user.auth_username,
+        )
+        return success_response(data=RecycleAssetDetailSerializer(recycle).data, message="更新成功")
 
     def partial_update(self, request, *args, **kwargs):
         return self.update(request, *args, **kwargs)
@@ -170,6 +158,7 @@ class RecycleAssetViewSet(
         if not recordcode:
             return error_response(message="请提供出库记录编码", status_code=400)
         from apps.assetmanagement.selectors import RecycleAssetSelector
+
         record = RecycleAssetSelector.get_by_outasset_recordcode(recordcode)
         if record is None:
             return error_response(message=f"未找到出库记录 {recordcode} 对应的回收记录", status_code=404)
@@ -213,28 +202,22 @@ class RecycleAssetViewSet(
                 "success_items": success_serializer.data,
                 "fail_items": result["fail_items"],
             },
-            message=f"批量回收完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条",
+            message=f"批量回收完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
 
     def destroy(self, request, *args, **kwargs):
-        try:
-            asset_recordcode = self.get_object()
-            result = RecycleAssetService.batch_delete_recycle_asset(
-                recordcodes=[asset_recordcode.recordcode],
-                operator_jobcode=request.user.auth_username,
-                operator_name=request.user.auth_username,
+        asset_recordcode = self.get_object()
+        result = RecycleAssetService.batch_delete_recycle_asset(
+            recordcodes=[asset_recordcode.recordcode],
+            operator_jobcode=request.user.auth_username,
+            operator_name=request.user.auth_username,
+        )
+        if result["fail_count"] > 0:
+            fail_item = result["fail_items"][0]
+            return error_response(
+                message=fail_item["error_message"], status_code=400, business_code=fail_item.get("error_code")
             )
-            if result["fail_count"] > 0:
-                fail_item = result["fail_items"][0]
-                return error_response(
-                    message=fail_item["error_message"], status_code=400, business_code=fail_item.get("error_code")
-                )
-            return success_response(message="删除成功")
-        except AppValidationError as e:
-            return error_response(message=str(e.detail), status_code=400)
-        except Exception:
-            logging.exception("回收记录删除失败")
-            return error_response(message="删除失败，请稍后重试", status_code=500)
+        return success_response(message="删除成功")
 
     @action(detail=False, methods=["post"], url_path="batch-delete")
     def batch_delete(self, request):
@@ -253,47 +236,35 @@ class RecycleAssetViewSet(
                 "success_ids": result["success_ids"],
                 "fail_items": result["fail_items"],
             },
-            message=f"批量删除完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条",
+            message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
 
     @action(detail=True, methods=["post"], url_path="cancel", permission_classes=[IsAssetAdminOrAbove])
     def cancel_recycle(self, request, recordcode=None):
-        """POST /recycle-assets/{recordcode}/cancel/ — 取消回收，恢复资产到在用状态"""
+        """POST /recycle-assets/{recordcode}/cancel/ — 取消回收,恢复资产到在用状态"""
         recycle = self.get_object()
-        try:
-            result = RecycleAssetService.batch_delete_recycle_asset(
-                recordcodes=[recycle.recordcode],
-                operator_jobcode=request.user.auth_username,
-                operator_name=request.user.auth_username,
+        result = RecycleAssetService.batch_delete_recycle_asset(
+            recordcodes=[recycle.recordcode],
+            operator_jobcode=request.user.auth_username,
+            operator_name=request.user.auth_username,
+        )
+        if result["fail_count"] > 0:
+            fail_item = result["fail_items"][0]
+            return error_response(
+                message=fail_item["error_message"], status_code=400, business_code=fail_item.get("error_code")
             )
-            if result["fail_count"] > 0:
-                fail_item = result["fail_items"][0]
-                return error_response(
-                    message=fail_item["error_message"], status_code=400, business_code=fail_item.get("error_code")
-                )
-            return success_response(message="取消回收成功，资产状态已恢复为在用")
-        except AppValidationError as e:
-            return error_response(message=str(e), status_code=400)
-        except Exception:
-            logging.exception("取消回收失败")
-            return error_response(message="取消回收失败，请稍后重试", status_code=500)
+        return success_response(message="取消回收成功,资产状态已恢复为在用")
 
     @action(detail=True, methods=["post"], url_path="reissue", permission_classes=[IsAssetAdminOrAbove])
     def reissue(self, request, recordcode=None):
         """POST /recycle-assets/{recordcode}/reissue/ — 重新发放已回收资产"""
-        try:
-            outasset = RecycleAssetService.reissue_recycle_asset(
-                recordcode=recordcode,
-                operator_jobcode=request.user.auth_username,
-                operator_name=request.user.auth_username,
-            )
-            return success_response(
-                data=OutAssetDetailSerializer(outasset).data,
-                message="重新发放成功",
-                status_code=status.HTTP_201_CREATED,
-            )
-        except AppValidationError as e:
-            return error_response(message=str(e), status_code=400)
-        except Exception:
-            logging.exception("重新发放失败")
-            return error_response(message="重新发放失败，服务器内部错误", status_code=500)
+        outasset = RecycleAssetService.reissue_recycle_asset(
+            recordcode=recordcode,
+            operator_jobcode=request.user.auth_username,
+            operator_name=request.user.auth_username,
+        )
+        return success_response(
+            data=OutAssetDetailSerializer(outasset).data,
+            message="重新发放成功",
+            status_code=status.HTTP_201_CREATED,
+        )

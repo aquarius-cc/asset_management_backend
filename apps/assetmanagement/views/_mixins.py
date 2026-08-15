@@ -1,7 +1,7 @@
 """
 资产管理视图公共 Mixins
 
-提供可复用的视图行为：
+提供可复用的视图行为:
 - RecordcodeLookupMixin: pk / recordcode 双模式对象查找
 - AdminWritePermissionMixin: 写操作限制为管理员
 """
@@ -14,9 +14,9 @@ from core.permissions import IsSystemAdmin
 
 class RecordcodeLookupMixin:
     """
-    支持 pk（数字）和 recordcode（字符串）双模式查找的 get_object()。
+    支持 pk(数字)和 recordcode(字符串)双模式查找的 get_object()。
 
-    子类必须设置 lookup_field = "recordcode"（或其变体如 "asset_recordcode__asset_code"）。
+    子类必须设置 lookup_field = "recordcode"(或其变体如 "asset_recordcode__asset_code")。
     """
 
     def get_object(self):
@@ -42,16 +42,35 @@ class RecordcodeLookupMixin:
 
 class AdminWritePermissionMixin:
     """
-    写操作（create/update/destroy 等）限制为管理员，读操作需认证。
+    写操作(create/update/destroy)限制为管理员,读操作需认证。
 
     子类可通过 admin_actions 类属性扩展需管理员权限的操作列表。
     """
+
     admin_actions = [
-        "create", "update", "partial_update", "destroy",
-        "change_status", "change_outasset_employee",
+        "create",
+        "update",
+        "partial_update",
+        "destroy",
+        "change_status",
+        "change_outasset_employee",
     ]
 
     def get_permissions(self):
         if self.action in self.admin_actions:
             return [IsSystemAdmin()]
         return [permissions.IsAuthenticated()]
+
+
+class OperatorContextMixin:
+    """
+    操作人上下文 Mixin
+
+    从 request.user 提取操作人信息,供 create/update 等操作
+    通过 **self.get_operator_context() 写入操作人字段。
+    """
+
+    def get_operator_context(self) -> dict:
+        """返回操作人工号与姓名上下文(默认使用 auth_username)"""
+        username = getattr(self.request.user, "auth_username", None) or str(self.request.user)
+        return {"operator_jobcode": username, "operator_name": username}

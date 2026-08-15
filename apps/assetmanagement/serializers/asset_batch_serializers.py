@@ -13,19 +13,19 @@ from apps.usermanagement.models import Employee
 class AssetBatchItemSerializer(serializers.Serializer):
     """批量创建资产序列化器
 
-    前端传入业务编码（asset_type_code/storage_code/contract_code/employee_jobcode），
+    前端传入业务编码(asset_type_code/storage_code/contract_code/employee_jobcode),
     DRF SlugRelatedField 自动转换为 recordcode 存入数据库。
 
-    字段名约定（与 Asset 模型一致）：
-    - asset_type: 传入 AssetType.asset_type_code（如 "AT001"）
-    - asset_contract: 传入 Contract.contract_code（如 "CT001"）
-    - asset_storage: 传入 Storage.storage_code（如 "ST001"）
-    - asset_entry_person: 传入 Employee.employee_jobcode（如 "E001"）
-    - asset_applicant: 传入 Employee.employee_jobcode（如 "E002"）
-    - asset_manager: 传入 Employee.employee_jobcode（如 "E003"）
+    字段名约定(与 Asset 模型一致):
+    - asset_type: 传入 AssetType.asset_type_code(如 "AT001")
+    - asset_contract: 传入 Contract.contract_code(如 "CT001")
+    - asset_storage: 传入 Storage.storage_code(如 "ST001")
+    - asset_entry_person: 传入 Employee.employee_jobcode(如 "E001")
+    - asset_applicant: 传入 Employee.employee_jobcode(如 "E002")
+    - asset_manager: 传入 Employee.employee_jobcode(如 "E003")
     """
 
-    row_number = serializers.IntegerField(required=False, help_text="行号，用于错误定位")
+    row_number = serializers.IntegerField(required=False, help_text="行号,用于错误定位")
     asset_name = serializers.CharField(required=True, help_text="资产名称")
     asset_type = serializers.SlugRelatedField(
         queryset=AssetType.objects.filter(is_deleted=False),
@@ -83,7 +83,7 @@ class AssetBatchItemSerializer(serializers.Serializer):
     asset_specification = serializers.CharField(required=False, allow_blank=True, allow_null=True, help_text="资产规格")
     asset_brand = serializers.CharField(required=False, allow_blank=True, allow_null=True, help_text="资产品牌")
     asset_unit = serializers.CharField(required=False, allow_blank=True, allow_null=True, help_text="资产单位")
-    asset_warranty_period = serializers.IntegerField(required=False, default=0, help_text="保修期（年）")
+    asset_warranty_period = serializers.IntegerField(required=False, default=0, help_text="保修期(年)")
     asset_description = serializers.CharField(required=False, allow_blank=True, allow_null=True, help_text="资产描述")
     asset_using_location = serializers.CharField(
         required=False, allow_blank=True, allow_null=True, help_text="使用地点"

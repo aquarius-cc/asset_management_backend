@@ -59,7 +59,7 @@ class TestHardDiskSNUpdate:
         assert exc_info.value.error_code == "HARD_DISK_NOT_FOUND"
 
     def test_update_sn_duplicate_raises(self, disk_data):
-        hd1 = HardDiskSNService.create(disk_data)
+        _ = HardDiskSNService.create(disk_data)
         disk_data2 = disk_data.copy()
         disk_data2["harddisk_sn_code"] = "SN002"
         hd2 = HardDiskSNService.create(disk_data2)
@@ -104,7 +104,7 @@ class TestHardDiskSNBatchSave:
         disks = [{"harddisk_sn_code": "BSN_UNIQUE", "harddisk_type": "SSD"}]
         # batch_save 传递 recordcode 字符串给 HardDiskSN.objects.create()
         # 但 HardDiskSN.asset_recordcode FK 需要 Asset 实例
-        # 这是服务层的已知限制，此处验证唯一性校验逻辑本身能通过
+        # 这是服务层的已知限制,此处验证唯一性校验逻辑本身能通过
         with pytest.raises((ValueError, AppValidationError)):
             HardDiskSNService.batch_save(asset.recordcode, disks)
 

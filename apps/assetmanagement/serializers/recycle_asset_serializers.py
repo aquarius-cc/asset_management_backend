@@ -4,10 +4,10 @@
 包含 RecycleAsset 及其批量操作序列化器。
 
 【AGENTS 规范 - 序列化器分层设计】
-每个模块按 Action 分离序列化器：
-- ListSerializer: 列表查询（扁平字段，只读，精简）
-- CreateSerializer: 创建操作（写入字段）
-- DetailSerializer: 详情查询（嵌套对象，只读，完整）
+每个模块按 Action 分离序列化器:
+- ListSerializer: 列表查询(扁平字段,只读,精简)
+- CreateSerializer: 创建操作(写入字段)
+- DetailSerializer: 详情查询(嵌套对象,只读,完整)
 """
 
 from rest_framework import serializers
@@ -23,8 +23,8 @@ from apps.assetmanagement.serializers.asset_crud_serializers import AssetDetailS
 class RecycleAssetListSerializer(serializers.ModelSerializer):
     """
     回收资产列表序列化器
-    用途：list action
-    特点：扁平字段，只读，精简
+    用途:list action
+    特点:扁平字段,只读,精简
     """
 
     outasset_recordcode = serializers.CharField(source="outasset_recordcode.recordcode", read_only=True)
@@ -82,8 +82,8 @@ class RecycleAssetListSerializer(serializers.ModelSerializer):
 class RecycleAssetCreateSerializer(serializers.ModelSerializer):
     """
     回收资产创建序列化器
-    用途：create, update, partial_update action
-    特点：写入字段，SlugRelatedField 自动转换
+    用途:create, update, partial_update action
+    特点:写入字段,SlugRelatedField 自动转换
     """
 
     recordcode = serializers.CharField(read_only=True)
@@ -136,8 +136,8 @@ class RecycleAssetCreateSerializer(serializers.ModelSerializer):
 class RecycleAssetDetailSerializer(serializers.ModelSerializer):
     """
     回收资产详情序列化器
-    用途：retrieve action
-    特点：嵌套对象，只读，完整
+    用途:retrieve action
+    特点:嵌套对象,只读,完整
     """
 
     asset = AssetDetailSerializer(source="asset_recordcode", read_only=True)
@@ -173,8 +173,8 @@ class RecycleAssetDetailSerializer(serializers.ModelSerializer):
 class RecycleAssetUpdateSerializer(serializers.ModelSerializer):
     """
     回收资产更新序列化器
-    用途：update, partial_update action
-    特点：写入字段，recordcode 和关联字段只读
+    用途:update, partial_update action
+    特点:写入字段,recordcode 和关联字段只读
     """
 
     recordcode = serializers.CharField(read_only=True)
@@ -204,7 +204,7 @@ class RecycleAssetUpdateSerializer(serializers.ModelSerializer):
 RecycleAssetSerializer = RecycleAssetCreateSerializer
 
 
-# ========== 批量操作序列化器（RecycleAsset） ==========
+# ========== 批量操作序列化器(RecycleAsset) ==========
 
 
 class RecycleAssetBatchItemSerializer(serializers.Serializer):

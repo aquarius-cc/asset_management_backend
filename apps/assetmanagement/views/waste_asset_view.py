@@ -2,7 +2,7 @@
 已报废资产视图集
 
 提供已报废资产的查询和删除功能。
-已报废记录为终态记录，不允许创建和修改。
+已报废记录为终态记录,不允许创建和修改。
 """
 
 import logging
@@ -17,12 +17,6 @@ from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 
-from core.exceptions import AppValidationError
-from core.permissions import IsAssetAdminOrAbove
-from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
-from core.pagination import CustomPageNumberPagination
-from utils.response_utils import error_response, success_response
-
 from apps.assetmanagement.models import WasteAsset
 from apps.assetmanagement.selectors import AssetSelector, WasteAssetSelector
 from apps.assetmanagement.serializers import (
@@ -32,9 +26,13 @@ from apps.assetmanagement.serializers import (
     WasteAssetSerializer,
 )
 from apps.assetmanagement.services import WasteAssetService
+from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
+from core.pagination import CustomPageNumberPagination
+from core.permissions import IsAssetAdminOrAbove
+from utils.response_utils import error_response, success_response
 
-from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
 from ._export_mixin import ExportExcelMixin
+from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
 
 
 class WasteAssetViewSet(
@@ -63,12 +61,12 @@ class WasteAssetViewSet(
     export_filename = "waste_assets_export.xlsx"
     export_sheet_name = "已报废资产"
 
-
     def get_permissions(self):
-        """RBAC: 写操作需 IsAssetAdminOrAbove+，读操作需认证"""
+        """RBAC: 写操作需 IsAssetAdminOrAbove+,读操作需认证"""
         if self.action in self.admin_actions:
             return [IsAssetAdminOrAbove()]
         return [permissions.IsAuthenticated()]
+
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ["waste_asset_date"]
     search_fields = ["asset_recordcode__asset_name", "asset_recordcode__asset_code"]
@@ -89,19 +87,19 @@ class WasteAssetViewSet(
 
     def create(self, request, *args, **kwargs):
         return error_response(
-            message="已报废记录不允许直接创建，请通过待报废审批流程创建",
+            message="已报废记录不允许直接创建,请通过待报废审批流程创建",
             status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
         )
 
     def update(self, request, *args, **kwargs):
         return error_response(
-            message="已报废记录为终态记录，不允许修改",
+            message="已报废记录为终态记录,不允许修改",
             status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
         )
 
     def partial_update(self, request, *args, **kwargs):
         return error_response(
-            message="已报废记录为终态记录，不允许修改",
+            message="已报废记录为终态记录,不允许修改",
             status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
         )
 
@@ -124,15 +122,32 @@ class WasteAssetViewSet(
         current_year_count = queryset.filter(waste_asset_date__year=current_year).count()
 
         monthly = {}
-        for item in queryset.filter(waste_asset_date__year=current_year).values("waste_asset_date__month").annotate(count=Count("id")).order_by("waste_asset_date__month"):
+        for item in (
+            queryset.filter(waste_asset_date__year=current_year)
+            .values("waste_asset_date__month")
+            .annotate(count=Count("id"))
+            .order_by("waste_asset_date__month")
+        ):
             monthly[item["waste_asset_date__month"]] = item["count"]
 
-        return success_response(data={"total_waste": total, "current_year_count": current_year_count, "monthly_distribution": monthly})
+        return success_response(
+            data={"total_waste": total, "current_year_count": current_year_count, "monthly_distribution": monthly}
+        )
 
     @extend_schema(
         parameters=[
-            OpenApiParameter(name="start_date", type=OpenApiTypes.DATE, location=OpenApiParameter.QUERY, description="开始日期（YYYY-MM-DD）"),
-            OpenApiParameter(name="end_date", type=OpenApiTypes.DATE, location=OpenApiParameter.QUERY, description="结束日期（YYYY-MM-DD）"),
+            OpenApiParameter(
+                name="start_date",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="开始日期(YYYY-MM-DD)",
+            ),
+            OpenApiParameter(
+                name="end_date",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="结束日期(YYYY-MM-DD)",
+            ),
         ],
         responses={200: WasteAssetListSerializer(many=True)},
     )
@@ -146,12 +161,12 @@ class WasteAssetViewSet(
             try:
                 start_date = dt.strptime(start_date_str, "%Y-%m-%d").date()
             except ValueError:
-                return error_response(message="开始日期格式错误，应为 YYYY-MM-DD", status_code=400)
+                return error_response(message="开始日期格式错误,应为 YYYY-MM-DD", status_code=400)
         if end_date_str:
             try:
                 end_date = dt.strptime(end_date_str, "%Y-%m-%d").date()
             except ValueError:
-                return error_response(message="结束日期格式错误，应为 YYYY-MM-DD", status_code=400)
+                return error_response(message="结束日期格式错误,应为 YYYY-MM-DD", status_code=400)
         qs = WasteAsset.objects.with_asset_details().all()
         if start_date:
             qs = qs.filter(waste_asset_date__gte=start_date)
@@ -171,10 +186,18 @@ class WasteAssetViewSet(
                 WasteAssetService.cancel_waste_asset(asset_recordcode_code)
                 success_ids.append(asset_recordcode_code)
             except WasteAsset.DoesNotExist:
-                fail_items.append({"id": asset_recordcode_code, "error_code": "NOT_FOUND", "error_message": f"已报废记录 {asset_recordcode_code} 不存在"})
+                fail_items.append(
+                    {
+                        "id": asset_recordcode_code,
+                        "error_code": "NOT_FOUND",
+                        "error_message": f"已报废记录 {asset_recordcode_code} 不存在",
+                    }
+                )
             except Exception as e:
                 logging.exception(f"批量删除报废资产失败: {e}")
-                fail_items.append({"id": asset_recordcode_code, "error_code": "INTERNAL_ERROR", "error_message": "服务器内部错误"})
+                fail_items.append(
+                    {"id": asset_recordcode_code, "error_code": "INTERNAL_ERROR", "error_message": "服务器内部错误"}
+                )
         return success_response(
             data={
                 "total": len(ids),
@@ -183,5 +206,5 @@ class WasteAssetViewSet(
                 "success_ids": success_ids,
                 "fail_items": fail_items,
             },
-            message=f"批量删除完成，成功 {len(success_ids)} 条，失败 {len(fail_items)} 条",
+            message=f"批量删除完成,成功 {len(success_ids)} 条,失败 {len(fail_items)} 条",
         )

@@ -56,7 +56,7 @@ class TestOutAssetSnapshot(TestCase):
         """
         测试创建出库记录时保存快照
 
-        【方案D】验证：
+        【方案D】验证:
         1. OutAsset 表的 FK 字段正确设置
         2. JSON 快照包含申请人、保管人、使用地点信息
         """
@@ -91,11 +91,11 @@ class TestOutAssetSnapshot(TestCase):
 
     def test_snapshot_preserved_after_asset_status_change(self):
         """
-        测试资产状态变更后，快照信息保持不变
+        测试资产状态变更后,快照信息保持不变
 
-        【方案D】验证：
-        1. 创建出库记录后，资产状态变为 in_use
-        2. 回收后，资产的申请人/保管人被清空
+        【方案D】验证:
+        1. 创建出库记录后,资产状态变为 in_use
+        2. 回收后,资产的申请人/保管人被清空
         3. 出库记录的快照信息保持不变
         """
         # 创建出库记录
@@ -113,7 +113,7 @@ class TestOutAssetSnapshot(TestCase):
         self.assertIsNotNone(outasset.outasset_snapshot)
         self.assertEqual(outasset.outasset_snapshot["applicant"]["name"], "申请人张三")
 
-        # 模拟回收（清空资产的申请人/保管人）
+        # 模拟回收(清空资产的申请人/保管人)
         self.asset.refresh_from_db()
         self.asset.asset_applicant_recordcode = None
         self.asset.asset_manager_recordcode = None

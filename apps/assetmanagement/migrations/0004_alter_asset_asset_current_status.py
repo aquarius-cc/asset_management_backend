@@ -13,6 +13,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='asset',
             name='asset_current_status',
-            field=models.CharField(choices=[('in_store', '在库'), ('in_use', '在用'), ('recycled_pending', '已回收待发放'), ('broken', '已损坏'), ('repairing', '维修中'), ('lost', '已遗失'), ('damaged', '待报废'), ('scrapped', '已报废')], db_index=True, default='in_store', help_text='资产状态：在库/已回收待发放/在用/已损坏/维修中/已遗失/待报废/已报废', max_length=20, verbose_name='资产当前状态'),
+            field=models.CharField(choices=[('in_store', '在库'), ('in_use', '在用'), ('recycled_pending', '已回收待发放'), ('broken', '已损坏'), ('repairing', '维修中'), ('lost', '已遗失'), ('damaged', '待报废'), ('scrapped', '已报废')], db_index=True, default='in_store', help_text='资产状态:在库/已回收待发放/在用/已损坏/维修中/已遗失/待报废/已报废', max_length=20, verbose_name='资产当前状态'),
         ),
     ]

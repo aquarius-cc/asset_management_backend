@@ -43,7 +43,7 @@ class DamagedAsset(BaseModel):
     """
     待报废资产管理模型
 
-    记录待报废的资产信息，包含审批流程状态，审批通过后进入报废流程。
+    记录待报废的资产信息,包含审批流程状态,审批通过后进入报废流程。
     """
 
     if TYPE_CHECKING:
@@ -58,6 +58,7 @@ class DamagedAsset(BaseModel):
 
     class OriginalStatus(models.TextChoices):
         """进入damaged前的资产状态"""
+
         IN_STORE = "in_store", "在库"
         IN_USE = "in_use", "在用"
         RECYCLED_PENDING = "recycled_pending", "已回收待发放"
@@ -73,7 +74,7 @@ class DamagedAsset(BaseModel):
         on_delete=models.PROTECT,
         null=True,
         blank=True,
-        help_text="待报废的资产唯一标识码（通过 recordcode 关联）",
+        help_text="待报废的资产唯一标识码(通过 recordcode 关联)",
     )
     damaged_asset_number = models.IntegerField(verbose_name="待报废数量", default=1, help_text="待报废的资产数量")
     damaged_date = models.DateField(
@@ -84,7 +85,7 @@ class DamagedAsset(BaseModel):
         default=ApprovalStatus.PENDING,
         choices=ApprovalStatus.choices,
         verbose_name="报废审批状态",
-        help_text="审批状态：待审批/已批准/已拒绝",
+        help_text="审批状态:待审批/已批准/已拒绝",
     )
     approver = models.ForeignKey(
         Employee,
@@ -94,7 +95,7 @@ class DamagedAsset(BaseModel):
         verbose_name="审批人",
         null=True,
         blank=True,
-        help_text="审批人的工号（通过 recordcode 关联）",
+        help_text="审批人的工号(通过 recordcode 关联)",
     )
     damaged_asset_description = models.TextField(
         verbose_name="待报废资产描述", blank=True, null=True, help_text="报废原因等说明"
@@ -105,7 +106,7 @@ class DamagedAsset(BaseModel):
         verbose_name="原状态",
         blank=True,
         null=True,
-        help_text="进入damaged前的资产状态，用于reject时回退",
+        help_text="进入damaged前的资产状态,用于reject时回退",
     )
     version = models.IntegerField(default=1, verbose_name="版本号", help_text="乐观锁版本号")
 

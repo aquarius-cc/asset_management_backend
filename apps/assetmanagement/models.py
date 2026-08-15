@@ -1,10 +1,10 @@
 # """
 # 资产管理数据库模型
 
-# 该模块定义资产全生命周期管理相关的数据模型，
+# 该模块定义资产全生命周期管理相关的数据模型,
 # 所有模型均继承BaseModel以支持软删除和时间戳追踪。
 
-# 包含以下核心模型：
+# 包含以下核心模型:
 # - Storage: 仓库管理
 # - AssetType: 资产类型管理
 # - Contract: 合同管理
@@ -16,35 +16,36 @@
 # - HardDiskSN: 硬盘序列号管理
 # """
 
-# 导入所有模型类，保持向后兼容
-from apps.assetmanagement.models.asset_type import AssetType
-from apps.assetmanagement.models.contract import Contract
-from apps.assetmanagement.models.storage import Storage
+# 导入所有模型类,保持向后兼容
 from apps.assetmanagement.models.asset import Asset
-from apps.assetmanagement.models.out_asset import OutAsset
-from apps.assetmanagement.models.recycle_asset import RecycleAsset
+from apps.assetmanagement.models.asset_type import AssetType
+from apps.assetmanagement.models.broken_asset import BrokenAsset
+from apps.assetmanagement.models.contract import Contract
 from apps.assetmanagement.models.damaged_asset import DamagedAsset
-from apps.assetmanagement.models.waste_asset import WasteAsset
+from apps.assetmanagement.models.found_asset import FoundAsset
 from apps.assetmanagement.models.hard_disk_sn import HardDiskSN
 from apps.assetmanagement.models.lost_asset import LostAsset
-from apps.assetmanagement.models.found_asset import FoundAsset
-from apps.assetmanagement.models.broken_asset import BrokenAsset
 from apps.assetmanagement.models.operation_log import OperationLog
+from apps.assetmanagement.models.out_asset import OutAsset
+from apps.assetmanagement.models.recycle_asset import RecycleAsset
+from apps.assetmanagement.models.storage import Storage
+from apps.assetmanagement.models.waste_asset import WasteAsset
+
 
 __all__ = [
-    "AssetType",
-    "Contract",
-    "Storage",
     "Asset",
-    "OutAsset",
-    "RecycleAsset",
+    "AssetType",
+    "BrokenAsset",
+    "Contract",
     "DamagedAsset",
-    "WasteAsset",
+    "FoundAsset",
     "HardDiskSN",
     "LostAsset",
-    "FoundAsset",
-    "BrokenAsset",
     "OperationLog",
+    "OutAsset",
+    "RecycleAsset",
+    "Storage",
+    "WasteAsset",
 ]
 
 
@@ -78,7 +79,7 @@ __all__ = [
 #     """
 #     仓库管理模型
 
-#     用于管理资产的存储仓库，包括新货仓库、回收仓库、待报废仓库等类型。
+#     用于管理资产的存储仓库,包括新货仓库、回收仓库、待报废仓库等类型。
 #     """
 
 #     if TYPE_CHECKING:
@@ -97,12 +98,12 @@ __all__ = [
 #     storage_code = models.CharField(
 #         max_length=20,
 #         verbose_name="仓库编码",
-#         help_text="仓库唯一编码，用于业务关联"
+#         help_text="仓库唯一编码,用于业务关联"
 #     )
 #     storage_name = models.CharField(
 #         max_length=100,
 #         verbose_name="仓库名称",
-#         help_text="仓库名称，用户可见的展示名称"
+#         help_text="仓库名称,用户可见的展示名称"
 #     )
 #     storage_address = models.CharField(
 #         max_length=200,
@@ -116,7 +117,7 @@ __all__ = [
 #         verbose_name="仓库类型",
 #         blank=True,
 #         null=True,
-#         help_text="仓库类型：新货/回收/待报废"
+#         help_text="仓库类型:新货/回收/待报废"
 #     )
 #     storage_description = models.TextField(
 #         verbose_name="仓库描述",
@@ -128,7 +129,7 @@ __all__ = [
 #     version = models.IntegerField(
 #         default=1,
 #         verbose_name="版本号",
-#         help_text="乐观锁版本号，每次更新自动递增"
+#         help_text="乐观锁版本号,每次更新自动递增"
 #     )
 
 #     class Meta:
@@ -163,7 +164,7 @@ __all__ = [
 #     """
 #     资产类型管理模型
 
-#     用于定义资产的分类，包括硬件、软件、其他等大类，
+#     用于定义资产的分类,包括硬件、软件、其他等大类,
 #     以及一级分类和二级分类信息。
 #     """
 
@@ -188,12 +189,12 @@ __all__ = [
 #     asset_type_secondary = models.CharField(
 #         max_length=100,
 #         verbose_name="资产二级分类名称",
-#         help_text="资产的细分类，如台式机/笔记本等"
+#         help_text="资产的细分类,如台式机/笔记本等"
 #     )
 #     asset_type_primary = models.CharField(
 #         max_length=100,
 #         verbose_name="资产一级分类名称",
-#         help_text="资产的大类，如办公设备/网络设备等"
+#         help_text="资产的大类,如办公设备/网络设备等"
 #     )
 #     asset_type_category = models.CharField(
 #         max_length=50,
@@ -202,7 +203,7 @@ __all__ = [
 #         verbose_name="资产分类类型",
 #         blank=True,
 #         null=True,
-#         help_text="分类类型：硬件/软件/其他"
+#         help_text="分类类型:硬件/软件/其他"
 #     )
 #     asset_type_description = models.TextField(
 #         verbose_name="资产分类类型描述",
@@ -214,7 +215,7 @@ __all__ = [
 #     version = models.IntegerField(
 #         default=1,
 #         verbose_name="版本号",
-#         help_text="乐观锁版本号，每次更新自动递增"
+#         help_text="乐观锁版本号,每次更新自动递增"
 #     )
 
 #     class Meta:
@@ -244,7 +245,7 @@ __all__ = [
 #     """
 #     合同管理模型
 
-#     用于管理资产相关的采购合同、服务合同等，
+#     用于管理资产相关的采购合同、服务合同等,
 #     包含合同金额、付款记录、结算状态等信息。
 #     """
 
@@ -286,13 +287,13 @@ __all__ = [
 #         verbose_name="合同类型",
 #         blank=True,
 #         null=True,
-#         help_text="合同类型：采购/服务/信息化/直接采购"
+#         help_text="合同类型:采购/服务/信息化/直接采购"
 #     )
 #     contract_price = models.DecimalField(
 #         max_digits=10,
 #         decimal_places=2,
 #         verbose_name="合同金额",
-#         help_text="合同总金额（元）"
+#         help_text="合同总金额(元)"
 #     )
 #     contract_supplier = models.CharField(
 #         max_length=100,
@@ -305,8 +306,8 @@ __all__ = [
 #     )
 #     contract_warranty_period = models.IntegerField(
 #         default=0,
-#         verbose_name="保修期（年）",
-#         help_text="合同规定的保修期限（年）"
+#         verbose_name="保修期(年)",
+#         help_text="合同规定的保修期限(年)"
 #     )
 #     contract_preliminary_acceptance_date = models.DateField(
 #         verbose_name="初验日期",
@@ -325,7 +326,7 @@ __all__ = [
 #         choices=CONTRACT_SETTLEMENT_CHOICES,
 #         default="pending",
 #         verbose_name="结算状态",
-#         help_text="合同的结算状态：待结算/已结算"
+#         help_text="合同的结算状态:待结算/已结算"
 #     )
 #     contract_settledment_price = models.DecimalField(
 #         max_digits=10,
@@ -333,7 +334,7 @@ __all__ = [
 #         verbose_name="结算金额",
 #         blank=True,
 #         null=True,
-#         help_text="实际结算的金额（元）"
+#         help_text="实际结算的金额(元)"
 #     )
 #     contract_paid_count_number = models.IntegerField(
 #         default=0,
@@ -347,7 +348,7 @@ __all__ = [
 #         verbose_name="已付金额",
 #         blank=True,
 #         null=True,
-#         help_text="累计已付款金额（元）"
+#         help_text="累计已付款金额(元)"
 #     )
 #     contract_paid_record = models.TextField(
 #         verbose_name="付款记录",
@@ -359,7 +360,7 @@ __all__ = [
 #     version = models.IntegerField(
 #         default=1,
 #         verbose_name="版本号",
-#         help_text="乐观锁版本号，每次更新自动递增"
+#         help_text="乐观锁版本号,每次更新自动递增"
 #     )
 
 #     class Meta:
@@ -393,24 +394,24 @@ __all__ = [
 
 # class Asset(BaseModel):
 #     """
-#     资产管理模型（架构优化版）
+#     资产管理模型(架构优化版)
 
 #     【AGENTS 规范 - 架构优化】
-#     核心资产模型，管理资产从入库、领用、报废全生命周期。
+#     核心资产模型,管理资产从入库、领用、报废全生命周期。
 
-#     优化变更：
-#     1. 移除 asset_appearance 字段，统一使用 asset_current_status
-#     2. 移除 using_record 字段，操作历史移至 AssetOperationLog
+#     优化变更:
+#     1. 移除 asset_appearance 字段,统一使用 asset_current_status
+#     2. 移除 using_record 字段,操作历史移至 AssetOperationLog
 #     3. 新增 sort_order 排序字段  不需要排序字段
-#     4. 新增 recycled_pending 状态，区分在库和已回收待发放
+#     4. 新增 recycled_pending 状态,区分在库和已回收待发放
 
-#     状态流转：
+#     状态流转:
 #     - in_store → in_use: 新资产出库
 #     - in_use → recycled_pending: 资产回收
 #     - recycled_pending → in_use: 回收资产重新发放
 #     - in_use → damaged: 提交报废申请
-#     - damaged → scrapped: 审批通过，完成报废
-#     - damaged → recycled_pending: 审批拒绝，退回待发放
+#     - damaged → scrapped: 审批通过,完成报废
+#     - damaged → recycled_pending: 审批拒绝,退回待发放
 #     """
 
 #     if TYPE_CHECKING:
@@ -418,10 +419,10 @@ __all__ = [
 
 #     RECORDCODE_PREFIX = "ENTRY"
 
-#     # 【优化】简化状态枚举，移除 asset_appearance
+#     # 【优化】简化状态枚举,移除 asset_appearance
 #     ASSET_STATUS_CHOICES = [
 #         ("in_store", "在库"),              # 新增加、已拒绝报废
-#         ("recycled_pending", "已回收待发放"),  # 已回收，等待重新发放
+#         ("recycled_pending", "已回收待发放"),  # 已回收,等待重新发放
 #         ("in_use", "在用"),                 # 已出库/已发放
 #         ("broken", "已损坏"),               # 资产已损坏
 #         ("lost", "已遗失"),                 # 资产遗失
@@ -429,13 +430,13 @@ __all__ = [
 #         ("scrapped", "已报废"),             # 已报废
 #     ]
 
-#     # 【重构】recordcode 字段已提升到 BaseModel，Asset 使用自定义 save() 覆盖前缀
+#     # 【重构】recordcode 字段已提升到 BaseModel,Asset 使用自定义 save() 覆盖前缀
 #     asset_code = models.CharField(
 #         max_length=64,
 #         unique=True,
 #         editable=False,
 #         verbose_name="资产编码",
-#         help_text="资产唯一编码，不可修改"
+#         help_text="资产唯一编码,不可修改"
 #     )
 #     asset_name = models.CharField(
 #         max_length=100,
@@ -446,7 +447,7 @@ __all__ = [
 #         max_digits=10,
 #         decimal_places=2,
 #         verbose_name="资产购买价格",
-#         help_text="资产采购单价（元）"
+#         help_text="资产采购单价(元)"
 #     )
 #     asset_purchase_number = models.IntegerField(
 #         default=1,
@@ -458,7 +459,7 @@ __all__ = [
 #         verbose_name="资产单位",
 #         blank=True,
 #         null=True,
-#         help_text="计量单位：台/套/个等"
+#         help_text="计量单位:台/套/个等"
 #     )
 #     asset_brand = models.CharField(
 #         max_length=100,
@@ -480,7 +481,7 @@ __all__ = [
 #         on_delete=models.DO_NOTHING,
 #         related_name="assets",
 #         verbose_name="资产类型",
-#         help_text="关联的资产类型（通过 recordcode 关联）"
+#         help_text="关联的资产类型(通过 recordcode 关联)"
 #     )
 #     asset_contract_recordcode = models.ForeignKey(
 #         Contract,
@@ -491,7 +492,7 @@ __all__ = [
 #         blank=True,
 #         db_column="asset_contract",
 #         verbose_name="资产合同",
-#         help_text="关联的采购合同（通过 recordcode 关联）"
+#         help_text="关联的采购合同(通过 recordcode 关联)"
 #     )
 #     asset_purchase_date = models.DateField(
 #         verbose_name="资产购买日期",
@@ -499,10 +500,10 @@ __all__ = [
 #     )
 #     asset_warranty_period = models.IntegerField(
 #         default=0,
-#         verbose_name="保修期（年）",
+#         verbose_name="保修期(年)",
 #         blank=True,
 #         null=True,
-#         help_text="资产保修期限（年）"
+#         help_text="资产保修期限(年)"
 #     )
 #     asset_entry_date = models.DateField(
 #         verbose_name="入库日期",
@@ -516,7 +517,7 @@ __all__ = [
 #         verbose_name="存储仓库",
 #         blank=True,
 #         null=True,
-#         help_text="资产当前所在仓库（通过 recordcode 关联）"
+#         help_text="资产当前所在仓库(通过 recordcode 关联)"
 #     )
 #     asset_entry_person_recordcode = models.ForeignKey(
 #         Employee,
@@ -526,7 +527,7 @@ __all__ = [
 #         verbose_name="资产入库人工号",
 #         blank=True,
 #         null=True,
-#         help_text="办理入库的人员工号（通过 recordcode 关联）"
+#         help_text="办理入库的人员工号(通过 recordcode 关联)"
 #     )
 #     asset_applicant_recordcode = models.ForeignKey(
 #         Employee,
@@ -536,7 +537,7 @@ __all__ = [
 #         verbose_name="资产申请人工号",
 #         null=True,
 #         blank=True,
-#         help_text="资产申请人的工号（通过 recordcode 关联）"
+#         help_text="资产申请人的工号(通过 recordcode 关联)"
 #     )
 #     asset_manager_recordcode = models.ForeignKey(
 #         Employee,
@@ -546,7 +547,7 @@ __all__ = [
 #         verbose_name="资产保管人",
 #         null=True,
 #         blank=True,
-#         help_text="资产保管人的工号（通过 recordcode 关联）"
+#         help_text="资产保管人的工号(通过 recordcode 关联)"
 #     )
 #     asset_using_location = models.CharField(
 #         max_length=100,
@@ -555,8 +556,8 @@ __all__ = [
 #         null=True,
 #         help_text="资产使用的地点"
 #     )
-#     # 【优化】移除 asset_appearance 字段，统一使用 asset_current_status
-#     # 原 asset_appearance 字段已删除，状态信息合并到 asset_current_status
+#     # 【优化】移除 asset_appearance 字段,统一使用 asset_current_status
+#     # 原 asset_appearance 字段已删除,状态信息合并到 asset_current_status
 
 #     # 【优化】统一状态字段
 #     asset_current_status = models.CharField(
@@ -565,11 +566,11 @@ __all__ = [
 #         default="in_store",
 #         verbose_name="资产当前状态",
 #         db_index=True,
-#         help_text="资产状态：在库/已回收待发放/在用/待报废/已报废"
+#         help_text="资产状态:在库/已回收待发放/在用/待报废/已报废"
 #     )
 
 #     # 【优化】移除 using_record 字段
-#     # 操作历史已移至 AssetOperationLog 表，通过 asset_code 关联查询
+#     # 操作历史已移至 AssetOperationLog 表,通过 asset_code 关联查询
 
 #     asset_description = models.TextField(
 #         verbose_name="资产描述",
@@ -581,7 +582,7 @@ __all__ = [
 #     version = models.IntegerField(
 #         default=1,
 #         verbose_name="版本号",
-#         help_text="乐观锁版本号，每次更新自动递增"
+#         help_text="乐观锁版本号,每次更新自动递增"
 #     )
 
 #     # 【AGENTS 规范 - 性能优化】注册自定义 QuerySet
@@ -593,7 +594,7 @@ __all__ = [
 #         verbose_name_plural = "资产管理"
 #         db_table = "am_asset"
 #         # 【优化】按排序字段和创建时间排序
-#         # 【易错点】BaseModel 使用 created_at 字段，不是 create_time
+#         # 【易错点】BaseModel 使用 created_at 字段,不是 create_time
 #         ordering = [ "-created_at"]
 #         indexes = [
 #             models.Index(fields=["recordcode"]),
@@ -603,17 +604,17 @@ __all__ = [
 #             models.Index(fields=["asset_storage_recordcode"]),
 #             # 【新增】排序字段索引
 #             models.Index(fields=[ "-created_at"]),
-#             # 【AGENTS 规范 - 性能优化】复合索引：按类型+状态筛选（仪表盘/资产列表）
+#             # 【AGENTS 规范 - 性能优化】复合索引:按类型+状态筛选(仪表盘/资产列表)
 #             models.Index(
 #                 fields=['asset_type_recordcode', 'asset_current_status'],
 #                 name='idx_asset_type_status'
 #             ),
-#             # 【AGENTS 规范 - 性能优化】复合索引：按仓库+状态筛选（库存管理）
+#             # 【AGENTS 规范 - 性能优化】复合索引:按仓库+状态筛选(库存管理)
 #             models.Index(
 #                 fields=['asset_storage_recordcode', 'asset_current_status'],
 #                 name='idx_asset_storage_status'
 #             ),
-#             # 【AGENTS 规范 - 性能优化】复合索引：按合同+状态筛选（合同关联查询）
+#             # 【AGENTS 规范 - 性能优化】复合索引:按合同+状态筛选(合同关联查询)
 #             models.Index(
 #                 fields=['asset_contract_recordcode', 'asset_current_status'],
 #                 name='idx_asset_contract_status'
@@ -655,7 +656,7 @@ __all__ = [
 #     """
 #     出库资产管理模型
 
-#     记录资产的领用和借用信息，包含申请人、保管人、使用地点等信息。
+#     记录资产的领用和借用信息,包含申请人、保管人、使用地点等信息。
 #     资产出库后状态自动变为"在用"。
 #     """
 
@@ -674,7 +675,7 @@ __all__ = [
 #         ("scrapped", "已报废"),
 #     ]
 
-#     # 【重构】recordcode 字段已提升到 BaseModel，OutAsset 使用 "OUT" 前缀
+#     # 【重构】recordcode 字段已提升到 BaseModel,OutAsset 使用 "OUT" 前缀
 #     RECORDCODE_PREFIX = 'OUT'
 
 #     asset_recordcode = models.ForeignKey(
@@ -685,7 +686,7 @@ __all__ = [
 #         verbose_name="出库资产的资产唯一标识码",
 #         null=True,
 #         blank=True,
-#         help_text="关联的资产唯一标识码（通过 recordcode 关联）"
+#         help_text="关联的资产唯一标识码(通过 recordcode 关联)"
 #     )
 #     outasset_number = models.IntegerField(
 #         verbose_name="出库数量",
@@ -697,20 +698,20 @@ __all__ = [
 #     # 【AGENTS 规范 - 去除冗余】outasset_manager_jobcode 删除
 #     # 保管人信息通过 outasset_code.asset_manager_jobcode 关联查询
 #     # 【AGENTS 规范 - 去除冗余】outasset_current_status 删除
-#     # 资产状态统一在 Asset 表中管理，通过 outasset_code.asset_current_status 关联查询
-#     # 【AGENTS规范 - 取消出库支持】记录出库前资产状态，用于取消时恢复
+#     # 资产状态统一在 Asset 表中管理,通过 outasset_code.asset_current_status 关联查询
+#     # 【AGENTS规范 - 取消出库支持】记录出库前资产状态,用于取消时恢复
 #     #
 #     # 【业务背景】
-#     # 资产可以从两种状态出库：in_store（在库）或 recycled_pending（已回收待发放）。
-#     # 取消出库时，资产应回到原来的状态，而不是统一回到 in_store。
+#     # 资产可以从两种状态出库:in_store(在库)或 recycled_pending(已回收待发放)。
+#     # 取消出库时,资产应回到原来的状态,而不是统一回到 in_store。
 #     #
 #     # 【使用场景】
-#     # 1. 创建出库记录时自动记录（OutAssetService.create_outasset）
-#     # 2. 取消出库时读取此字段恢复资产状态（AssetFSM.cancel_outasset）
+#     # 1. 创建出库记录时自动记录(OutAssetService.create_outasset)
+#     # 2. 取消出库时读取此字段恢复资产状态(AssetFSM.cancel_outasset)
 #     #
 #     # 【数据兼容性】
-#     # - 新记录：默认值 'in_store'
-#     # - 历史记录：null（需要迁移或前台展示为"未知"）
+#     # - 新记录:默认值 'in_store'
+#     # - 历史记录:null(需要迁移或前台展示为"未知")
 #     outasset_previous_status = models.CharField(
 #         max_length=50,
 #         choices=[
@@ -721,7 +722,7 @@ __all__ = [
 #         null=True,
 #         blank=True,
 #         verbose_name="出库前资产状态",
-#         help_text="记录出库前资产的状态，用于取消出库时恢复。历史数据可能为空。"
+#         help_text="记录出库前资产的状态,用于取消出库时恢复。历史数据可能为空。"
 #     )
 #     return_date = models.DateField(
 #         verbose_name="归还日期",
@@ -743,7 +744,7 @@ __all__ = [
 #         verbose_name="出库类型",
 #         blank=True,
 #         null=True,
-#         help_text="出库类型：领用/借用"
+#         help_text="出库类型:领用/借用"
 #     )
 #     outasset_description = models.TextField(
 #         verbose_name="出库资产描述",
@@ -754,7 +755,7 @@ __all__ = [
 #     # 【AGENTS 规范 - 去除冗余】outasset_contract_code 删除
 #     # 合同信息通过 outasset_code.asset_contract_code 关联查询
 
-#     # 【方案D】FK 关联 + JSON 快照：用于保存出库时的关键信息
+#     # 【方案D】FK 关联 + JSON 快照:用于保存出库时的关键信息
 #     outasset_applicant_recordcode = models.ForeignKey(
 #         Employee,
 #         to_field="recordcode",
@@ -763,7 +764,7 @@ __all__ = [
 #         blank=True,
 #         related_name="out_assets_applicant",
 #         verbose_name="出库申请人",
-#         help_text="出库时的申请人（FK 关联）"
+#         help_text="出库时的申请人(FK 关联)"
 #     )
 #     outasset_manager_recordcode = models.ForeignKey(
 #         Employee,
@@ -773,7 +774,7 @@ __all__ = [
 #         blank=True,
 #         related_name="out_assets_manager",
 #         verbose_name="出库保管人",
-#         help_text="出库时的保管人（FK 关联）"
+#         help_text="出库时的保管人(FK 关联)"
 #     )
 #     outasset_using_location = models.CharField(
 #         max_length=100,
@@ -786,13 +787,13 @@ __all__ = [
 #         blank=True,
 #         null=True,
 #         verbose_name="出库快照",
-#         help_text="保存出库时的申请人、保管人等关键信息（用于历史追溯）"
+#         help_text="保存出库时的申请人、保管人等关键信息(用于历史追溯)"
 #     )
 
 #     version = models.IntegerField(
 #         default=1,
 #         verbose_name="版本号",
-#         help_text="乐观锁版本号，每次更新自动递增"
+#         help_text="乐观锁版本号,每次更新自动递增"
 #     )
 
 #     # 【AGENTS 规范 - 性能优化】注册自定义 QuerySet
@@ -810,7 +811,7 @@ __all__ = [
 #             models.Index(fields=["outasset_date"]),   # 新增索引
 #         ]
 
-#     # 【重构】save() 中的 recordcode 生成逻辑已提升到 BaseModel（RECORDCODE_PREFIX='OUT'）
+#     # 【重构】save() 中的 recordcode 生成逻辑已提升到 BaseModel(RECORDCODE_PREFIX='OUT')
 
 #     def __str__(self) -> str:
 #         return f"出库{self.recordcode}-{self.asset_recordcode.asset_name}"
@@ -820,8 +821,8 @@ __all__ = [
 #     """
 #     回收资产管理模型
 
-#     记录资产的回收信息，关联出库记录，回收后资产状态自动变为"在库"。
-#     回收记录编码由 BaseModel 自动生成（recordcode 字段，格式: REC-YYYYMMDD-XXXXXXXX）。
+#     记录资产的回收信息,关联出库记录,回收后资产状态自动变为"在库"。
+#     回收记录编码由 BaseModel 自动生成(recordcode 字段,格式: REC-YYYYMMDD-XXXXXXXX)。
 #     """
 
 #     if TYPE_CHECKING:
@@ -843,7 +844,7 @@ __all__ = [
 #         verbose_name="回收资产的资产唯一标识码",
 #         related_name="recycle_assets",
 #         on_delete=models.PROTECT,
-#         help_text="回收的资产唯一标识码（通过 recordcode 关联）"
+#         help_text="回收的资产唯一标识码(通过 recordcode 关联)"
 #     )
 #     recycle_asset_number = models.IntegerField(
 #         verbose_name="回收数量",
@@ -865,7 +866,7 @@ __all__ = [
 #         on_delete=models.DO_NOTHING,
 #         null=True,
 #         blank=True,
-#         help_text="办理回收操作的人员工号（通过 recordcode 关联）"
+#         help_text="办理回收操作的人员工号(通过 recordcode 关联)"
 #     )
 #     recycle_type = models.CharField(
 #         verbose_name="回收类型",
@@ -888,7 +889,7 @@ __all__ = [
 #     version = models.IntegerField(
 #         default=1,
 #         verbose_name="版本号",
-#         help_text="乐观锁版本号，每次更新自动递增"
+#         help_text="乐观锁版本号,每次更新自动递增"
 #     )
 
 #     # 【AGENTS 规范 - 性能优化】注册自定义 QuerySet
@@ -912,7 +913,7 @@ __all__ = [
 #     """
 #     待报废资产管理模型
 
-#     记录待报废的资产信息，包含审批流程状态，审批通过后进入报废流程。
+#     记录待报废的资产信息,包含审批流程状态,审批通过后进入报废流程。
 #     """
 
 #     if TYPE_CHECKING:
@@ -928,7 +929,7 @@ __all__ = [
 #         on_delete=models.SET_NULL,
 #         null=True,
 #         blank=True,
-#         help_text="待报废的资产唯一标识码（通过 recordcode 关联）"
+#         help_text="待报废的资产唯一标识码(通过 recordcode 关联)"
 #     )
 #     # 【AGENTS 规范 - 去除冗余】damaged_asset_contract_code 删除
 #     # 合同信息通过 damaged_asset_code.asset_contract_code 关联查询
@@ -955,7 +956,7 @@ __all__ = [
 #             ("rejected", "已拒绝"),
 #         ],
 #         verbose_name="报废审批状态",
-#         help_text="审批状态：待审批/已批准/已拒绝"
+#         help_text="审批状态:待审批/已批准/已拒绝"
 #     )
 #     approver = models.ForeignKey(
 #         Employee,
@@ -965,7 +966,7 @@ __all__ = [
 #         verbose_name="审批人",
 #         null=True,
 #         blank=True,
-#         help_text="审批人的工号（通过 recordcode 关联）"
+#         help_text="审批人的工号(通过 recordcode 关联)"
 #     )
 #     damaged_asset_description = models.TextField(
 #         verbose_name="待报废资产描述",
@@ -977,7 +978,7 @@ __all__ = [
 #     version = models.IntegerField(
 #         default=1,
 #         verbose_name="版本号",
-#         help_text="乐观锁版本号，每次更新自动递增"
+#         help_text="乐观锁版本号,每次更新自动递增"
 #     )
 
 #     # 【AGENTS 规范 - 性能优化】注册自定义 QuerySet
@@ -1001,12 +1002,12 @@ __all__ = [
 #     """
 #     已报废资产管理模型
 
-#     记录已完成报废的资产信息，报废后资产状态为"报废资产"。
-#     当待报废资产(DamagedAsset)审批通过后，自动创建已报废记录。
+#     记录已完成报废的资产信息,报废后资产状态为"报废资产"。
+#     当待报废资产(DamagedAsset)审批通过后,自动创建已报废记录。
 
-#     字段说明：
-#     - waste_asset_code: 关联的资产编码（外键到 Asset）
-#     - source_damaged_asset: 来源待报废记录（外键到 DamagedAsset，用于追溯）
+#     字段说明:
+#     - waste_asset_code: 关联的资产编码(外键到 Asset)
+#     - source_damaged_asset: 来源待报废记录(外键到 DamagedAsset,用于追溯)
 #     - waste_asset_contract_code: 关联的合同编码
 #     - waste_asset_number: 报废数量
 #     - waste_asset_date: 报废日期
@@ -1024,9 +1025,9 @@ __all__ = [
 #         verbose_name="已报废资产的资产唯一标识码",
 #         related_name="waste_asset",
 #         on_delete=models.DO_NOTHING,
-#         help_text="已报废的资产唯一标识码（通过 recordcode 关联）"
+#         help_text="已报废的资产唯一标识码(通过 recordcode 关联)"
 #     )
-#     # 【新增】来源待报废记录外键，用于追溯报废来源
+#     # 【新增】来源待报废记录外键,用于追溯报废来源
 #     damaged_recordcode = models.OneToOneField(
 #         DamagedAsset,
 #         to_field="recordcode",
@@ -1035,7 +1036,7 @@ __all__ = [
 #         on_delete=models.DO_NOTHING,
 #         null=True,
 #         blank=True,
-#         help_text="关联的待报废记录的资产唯一标识码，用于追溯来源"
+#         help_text="关联的待报废记录的资产唯一标识码,用于追溯来源"
 #     )
 #     # 【AGENTS 规范 - 去除冗余】waste_asset_contract_code 删除
 #     # 合同信息通过 waste_asset_code.asset_contract_code 关联查询
@@ -1058,7 +1059,7 @@ __all__ = [
 #     version = models.IntegerField(
 #         default=1,
 #         verbose_name="版本号",
-#         help_text="乐观锁版本号，每次更新自动递增"
+#         help_text="乐观锁版本号,每次更新自动递增"
 #     )
 
 #     # 【AGENTS 规范 - 性能优化】注册自定义 QuerySet
@@ -1082,7 +1083,7 @@ __all__ = [
 #     """
 #     硬盘序列号管理模型
 
-#     管理硬盘类资产的序列号信息，支持跟踪硬盘状态变化。
+#     管理硬盘类资产的序列号信息,支持跟踪硬盘状态变化。
 #     """
 
 #     if TYPE_CHECKING:
@@ -1104,7 +1105,7 @@ __all__ = [
 #         related_name="harddisk_sns",
 #         verbose_name="硬盘序列号对应资产唯一标识码",
 #         on_delete=models.CASCADE,
-#         help_text="关联的资产唯一标识码（通过 recordcode 关联）"
+#         help_text="关联的资产唯一标识码(通过 recordcode 关联)"
 #     )
 #     harddisk_number = models.IntegerField(
 #         verbose_name="硬盘数量",
@@ -1133,7 +1134,7 @@ __all__ = [
 #             ("Other", "Other"),
 #         ],
 #         default="HDD",
-#         help_text="硬盘类型：HDD/SSD/NVMe"
+#         help_text="硬盘类型:HDD/SSD/NVMe"
 #     )
 #     harddisk_sn_description = models.TextField(
 #         verbose_name="硬盘序列号描述",
@@ -1146,13 +1147,13 @@ __all__ = [
 #         choices=HARDDISK_STATUS_CHOICES,
 #         default="active",
 #         verbose_name="硬盘序列号资产状态",
-#         help_text="硬盘状态：正常/维修/报废/丢失/损坏"
+#         help_text="硬盘状态:正常/维修/报废/丢失/损坏"
 #     )
 
 #     version = models.IntegerField(
 #         default=1,
 #         verbose_name="版本号",
-#         help_text="乐观锁版本号，每次更新自动递增"
+#         help_text="乐观锁版本号,每次更新自动递增"
 #     )
 
 #     class Meta:
@@ -1170,34 +1171,34 @@ __all__ = [
 
 
 # # =============================================================================
-# # 资产操作记录模型（只读）
+# # 资产操作记录模型(只读)
 # # =============================================================================
 
 # class AssetOperationLog(models.Model):
 #     """
-#     资产操作记录表（只读）
+#     资产操作记录表(只读)
 
 #     【AGENTS 规范 - 架构优化】
-#     记录资产全生命周期中的所有操作，替代原有的 using_record 文本字段。
+#     记录资产全生命周期中的所有操作,替代原有的 using_record 文本字段。
 
-#     设计原则：
-#     1. 只读表：不允许修改和删除，确保审计追踪完整性
-#     2. 结构化：使用 JSONField 存储变更前后数据，便于查询和分析
-#     3. 可追踪：记录操作人、操作时间、关联业务记录
+#     设计原则:
+#     1. 只读表:不允许修改和删除,确保审计追踪完整性
+#     2. 结构化:使用 JSONField 存储变更前后数据,便于查询和分析
+#     3. 可追踪:记录操作人、操作时间、关联业务记录
 
-#     记录的操作类型：
+#     记录的操作类型:
 #     - create: 资产创建/入库
 #     - update: 资产信息更新
-#     - delete: 资产删除（软删除）
+#     - delete: 资产删除(软删除)
 #     - out: 资产出库/发放
 #     - recycle: 资产回收
 #     - damaged: 提交报废申请
 #     - waste: 完成报废
-#     - approve: 审批操作（通过/拒绝）
-#     - transfer: 资产转移（仓库/人员变更）
+#     - approve: 审批操作(通过/拒绝)
+#     - transfer: 资产转移(仓库/人员变更)
 
 #     【易错点】
-#     - 此表数据只增不改，业务逻辑中禁止调用 save() 更新或 delete() 删除
+#     - 此表数据只增不改,业务逻辑中禁止调用 save() 更新或 delete() 删除
 #     - 查询时使用 select_related 或 prefetch_related 优化性能
 #     """
 
@@ -1221,7 +1222,7 @@ __all__ = [
 #         ("state_change", "状态变更"),
 #     ]
 
-#     # 资产编码（外键的冗余存储，用于查询性能优化）
+#     # 资产编码(外键的冗余存储,用于查询性能优化)
 #     asset_code = models.CharField(
 #         max_length=64,
 #         verbose_name="资产编码",
@@ -1229,22 +1230,22 @@ __all__ = [
 #         help_text="关联的资产编码"
 #     )
 
-#     # 资产名称（冗余存储，删除 Asset 不影响记录）
+#     # 资产名称(冗余存储,删除 Asset 不影响记录)
 #     asset_name = models.CharField(
 #         max_length=100,
 #         verbose_name="资产名称",
 #         null=True,
 #         blank=True,
-#         help_text="资产名称（冗余存储）"
+#         help_text="资产名称(冗余存储)"
 #     )
 
-#     # 资产规格（冗余存储，删除 Asset 不影响记录）
+#     # 资产规格(冗余存储,删除 Asset 不影响记录)
 #     asset_specification = models.CharField(
 #         max_length=100,
 #         verbose_name="资产规格",
 #         null=True,
 #         blank=True,
-#         help_text="资产规格（冗余存储）"
+#         help_text="资产规格(冗余存储)"
 #     )
 
 #     # 操作类型
@@ -1253,20 +1254,20 @@ __all__ = [
 #         choices=OPERATION_TYPE_CHOICES,
 #         verbose_name="操作类型",
 #         db_index=True,
-#         help_text="操作类型：创建/更新/删除/出库/回收/待报废/已报废/审批/转移"
+#         help_text="操作类型:创建/更新/删除/出库/回收/待报废/已报废/审批/转移"
 #     )
 
-#     # 日志记录唯一标识（自动生成，格式：{operation_type}-Log-{YYYYMMDD}-{8位随机字符}）
+#     # 日志记录唯一标识(自动生成,格式:{operation_type}-Log-{YYYYMMDD}-{8位随机字符})
 #     logging_id = models.CharField(
 #         max_length=50,
 #         unique=True,
 #         db_index=True,
 #         verbose_name="日志记录ID",
 #         blank=True,
-#         help_text="系统自动生成的日志记录唯一标识，格式：操作类型-Log-日期-随机字符"
+#         help_text="系统自动生成的日志记录唯一标识,格式:操作类型-Log-日期-随机字符"
 #     )
 
-#     # 操作时间（自动记录）
+#     # 操作时间(自动记录)
 #     operation_time = models.DateTimeField(
 #         auto_now_add=True,
 #         verbose_name="操作时间",
@@ -1283,7 +1284,7 @@ __all__ = [
 #         help_text="执行操作的人员工号"
 #     )
 
-#     # 操作人姓名（冗余存储，避免关联查询）
+#     # 操作人姓名(冗余存储,避免关联查询)
 #     operator_name = models.CharField(
 #         max_length=100,
 #         verbose_name="操作人姓名",
@@ -1292,35 +1293,35 @@ __all__ = [
 #         help_text="执行操作的人员姓名"
 #     )
 
-#     # 变更前数据（JSON格式，记录完整对象状态）
+#     # 变更前数据(JSON格式,记录完整对象状态)
 #     before_data = models.JSONField(
 #         verbose_name="变更前数据",
 #         blank=True,
 #         null=True,
-#         help_text="操作前的资产数据（JSON格式）"
+#         help_text="操作前的资产数据(JSON格式)"
 #     )
 
-#     # 变更后数据（JSON格式）
+#     # 变更后数据(JSON格式)
 #     after_data = models.JSONField(
 #         verbose_name="变更后数据",
 #         blank=True,
 #         null=True,
-#         help_text="操作后的资产数据（JSON格式）"
+#         help_text="操作后的资产数据(JSON格式)"
 #     )
 
-#     # 操作描述（人工可读）
+#     # 操作描述(人工可读)
 #     description = models.TextField(
 #         verbose_name="操作描述",
 #         help_text="操作的详细描述"
 #     )
 
-#     # 关联记录编码（如出库记录编码、回收记录编码等）
+#     # 关联记录编码(如出库记录编码、回收记录编码等)
 #     related_record_code = models.CharField(
 #         max_length=50,
 #         verbose_name="关联记录编码",
 #         blank=True,
 #         null=True,
-#         help_text="关联的业务记录编码，如出库单号"
+#         help_text="关联的业务记录编码,如出库单号"
 #     )
 
 #     # 关联记录类型
@@ -1329,10 +1330,10 @@ __all__ = [
 #         verbose_name="关联记录类型",
 #         blank=True,
 #         null=True,
-#         help_text="关联记录的类型：out/recycle/damaged/waste"
+#         help_text="关联记录的类型:out/recycle/damaged/waste"
 #     )
 
-#     # IP地址（可选，用于安全审计）
+#     # IP地址(可选,用于安全审计)
 #     ip_address = models.GenericIPAddressField(
 #         verbose_name="操作IP地址",
 #         blank=True,
@@ -1344,7 +1345,7 @@ __all__ = [
 #         verbose_name = "资产操作记录"
 #         verbose_name_plural = "资产操作记录"
 #         db_table = "am_asset_operation_log"
-#         # 【重要】按时间倒序排列，最新的操作在前
+#         # 【重要】按时间倒序排列,最新的操作在前
 #         ordering = ["-operation_time"]
 #         indexes = [
 #             # 按资产查询操作历史
@@ -1353,10 +1354,10 @@ __all__ = [
 #             models.Index(fields=["operation_type", "-operation_time"]),
 #             # 按操作人查询
 #             models.Index(fields=["operator_jobcode", "-operation_time"]),
-#             # 复合索引：资产 + 操作类型
+#             # 复合索引:资产 + 操作类型
 #             models.Index(fields=["asset_code", "operation_type"]),
 #         ]
-#         # 【易错点】只读表，禁止修改和删除
+#         # 【易错点】只读表,禁止修改和删除
 #         # 业务逻辑中应通过自定义 Manager 或 Service 层控制
 
 #     def __str__(self) -> str:
@@ -1367,10 +1368,10 @@ __all__ = [
 #         """
 #         生成随机后缀字符
 
-#         使用 secrets 模块生成安全的随机字符，字符集为大写字母+数字。
+#         使用 secrets 模块生成安全的随机字符,字符集为大写字母+数字。
 
 #         Args:
-#             length: 随机字符长度，默认8位
+#             length: 随机字符长度,默认8位
 
 #         Returns:
 #             str: 随机字符字符串
@@ -1380,17 +1381,17 @@ __all__ = [
 
 #     def save(self, *args, **kwargs) -> None:
 #         """
-#         【安全控制】阻止更新已有记录，创建时自动生成 logging_id
+#         【安全控制】阻止更新已有记录,创建时自动生成 logging_id
 
-#         操作记录表只允许创建新记录，禁止修改已有记录。
-#         创建时自动生成唯一标识 logging_id，格式：{operation_type}-Log-{YYYYMMDD}-{8位随机字符}
+#         操作记录表只允许创建新记录,禁止修改已有记录。
+#         创建时自动生成唯一标识 logging_id,格式:{operation_type}-Log-{YYYYMMDD}-{8位随机字符}
 #         """
 #         if self.pk:
 #             raise PermissionError(
-#                 "【安全错误】AssetOperationLog 是只读表，禁止修改已有记录。"
-#                 "如需修正数据，请联系系统管理员。"
+#                 "【安全错误】AssetOperationLog 是只读表,禁止修改已有记录。"
+#                 "如需修正数据,请联系系统管理员。"
 #             )
-#         # 自动生成 logging_id（operation_time 使用 auto_now_add，在 super().save() 前可能为 None）
+#         # 自动生成 logging_id(operation_time 使用 auto_now_add,在 super().save() 前可能为 None)
 #         if not self.logging_id:
 #             op_time = self.operation_time or timezone.now()
 #             date_str = op_time.strftime('%Y%m%d')
@@ -1402,11 +1403,11 @@ __all__ = [
 #         """
 #         【安全控制】阻止删除记录
 
-#         操作记录表不允许删除，确保审计追踪完整性。
+#         操作记录表不允许删除,确保审计追踪完整性。
 #         """
 #         raise PermissionError(
-#             "【安全错误】AssetOperationLog 是只读表，禁止删除记录。"
-#             "如需清理历史数据，请联系系统管理员。"
+#             "【安全错误】AssetOperationLog 是只读表,禁止删除记录。"
+#             "如需清理历史数据,请联系系统管理员。"
 #         )
 
 
@@ -1414,7 +1415,7 @@ __all__ = [
 #     """
 #     资产操作记录自定义管理器
 
-#     提供常用的查询方法，简化业务逻辑代码。
+#     提供常用的查询方法,简化业务逻辑代码。
 #     """
 
 #     def get_asset_history(self, asset_code: str):
@@ -1434,7 +1435,7 @@ __all__ = [
 #         获取最近N天的操作记录
 
 #         Args:
-#             days: 天数，默认7天
+#             days: 天数,默认7天
 
 #         Returns:
 #             QuerySet: 最近的操作记录
@@ -1476,7 +1477,7 @@ __all__ = [
 #     """
 #     已损坏资产管理模型
 
-#     记录资产损坏信息，直接生效无需审批。
+#     记录资产损坏信息,直接生效无需审批。
 #     继承BaseModel支持软删除和时间戳。
 #     """
 #     RECORDCODE_PREFIX = "BROKEN"
@@ -1543,7 +1544,7 @@ __all__ = [
 #     """
 #     已遗失资产管理模型
 
-#     记录资产遗失信息，直接生效无需审批。
+#     记录资产遗失信息,直接生效无需审批。
 #     继承BaseModel支持软删除和时间戳。
 #     """
 #     RECORDCODE_PREFIX = "LOST"
@@ -1617,7 +1618,7 @@ __all__ = [
 #     """
 #     资产找回记录模型
 
-#     记录遗失资产找回信息，关联LostAsset。
+#     记录遗失资产找回信息,关联LostAsset。
 #     继承BaseModel支持软删除和时间戳。
 #     """
 #     RECORDCODE_PREFIX = "FOUND"

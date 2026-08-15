@@ -2,18 +2,10 @@
 资产类型管理视图集
 """
 
-import logging
-
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
-
-from core.exceptions import AppValidationError
-from core.permissions import IsSystemAdmin
-from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
-from core.pagination import CustomPageNumberPagination
-from utils.response_utils import error_response, success_response
 
 from apps.assetmanagement.models import AssetType
 from apps.assetmanagement.serializers import (
@@ -22,6 +14,10 @@ from apps.assetmanagement.serializers import (
     AssetTypeSerializer,
 )
 from apps.assetmanagement.services import AssetTypeService
+from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
+from core.pagination import CustomPageNumberPagination
+from core.permissions import IsSystemAdmin
+from utils.response_utils import success_response
 
 from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
 
@@ -40,16 +36,20 @@ class AssetTypeViewSet(
     permission_classes = [permissions.IsAuthenticated]
     lookup_field = "recordcode"
     admin_actions = [
-        "create", "update", "partial_update", "destroy",
-        "batch_delete", "batch_create",
+        "create",
+        "update",
+        "partial_update",
+        "destroy",
+        "batch_delete",
+        "batch_create",
     ]
 
-
     def get_permissions(self):
-        """RBAC: 写操作需 IsSystemAdmin+，读操作需认证"""
+        """RBAC: 写操作需 IsSystemAdmin+,读操作需认证"""
         if self.action in self.admin_actions:
             return [IsSystemAdmin()]
         return [permissions.IsAuthenticated()]
+
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ["type_code", "type_name", "level"]
     search_fields = ["type_code", "type_name"]
@@ -59,24 +59,15 @@ class AssetTypeViewSet(
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        try:
-            asset_type = AssetTypeService.create_asset_type(serializer.validated_data)
-            return success_response(
-                data=AssetTypeSerializer(asset_type).data, message="创建成功", status_code=status.HTTP_201_CREATED
-            )
-        except AppValidationError as e:
-            return error_response(message=str(e), status_code=400)
+        asset_type = AssetTypeService.create_asset_type(serializer.validated_data)
+        return success_response(
+            data=AssetTypeSerializer(asset_type).data, message="创建成功", status_code=status.HTTP_201_CREATED
+        )
 
     def destroy(self, request, *args, **kwargs):
-        try:
-            asset_type = self.get_object()
-            AssetTypeService.delete_asset_type(asset_type.type_code)
-            return success_response(message="删除成功")
-        except AppValidationError as e:
-            return error_response(message=str(e.detail), status_code=400)
-        except Exception:
-            logging.exception("资产类型删除失败")
-            return error_response(message="删除失败，请稍后重试", status_code=500)
+        asset_type = self.get_object()
+        AssetTypeService.delete_asset_type(asset_type.type_code)
+        return success_response(message="删除成功")
 
     @action(detail=False, methods=["post"], url_path="batch-delete")
     def batch_delete(self, request):
@@ -91,7 +82,7 @@ class AssetTypeViewSet(
                 "success_ids": result["success_ids"],
                 "fail_items": result["fail_items"],
             },
-            message=f"批量删除完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条",
+            message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
 
     @action(detail=False, methods=["post"], url_path="batch-create")
@@ -107,5 +98,5 @@ class AssetTypeViewSet(
                 "success_items": [AssetTypeSerializer(item).data for item in result.get("success_items", [])],
                 "fail_items": result["fail_items"],
             },
-            message=f"批量创建完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条",
+            message=f"批量创建完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )

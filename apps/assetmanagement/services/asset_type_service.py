@@ -3,9 +3,9 @@
 
 提供资产类型管理的业务逻辑。
 
-树形关联设计（方案 D）：
+树形关联设计(方案 D):
 - 使用 parent FK 存储父子关系
-- 使用 path 字段存储物化路径，加速子孙查询
+- 使用 path 字段存储物化路径,加速子孙查询
 """
 
 import copy
@@ -13,7 +13,7 @@ from typing import Any
 
 from django.db import transaction
 
-from apps.assetmanagement.models import Asset, AssetType, MAX_ASSET_TYPE_LEVEL
+from apps.assetmanagement.models import MAX_ASSET_TYPE_LEVEL, Asset, AssetType
 from apps.assetmanagement.selectors import AssetTypeSelector
 from core.audit_service import GenericAuditService
 from core.batch_mixins import BatchOperationMixin
@@ -39,7 +39,7 @@ class AssetTypeService:
         创建单个资产类型
 
         Args:
-            asset_type_data: 资产类型数据，支持 parent_type_code（业务编码）或 parent（recordcode）
+            asset_type_data: 资产类型数据,支持 parent_type_code(业务编码)或 parent(recordcode)
 
         Returns:
             AssetType: 创建成功的资产类型实例
@@ -50,11 +50,9 @@ class AssetTypeService:
         type_code = asset_type_data.get("type_code")
 
         if AssetTypeSelector.exists_by_code(type_code):
-            raise AppValidationError(
-                detail=f"资产类型编码 {type_code} 已存在", error_code="DUPLICATE_ASSET_TYPE_CODE"
-            )
+            raise AppValidationError(detail=f"资产类型编码 {type_code} 已存在", error_code="DUPLICATE_ASSET_TYPE_CODE")
 
-        # 解析父类型：支持 parent_type_code（业务编码）或 parent（recordcode）
+        # 解析父类型:支持 parent_type_code(业务编码)或 parent(recordcode)
         parent = None
         parent_type_code = asset_type_data.pop("parent_type_code", None)
         parent_rc = asset_type_data.pop("parent", None)
@@ -107,7 +105,7 @@ class AssetTypeService:
     @transaction.atomic
     def delete_asset_type(type_code: str) -> None:
         """
-        删除资产类型（软删除）
+        删除资产类型(软删除)
 
         Args:
             type_code: 资产类型编码
@@ -117,12 +115,10 @@ class AssetTypeService:
         """
         asset_type = AssetTypeSelector.get_asset_type_by_code(type_code)
         if not asset_type or asset_type.is_deleted:
-            raise AppValidationError(
-                detail=f"资产类型 {type_code} 不存在或已删除", error_code="ASSET_TYPE_NOT_FOUND"
-            )
+            raise AppValidationError(detail=f"资产类型 {type_code} 不存在或已删除", error_code="ASSET_TYPE_NOT_FOUND")
 
         if Asset.objects.filter(asset_type_recordcode=asset_type, is_deleted=False).exists():
-            raise AppValidationError(detail="资产类型下存在关联资产，不允许删除", error_code="HAS_RELATED_ASSETS")
+            raise AppValidationError(detail="资产类型下存在关联资产,不允许删除", error_code="HAS_RELATED_ASSETS")
 
         GenericAuditService.log_delete(
             record_code=asset_type.recordcode,
@@ -141,7 +137,7 @@ class AssetTypeService:
         asset_type_data_list: list[dict[str, Any]],
     ) -> dict[str, Any]:
         """
-        批量创建资产类型（逐条独立执行，返回详细结果）
+        批量创建资产类型(逐条独立执行,返回详细结果)
 
         复用 AssetTypeService.create_asset_type() 单条创建逻辑。
         """
@@ -177,7 +173,7 @@ class AssetTypeService:
                         "row_number": asset_type_data.get("row_number"),
                         "input_data": asset_type_data,
                         "error_code": "INTERNAL_ERROR",
-                        "error_message": "服务器内部错误，请稍后重试",
+                        "error_message": "服务器内部错误,请稍后重试",
                     }
                 )
 
@@ -192,7 +188,7 @@ class AssetTypeService:
     @staticmethod
     def batch_delete_asset_type(asset_type_codes: list[str]) -> dict[str, Any]:
         """
-        批量删除资产类型（软删除，逐条独立执行）
+        批量删除资产类型(软删除,逐条独立执行)
         """
 
         def _delete_item(asset_type_code: str) -> None:

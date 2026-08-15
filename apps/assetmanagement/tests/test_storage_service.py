@@ -61,9 +61,13 @@ class TestDeleteStorage:
         s = StorageService.create_storage(_storage_data())
         at = AssetType.objects.create(type_code="AT_S", type_name="AT_S")
         Asset.objects.create(
-            asset_code="A_S", asset_name="A_S", asset_purchase_price=100,
-            asset_purchase_date="2024-01-01", asset_entry_date="2024-01-01",
-            asset_storage_recordcode=s, asset_type_recordcode=at,
+            asset_code="A_S",
+            asset_name="A_S",
+            asset_purchase_price=100,
+            asset_purchase_date="2024-01-01",
+            asset_entry_date="2024-01-01",
+            asset_storage_recordcode=s,
+            asset_type_recordcode=at,
         )
         with pytest.raises(AppValidationError) as exc_info:
             StorageService.delete_storage("SC001")

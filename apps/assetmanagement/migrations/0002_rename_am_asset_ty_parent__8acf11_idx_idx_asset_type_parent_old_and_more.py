@@ -6,7 +6,7 @@ from django.db import migrations, models
 
 def convert_parent_code_to_fk(apps, schema_editor):
     """
-    数据迁移：将 parent_code（type_code）转换为 parent FK（recordcode），
+    数据迁移:将 parent_code(type_code)转换为 parent FK(recordcode),
     并自动生成物化路径 path。
     """
     AssetType = apps.get_model('assetmanagement', 'AssetType')
@@ -24,9 +24,9 @@ def convert_parent_code_to_fk(apps, schema_editor):
             AssetType.objects.filter(pk=at.pk).update(parent_id=parent_rc)
             updated_count += 1
         else:
-            print(f"  [WARN] 类型 {at.type_code} 的父级 {at.parent_code} 不存在，跳过")
+            print(f"  [WARN] 类型 {at.type_code} 的父级 {at.parent_code} 不存在,跳过")
 
-    print(f"  [INFO] 转换 parent FK 完成：{updated_count} 条记录")
+    print(f"  [INFO] 转换 parent FK 完成:{updated_count} 条记录")
 
     # 3. 生成物化路径 path
     rc_map = {}
@@ -49,7 +49,7 @@ def convert_parent_code_to_fk(apps, schema_editor):
         AssetType.objects.filter(pk=at.pk).update(path=new_path)
         path_updated += 1
 
-    print(f"  [INFO] 生成物化路径完成：{path_updated} 条记录")
+    print(f"  [INFO] 生成物化路径完成:{path_updated} 条记录")
 
 
 def reverse_convert(apps, schema_editor):
@@ -73,17 +73,17 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='assettype',
             name='parent',
-            field=models.ForeignKey(blank=True, help_text='父级资产类型（FK 指向 recordcode），null 表示顶级', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='children', to='assetmanagement.assettype', to_field='recordcode', verbose_name='父级类型'),
+            field=models.ForeignKey(blank=True, help_text='父级资产类型(FK 指向 recordcode),null 表示顶级', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='children', to='assetmanagement.assettype', to_field='recordcode', verbose_name='父级类型'),
         ),
         migrations.AddField(
             model_name='assettype',
             name='path',
-            field=models.CharField(blank=True, default='', help_text='从根到当前节点的完整路径，如 /ASSETTYPE-001/IT-001/DEV-001', max_length=500, verbose_name='物化路径'),
+            field=models.CharField(blank=True, default='', help_text='从根到当前节点的完整路径,如 /ASSETTYPE-001/IT-001/DEV-001', max_length=500, verbose_name='物化路径'),
         ),
         migrations.AlterField(
             model_name='assettype',
             name='parent_code',
-            field=models.CharField(blank=True, help_text='【已废弃】迁移完成后将删除，新代码请使用 parent FK', max_length=32, null=True, verbose_name='父级编码（旧）'),
+            field=models.CharField(blank=True, help_text='【已废弃】迁移完成后将删除,新代码请使用 parent FK', max_length=32, null=True, verbose_name='父级编码(旧)'),
         ),
         migrations.AddIndex(
             model_name='assettype',
@@ -93,6 +93,6 @@ class Migration(migrations.Migration):
             model_name='assettype',
             index=models.Index(fields=['path'], name='idx_asset_type_path'),
         ),
-        # 数据迁移：parent_code → parent FK + 生成 path
+        # 数据迁移:parent_code → parent FK + 生成 path
         migrations.RunPython(convert_parent_code_to_fk, reverse_convert),
     ]

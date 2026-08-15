@@ -1,15 +1,14 @@
 """
 资产管理服务
 
-提供资产管理的核心业务逻辑，包括资产的创建、更新、删除、状态变更等操作。
+提供资产管理的核心业务逻辑,包括资产的创建、更新、删除、状态变更等操作。
 """
 
-import random
 import string
 import uuid
-from datetime import datetime
 from typing import Any
 
+from django.conf import settings
 from django.db import transaction
 
 from apps.assetmanagement.audit import AuditLogger
@@ -18,14 +17,14 @@ from apps.assetmanagement.selectors import (
     AssetSelector,
     StorageSelector,
 )
-from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
+from apps.assetmanagement.state_machine import AssetFSM
 from core.batch_mixins import BatchOperationMixin
 from core.exceptions import AppValidationError
 
 from .asset_lifecycle_mixin import AssetLifecycleMixin
 
 
-# 字段白名单，防止通过 setattr 修改任意字段
+# 字段白名单,防止通过 setattr 修改任意字段
 ASSET_UPDATE_ALLOWED_FIELDS = frozenset(
     [
         "asset_name",
@@ -48,8 +47,8 @@ class AssetCodeGenerator:
     """
     资产编码生成器
 
-    后端自动生成 asset_code，前端无需传递。
-    生成格式：{类型层级路径}-{8位大写UUID}
+    后端自动生成 asset_code,前端无需传递。
+    生成格式:{类型层级路径}-{8位大写UUID}
     """
 
     RANDOM_CHARS = string.ascii_uppercase + string.digits
@@ -62,7 +61,7 @@ class AssetCodeGenerator:
 
     @classmethod
     def _get_type_path(cls, asset_type) -> str:
-        """获取资产类型的层级路径，如 'IT-COMPUTER-NOTEBOOK'"""
+        """获取资产类型的层级路径,如 'IT-COMPUTER-NOTEBOOK'"""
         if not asset_type:
             return "UNKNOWN"
         path_parts = []
@@ -95,12 +94,12 @@ class AssetCodeGenerator:
 
     @classmethod
     def generate_with_unique_check(cls, asset_type, purchase_number: int = 1) -> list[str]:
-        for attempt in range(cls.MAX_RETRY):
+        for _ in range(cls.MAX_RETRY):
             codes = cls.generate(asset_type, purchase_number)
             existing = Asset.objects.filter(asset_code__in=codes).values_list("asset_code", flat=True)
             if not existing:
                 return codes
-        raise RuntimeError(f"生成资产编码失败：连续 {cls.MAX_RETRY} 次尝试均存在唯一性冲突")
+        raise RuntimeError(f"生成资产编码失败:连续 {cls.MAX_RETRY} 次尝试均存在唯一性冲突")
 
 
 class AssetService(AssetLifecycleMixin, BatchOperationMixin):
@@ -108,7 +107,7 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
     资产管理服务
 
     提供资产全生命周期管理的业务逻辑。
-    CRUD 操作在此类中定义，生命周期流转方法继承自 AssetLifecycleMixin。
+    CRUD 操作在此类中定义,生命周期流转方法继承自 AssetLifecycleMixin。
     """
 
     @staticmethod
@@ -127,13 +126,16 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
         created_assets = []
         for code in codes:
             single_data = {**asset_data, "asset_code": code}
-            # 自动生成 qr_code 内容（JSON 格式，供前端扫码使用）
+            # 自动生成 qr_code 内容(JSON 格式,供前端扫码使用)
             if not single_data.get("qr_code"):
                 import json
-                single_data["qr_code"] = json.dumps({
-                    "asset_code": code,
-                    "scan_type": "asset_detail",
-                })
+
+                single_data["qr_code"] = json.dumps(
+                    {
+                        "asset_code": code,
+                        "scan_type": "asset_detail",
+                    }
+                )
             asset = Asset.objects.create(**single_data)
             AuditLogger.log_asset_create(
                 asset=asset,
@@ -187,15 +189,16 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
         asset = Asset.objects.select_for_update().get(pk=asset.pk)
         if asset.asset_current_status != "in_store":
             raise AppValidationError(
-                detail=f"资产当前状态为 {asset.asset_current_status}，不允许删除", error_code="ASSET_IN_USE"
+                detail=f"资产当前状态为 {asset.asset_current_status},不允许删除", error_code="ASSET_IN_USE"
             )
         from apps.assetmanagement.models import DamagedAsset, OutAsset
+
         if OutAsset.objects.filter(asset_recordcode=asset, is_deleted=False).exists():
             raise AppValidationError(
                 detail=f"资产 {asset.asset_code} 存在未完成的出库记录", error_code="ASSET_HAS_OUTASSET"
             )
         if DamagedAsset.objects.filter(asset_recordcode=asset, is_deleted=False).exists():
-            raise AppValidationError(detail="资产存在待报废记录，不允许删除", error_code="HAS_DAMAGED_RECORDS")
+            raise AppValidationError(detail="资产存在待报废记录,不允许删除", error_code="HAS_DAMAGED_RECORDS")
         AuditLogger.log_asset_delete(
             asset_code=asset.asset_code,
             asset_name=asset.asset_name,
@@ -211,6 +214,7 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
     ) -> dict[str, Any]:
         def _create_item(idx: int, asset_data: dict[str, Any]) -> Asset:
             import copy
+
             result = AssetService.create_asset(
                 asset_data=copy.deepcopy(asset_data),
                 operator_jobcode=operator_jobcode,
@@ -246,26 +250,33 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
                         )
                         continue
                     if asset.asset_current_status != "in_store":
-                        fail_items.append({
-                            "id": asset_code,
-                            "error_code": "ASSET_IN_USE",
-                            "error_message": f"资产当前状态为 {asset.asset_current_status}，不允许删除",
-                        })
+                        fail_items.append(
+                            {
+                                "id": asset_code,
+                                "error_code": "ASSET_IN_USE",
+                                "error_message": f"资产当前状态为 {asset.asset_current_status},不允许删除",
+                            }
+                        )
                         continue
                     from apps.assetmanagement.models import DamagedAsset, OutAsset
+
                     if OutAsset.objects.filter(asset_recordcode=asset, is_deleted=False).exists():
-                        fail_items.append({
-                            "id": asset_code,
-                            "error_code": "HAS_OUTASSET_RECORDS",
-                            "error_message": "资产存在关联出库记录，不允许删除",
-                        })
+                        fail_items.append(
+                            {
+                                "id": asset_code,
+                                "error_code": "HAS_OUTASSET_RECORDS",
+                                "error_message": "资产存在关联出库记录,不允许删除",
+                            }
+                        )
                         continue
                     if DamagedAsset.objects.filter(asset_recordcode=asset, is_deleted=False).exists():
-                        fail_items.append({
-                            "id": asset_code,
-                            "error_code": "HAS_DAMAGED_RECORDS",
-                            "error_message": "资产存在待报废记录，不允许删除",
-                        })
+                        fail_items.append(
+                            {
+                                "id": asset_code,
+                                "error_code": "HAS_DAMAGED_RECORDS",
+                                "error_message": "资产存在待报废记录,不允许删除",
+                            }
+                        )
                         continue
                     AuditLogger.log_asset_delete(
                         asset_code=asset.asset_code,
@@ -278,7 +289,7 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
                     success_ids.append(asset_code)
             except Exception:
                 fail_items.append(
-                    {"id": asset_code, "error_code": "INTERNAL_ERROR", "error_message": "服务器内部错误，请稍后重试"}
+                    {"id": asset_code, "error_code": "INTERNAL_ERROR", "error_message": "服务器内部错误,请稍后重试"}
                 )
         return {
             "total": len(asset_codes),
@@ -305,7 +316,8 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
             raise AppValidationError(detail=f"资产 {asset_code} 不存在", error_code="ASSET_NOT_FOUND")
         asset = Asset.objects.select_for_update().get(pk=asset.pk)
         old_status = asset.asset_current_status
-        from apps.assetmanagement.state_machine import AssetFSM, AssetState
+        from apps.assetmanagement.state_machine import AssetState
+
         target_state = AssetState.from_string(new_status)
         AssetFSM._transition(asset, target_state)
         AuditLogger.log_state_change(
@@ -373,7 +385,7 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
 
         Args:
             asset: 资产实例
-            base_url: 基础 URL（如 http://host:port）
+            base_url: 基础 URL(如 http://host:port)
 
         Returns:
             bytes: PNG 图片数据
@@ -381,10 +393,11 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
         Raises:
             ImportError: 缺少 qrcode 依赖
         """
-        import qrcode
         from io import BytesIO
 
-        scan_url = f"{base_url}/api/v1/public/scan/{asset.recordcode}/"
+        import qrcode
+
+        scan_url = f"{FRONTEND_BASE_URL}/scan/{asset.recordcode}/"
         qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=10, border=4)
         qr.add_data(scan_url)
         qr.make(fit=True)

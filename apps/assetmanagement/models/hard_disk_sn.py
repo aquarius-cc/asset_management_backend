@@ -18,8 +18,8 @@ class HardDiskSN(BaseModel):
     """
     硬盘序列号管理模型
 
-    管理硬盘类资产的序列号信息，支持跟踪硬盘状态变化。
-    关系：Asset (1) → (0..N) HardDiskSN
+    管理硬盘类资产的序列号信息,支持跟踪硬盘状态变化。
+    关系:Asset (1) → (0..N) HardDiskSN
     """
 
     if TYPE_CHECKING:
@@ -50,36 +50,32 @@ class HardDiskSN(BaseModel):
         related_name="harddisk_sns",
         on_delete=models.PROTECT,
         verbose_name="关联资产",
-        help_text="关联的资产唯一标识码（通过 recordcode 关联）",
+        help_text="关联的资产唯一标识码(通过 recordcode 关联)",
     )
-    harddisk_sn_code = models.CharField(
-        max_length=100, verbose_name="硬盘序列号", help_text="硬盘的唯一序列号"
-    )
+    harddisk_sn_code = models.CharField(max_length=100, verbose_name="硬盘序列号", help_text="硬盘的唯一序列号")
     harddisk_type = models.CharField(
         max_length=20,
         choices=HarddiskType.choices,
         default=HarddiskType.HDD,
         blank=True,
         verbose_name="硬盘类型",
-        help_text="硬盘类型：HDD/SSD/NVMe/Other",
+        help_text="硬盘类型:HDD/SSD/NVMe/Other",
     )
     harddisk_capacity = models.CharField(
         max_length=20,
         default="",
         blank=True,
         verbose_name="硬盘容量",
-        help_text="硬盘容量标识，如 500GB/1TB/2TB",
+        help_text="硬盘容量标识,如 500GB/1TB/2TB",
     )
     harddisk_status = models.CharField(
         max_length=20,
         choices=HarddiskStatus.choices,
         default=HarddiskStatus.ACTIVE,
         verbose_name="硬盘状态",
-        help_text="硬盘状态：正常/维修/报废/丢失/损坏",
+        help_text="硬盘状态:正常/维修/报废/丢失/损坏",
     )
-    harddisk_description = models.TextField(
-        blank=True, default="", verbose_name="硬盘描述", help_text="硬盘的补充说明"
-    )
+    harddisk_description = models.TextField(blank=True, default="", verbose_name="硬盘描述", help_text="硬盘的补充说明")
     version = models.IntegerField(default=1, verbose_name="版本号", help_text="乐观锁版本号")
 
     objects = SoftDeleteManager()

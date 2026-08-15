@@ -3,20 +3,8 @@
 """
 
 import pytest
-from django.contrib.auth import get_user_model
 
-from apps.assetmanagement.selectors.outasset_selector import (
-    OutAssetSelector,
-    RecycleAssetSelector,
-    DamagedAssetSelector,
-    WasteAssetSelector,
-    BrokenAssetSelector,
-    LostAssetSelector,
-    FoundAssetSelector,
-    RepairAssetSelector,
-)
 from apps.assetmanagement.models import (
-    Asset,
     BrokenAsset,
     DamagedAsset,
     FoundAsset,
@@ -26,7 +14,16 @@ from apps.assetmanagement.models import (
     RepairAsset,
     WasteAsset,
 )
-from apps.usermanagement.models import Department, Employee
+from apps.assetmanagement.selectors.outasset_selector import (
+    BrokenAssetSelector,
+    DamagedAssetSelector,
+    FoundAssetSelector,
+    LostAssetSelector,
+    OutAssetSelector,
+    RecycleAssetSelector,
+    RepairAssetSelector,
+    WasteAssetSelector,
+)
 from apps.authusermanagement.models import AuthUser
 
 
@@ -36,14 +33,12 @@ class TestOutAssetSelector:
 
     def test_get_queryset_for_user(self, asset, user):
         """RBAC 行级过滤"""
-        outasset = OutAsset.objects.create(
+        _ = OutAsset.objects.create(
             asset_recordcode=asset,
             outasset_date="2024-01-01",
         )
         # 模拟用户
-        auth_user = AuthUser.objects.create_user(
-            auth_username="test", password="test123"
-        )
+        auth_user = AuthUser.objects.create_user(auth_username="test", password="test123")
         user.auth_user = auth_user
         user.save()
 
@@ -52,7 +47,7 @@ class TestOutAssetSelector:
 
     def test_get_outassets_for_list(self, asset, user):
         """获取列表视图的出库记录"""
-        outasset = OutAsset.objects.create(
+        _ = OutAsset.objects.create(
             asset_recordcode=asset,
             outasset_date="2024-01-01",
         )
@@ -61,7 +56,7 @@ class TestOutAssetSelector:
 
     def test_get_outassets_with_asset_details(self, asset, user):
         """获取包含资产详情的出库记录"""
-        outasset = OutAsset.objects.create(
+        _ = OutAsset.objects.create(
             asset_recordcode=asset,
             outasset_date="2024-01-01",
         )
@@ -70,7 +65,7 @@ class TestOutAssetSelector:
 
     def test_get_asset_recordcodes_for_list(self, asset, user):
         """获取资产记录码列表"""
-        outasset = OutAsset.objects.create(
+        _ = OutAsset.objects.create(
             asset_recordcode=asset,
             outasset_date="2024-01-01",
         )
@@ -79,7 +74,7 @@ class TestOutAssetSelector:
 
     def test_get_asset_recordcodes_with_asset_details(self, asset, user):
         """获取包含资产详情的记录码列表"""
-        outasset = OutAsset.objects.create(
+        _ = OutAsset.objects.create(
             asset_recordcode=asset,
             outasset_date="2024-01-01",
         )
@@ -88,22 +83,22 @@ class TestOutAssetSelector:
 
     def test_get_recyclable_outassets(self, asset, user):
         """获取可回收的出库记录"""
-        # 设置资产状态为 in_use（出库后的状态）
+        # 设置资产状态为 in_use(出库后的状态)
         asset.asset_current_status = "in_use"
         asset.asset_applicant_recordcode = user
         asset.asset_manager_recordcode = user
         asset.save(update_fields=["asset_current_status", "asset_applicant_recordcode", "asset_manager_recordcode"])
-        outasset = OutAsset.objects.create(
+        _ = OutAsset.objects.create(
             asset_recordcode=asset,
             outasset_date="2024-01-01",
         )
         queryset = OutAssetSelector.get_recyclable_outassets()
-        # 资产状态是 in_use，应该返回
+        # 资产状态是 in_use,应该返回
         assert queryset.count() == 1
 
     def test_get_all_out_assets(self, asset, user):
         """获取所有出库记录"""
-        outasset = OutAsset.objects.create(
+        _ = OutAsset.objects.create(
             asset_recordcode=asset,
             outasset_date="2024-01-01",
         )
@@ -130,7 +125,7 @@ class TestOutAssetSelector:
         # 设置资产的申请人
         asset.asset_applicant_recordcode = user
         asset.save(update_fields=["asset_applicant_recordcode"])
-        outasset = OutAsset.objects.create(
+        _ = OutAsset.objects.create(
             asset_recordcode=asset,
             outasset_date="2024-01-01",
         )
@@ -139,7 +134,7 @@ class TestOutAssetSelector:
 
     def test_get_outassets_by_asset(self, asset, user):
         """按资产编码获取出库记录"""
-        outasset = OutAsset.objects.create(
+        _ = OutAsset.objects.create(
             asset_recordcode=asset,
             outasset_date="2024-01-01",
         )
@@ -151,7 +146,7 @@ class TestOutAssetSelector:
         # 设置资产状态为 in_use
         asset.asset_current_status = "in_use"
         asset.save(update_fields=["asset_current_status"])
-        outasset = OutAsset.objects.create(
+        _ = OutAsset.objects.create(
             asset_recordcode=asset,
             outasset_date="2024-01-01",
         )
@@ -163,7 +158,7 @@ class TestOutAssetSelector:
         # 设置资产状态为 in_use
         asset.asset_current_status = "in_use"
         asset.save(update_fields=["asset_current_status"])
-        outasset = OutAsset.objects.create(
+        _ = OutAsset.objects.create(
             asset_recordcode=asset,
             outasset_date="2024-01-01",
         )
@@ -175,7 +170,7 @@ class TestOutAssetSelector:
         # 设置资产状态为 in_use
         asset.asset_current_status = "in_use"
         asset.save(update_fields=["asset_current_status"])
-        outasset = OutAsset.objects.create(
+        _ = OutAsset.objects.create(
             asset_recordcode=asset,
             outasset_date="2024-01-01",
         )
@@ -184,7 +179,7 @@ class TestOutAssetSelector:
 
     def test_get_outasset_statistics(self, asset, user):
         """获取出库统计信息"""
-        outasset = OutAsset.objects.create(
+        _ = OutAsset.objects.create(
             asset_recordcode=asset,
             outasset_date="2024-01-01",
         )
@@ -204,15 +199,13 @@ class TestRecycleAssetSelector:
             asset_recordcode=asset,
             outasset_date="2024-01-01",
         )
-        recycle = RecycleAsset.objects.create(
+        _ = RecycleAsset.objects.create(
             asset_recordcode=asset,
             outasset_recordcode=outasset,
             recycle_asset_date="2024-01-02",
         )
         # 模拟用户
-        auth_user = AuthUser.objects.create_user(
-            auth_username="test", password="test123"
-        )
+        auth_user = AuthUser.objects.create_user(auth_username="test", password="test123")
         user.auth_user = auth_user
         user.save()
 
@@ -225,7 +218,7 @@ class TestRecycleAssetSelector:
             asset_recordcode=asset,
             outasset_date="2024-01-01",
         )
-        recycle = RecycleAsset.objects.create(
+        _ = RecycleAsset.objects.create(
             asset_recordcode=asset,
             outasset_recordcode=outasset,
             recycle_asset_date="2024-01-02",
@@ -239,7 +232,7 @@ class TestRecycleAssetSelector:
             asset_recordcode=asset,
             outasset_date="2024-01-01",
         )
-        recycle = RecycleAsset.objects.create(
+        _ = RecycleAsset.objects.create(
             asset_recordcode=asset,
             outasset_recordcode=outasset,
             recycle_asset_date="2024-01-02",
@@ -253,7 +246,7 @@ class TestRecycleAssetSelector:
             asset_recordcode=asset,
             outasset_date="2024-01-01",
         )
-        recycle = RecycleAsset.objects.create(
+        _ = RecycleAsset.objects.create(
             asset_recordcode=asset,
             outasset_recordcode=outasset,
             recycle_asset_date="2024-01-02",
@@ -287,7 +280,7 @@ class TestRecycleAssetSelector:
             asset_recordcode=asset,
             outasset_date="2024-01-01",
         )
-        recycle = RecycleAsset.objects.create(
+        _ = RecycleAsset.objects.create(
             asset_recordcode=asset,
             outasset_recordcode=outasset,
             recycle_asset_date="2024-01-02",
@@ -301,7 +294,7 @@ class TestRecycleAssetSelector:
             asset_recordcode=asset,
             outasset_date="2024-01-01",
         )
-        recycle = RecycleAsset.objects.create(
+        _ = RecycleAsset.objects.create(
             asset_recordcode=asset,
             outasset_recordcode=outasset,
             recycle_asset_date="2024-01-02",
@@ -316,13 +309,11 @@ class TestDamagedAssetSelector:
 
     def test_get_queryset_for_user(self, asset, user):
         """RBAC 行级过滤"""
-        damaged = DamagedAsset.objects.create(
+        _ = DamagedAsset.objects.create(
             asset_recordcode=asset,
         )
         # 模拟用户
-        auth_user = AuthUser.objects.create_user(
-            auth_username="test", password="test123"
-        )
+        auth_user = AuthUser.objects.create_user(auth_username="test", password="test123")
         user.auth_user = auth_user
         user.save()
 
@@ -331,7 +322,7 @@ class TestDamagedAssetSelector:
 
     def test_get_all_asset_recordcodes(self, asset, user):
         """获取所有资产记录码"""
-        damaged = DamagedAsset.objects.create(
+        _ = DamagedAsset.objects.create(
             asset_recordcode=asset,
         )
         queryset = DamagedAssetSelector.get_all_asset_recordcodes()
@@ -339,7 +330,7 @@ class TestDamagedAssetSelector:
 
     def test_get_asset_recordcode_by_asset_code(self, asset, user):
         """按资产编码获取报废记录"""
-        damaged = DamagedAsset.objects.create(
+        _ = DamagedAsset.objects.create(
             asset_recordcode=asset,
         )
         result = DamagedAssetSelector.get_asset_recordcode_by_asset_code("A001")
@@ -352,7 +343,7 @@ class TestDamagedAssetSelector:
 
     def test_exists_by_asset_code(self, asset, user):
         """检查资产编码是否有报废记录"""
-        damaged = DamagedAsset.objects.create(
+        _ = DamagedAsset.objects.create(
             asset_recordcode=asset,
         )
         assert DamagedAssetSelector.exists_by_asset_code("A001") is True
@@ -360,7 +351,7 @@ class TestDamagedAssetSelector:
 
     def test_get_by_asset_code(self, asset, user):
         """按资产编码获取报废记录"""
-        damaged = DamagedAsset.objects.create(
+        _ = DamagedAsset.objects.create(
             asset_recordcode=asset,
         )
         queryset = DamagedAssetSelector.get_by_asset_code("A001")
@@ -377,15 +368,13 @@ class TestWasteAssetSelector:
         damaged = DamagedAsset.objects.create(
             asset_recordcode=asset,
         )
-        waste = WasteAsset.objects.create(
+        _ = WasteAsset.objects.create(
             asset_recordcode=asset,
             damaged_recordcode=damaged,
             waste_asset_date="2024-01-01",
         )
         # 模拟用户
-        auth_user = AuthUser.objects.create_user(
-            auth_username="test", password="test123"
-        )
+        auth_user = AuthUser.objects.create_user(auth_username="test", password="test123")
         user.auth_user = auth_user
         user.save()
 
@@ -397,7 +386,7 @@ class TestWasteAssetSelector:
         damaged = DamagedAsset.objects.create(
             asset_recordcode=asset,
         )
-        waste = WasteAsset.objects.create(
+        _ = WasteAsset.objects.create(
             asset_recordcode=asset,
             damaged_recordcode=damaged,
             waste_asset_date="2024-01-01",
@@ -410,7 +399,7 @@ class TestWasteAssetSelector:
         damaged = DamagedAsset.objects.create(
             asset_recordcode=asset,
         )
-        waste = WasteAsset.objects.create(
+        _ = WasteAsset.objects.create(
             asset_recordcode=asset,
             damaged_recordcode=damaged,
             waste_asset_date="2024-01-01",
@@ -428,7 +417,7 @@ class TestWasteAssetSelector:
         damaged = DamagedAsset.objects.create(
             asset_recordcode=asset,
         )
-        waste = WasteAsset.objects.create(
+        _ = WasteAsset.objects.create(
             asset_recordcode=asset,
             damaged_recordcode=damaged,
             waste_asset_date="2024-01-01",
@@ -443,14 +432,12 @@ class TestBrokenAssetSelector:
 
     def test_get_queryset_for_user(self, asset, user):
         """RBAC 行级过滤"""
-        broken = BrokenAsset.objects.create(
+        _ = BrokenAsset.objects.create(
             asset_recordcode=asset,
             broken_reason="测试损坏",
         )
         # 模拟用户
-        auth_user = AuthUser.objects.create_user(
-            auth_username="test", password="test123"
-        )
+        auth_user = AuthUser.objects.create_user(auth_username="test", password="test123")
         user.auth_user = auth_user
         user.save()
 
@@ -459,7 +446,7 @@ class TestBrokenAssetSelector:
 
     def test_get_broken_assets_for_list(self, asset, user):
         """获取列表视图的损坏记录"""
-        broken = BrokenAsset.objects.create(
+        _ = BrokenAsset.objects.create(
             asset_recordcode=asset,
             broken_reason="测试损坏",
         )
@@ -468,7 +455,7 @@ class TestBrokenAssetSelector:
 
     def test_get_broken_assets_with_details(self, asset, user):
         """获取包含详情的损坏记录"""
-        broken = BrokenAsset.objects.create(
+        _ = BrokenAsset.objects.create(
             asset_recordcode=asset,
             broken_reason="测试损坏",
         )
@@ -492,7 +479,7 @@ class TestBrokenAssetSelector:
 
     def test_exists_by_asset_code(self, asset, user):
         """检查资产编码是否有损坏记录"""
-        broken = BrokenAsset.objects.create(
+        _ = BrokenAsset.objects.create(
             asset_recordcode=asset,
             broken_reason="测试损坏",
         )
@@ -506,14 +493,12 @@ class TestLostAssetSelector:
 
     def test_get_queryset_for_user(self, asset, user):
         """RBAC 行级过滤"""
-        lost = LostAsset.objects.create(
+        _ = LostAsset.objects.create(
             asset_recordcode=asset,
             lost_reason="测试遗失",
         )
         # 模拟用户
-        auth_user = AuthUser.objects.create_user(
-            auth_username="test", password="test123"
-        )
+        auth_user = AuthUser.objects.create_user(auth_username="test", password="test123")
         user.auth_user = auth_user
         user.save()
 
@@ -522,7 +507,7 @@ class TestLostAssetSelector:
 
     def test_get_lost_assets_for_list(self, asset, user):
         """获取列表视图的遗失记录"""
-        lost = LostAsset.objects.create(
+        _ = LostAsset.objects.create(
             asset_recordcode=asset,
             lost_reason="测试遗失",
         )
@@ -531,7 +516,7 @@ class TestLostAssetSelector:
 
     def test_get_lost_assets_with_details(self, asset, user):
         """获取包含详情的遗失记录"""
-        lost = LostAsset.objects.create(
+        _ = LostAsset.objects.create(
             asset_recordcode=asset,
             lost_reason="测试遗失",
         )
@@ -555,7 +540,7 @@ class TestLostAssetSelector:
 
     def test_exists_by_asset_code(self, asset, user):
         """检查资产编码是否有遗失记录"""
-        lost = LostAsset.objects.create(
+        _ = LostAsset.objects.create(
             asset_recordcode=asset,
             lost_reason="测试遗失",
         )
@@ -573,14 +558,12 @@ class TestFoundAssetSelector:
             asset_recordcode=asset,
             lost_reason="测试遗失",
         )
-        found = FoundAsset.objects.create(
+        _ = FoundAsset.objects.create(
             asset_recordcode=asset,
             lost_asset_recordcode=lost,
         )
         # 模拟用户
-        auth_user = AuthUser.objects.create_user(
-            auth_username="test", password="test123"
-        )
+        auth_user = AuthUser.objects.create_user(auth_username="test", password="test123")
         user.auth_user = auth_user
         user.save()
 
@@ -593,7 +576,7 @@ class TestFoundAssetSelector:
             asset_recordcode=asset,
             lost_reason="测试遗失",
         )
-        found = FoundAsset.objects.create(
+        _ = FoundAsset.objects.create(
             asset_recordcode=asset,
             lost_asset_recordcode=lost,
         )
@@ -606,7 +589,7 @@ class TestFoundAssetSelector:
             asset_recordcode=asset,
             lost_reason="测试遗失",
         )
-        found = FoundAsset.objects.create(
+        _ = FoundAsset.objects.create(
             asset_recordcode=asset,
             lost_asset_recordcode=lost,
         )
@@ -638,7 +621,7 @@ class TestFoundAssetSelector:
             asset_recordcode=asset,
             lost_reason="测试遗失",
         )
-        found = FoundAsset.objects.create(
+        _ = FoundAsset.objects.create(
             asset_recordcode=asset,
             lost_asset_recordcode=lost,
         )
@@ -652,15 +635,13 @@ class TestRepairAssetSelector:
 
     def test_get_queryset_for_user(self, asset, user):
         """RBAC 行级过滤"""
-        repair = RepairAsset.objects.create(
+        _ = RepairAsset.objects.create(
             asset_recordcode=asset,
             repair_date="2024-01-01",
             repair_reason="测试维修",
         )
         # 模拟用户
-        auth_user = AuthUser.objects.create_user(
-            auth_username="test", password="test123"
-        )
+        auth_user = AuthUser.objects.create_user(auth_username="test", password="test123")
         user.auth_user = auth_user
         user.save()
 
@@ -669,7 +650,7 @@ class TestRepairAssetSelector:
 
     def test_get_repair_assets_for_list(self, asset, user):
         """获取列表视图的维修记录"""
-        repair = RepairAsset.objects.create(
+        _ = RepairAsset.objects.create(
             asset_recordcode=asset,
             repair_date="2024-01-01",
             repair_reason="测试维修",
@@ -695,7 +676,7 @@ class TestRepairAssetSelector:
 
     def test_exists_by_asset_code(self, asset, user):
         """检查资产编码是否有维修记录"""
-        repair = RepairAsset.objects.create(
+        _ = RepairAsset.objects.create(
             asset_recordcode=asset,
             repair_date="2024-01-01",
             repair_reason="测试维修",

@@ -1,7 +1,7 @@
 """
 AssetOperationLog logging_id 功能测试
 
-测试范围：
+测试范围:
 1. logging_id 自动生成
 2. logging_id 格式正确性
 3. logging_id 唯一性约束
@@ -35,7 +35,7 @@ class TestLoggingIdGeneration:
         assert log.logging_id.startswith("out-Log-")
 
     def test_logging_id_contains_date(self):
-        """logging_id 应包含操作日期（YYYYMMDD 格式）"""
+        """logging_id 应包含操作日期(YYYYMMDD 格式)"""
         log = AssetOperationLog.objects.create(asset_code="TEST001", operation_type="create", description="测试日期")
         date_str = log.operation_time.strftime("%Y%m%d")
         assert date_str in log.logging_id

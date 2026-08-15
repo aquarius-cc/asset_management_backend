@@ -2,21 +2,12 @@
 仓库管理视图集
 """
 
-import logging
-
 from django.db.models import Count, QuerySet
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
-
-from core.exceptions import AppValidationError
-from core.permissions import IsSystemAdmin
-from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
-from core.pagination import CustomPageNumberPagination
-from core.constants import STORAGE_TYPE_CHOICES
-from utils.response_utils import error_response, success_response
 
 from apps.assetmanagement.models import Storage
 from apps.assetmanagement.selectors import StorageSelector
@@ -26,6 +17,10 @@ from apps.assetmanagement.serializers import (
     StorageSerializer,
 )
 from apps.assetmanagement.services import StorageService
+from core.constants import STORAGE_TYPE_CHOICES
+from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
+from core.pagination import CustomPageNumberPagination
+from utils.response_utils import success_response
 
 from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
 
@@ -50,7 +45,7 @@ class StorageViewSet(
     ordering = ["storage_code"]
 
     def get_queryset(self) -> QuerySet[Storage]:
-        # RBAC: Storage 为全局资源，仅按软删除过滤
+        # RBAC: Storage 为全局资源,仅按软删除过滤
         qs = Storage.objects.filter(is_deleted=False)
         keyword = self.request.GET.get("keyword", "").strip()
         if keyword:
@@ -60,15 +55,12 @@ class StorageViewSet(
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        try:
-            storage = StorageService.create_storage(serializer.validated_data)
-            return success_response(
-                data=StorageSerializer(storage).data,
-                message="创建成功",
-                status_code=status.HTTP_201_CREATED,
-            )
-        except AppValidationError as e:
-            return error_response(message=str(e), status_code=400)
+        storage = StorageService.create_storage(serializer.validated_data)
+        return success_response(
+            data=StorageSerializer(storage).data,
+            message="创建成功",
+            status_code=status.HTTP_201_CREATED,
+        )
 
     @action(detail=False, methods=["get"], url_path="statistics")
     def statistics(self, request) -> Response:
@@ -83,15 +75,9 @@ class StorageViewSet(
         return success_response(data={"total_storages": total, "by_type": type_stats})
 
     def destroy(self, request, *args, **kwargs):
-        try:
-            storage = self.get_object()
-            StorageService.delete_storage(storage.storage_code)
-            return success_response(message="删除成功")
-        except AppValidationError as e:
-            return error_response(message=str(e.detail), status_code=400)
-        except Exception:
-            logging.exception("仓库删除失败")
-            return error_response(message="删除失败，请稍后重试", status_code=500)
+        storage = self.get_object()
+        StorageService.delete_storage(storage.storage_code)
+        return success_response(message="删除成功")
 
     @action(detail=False, methods=["post"], url_path="batch-delete")
     def batch_delete(self, request):
@@ -106,7 +92,7 @@ class StorageViewSet(
                 "success_ids": result["success_ids"],
                 "fail_items": result["fail_items"],
             },
-            message=f"批量删除完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条",
+            message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
 
     @action(detail=False, methods=["post"], url_path="batch-create")
@@ -122,5 +108,5 @@ class StorageViewSet(
                 "success_items": [StorageSerializer(item).data for item in result.get("success_items", [])],
                 "fail_items": result["fail_items"],
             },
-            message=f"批量创建完成，成功 {result['success_count']} 条，失败 {result['fail_count']} 条",
+            message=f"批量创建完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )

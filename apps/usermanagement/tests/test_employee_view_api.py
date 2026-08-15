@@ -12,7 +12,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.authusermanagement.models import AuthUser
-from apps.usermanagement.models import Department, Employee
+from apps.usermanagement.models import Department, Employee, Permission
 
 
 @pytest.fixture
@@ -70,7 +70,8 @@ class TestGetDepartmentByJobcode:
 
 @pytest.mark.django_db
 class TestGetEmployeePermissions:
-    def test_self_returns_200_with_empty_permissions(self, api_client, auth_user):
+    def test_self_returns_view_only_permissions(self, api_client, auth_user):
+        """无部门员工:最严兜底,仅返回查看(read)权限(新裁决 2026-08-14)"""
         Employee.objects.create(employee_jobcode="EMP001", employee_name="员工")
         api_client.force_authenticate(user=auth_user)
 
@@ -79,7 +80,13 @@ class TestGetEmployeePermissions:
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data["code"] == 0
-        assert response.data["data"]["permissions"] == []
+        read_codes = set(
+            Permission.objects.filter(action="read", is_deleted=False).values_list(
+                "permission_code", flat=True
+            )
+        )
+        assert read_codes
+        assert set(response.data["data"]["permissions"]) == read_codes
 
     def test_other_employee_forbidden_for_normal_user(self, api_client, auth_user):
         api_client.force_authenticate(user=auth_user)

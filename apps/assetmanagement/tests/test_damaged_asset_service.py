@@ -1,6 +1,9 @@
 """待报废资产管理服务测试"""
 
+from unittest import mock
+
 import pytest
+from django.test import TestCase as DjangoTestCase
 
 from apps.assetmanagement.models import (
     Asset,
@@ -123,6 +126,32 @@ class TestApproveAssetRecordcode:
             DamagedAssetService.approve_asset_recordcode(asset_damaged.recordcode, user.employee_jobcode, "审批人")
         assert exc_info.value.error_code == "INVALID_APPROVAL_STATUS"
 
+    def test_approve_registers_notification_on_commit(self, asset_damaged, user):
+        """审批通过注册 on_commit 通知:提交前不发送,提交后发送(B6)"""
+        _ = DamagedAsset.objects.create(
+            asset_recordcode=asset_damaged,
+            damaged_asset_number=1,
+            approval_status="pending",
+            original_status="broken",
+        )
+        with mock.patch("apps.notification.helpers.notify_dept_managers") as mock_notify:
+            with DjangoTestCase.captureOnCommitCallbacks(execute=False) as callbacks:
+                DamagedAssetService.approve_asset_recordcode(
+                    asset_damaged.recordcode,
+                    approver_jobcode=user.employee_jobcode,
+                    operator_name="审批人",
+                )
+                mock_notify.assert_not_called()
+            assert len(callbacks) == 1
+            callbacks[0]()
+        mock_notify.assert_called_once()
+        kwargs = mock_notify.call_args.kwargs
+        assert kwargs["notification_type"] == "approval"
+        assert "审批通过" in kwargs["title"]
+        assert "审批通过" in kwargs["message"]
+        assert kwargs["priority"] == "high"
+        assert kwargs["related_url"] == f"/main/assetdetails/{asset_damaged.asset_code}"
+
 
 @pytest.mark.django_db
 class TestRejectAssetRecordcode:
@@ -233,6 +262,32 @@ class TestRejectAssetRecordcode:
         with pytest.raises(AppValidationError) as exc_info:
             DamagedAssetService.reject_asset_recordcode(asset_damaged.recordcode, user.employee_jobcode, "审批人")
         assert exc_info.value.error_code == "INVALID_APPROVAL_STATUS"
+
+    def test_reject_registers_notification_on_commit(self, asset_damaged, user):
+        """审批拒绝注册 on_commit 通知:提交前不发送,提交后发送(B6)"""
+        _ = DamagedAsset.objects.create(
+            asset_recordcode=asset_damaged,
+            damaged_asset_number=1,
+            approval_status="pending",
+            original_status="broken",
+        )
+        with mock.patch("apps.notification.helpers.notify_dept_managers") as mock_notify:
+            with DjangoTestCase.captureOnCommitCallbacks(execute=False) as callbacks:
+                DamagedAssetService.reject_asset_recordcode(
+                    asset_damaged.recordcode,
+                    approver_jobcode=user.employee_jobcode,
+                    operator_name="审批人",
+                )
+                mock_notify.assert_not_called()
+            assert len(callbacks) == 1
+            callbacks[0]()
+        mock_notify.assert_called_once()
+        kwargs = mock_notify.call_args.kwargs
+        assert kwargs["notification_type"] == "approval"
+        assert "拒绝" in kwargs["title"]
+        assert "拒绝" in kwargs["message"]
+        assert kwargs["priority"] == "medium"
+        assert kwargs["related_url"] == f"/main/assetdetails/{asset_damaged.asset_code}"
 
 
 @pytest.mark.django_db

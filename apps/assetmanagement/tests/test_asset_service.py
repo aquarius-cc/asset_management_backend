@@ -10,6 +10,7 @@ from unittest import mock
 
 import pytest
 from django.db import OperationalError
+from django.test import TestCase as DjangoTestCase
 
 from apps.assetmanagement.models import (
     Asset,
@@ -453,6 +454,26 @@ class TestRepairDone:
                 operator_name=user.employee_name,
             )
 
+    def test_repair_done_registers_notification_on_commit(self, asset, user):
+        """维修完成注册 on_commit 通知:提交前不发送,提交后发送(B6)"""
+        self._make_repairing_asset(asset, user)
+        with mock.patch("apps.notification.helpers.notify_dept_managers") as mock_notify:
+            with DjangoTestCase.captureOnCommitCallbacks(execute=False) as callbacks:
+                RepairAssetService.complete_repair(
+                    asset_code="A001",
+                    actual_return_date="2024-06-10",
+                    operator_jobcode=user.employee_jobcode,
+                    operator_name=user.employee_name,
+                )
+                mock_notify.assert_not_called()
+            assert len(callbacks) == 1
+            callbacks[0]()
+        mock_notify.assert_called_once()
+        kwargs = mock_notify.call_args.kwargs
+        assert kwargs["notification_type"] == "status_change"
+        assert "维修已完成" in kwargs["message"]
+        assert kwargs["priority"] == "medium"
+
 
 @pytest.mark.django_db
 class TestRepairFailed:
@@ -494,3 +515,22 @@ class TestRepairFailed:
                 operator_jobcode=user.employee_jobcode,
                 operator_name=user.employee_name,
             )
+
+    def test_repair_failed_registers_notification_on_commit(self, asset, user):
+        """维修失败注册 on_commit 通知:提交前不发送,提交后发送(B6)"""
+        self._make_repairing_asset(asset, user)
+        with mock.patch("apps.notification.helpers.notify_dept_managers") as mock_notify:
+            with DjangoTestCase.captureOnCommitCallbacks(execute=False) as callbacks:
+                RepairAssetService.fail_repair(
+                    asset_code="A001",
+                    operator_jobcode=user.employee_jobcode,
+                    operator_name=user.employee_name,
+                )
+                mock_notify.assert_not_called()
+            assert len(callbacks) == 1
+            callbacks[0]()
+        mock_notify.assert_called_once()
+        kwargs = mock_notify.call_args.kwargs
+        assert kwargs["notification_type"] == "status_change"
+        assert "维修失败" in kwargs["message"]
+        assert kwargs["priority"] == "high"

@@ -153,20 +153,17 @@ class DamagedAssetService:
             operator_name=operator_name,
         )
 
-        # P1-8 通知:审批通过 → 发给资产所属部门所有 dept_manager
-        try:
-            from apps.notification.helpers import notify_dept_managers
+        # P1-8 通知:审批通过 → 事务提交后发给资产所属部门所有 dept_manager(B6)
+        from apps.notification.helpers import send_notification_on_commit
 
-            notify_dept_managers(
-                asset=asset,
-                notification_type="approval",
-                title="待报废审批通过",
-                message=f"资产 {asset.asset_code} 的报废申请已审批通过",
-                priority="high",
-                related_url=f"/main/assetdetails/{asset.asset_code}",
-            )
-        except Exception:
-            pass  # 通知失败不影响业务
+        send_notification_on_commit(
+            asset=asset,
+            notification_type="approval",
+            title="待报废审批通过",
+            message=f"资产 {asset.asset_code} 的报废申请已审批通过",
+            priority="high",
+            related_url=f"/main/assetdetails/{asset.asset_code}",
+        )
 
         return {
             "damaged_asset": damaged_asset,
@@ -224,20 +221,17 @@ class DamagedAssetService:
             operator_name=operator_name,
         )
 
-        # P1-8 通知:审批拒绝 → 发给资产所属部门所有 dept_manager
-        try:
-            from apps.notification.helpers import notify_dept_managers
+        # P1-8 通知:审批拒绝 → 事务提交后发给资产所属部门所有 dept_manager(B6)
+        from apps.notification.helpers import send_notification_on_commit
 
-            notify_dept_managers(
-                asset=asset,
-                notification_type="approval",
-                title="待报废审批拒绝",
-                message=f"资产 {asset.asset_code} 的报废申请已被拒绝",
-                priority="medium",
-                related_url=f"/main/assetdetails/{asset.asset_code}",
-            )
-        except Exception:
-            pass
+        send_notification_on_commit(
+            asset=asset,
+            notification_type="approval",
+            title="待报废审批拒绝",
+            message=f"资产 {asset.asset_code} 的报废申请已被拒绝",
+            priority="medium",
+            related_url=f"/main/assetdetails/{asset.asset_code}",
+        )
 
         return damaged_asset
 

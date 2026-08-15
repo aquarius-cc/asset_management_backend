@@ -6,17 +6,14 @@
 from datetime import date, datetime, timedelta
 
 
-def format_date(
-    date_obj: date | None,
-    format_str: str = '%Y-%m-%d'
-) -> str | None:
+def format_date(date_obj: date | None, format_str: str = "%Y-%m-%d") -> str | None:
     """
     格式化日期对象为字符串
-    
+
     Args:
         date_obj: 日期对象
         format_str: 格式化字符串
-        
+
     Returns:
         格式化后的日期字符串
     """
@@ -30,17 +27,14 @@ def format_date(
     return str(date_obj)
 
 
-def parse_date(
-    date_str: str,
-    format_str: str = '%Y-%m-%d'
-) -> date | None:
+def parse_date(date_str: str, format_str: str = "%Y-%m-%d") -> date | None:
     """
     解析日期字符串为日期对象
-    
+
     Args:
         date_str: 日期字符串
         format_str: 格式化字符串
-        
+
     Returns:
         日期对象
     """
@@ -53,17 +47,14 @@ def parse_date(
         return None
 
 
-def get_date_range(
-    start_date: date,
-    end_date: date
-) -> list:
+def get_date_range(start_date: date, end_date: date) -> list:
     """
     获取日期范围内的所有日期
-    
+
     Args:
         start_date: 开始日期
         end_date: 结束日期
-        
+
     Returns:
         日期列表
     """
@@ -71,15 +62,13 @@ def get_date_range(
     return [start_date + timedelta(days=i) for i in range(delta.days + 1)]
 
 
-def get_week_start_end(
-    target_date: date | None = None
-) -> tuple[date, date]:
+def get_week_start_end(target_date: date | None = None) -> tuple[date, date]:
     """
     获取指定日期所在周的开始和结束日期
-    
+
     Args:
-        target_date: 目标日期，默认今天
-        
+        target_date: 目标日期,默认今天
+
     Returns:
         (周一开始, 周日结束)
     """
@@ -93,24 +82,21 @@ def get_week_start_end(
     return start, end
 
 
-def get_month_start_end(
-    year: int,
-    month: int
-) -> tuple[date, date]:
+def get_month_start_end(year: int, month: int) -> tuple[date, date]:
     """
     获取指定月份的开始和结束日期
-    
+
     Args:
         year: 年份
         month: 月份
-        
+
     Returns:
         (月份开始, 月份结束)
     """
     # 月份开始
     start = date(year, month, 1)
 
-    # 月份结束（下一月第一天减一天）
+    # 月份结束(下一月第一天减一天)
     if month == 12:
         end = date(year + 1, 1, 1) - timedelta(days=1)
     else:

@@ -5,10 +5,10 @@
 测试环境专用配置
 
 【配置说明】
-- 使用 SQLite 内存数据库，避免依赖外部 MySQL
+- 使用 SQLite 内存数据库,避免依赖外部 MySQL
 - 简化缓存配置
 - 禁用密码哈希以加速测试
-- 配置邮件后端为 locmem（内存存储）
+- 配置邮件后端为 locmem(内存存储)
 
 【易错点】
 - 不要在此文件中设置敏感信息
@@ -17,19 +17,19 @@
 
 from datetime import timedelta
 
-from .base import *  # noqa: F403
+from .base import *
 
 
 # =============================================================================
 # 【数据库配置 - 测试专用】
 # =============================================================================
-# 使用 SQLite 内存数据库，不依赖外部 MySQL
+# 使用 SQLite 内存数据库,不依赖外部 MySQL
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': ':memory:',
-        'OPTIONS': {
-            'timeout': 20,
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": ":memory:",
+        "OPTIONS": {
+            "timeout": 20,
         },
     }
 }
@@ -37,10 +37,10 @@ DATABASES = {
 # =============================================================================
 # 【密码哈希加速 - 测试专用】
 # =============================================================================
-# 【易错点】生产环境绝对不能使用此配置！
-# 使用快速哈希算法，将测试速度提升 10 倍以上
+# 【易错点】生产环境绝对不能使用此配置!
+# 使用快速哈希算法,将测试速度提升 10 倍以上
 PASSWORD_HASHERS = [
-    'django.contrib.auth.hashers.MD5PasswordHasher',
+    "django.contrib.auth.hashers.MD5PasswordHasher",
 ]
 
 # =============================================================================
@@ -48,23 +48,23 @@ PASSWORD_HASHERS = [
 # =============================================================================
 # 使用本地内存缓存
 CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'unique-snowflake',
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "unique-snowflake",
     }
 }
 
 # =============================================================================
 # 【邮件配置 - 测试专用】
 # =============================================================================
-# 使用内存缓存存储邮件，不真实发送
-EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
+# 使用内存缓存存储邮件,不真实发送
+EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 
 # =============================================================================
 # 【日志配置 - 测试专用】
 # =============================================================================
-# 减少日志输出，避免测试干扰
-LOGGING['handlers']['console']['level'] = 'WARNING'
+# 减少日志输出,避免测试干扰
+LOGGING["handlers"]["console"]["level"] = "WARNING"
 
 # =============================================================================
 # 【调试模式 - 测试专用】
@@ -74,21 +74,21 @@ DEBUG = False
 # =============================================================================
 # 【模板调试 - 测试专用】
 # =============================================================================
-TEMPLATES[0]['OPTIONS']['debug'] = False
+TEMPLATES[0]["OPTIONS"]["debug"] = False
 
 # =============================================================================
 # 【CORS 配置 - 测试专用】
 # =============================================================================
-# 允许所有来源，方便测试
+# 允许所有来源,方便测试
 CORS_ALLOW_ALL_ORIGINS = True
 
 # =============================================================================
 # 【覆盖 base.py 中的 JWT 配置 - 测试专用】
 # =============================================================================
-# 使用更短的 token 有效期，方便测试
+# 使用更短的 token 有效期,方便测试
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
-    'REFRESH_TOKEN_LIFETIME': timedelta(hours=1),
-    'ROTATE_REFRESH_TOKENS': False,
-    'BLACKLIST_AFTER_ROTATION': False,
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
+    "REFRESH_TOKEN_LIFETIME": timedelta(hours=1),
+    "ROTATE_REFRESH_TOKENS": False,
+    "BLACKLIST_AFTER_ROTATION": False,
 }

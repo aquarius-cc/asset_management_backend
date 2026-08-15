@@ -1,10 +1,10 @@
 """
 通用审计日志查询服务
 
-提供 AuditLog 的只读查询接口，支持多种维度的组合查询。
+提供 AuditLog 的只读查询接口,支持多种维度的组合查询。
 
-【AGENTS 规范 - P1-09】View 层查询逻辑下沉到 Service 层，
-View 仅负责参数解析（含校验）和响应格式化。
+【AGENTS 规范 - P1-09】View 层查询逻辑下沉到 Service 层,
+View 仅负责参数解析(含校验)和响应格式化。
 """
 
 import logging
@@ -23,7 +23,7 @@ class AuditLogQueryService:
     """
     通用审计日志查询服务
 
-    提供只读查询接口，支持按应用标识、操作类型、操作人、时间范围等维度查询。
+    提供只读查询接口,支持按应用标识、操作类型、操作人、时间范围等维度查询。
     """
 
     @staticmethod
@@ -71,12 +71,12 @@ class AuditLogQueryService:
         多条件组合查询审计记录
 
         Args:
-            app_label: 应用标识（department / employee / authuser）
+            app_label: 应用标识(department / employee / authuser)
             operation_type: 操作类型
             operator_jobcode: 操作人工号
             record_code: 被操作记录编码
-            start_time: 起始时间（datetime 实例）
-            end_time: 截止时间（datetime 实例）
+            start_time: 起始时间(datetime 实例)
+            end_time: 截止时间(datetime 实例)
 
         Returns:
             List[AuditLog]: 按时间倒序排列的审计记录
@@ -109,16 +109,13 @@ class AuditLogQueryService:
         获取最近 N 天的审计记录
 
         Args:
-            days: 天数，默认 7 天
+            days: 天数,默认 7 天
 
         Returns:
             List[AuditLog]: 最近的审计记录
         """
         start_time = timezone.now() - timedelta(days=days)
-        return list(
-            AuditLog.objects.filter(operation_time__gte=start_time)
-            .order_by("-operation_time")
-        )
+        return list(AuditLog.objects.filter(operation_time__gte=start_time).order_by("-operation_time"))
 
     @staticmethod
     def get_logs_by_app_label(app_label: str) -> list[AuditLog]:
@@ -131,10 +128,7 @@ class AuditLogQueryService:
         Returns:
             List[AuditLog]: 指定应用的审计记录
         """
-        return list(
-            AuditLog.objects.filter(app_label=app_label)
-            .order_by("-operation_time")
-        )
+        return list(AuditLog.objects.filter(app_label=app_label).order_by("-operation_time"))
 
     @staticmethod
     def get_logs_by_operator(operator_jobcode: str) -> list[AuditLog]:
@@ -147,7 +141,4 @@ class AuditLogQueryService:
         Returns:
             List[AuditLog]: 该操作人的审计记录
         """
-        return list(
-            AuditLog.objects.filter(operator_jobcode=operator_jobcode)
-            .order_by("-operation_time")
-        )
+        return list(AuditLog.objects.filter(operator_jobcode=operator_jobcode).order_by("-operation_time"))

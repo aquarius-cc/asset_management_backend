@@ -4,7 +4,7 @@
 提供资产数据的查询方法。
 """
 
-from typing import Any
+from typing import Any, cast
 
 from django.db.models import Count, Q, QuerySet, Sum
 
@@ -102,6 +102,14 @@ class AssetSelector:
             return Asset.objects.select_related(
                 "asset_type_recordcode", "asset_storage_recordcode", "asset_contract_recordcode"
             ).get(asset_code=asset_code, is_deleted=False)
+        except Asset.DoesNotExist:
+            return None
+
+    @staticmethod
+    def get_asset_by_recordcode(recordcode: str) -> Asset | None:
+        """按 recordcode 查询单条资产(未软删除)"""
+        try:
+            return cast(Asset, Asset.objects.get(recordcode=recordcode, is_deleted=False))
         except Asset.DoesNotExist:
             return None
 

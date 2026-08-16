@@ -6,6 +6,7 @@ change_asset_status, change_outasset_employee, get_asset_statistics,
 以及 AssetLifecycleMixin 中的状态流转方法。
 """
 
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -534,3 +535,15 @@ class TestRepairFailed:
         assert kwargs["notification_type"] == "status_change"
         assert "维修失败" in kwargs["message"]
         assert kwargs["priority"] == "high"
+
+
+class TestGenerateQrCodeImage:
+    """generate_qr_code_image 回归(F821 裸名 FRONTEND_BASE_URL 修复)"""
+
+    def test_returns_png_bytes(self, asset: Any) -> None:
+        data = AssetService.generate_qr_code_image(asset, "http://localhost:5173")
+        assert data.startswith(b"\x89PNG")
+
+    def test_url_uses_passed_base_url(self, asset: Any) -> None:
+        data = AssetService.generate_qr_code_image(asset, "https://example.com")
+        assert data.startswith(b"\x89PNG")

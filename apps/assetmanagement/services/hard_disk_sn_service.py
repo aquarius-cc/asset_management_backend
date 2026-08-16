@@ -9,8 +9,8 @@ from typing import Any
 from django.db import transaction
 
 from apps.assetmanagement.audit import AuditLogger
-from apps.assetmanagement.models import HardDiskSN
-from apps.assetmanagement.selectors import HardDiskSNSelector
+from apps.assetmanagement.models import Asset, HardDiskSN
+from apps.assetmanagement.selectors import AssetSelector, HardDiskSNSelector
 from core.exceptions import AppValidationError
 
 
@@ -118,53 +118,118 @@ class HardDiskSNService:
     def batch_save(asset_recordcode: str, disks: list[dict[str, Any]]) -> dict[str, Any]:
         """
         批量保存硬盘(资产入库时调用)
-        - 有 recordcode → 更新
-        - 无 recordcode → 创建
-        - 校验序列号唯一性
+        - 有 recordcode → 更新(仅应用显式提供的字段,禁止跨资产改挂)
+        - 无 recordcode → 创建(序列号必填)
+        - 校验资产存在、目标硬盘存在且归属一致、序列号唯一性
         """
+        HardDiskSNService._validate_payload(disks)
+        asset = HardDiskSNService._resolve_asset(asset_recordcode)
+        rcs = [disk.get("recordcode") for disk in disks if disk.get("recordcode")]
+        targets = HardDiskSNService._resolve_targets(asset, rcs)
+        HardDiskSNService._validate_sn_presence(disks)
+        HardDiskSNService._check_duplicates(disks, targets)
+        created, updated = HardDiskSNService._apply_disks(asset, targets, disks)
+
+        return {
+            "created": created,
+            "updated": updated,
+            "total": len(disks),
+            "asset_recordcode": asset_recordcode,
+        }
+
+    @staticmethod
+    def _validate_payload(disks: list[dict[str, Any]]) -> None:
+        """校验批次规模与空列表"""
         MAX_BATCH_SIZE = 100
         if len(disks) > MAX_BATCH_SIZE:
             raise AppValidationError(
                 detail=f"单次批量保存不能超过 {MAX_BATCH_SIZE} 条",
                 error_code="BATCH_SIZE_EXCEEDED",
             )
+        if not disks:
+            raise AppValidationError(detail="硬盘列表不能为空", error_code="EMPTY_DISKS")
 
-        sn_codes = [d.get("harddisk_sn_code", "").strip() for d in disks]
-        # 批量唯一性校验(排除自身已软删除的记录)
-        existing = set(
-            HardDiskSN.objects.filter(harddisk_sn_code__in=sn_codes, is_deleted=False).values_list(
-                "harddisk_sn_code", flat=True
+    @staticmethod
+    def _resolve_asset(asset_recordcode: str) -> Asset:
+        """解析资产,不存在时抛错"""
+        asset = AssetSelector.get_asset_by_recordcode(asset_recordcode)
+        if asset is None:
+            raise AppValidationError(
+                detail=f"资产 recordcode '{asset_recordcode}' 不存在",
+                error_code="ASSET_NOT_FOUND",
             )
-        )
-        duplicates = [s for s in sn_codes if s in existing]
+        return asset
+
+    @staticmethod
+    def _resolve_targets(asset: Asset, rcs: list[str]) -> dict[str, HardDiskSN]:
+        """批量解析目标硬盘,校验存在性与资产归属"""
+        targets = HardDiskSNSelector.get_by_recordcodes(rcs)
+        missing = [rc for rc in rcs if rc not in targets]
+        if missing:
+            raise AppValidationError(
+                detail=f"硬盘记录不存在: {', '.join(missing)}",
+                error_code="HARD_DISK_NOT_FOUND",
+            )
+        for target in targets.values():
+            if target.asset_recordcode_id != asset.recordcode:
+                raise AppValidationError(
+                    detail=f"硬盘 {target.harddisk_sn_code} 属于其他资产,禁止批量跨资产修改",
+                    error_code="ASSET_MISMATCH",
+                )
+        return targets
+
+    @staticmethod
+    def _validate_sn_presence(disks: list[dict[str, Any]]) -> None:
+        """创建盘必须提供非空序列号"""
+        for disk in disks:
+            if not disk.get("recordcode") and not disk.get("harddisk_sn_code", "").strip():
+                raise AppValidationError(detail="硬盘序列号不能为空", error_code="MISSING_SN_CODE")
+
+    @staticmethod
+    def _check_duplicates(disks: list[dict[str, Any]], targets: dict[str, HardDiskSN]) -> None:
+        """序列号唯一性预检,更新盘回传自身 SN 时豁免"""
+        sn_codes = [
+            disk.get("harddisk_sn_code", "").strip() for disk in disks if disk.get("harddisk_sn_code", "").strip()
+        ]
+        existing = HardDiskSNSelector.get_existing_sn_codes(sn_codes)
+        duplicates = []
+        for disk in disks:
+            sn = disk.get("harddisk_sn_code", "").strip()
+            if not sn:
+                continue
+            rc = disk.get("recordcode")
+            target = targets.get(rc) if rc else None
+            if target is not None and sn == target.harddisk_sn_code:
+                continue
+            if sn in existing:
+                duplicates.append(sn)
         if duplicates:
             raise AppValidationError(
                 detail=f"序列号重复: {', '.join(duplicates)}",
                 error_code="DUPLICATE_SN_CODE",
             )
 
+    @staticmethod
+    def _apply_disks(
+        asset: Asset, targets: dict[str, HardDiskSN], disks: list[dict[str, Any]]
+    ) -> tuple[int, int]:
+        """执行磁盘写入,返回 (created, updated)"""
         created_count = 0
         updated_count = 0
-
-        for disk_data in disks:
+        for disk in disks:
+            disk_data = dict(disk)
             rc = disk_data.pop("recordcode", None)
-            disk_data["asset_recordcode"] = asset_recordcode
-            disk_data["harddisk_sn_code"] = disk_data.get("harddisk_sn_code", "").strip()
-
             if rc:
-                obj = HardDiskSNSelector.get_by_recordcode(rc)
-                if obj:
-                    for k, v in disk_data.items():
-                        setattr(obj, k, v)
-                    obj.save()
-                    updated_count += 1
+                obj = targets[rc]
+                if "harddisk_sn_code" in disk_data:
+                    disk_data["harddisk_sn_code"] = disk_data["harddisk_sn_code"].strip()
+                for key, value in disk_data.items():
+                    setattr(obj, key, value)
+                obj.save()
+                updated_count += 1
             else:
+                disk_data["harddisk_sn_code"] = disk_data["harddisk_sn_code"].strip()
+                disk_data["asset_recordcode"] = asset
                 HardDiskSN.objects.create(**disk_data)
                 created_count += 1
-
-        return {
-            "created": created_count,
-            "updated": updated_count,
-            "total": len(disks),
-            "asset_recordcode": asset_recordcode,
-        }
+        return created_count, updated_count

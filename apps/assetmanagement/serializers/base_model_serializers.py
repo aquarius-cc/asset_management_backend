@@ -284,10 +284,10 @@ class DiskItemSerializer(serializers.Serializer):
 
     recordcode = serializers.CharField(required=False, help_text="已有记录的 recordcode(更新时传入)")
     harddisk_sn_code = serializers.CharField(max_length=100)
-    harddisk_type = serializers.ChoiceField(choices=HardDiskSN.HARDDISK_TYPE_CHOICES, default="HDD")
-    harddisk_capacity = serializers.CharField(required=False, default="", max_length=20)
-    harddisk_status = serializers.ChoiceField(choices=HardDiskSN.HARDDISK_STATUS_CHOICES, default="active")
-    harddisk_description = serializers.CharField(required=False, allow_blank=True, default="")
+    harddisk_type = serializers.ChoiceField(choices=HardDiskSN.HARDDISK_TYPE_CHOICES, required=False)
+    harddisk_capacity = serializers.CharField(required=False, max_length=20)
+    harddisk_status = serializers.ChoiceField(choices=HardDiskSN.HARDDISK_STATUS_CHOICES, required=False)
+    harddisk_description = serializers.CharField(required=False, allow_blank=True)
 
 
 class HardDiskSNBatchSerializer(serializers.Serializer):
@@ -295,13 +295,6 @@ class HardDiskSNBatchSerializer(serializers.Serializer):
 
     asset_recordcode = serializers.CharField(required=True)
     disks = DiskItemSerializer(many=True)
-
-    def validate_asset_recordcode(self, value):
-        from apps.assetmanagement.selectors import AssetSelector
-
-        if not AssetSelector.get_asset_by_recordcode(value):
-            raise serializers.ValidationError(f"资产 recordcode '{value}' 不存在")
-        return value
 
     def validate(self, data):
         disks = data.get("disks", [])

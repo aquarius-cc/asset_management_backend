@@ -8,7 +8,6 @@ import string
 import uuid
 from typing import Any
 
-from django.conf import settings
 from django.db import transaction
 
 from apps.assetmanagement.audit import AuditLogger
@@ -397,7 +396,7 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
 
         import qrcode
 
-        scan_url = f"{FRONTEND_BASE_URL}/scan/{asset.recordcode}/"
+        scan_url = f"{base_url}/scan/{asset.recordcode}/"
         qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=10, border=4)
         qr.add_data(scan_url)
         qr.make(fit=True)

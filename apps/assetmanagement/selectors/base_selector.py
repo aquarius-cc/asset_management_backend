@@ -120,6 +120,12 @@ class HardDiskSNSelector:
             return None
 
     @staticmethod
+    def get_by_recordcodes(recordcodes: list[str]) -> dict[str, HardDiskSN]:
+        """按 recordcode 批量查询(返回 {recordcode: HardDiskSN} 映射)"""
+        records = HardDiskSN.objects.filter(recordcode__in=recordcodes, is_deleted=False)
+        return {record.recordcode: record for record in records}
+
+    @staticmethod
     def get_by_pk(pk: int) -> HardDiskSN | None:
         """按主键查询"""
         try:
@@ -139,6 +145,17 @@ class HardDiskSNSelector:
     def exists_by_sn_code(sn_code: str) -> bool:
         """检查序列号是否已存在"""
         return HardDiskSN.objects.filter(harddisk_sn_code=sn_code, is_deleted=False).exists()
+
+    @staticmethod
+    def get_existing_sn_codes(sn_codes: list[str]) -> set[str]:
+        """批量查询已存在的序列号集合"""
+        if not sn_codes:
+            return set()
+        return set(
+            HardDiskSN.objects.filter(harddisk_sn_code__in=sn_codes, is_deleted=False).values_list(
+                "harddisk_sn_code", flat=True
+            )
+        )
 
     @staticmethod
     def get_by_asset(asset_recordcode: str) -> QuerySet[HardDiskSN]:

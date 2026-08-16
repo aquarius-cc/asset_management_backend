@@ -6,7 +6,7 @@
 
 from typing import Any
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 
 from apps.assetmanagement.audit import AuditLogger
 from apps.assetmanagement.models import Asset, HardDiskSN
@@ -42,7 +42,16 @@ class HardDiskSNService:
                 error_code="DUPLICATE_SN_CODE",
             )
 
-        harddisk = HardDiskSN.objects.create(**data)
+        try:
+            with transaction.atomic():
+                harddisk = HardDiskSN.objects.create(**data)
+        except IntegrityError as exc:
+            if "harddisk_sn_code" in str(exc):
+                raise AppValidationError(
+                    detail=f"序列号 {sn_code} 已存在",
+                    error_code="DUPLICATE_SN_CODE",
+                ) from exc
+            raise
 
         AuditLogger.log_asset_update(
             asset=harddisk.asset_recordcode,
@@ -83,7 +92,16 @@ class HardDiskSNService:
 
         for key, value in update_data.items():
             setattr(harddisk, key, value)
-        harddisk.save()
+        try:
+            with transaction.atomic():
+                harddisk.save()
+        except IntegrityError as exc:
+            if "harddisk_sn_code" in str(exc):
+                raise AppValidationError(
+                    detail=f"序列号 {new_sn or harddisk.harddisk_sn_code} 已存在",
+                    error_code="DUPLICATE_SN_CODE",
+                ) from exc
+            raise
 
         AuditLogger.log_asset_update(
             asset=harddisk.asset_recordcode,
@@ -124,11 +142,20 @@ class HardDiskSNService:
         """
         HardDiskSNService._validate_payload(disks)
         asset = HardDiskSNService._resolve_asset(asset_recordcode)
-        rcs = [disk.get("recordcode") for disk in disks if disk.get("recordcode")]
+        rcs = [rc for rc in (disk.get("recordcode") for disk in disks) if rc]
         targets = HardDiskSNService._resolve_targets(asset, rcs)
         HardDiskSNService._validate_sn_presence(disks)
         HardDiskSNService._check_duplicates(disks, targets)
-        created, updated = HardDiskSNService._apply_disks(asset, targets, disks)
+        try:
+            with transaction.atomic():
+                created, updated = HardDiskSNService._apply_disks(asset, targets, disks)
+        except IntegrityError as exc:
+            if "harddisk_sn_code" in str(exc):
+                raise AppValidationError(
+                    detail="序列号重复,可能已被并发写入,请刷新后重试",
+                    error_code="DUPLICATE_SN_CODE",
+                ) from exc
+            raise
 
         return {
             "created": created,

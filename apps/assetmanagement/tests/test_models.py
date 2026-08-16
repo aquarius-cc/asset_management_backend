@@ -36,7 +36,7 @@ class TestAssetModel:
         """
         测试资产软删除后可复用编码
 
-        【说明】MySQL不支持条件唯一约束,此测试验证软删除后的编码复用功能
+        【说明】PostgreSQL 会执行条件唯一约束(仅未软删除记录),此测试验证软删除后的编码复用功能
         """
         # 软删除资产
         asset.is_deleted = True

@@ -54,7 +54,12 @@ def user(db, department):
 
     【修复】Employee 模型的部门外键字段名为 employee_department(非 employee_department_code)
     """
-    return Employee.objects.create(employee_jobcode="U001", employee_name="测试用户", employee_department=department)
+    return Employee.objects.create(
+        employee_jobcode="U001",
+        employee_name="测试用户",
+        employee_department=department,
+        employee_phone="13800131001",
+    )
 
 
 @pytest.fixture
@@ -160,6 +165,7 @@ def admin_employee(db, department):
         employee_name="管理员",
         employee_department=department,
         role="system_admin",
+        employee_phone="13800131002",
     )
 
 
@@ -188,6 +194,7 @@ def employee(db, department):
         employee_jobcode="U002",
         employee_name="测试员工2",
         employee_department=department,
+        employee_phone="13800131003",
     )
 
 

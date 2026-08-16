@@ -16,9 +16,9 @@ django-cors-headers==4.7.0
 # 过滤支持
 django-filter==25.1
 
-# 数据库连接（MySQL）
-# 【易错点】mysqlclient 需要 mysql-client 库，Windows 用户可能需要安装预编译版本
-mysqlclient==2.2.7
+# 数据库连接（PostgreSQL）
+# psycopg3 为 Django 5.2+/6.0 推荐驱动,binary 免编译安装
+psycopg[binary]==3.3.4
 
 # 图像处理
 pillow==11.3.0

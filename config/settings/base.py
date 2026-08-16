@@ -98,23 +98,19 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Database
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.mysql",
+        "ENGINE": "django.db.backends.postgresql",
         "NAME": config("DB_NAME", default="asset_management_backend"),
-        "USER": config("DB_USER", default="root"),
+        "USER": config("DB_USER", default="postgres"),
         # 【P2-30 修复】默认值改为 None,生产环境必须配置,避免用占位符连接数据库
         "PASSWORD": config("DB_PASSWORD", default=None),
         "HOST": config("DB_HOST", default="localhost"),
-        "PORT": config("DB_PORT", default="3306"),
-        "OPTIONS": {
-            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
-            "charset": "utf8mb4",
-        },
-        # 【AGENTS 规范 - 性能优化】MySQL 连接池配置
+        "PORT": config("DB_PORT", default="5432"),
+        # 【AGENTS 规范 - 性能优化】PostgreSQL 连接配置
         # CONN_MAX_AGE: 连接保持时间(秒),复用连接减少新建/断开开销
         # 600秒 = 10分钟,平衡连接复用与资源释放
         "CONN_MAX_AGE": 600,
         # CONN_HEALTH_CHECKS: 每次从连接池取出连接时检查可用性(Django 4.1+)
-        # 防止连接超时断开导致的 "MySQL server has gone away" 错误
+        # 防止连接超时断开导致的连接失效问题
         "CONN_HEALTH_CHECKS": True,
     }
 }

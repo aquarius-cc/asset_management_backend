@@ -14,7 +14,7 @@
 | 语言 | Python | 3.12+ |
 | Web框架 | Django | 6.0.5 |
 | REST框架 | Django REST Framework | 3.16.0 |
-| 数据库 | MySQL | 8.0 |
+| 数据库 | PostgreSQL | 16 |
 | 认证 | JWT (SimpleJWT) | 5.5.1 |
 | API文档 | drf-spectacular | 0.28.0 |
 | 过滤器 | django-filter | 25.1 |
@@ -839,12 +839,12 @@ JWT Token 配置:
 # docker-compose.yml
 services:
   db:
-    image: mysql:8.0
+    image: postgres:16
     environment:
-      MYSQL_DATABASE: asset_management_backend
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: asset_management_backend
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "3306:3306"
+      - "5432:5432"
 
   web:
     build: .
@@ -863,10 +863,10 @@ SECRET_KEY=your-secret-key
 DEBUG=False
 ALLOWED_HOSTS=your-domain.com
 DB_NAME=asset_management_backend
-DB_USER=root
+DB_USER=postgres
 DB_PASSWORD=your-password
 DB_HOST=localhost
-DB_PORT=3306
+DB_PORT=5432
 CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
 ```
 

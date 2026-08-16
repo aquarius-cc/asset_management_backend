@@ -20,6 +20,7 @@ class TestAssetSelector:
             employee_jobcode="ADMIN001",
             employee_name="系统管理员",
             employee_department=Department.objects.first(),
+            employee_phone="13800132001",
         )
         # 模拟系统管理员权限(is_superuser=True)
         auth_user = AuthUser.objects.create_superuser(auth_username="admin", password="test123")
@@ -41,6 +42,7 @@ class TestAssetSelector:
             employee_jobcode="other",
             employee_name="其他用户",
             employee_department=other_department,
+            employee_phone="13800132002",
         )
         other_user = AuthUser.objects.create_user(auth_username="other", password="test123")
 

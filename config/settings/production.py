@@ -23,16 +23,12 @@ ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS.split(",") if host.strip
 # 生产数据库(通过环境变量配置)
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.mysql",
+        "ENGINE": "django.db.backends.postgresql",
         "NAME": os.getenv("DB_NAME", "asset_management"),
-        "USER": os.getenv("DB_USER", "root"),
+        "USER": os.getenv("DB_USER", "postgres"),
         "PASSWORD": os.getenv("DB_PASSWORD"),
         "HOST": os.getenv("DB_HOST", "localhost"),
-        "PORT": os.getenv("DB_PORT", "3306"),
-        "OPTIONS": {
-            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
-            "charset": "utf8mb4",
-        },
+        "PORT": os.getenv("DB_PORT", "5432"),
         # 【修复】补充连接池配置
         "CONN_MAX_AGE": 600,
         "CONN_HEALTH_CHECKS": True,

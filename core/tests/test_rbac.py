@@ -43,6 +43,13 @@ def _uid():
     return f"U{_counter:03d}"
 
 
+def _phone():
+    """生成测试用唯一手机号(满足 unique_employee_phone_not_deleted 条件约束)"""
+    global _counter
+    _counter += 1
+    return f"138{_counter:08d}"
+
+
 def _make_user(username, role, department=None):
     """创建带角色的 AuthUser + Employee(jobcode ≤ 20 字符)
 
@@ -64,6 +71,7 @@ def _make_user(username, role, department=None):
         employee_name=f"{username}员工",
         employee_department=department,
         role=role,
+        employee_phone=_phone(),
     )
     return user
 
@@ -100,6 +108,7 @@ def storage_a(db, dept_a):
         employee_name="A仓管",
         employee_department=dept_a,
         role=EmployeeRole.ASSET_ADMIN,
+        employee_phone=_phone(),
     )
     return Storage.objects.create(
         storage_code="SA-001",
@@ -117,6 +126,7 @@ def storage_b(db, dept_b):
         employee_name="B仓管",
         employee_department=dept_b,
         role=EmployeeRole.ASSET_ADMIN,
+        employee_phone=_phone(),
     )
     return Storage.objects.create(
         storage_code="SB-001",
@@ -134,6 +144,7 @@ def asset_in_dept_a(db, dept_a, storage_a):
         employee_name="入库员A1",
         employee_department=dept_a,
         role=EmployeeRole.ASSET_ADMIN,
+        employee_phone=_phone(),
     )
     asset_type = AssetType.objects.create(type_code="T001", type_name="电脑")
     return Asset.objects.create(
@@ -157,6 +168,7 @@ def asset_in_dept_b(db, dept_b, storage_b):
         employee_name="保管人B1",
         employee_department=dept_b,
         role=EmployeeRole.ASSET_ADMIN,
+        employee_phone=_phone(),
     )
     asset_type = AssetType.objects.create(type_code="T002", type_name="显示器")
     return Asset.objects.create(
@@ -496,6 +508,7 @@ class TestEdgeCases:
             employee_name="无部门",
             employee_department=None,
             role=EmployeeRole.ASSET_ADMIN,
+            employee_phone=_phone(),
         )
         user = User.objects.create_user(auth_username="nd", password="test1234")
         codes = get_department_codes_for_user(user)
@@ -510,6 +523,7 @@ class TestEdgeCases:
             employee_name="无部门",
             employee_department=None,
             role=EmployeeRole.ASSET_ADMIN,
+            employee_phone=_phone(),
         )
         user = User.objects.create_user(auth_username="nds", password="test1234")
         scope = get_effective_data_scope_for_user(user)
@@ -540,6 +554,7 @@ class TestNoDepartmentWriteDegradation:
             employee_name=f"{username}无部门",
             employee_department=None,
             role=role,
+            employee_phone=_phone(),
         )
         return User.objects.create_user(auth_username=username, password="test1234")
 

@@ -188,6 +188,7 @@ class TestChangeOutassetEmployee:
             employee_jobcode="U002",
             employee_name="保管人",
             employee_department=user.employee_department,
+            employee_phone="13800133001",
         )
         # change_outasset_employee 通过 FK descriptor 赋值,需传 Employee 实例
         result = AssetService.change_outasset_employee(

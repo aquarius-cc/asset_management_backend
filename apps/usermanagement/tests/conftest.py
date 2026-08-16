@@ -43,4 +43,9 @@ def child_department(db, department):
 @pytest.fixture
 def test_employee(db, department):
     """测试员工"""
-    return Employee.objects.create(employee_jobcode="UTEST", employee_name="测试员工", employee_department=department)
+    return Employee.objects.create(
+        employee_jobcode="UTEST",
+        employee_name="测试员工",
+        employee_department=department,
+        employee_phone="13800139001",
+    )

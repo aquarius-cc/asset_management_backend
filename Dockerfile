@@ -25,10 +25,10 @@ WORKDIR /app
 # 先复制依赖文件，安装依赖（利用 Docker 缓存层）
 COPY requirements/base.txt /app/requirements/base.txt
 
-# 安装系统依赖（mysqlclient 需要）
+# 安装系统依赖（psycopg 需要）
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    # mysqlclient 系统依赖
-    default-libmysqlclient-dev \
+    # psycopg 系统依赖
+    libpq-dev \
     build-essential \
     pkg-config \
     # 清理缓存

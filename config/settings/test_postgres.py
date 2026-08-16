@@ -6,15 +6,16 @@
 
 【配置说明】
 - 复用 test.py 的测试加速配置(密码哈希/缓存/邮件)
-- 仅将数据库引擎替换为 PostgreSQL
+- 数据库引擎使用 PostgreSQL(与生产/开发保持一致)
 - 连接参数通过真实环境变量注入(os.environ),不读取 .env,
-  避免仓库内 .env 的 MySQL 配置(DB_PORT=3306 等)串入本模块
+  避免仓库内 .env 的历史配置串入本模块
 - 运行方式: pytest --ds config.settings.test_postgres
 """
 
 import os
 
 from .test import *
+
 
 DATABASES = {
     "default": {

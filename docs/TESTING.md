@@ -1,6 +1,6 @@
 # 资产管理系统后端测试规范
 
-> 适用：Python 3.12+ / Django 6.0 / DRF 3.15+ / MySQL 8.0  
+> 适用：Python 3.12+ / Django 6.0 / DRF 3.15+ / PostgreSQL 16  
 > 遵循：`AGENTS.md` 最高准则，`API_STANDARDS.md`、`SECURITY.md` 强制门禁  
 > 核心目标：强制覆盖核心业务、API、权限与数据一致性，所有提交必须通过测试门禁。
 
@@ -47,7 +47,7 @@ apps/assetmanagement/
 
 ## 3. 测试环境配置
 
-### 3.1 MySQL 临时测试库
+### 3.1 PostgreSQL 临时测试库
 
 在 `config/settings.py` 或独立 `settings_test.py` 中：
 
@@ -56,20 +56,19 @@ python
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
+        'ENGINE': 'django.db.backends.postgresql',
         'NAME': os.getenv('DB_NAME', 'asset_db'),
         'USER': os.getenv('DB_USER', 'asset_user'),
         'PASSWORD': os.getenv('DB_PASSWORD'),
         'HOST': os.getenv('DB_HOST', '127.0.0.1'),
-        'PORT': os.getenv('DB_PORT', '3306'),
+        'PORT': os.getenv('DB_PORT', '5432'),
         'OPTIONS': {
-            'charset': 'utf8mb4',
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            'client_encoding': 'UTF8',
         },
         'TEST': {
             'NAME': 'test_asset_db',     # 临时库名
-            'CHARSET': 'utf8mb4',
-            'COLLATION': 'utf8mb4_unicode_ci',
+            'CHARSET': 'UTF8',
+            'COLLATION': 'en_US.UTF-8',
             'MIGRATE': True,            # 自动运行迁移
             'SERIALIZE': False,         # 关闭序列化加速
         },

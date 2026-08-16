@@ -9,6 +9,8 @@
 - ResourceConflictError: 资源冲突
 """
 
+from typing import Any
+
 from rest_framework import status
 from rest_framework.exceptions import APIException
 
@@ -32,7 +34,7 @@ class AppValidationError(APIException):
     default_detail = "数据验证失败"
     default_code = "validation_error"
 
-    def __init__(self, detail=None, code=None, error_code=None):
+    def __init__(self, detail: Any = None, code: Any = None, error_code: str | None = None) -> None:
         super().__init__(detail, code)
         self.error_code = error_code
 
@@ -83,7 +85,7 @@ class BusinessLogicError(APIException):
     default_detail = "业务逻辑错误"
     default_code = "business_logic_error"
 
-    def __init__(self, detail=None, code=None, error_code=None):
+    def __init__(self, detail: Any = None, code: Any = None, error_code: str | None = None) -> None:
         super().__init__(detail, code)
         self.error_code = error_code
 
@@ -104,7 +106,7 @@ class ResourceConflictError(APIException):
     default_detail = "资源冲突"
     default_code = "resource_conflict"
 
-    def __init__(self, detail=None, code=None, error_code=None):
+    def __init__(self, detail: Any = None, code: Any = None, error_code: str | None = None) -> None:
         super().__init__(detail, code)
         self.error_code = error_code
 

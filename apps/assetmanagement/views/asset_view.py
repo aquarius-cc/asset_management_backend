@@ -107,11 +107,11 @@ class AssetViewSet(
         return AssetDetailSerializer
 
     def get_queryset(self) -> QuerySet[Asset]:
-        # RBAC 行级数据隔离
+        # RBAC 行级数据隔离(所有动作统一限权,list 用列表预加载,其余保留详情预加载)
         if self.action == "list":
             qs = AssetSelector.get_queryset_for_user(self.request.user)
         else:
-            qs = AssetSelector.get_assets_with_all_relations()
+            qs = AssetSelector.apply_user_scope(AssetSelector.get_assets_with_all_relations(), self.request.user)
 
         keyword = self.request.GET.get("keyword", "").strip()
         if keyword:
@@ -122,6 +122,10 @@ class AssetViewSet(
                 | Q(asset_specification__icontains=keyword)
             )
         return qs
+
+    def _scoped(self, queryset: QuerySet[Asset]) -> QuerySet[Asset]:
+        """对自定义 Action 构建的 Asset QuerySet 施加 RBAC 部门范围"""
+        return AssetSelector.apply_user_scope(queryset, self.request.user)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -137,6 +141,7 @@ class AssetViewSet(
         return success_response(data=response_serializer.data, message=message, status_code=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
+        self.get_object()
         asset_code = self.kwargs.get("recordcode")
         asset = AssetService.update_asset(
             asset_code=asset_code,
@@ -151,6 +156,7 @@ class AssetViewSet(
         return self.update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
+        self.get_object()
         asset_code = self.kwargs.get("recordcode")
         AssetService.delete_asset(
             asset_code=asset_code,
@@ -169,7 +175,7 @@ class AssetViewSet(
     def get_asset_by_name(self, request, name=None) -> Response:
         if not name:
             return success_response(data={"count": 0, "results": []})
-        assets = AssetSelector.search_assets(keyword=name)
+        assets = self._scoped(AssetSelector.search_assets(keyword=name))
         serializer = AssetDetailSerializer(assets, many=True)
         return success_response(data={"count": assets.count(), "results": serializer.data})
 
@@ -201,7 +207,7 @@ class AssetViewSet(
             value = request.query_params.get(param, "").strip()
             if value:
                 exact_filters[param] = value
-        assets = AssetSelector.combine_search(field_filters, exact_filters)
+        assets = self._scoped(AssetSelector.combine_search(field_filters, exact_filters))
         page = self.paginate_queryset(assets)
         if page is not None:
             serializer = AssetListSerializer(page, many=True)
@@ -216,12 +222,14 @@ class AssetViewSet(
         asset_type = request.query_params.get("asset_type", "").strip() or None
         storage_code = request.query_params.get("storage_code", "").strip() or None
         contract_code = request.query_params.get("contract_code", "").strip() or None
-        assets = AssetSelector.search_assets(
-            keyword=keyword,
-            status=status_filter,
-            asset_type=asset_type,
-            storage_code=storage_code,
-            contract_code=contract_code,
+        assets = self._scoped(
+            AssetSelector.search_assets(
+                keyword=keyword,
+                status=status_filter,
+                asset_type=asset_type,
+                storage_code=storage_code,
+                contract_code=contract_code,
+            )
         )
         page = self.paginate_queryset(assets)
         if page is not None:
@@ -232,20 +240,22 @@ class AssetViewSet(
 
     @action(detail=False, methods=["get"], url_path="statistics")
     def statistics(self, request) -> Response:
-        stats = AssetService.get_asset_statistics()
+        stats = AssetService.get_asset_statistics(user=self.request.user)
         return success_response(data=stats, message="查询成功")
 
     @action(
         detail=False, methods=["get"], url_path="search_available", permission_classes=[permissions.IsAuthenticated]
     )
     def search_available(self, request) -> Response:
-        available = AssetSelector.get_available_assets(
-            asset_code=request.query_params.get("asset_code"),
-            asset_name=request.query_params.get("asset_name"),
-            asset_specification=request.query_params.get("asset_specification"),
-            asset_brand=request.query_params.get("asset_brand"),
-            asset_contract_code=request.query_params.get("asset_contract_code"),
-            asset_contract_name=request.query_params.get("asset_contract_name"),
+        available = self._scoped(
+            AssetSelector.get_available_assets(
+                asset_code=request.query_params.get("asset_code"),
+                asset_name=request.query_params.get("asset_name"),
+                asset_specification=request.query_params.get("asset_specification"),
+                asset_brand=request.query_params.get("asset_brand"),
+                asset_contract_code=request.query_params.get("asset_contract_code"),
+                asset_contract_name=request.query_params.get("asset_contract_name"),
+            )
         )
         page = self.paginate_queryset(available)
         if page is not None:
@@ -291,6 +301,7 @@ class AssetViewSet(
     )
     @action(detail=True, methods=["POST"], url_path="change_outasset_employee")
     def change_outasset_employee(self, request, recordcode=None) -> Response:
+        self.get_object()
         asset_code = self.kwargs.get("recordcode")
         applicant_jobcode = request.data.get("applicant_jobcode")
         manager_jobcode = request.data.get("manager_jobcode")
@@ -306,6 +317,9 @@ class AssetViewSet(
         asset_code = request.query_params.get("asset_code")
         if not asset_code:
             return error_response(message="请提供资产编码", status_code=400)
+        visible = self._scoped(AssetSelector.get_assets_for_list()).filter(asset_code=asset_code).first()
+        if visible is None:
+            return error_response(message=f"资产 {asset_code} 不存在", status_code=404)
         data = CombinedAssetSerializer.get_asset_details_data(asset_code)
         return success_response(data=data, message="查询成功")
 
@@ -313,7 +327,7 @@ class AssetViewSet(
     def contract_by_asset(self, request, asset_code=None) -> Response:
         if not asset_code:
             return error_response(message="请提供资产编码", status_code=400)
-        asset = AssetSelector.get_asset_by_code(asset_code)
+        asset = self._scoped(AssetSelector.get_assets_for_list()).filter(asset_code=asset_code).first()
         if asset is None:
             return error_response(message=f"资产 {asset_code} 不存在", status_code=404)
         contract = asset.asset_contract_recordcode
@@ -348,8 +362,13 @@ class AssetViewSet(
     def batch_delete(self, request):
         serializer = AssetBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        ids = serializer.validated_data["ids"]
+        scoped_codes = set(
+            self.get_queryset().filter(asset_code__in=ids).values_list("asset_code", flat=True)
+        )
+        # RBAC: 越权/不存在资产不进入删除流程(视同不存在)
         result = AssetService.batch_delete_asset(
-            serializer.validated_data["ids"],
+            [code for code in ids if code in scoped_codes],
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
         )

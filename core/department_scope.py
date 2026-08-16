@@ -174,6 +174,30 @@ def filter_queryset_by_department(queryset, dept_codes: list[str] | None, depart
     return queryset.filter(**filter_kwargs)
 
 
+def _build_department_scope_q(dept_codes: list[str], field_prefix: str) -> Q:
+    """
+    资产三路径部门归属过滤的唯一实现(DR-1):
+    manager 保管人 → entry_person 入库人 → storage.storage_manager 仓库管理员。
+
+    field_prefix 用于区分查询主体:
+    - "asset_recordcode": 通过 asset_recordcode FK 关联 Asset 的模型(HardDiskSN/OutAsset 等)
+    - "": 直接查询 Asset 自身(字段本身即归属路径)
+    """
+
+    def path(field: str) -> str:
+        return f"{field_prefix}__{field}" if field_prefix else field
+
+    return (
+        Q(**{f"{path('asset_manager_recordcode')}__employee_department__department_code__in": dept_codes})
+        | Q(**{f"{path('asset_entry_person_recordcode')}__employee_department__department_code__in": dept_codes})
+        | Q(
+            **{
+                f"{path('asset_storage_recordcode')}__storage_manager__employee_department__department_code__in": dept_codes
+            }
+        )
+    )
+
+
 def build_asset_department_q(dept_codes: list[str]) -> Q:
     """
     构建资产部门归属的 Q 对象,用于通过 asset_recordcode FK 过滤关联记录。
@@ -184,13 +208,18 @@ def build_asset_department_q(dept_codes: list[str]) -> Q:
     用法:
         qs = OutAsset.objects.for_list().filter(build_asset_department_q(dept_codes))
     """
-    return (
-        Q(asset_recordcode__asset_manager_recordcode__employee_department__department_code__in=dept_codes)
-        | Q(asset_recordcode__asset_entry_person_recordcode__employee_department__department_code__in=dept_codes)
-        | Q(
-            asset_recordcode__asset_storage_recordcode__storage_manager__employee_department__department_code__in=dept_codes
-        )
-    )
+    return _build_department_scope_q(dept_codes, "asset_recordcode")
+
+
+def build_asset_owned_department_q(dept_codes: list[str]) -> Q:
+    """
+    构建 Asset 自身部门归属的 Q 对象,用于直接过滤 Asset 查询集。
+
+    与 build_asset_department_q 的差异:Asset 的归属字段是自身的
+    asset_manager_recordcode / asset_entry_person_recordcode / asset_storage_recordcode,
+    无需经过 asset_recordcode 中间跳转。
+    """
+    return _build_department_scope_q(dept_codes, "")
 
 
 def get_asset_linked_queryset_for_user(user, queryset):

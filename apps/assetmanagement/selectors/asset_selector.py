@@ -9,11 +9,27 @@ from typing import Any, cast
 from django.db.models import Count, Q, QuerySet, Sum
 
 from apps.assetmanagement.models import Asset, AssetOperationLog, AssetType
-from core.department_scope import get_department_codes_for_user
+from core.department_scope import build_asset_owned_department_q, get_department_codes_for_user
 
 
 class AssetSelector:
     """资产管理查询选择器"""
+
+    @staticmethod
+    def apply_user_scope(queryset: QuerySet[Asset], user: Any) -> QuerySet[Asset]:
+        """
+        RBAC 行级部门范围过滤(全项目唯一实现入口)。
+
+        - dept_codes is None(无限制) → 原样返回
+        - dept_codes 为空(部门级角色无部门,最严兜底) → 空集
+        - 非空 → 按资产三路径部门归属过滤
+        """
+        dept_codes = get_department_codes_for_user(user)
+        if dept_codes is None:
+            return queryset
+        if not dept_codes:
+            return queryset.none()
+        return queryset.filter(build_asset_owned_department_q(dept_codes))
 
     @staticmethod
     def get_queryset_for_user(user) -> QuerySet[Asset]:
@@ -24,16 +40,7 @@ class AssetSelector:
         - dept_manager: 本部门 + 下级部门的资产
         - asset_admin / regular_user: 本部门资产
         """
-        dept_codes = get_department_codes_for_user(user)
-        if dept_codes is None:
-            return Asset.objects.for_list()
-
-        # 资产归属部门:通过保管人/入库人/仓库管理员 三条路径解析
-        return Asset.objects.for_list().filter(
-            Q(asset_manager_recordcode__employee_department__department_code__in=dept_codes)
-            | Q(asset_entry_person_recordcode__employee_department__department_code__in=dept_codes)
-            | Q(asset_storage_recordcode__storage_manager__employee_department__department_code__in=dept_codes)
-        )
+        return AssetSelector.apply_user_scope(Asset.objects.for_list(), user)
 
     @staticmethod
     def get_all_assets() -> QuerySet[Asset]:
@@ -155,8 +162,10 @@ class AssetSelector:
         return queryset.order_by("-asset_entry_date")
 
     @staticmethod
-    def get_asset_statistics() -> dict[str, Any]:
+    def get_asset_statistics(user: Any = None) -> dict[str, Any]:
         queryset = Asset.objects.filter(is_deleted=False)
+        if user is not None:
+            queryset = AssetSelector.apply_user_scope(queryset, user)
         status_counts = (
             queryset.values("asset_current_status").annotate(count=Count("id")).order_by("asset_current_status")
         )

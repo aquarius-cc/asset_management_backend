@@ -374,8 +374,8 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
         return asset
 
     @staticmethod
-    def get_asset_statistics() -> dict[str, Any]:
-        return AssetSelector.get_asset_statistics()
+    def get_asset_statistics(user: Any = None) -> dict[str, Any]:
+        return AssetSelector.get_asset_statistics(user=user)
 
     @staticmethod
     def generate_qr_code_image(asset, base_url: str) -> bytes:

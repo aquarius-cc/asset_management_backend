@@ -4,7 +4,7 @@
 锚定 DB 约束冲突 → DUPLICATE_SN_CODE 映射逻辑:
 - create / update / batch_save 三个落库点在预检失效(并发窗口)时,
   由 DB 唯一约束兜底,IntegrityError 映射为业务错误而非 500
-- 注:MySQL 不执行带 condition 的 UniqueConstraint(Django 静默跳过),
+- 注:PostgreSQL 会执行带 condition 的 UniqueConstraint,
   故以 mock 模拟约束抛错,验证映射与事务保护逻辑
 """
 

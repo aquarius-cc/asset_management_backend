@@ -1,7 +1,7 @@
 # 资产管理系统后端部署文档 (DEPLOYMENT.md)
 
 > 适用：Python 3.12+ / Django 6.0 / DRF 3.15+  
-> 目标环境：Ubuntu 22.04 LTS + MySQL 8.0  
+> 目标环境：Ubuntu 22.04 LTS + PostgreSQL 16  
 > 遵循：`AGENTS.md`、`SECURITY.md`、`API_STANDARDS.md`
 
 ---
@@ -23,7 +23,7 @@ bash
 sudo apt update && sudo apt upgrade -y
 sudo apt install -y python3.12 python3.12-venv python3.12-dev \
                     nginx git certbot python3-certbot-nginx \
-                    mysql-server libmysqlclient-dev
+                    postgresql libpq-dev
 ```
 
 ## 2. 部署流程
@@ -69,25 +69,24 @@ sudo nano .env
 | `DJANGO_SECRET_KEY`                   | `openssl rand -hex 32` 生成 |
 | `DJANGO_DEBUG`                        | `False`                   |
 | `ALLOWED_HOSTS`                       | 域名，逗号分隔                   |
-| `DB_NAME` / `DB_USER` / `DB_PASSWORD` | MySQL 数据库凭据               |
+| `DB_NAME` / `DB_USER` / `DB_PASSWORD` | PostgreSQL 数据库凭据            |
 | `DB_HOST`                             | 通常为 `localhost`           |
-| `DB_PORT`                             | 默认 `3306`                 |
+| `DB_PORT`                             | 默认 `5432`                 |
 
 ---
 
-## 3. 数据库（MySQL 8.0）
+## 3. 数据库（PostgreSQL 16）
 
 ### 3.1 创建库与用户
 
 ```
 bash
 
-sudo mysql -u root
-CREATE DATABASE asset_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'asset_user'@'localhost' IDENTIFIED BY 'strong-password';
-GRANT ALL PRIVILEGES ON asset_db.* TO 'asset_user'@'localhost';
-FLUSH PRIVILEGES;
-EXIT;
+sudo -u postgres psql
+CREATE DATABASE asset_db ENCODING 'UTF8';
+CREATE USER asset_user WITH PASSWORD 'strong-password';
+GRANT ALL PRIVILEGES ON DATABASE asset_db TO asset_user;
+\q
 ```
 
 ### 3.2 迁移与静态文件
@@ -118,7 +117,7 @@ ini
 
 [Unit]
 Description=Gunicorn for asset management
-After=network.target mysql.service
+After=network.target postgresql.service
 [Service]
 User=assetadmin
 Group=www-data
@@ -263,18 +262,16 @@ BACKUP_DIR="/var/backups/asset-management/db"
 DATE=$(date +%Y%m%d_%H%M%S)
 mkdir -p $BACKUP_DIR
 
-# 使用 mysqldump 备份 MySQL 数据库（需提前创建 .my.cnf 配置认证）
-mysqldump asset_db | gzip > $BACKUP_DIR/db_$DATE.sql.gz
+# 使用 pg_dump 备份 PostgreSQL 数据库（需提前配置 ~/.pgpass 认证）
+pg_dump asset_db | gzip > $BACKUP_DIR/db_$DATE.sql.gz
 find $BACKUP_DIR -name "db_*.sql.gz" -mtime +30 -delete
 ```
 
-> 为避免密码明文泄露，建议创建 `~/.my.cnf` 文件：
+> 为避免密码明文泄露，建议创建 `~/.pgpass` 文件：
 
 > `text`
 > 
-> `[mysqldump]
-> user=asset_user
-> password=strong-password`
+> `localhost:5432:asset_db:asset_user:strong-password`
 
 添加定时任务：
 
@@ -296,7 +293,7 @@ sudo crontab -e
 
 | 类别      | 检查项                                        |
 | ------- | ------------------------------------------ |
-| **系统**  | ✅ Python 3.12、MySQL、Nginx 安装正确             |
+| **系统**  | ✅ Python 3.12、PostgreSQL、Nginx 安装正确        |
 | **项目**  | ✅ 虚拟环境已创建，生产依赖安装完整                         |
 | **配置**  | ✅ `DEBUG=False`，`ALLOWED_HOSTS` 已设置，密钥强度足够 |
 | **数据库** | ✅ 迁移已执行，静态文件已收集，超级管理员已创建（如需要）              |
@@ -327,5 +324,5 @@ sudo journalctl -u asset-management -n 50
 **静态文件 404**  
 确认已执行 `collectstatic`，且 Nginx `alias` 路径正确。
 
-**MySQL 连接问题**  
-检查 `.env` 中数据库配置、MySQL 用户权限，以及 `bind-address`（通常设为 `127.0.0.1`）。
+**PostgreSQL 连接问题**  
+检查 `.env` 中数据库配置、PostgreSQL 用户权限，以及 `listen_addresses`（通常设为 `127.0.0.1`）。

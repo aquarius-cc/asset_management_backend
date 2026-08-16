@@ -20,11 +20,11 @@ services:
     ports:
       - "8000:8000"
     environment:
-      # 数据库配置（连接 MySQL 服务）
-      - DB_HOST=mysql
-      - DB_PORT=3306
+      # 数据库配置（连接 PostgreSQL 服务）
+      - DB_HOST=postgres
+      - DB_PORT=5432
       - DB_NAME=${DB_NAME:-asset_management_backend}
-      - DB_USER=${DB_USER:-root}
+      - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:-}
       # Django 配置
       - DJANGO_SETTINGS_MODULE=config.settings.production
@@ -38,7 +38,7 @@ services:
       # 媒体文件挂载
       - media_volume:/app/media
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
@@ -50,27 +50,26 @@ services:
       - asset-network
 
   # =============================================================================
-  # MySQL 数据库服务
+  # PostgreSQL 数据库服务
   # =============================================================================
-  mysql:
-    image: mysql:8.0
-    container_name: asset-management-mysql
+  postgres:
+    image: postgres:16
+    container_name: asset-management-postgres
     restart: unless-stopped
     environment:
       # 【易错点】生产环境必须使用强密码！
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootpassword}
-      - MYSQL_DATABASE=${DB_NAME:-asset_management_backend}
-      - MYSQL_USER=${DB_USER:-asset_user}
-      - MYSQL_PASSWORD=${DB_PASSWORD:-assetpassword}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-assetpassword}
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_DB=${DB_NAME:-asset_management_backend}
     ports:
-      - "3306:3306"
+      - "5432:5432"
     volumes:
       # 数据卷挂载（持久化数据）
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
       # 初始化脚本（可选）
-      # - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      # - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -102,7 +101,7 @@ services:
 # 数据卷配置
 # =============================================================================
 volumes:
-  mysql_data:
+  postgres_data:
     driver: local
   static_volume:
     driver: local

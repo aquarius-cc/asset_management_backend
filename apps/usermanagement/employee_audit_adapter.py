@@ -96,3 +96,71 @@ class EmployeeAuditAdapter:
             )
         except Exception as e:
             logger.error(f"记录员工状态变更日志失败: {e}", exc_info=True)
+
+    @staticmethod
+    def log_bind_auth_user(
+        employee,
+        auth_username: str,
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+    ):
+        try:
+            from core.audit_service import GenericAuditService
+
+            GenericAuditService.log_operation(
+                record_code=employee.employee_jobcode,
+                app_label="employee",
+                operation_type="bind_auth_user",
+                description=f"绑定认证账号: {auth_username}",
+                after_data={"auth_username": auth_username},
+                operator_jobcode=operator_jobcode,
+                operator_name=operator_name,
+            )
+        except Exception as e:
+            logger.error(f"记录员工绑定认证账号日志失败: {e}", exc_info=True)
+
+    @staticmethod
+    def log_unbind_auth_user(
+        employee,
+        old_auth_username: str,
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+    ):
+        try:
+            from core.audit_service import GenericAuditService
+
+            GenericAuditService.log_operation(
+                record_code=employee.employee_jobcode,
+                app_label="employee",
+                operation_type="unbind_auth_user",
+                description=f"解绑认证账号: {old_auth_username}",
+                before_data={"auth_username": old_auth_username},
+                operator_jobcode=operator_jobcode,
+                operator_name=operator_name,
+            )
+        except Exception as e:
+            logger.error(f"记录员工解绑认证账号日志失败: {e}", exc_info=True)
+
+    @staticmethod
+    def log_replace_auth_user(
+        employee,
+        old_auth_username: str,
+        new_auth_username: str,
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+    ):
+        try:
+            from core.audit_service import GenericAuditService
+
+            GenericAuditService.log_operation(
+                record_code=employee.employee_jobcode,
+                app_label="employee",
+                operation_type="replace_auth_user",
+                description=f"替换认证账号: {old_auth_username} -> {new_auth_username}",
+                before_data={"auth_username": old_auth_username},
+                after_data={"auth_username": new_auth_username},
+                operator_jobcode=operator_jobcode,
+                operator_name=operator_name,
+            )
+        except Exception as e:
+            logger.error(f"记录员工替换认证账号日志失败: {e}", exc_info=True)

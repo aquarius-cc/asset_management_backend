@@ -26,11 +26,13 @@ class TestOutAssetSnapshot(TestCase):
             employee_jobcode="A001",
             employee_name="申请人张三",
             employee_department=self.department,
+            employee_phone="13800134001",
         )
         self.manager = Employee.objects.create(
             employee_jobcode="A002",
             employee_name="保管人李四",
             employee_department=self.department,
+            employee_phone="13800134002",
         )
         self.storage = Storage.objects.create(
             storage_code="S001",

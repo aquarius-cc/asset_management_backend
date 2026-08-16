@@ -52,7 +52,7 @@ EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 # 【数据库配置 - 开发专用】
 # =============================================================================
 
-# 默认使用 MySQL(与 base.py 保持一致)
+# 默认使用 PostgreSQL(与 base.py 保持一致)
 # 如需使用 SQLite 进行快速开发,取消注释以下配置:
 
 # DATABASES = {

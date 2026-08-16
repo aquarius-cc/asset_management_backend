@@ -19,14 +19,30 @@ from apps.authusermanagement.models import AuthUser
 from apps.usermanagement.models import Department, Employee, EmployeeRole
 
 
+_phone_seq = 0
+
+
+def _phone():
+    global _phone_seq
+    _phone_seq += 1
+    return f"138{_phone_seq:08d}"
+
+
 def _make_user(username, role, department=None):
-    user = AuthUser.objects.create_user(auth_username=username, password="test1234")
+    global _phone_seq
+    _phone_seq += 1
+    user = AuthUser.objects.create_user(
+        auth_username=username,
+        password="test1234",
+        auth_phone=f"137{_phone_seq:08d}",
+    )
     if role:
         Employee.objects.create(
             employee_jobcode=username,
             employee_name=f"{username}员工",
             employee_department=department,
             role=role,
+            employee_phone=_phone(),
         )
     return user
 

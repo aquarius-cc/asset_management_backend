@@ -1,8 +1,8 @@
 """WebSocket 通知消费者测试(含 JWT 最小认证对抗性用例)
 
 说明: 消费者内 database_sync_to_async 会触发 close_old_connections(见
-channels/db.py), 与 pytest-django 默认事务包装在 MySQL 上存在连接竞争,
-故此处使用 transaction=True(autocommit) 并保证每个测试使用唯一用户名。
+channels/db.py), 与 pytest-django 默认事务包装在 PostgreSQL 上存在连接竞争,
+故此处使用 transaction=True(autocommit) 并保证每个测试使用唯一用户名/手机号。
 """
 
 from datetime import timedelta
@@ -39,8 +39,17 @@ async def _connect(comm: WebsocketCommunicator) -> dict:
     return await comm.receive_output()
 
 
+_phone_seq = 0
+
+
 def _make_user(name: str) -> AuthUser:
-    return AuthUser.objects.create_user(auth_username=name, password="testpass123")
+    global _phone_seq
+    _phone_seq += 1
+    return AuthUser.objects.create_user(
+        auth_username=name,
+        password="testpass123",
+        auth_phone=f"138{_phone_seq:08d}",
+    )
 
 
 def _issue_access(user) -> str:

@@ -14,21 +14,21 @@ echo "============================================"
 echo "[1/4] 等待数据库连接..."
 
 # 数据库连接参数（从环境变量读取）
-DB_HOST=${DB_HOST:-mysql}
-DB_PORT=${DB_PORT:-3306}
+DB_HOST=${DB_HOST:-postgres}
+DB_PORT=${DB_PORT:-5432}
 DB_NAME=${DB_NAME:-asset_management_backend}
-DB_USER=${DB_USER:-root}
+DB_USER=${DB_USER:-postgres}
 DB_PASSWORD=${DB_PASSWORD:-}
 
 # 等待函数
 wait_for_db() {
-    echo "等待 MySQL 就绪 ($DB_HOST:$DB_PORT)..."
+    echo "等待 PostgreSQL 就绪 ($DB_HOST:$DB_PORT)..."
     # 最多等待 60 秒
     timeout=60
     count=0
     while ! python -c "
-import MySQLdb
-conn = MySQLdb.connect(host='$DB_HOST', port=int('$DB_PORT'), user='$DB_USER', passwd='$DB_PASSWORD', db='$DB_NAME')
+import psycopg
+conn = psycopg.connect(host='$DB_HOST', port=int('$DB_PORT'), user='$DB_USER', password='$DB_PASSWORD', dbname='$DB_NAME')
 conn.close()
 " 2>/dev/null; do
         count=$((count + 1))

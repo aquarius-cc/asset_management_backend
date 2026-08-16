@@ -19,7 +19,7 @@
 | -------- | ---------------------------------------------------------- |
 | **语言**   | Python 3.12+（强制类型标注，禁止 `Any`）                              |
 | **框架**   | Django 6.0.5、Django REST Framework 3.15                    |
-| **数据库**  | MySQL 8.0+（ORM 防注入、软删除基类）                                  |
+| **数据库**  | PostgreSQL 16+（ORM 防注入、软删除基类）                              |
 | **认证**   | JWT（Simple JWT / Token 刷新）                                 |
 | **权限**   | DRF 全局权限 + 对象级 `check_object_permissions` + 行级数据隔离         |
 | **文档**   | drf-spectacular（自动生成 OpenAPI）                              |

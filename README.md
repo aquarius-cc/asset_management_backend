@@ -24,7 +24,7 @@
 |------|---------|
 | **语言** | Python 3.12+ |
 | **框架** | Django 6.0 + DRF 3.16 |
-| **数据库** | MySQL 8.0+ |
+| **数据库** | PostgreSQL 16+ |
 | **认证** | JWT (SimpleJWT) |
 | **文档** | drf-spectacular |
 
@@ -33,7 +33,7 @@
 ### 环境要求
 
 - Python 3.12+
-- MySQL 8.0+ (或使用 SQLite 进行开发)
+- PostgreSQL 16+ (或使用 SQLite 进行开发)
 
 ### 安装步骤
 

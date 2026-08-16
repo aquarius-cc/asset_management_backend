@@ -72,15 +72,15 @@ jobs:
     needs: lint
 
     services:
-      mysql:
-        image: mysql:8.0
+      postgres:
+        image: postgres:16
         env:
-          MYSQL_ROOT_PASSWORD: rootpassword
-          MYSQL_DATABASE: asset_management_test
+          POSTGRES_PASSWORD: rootpassword
+          POSTGRES_DB: asset_management_test
         ports:
-          - 3306:3306
+          - 5432:5432
         options: >-
-          --health-cmd="mysqladmin ping"
+          --health-cmd="pg_isready -U postgres"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
@@ -111,19 +111,19 @@ jobs:
         env:
           DB_HOST: 127.0.0.1
           DB_NAME: asset_management_test
-          DB_USER: root
+          DB_USER: postgres
           DB_PASSWORD: rootpassword
         run: |
-          python manage.py migrate --settings=config.settings.test
+          python manage.py migrate --settings=config.settings.test_postgres
 
       - name: Run tests
         env:
           DB_HOST: 127.0.0.1
           DB_NAME: asset_management_test
-          DB_USER: root
+          DB_USER: postgres
           DB_PASSWORD: rootpassword
         run: |
-          python manage.py test --settings=config.settings.test
+          python manage.py test --settings=config.settings.test_postgres
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4

@@ -1,6 +1,6 @@
-# Git 工作流 & CI/CD 规范（后端 Python + Django + MySQL）
+# Git 工作流 & CI/CD 规范（后端 Python + Django + PostgreSQL）
 
-> 适用：资产管理系统后端（Python 3.12+ / Django 6.0 / DRF 3.15+ / MySQL 8.0）  
+> 适用：资产管理系统后端（Python 3.12+ / Django 6.0 / DRF 3.15+ / PostgreSQL 16）  
 > 遵循：`API_STANDARDS.md`、`SECURITY.md` 最高准则
 
 ---
@@ -33,7 +33,7 @@
 | ---------- | ----------- | -------------------------------------- |
 | `feat`     | 新功能         | `feat(asset): 添加资产批量导入 API`            |
 | `fix`      | Bug 修复      | `fix(auth): 修复 JWT Refresh Token 过期问题` |
-| `docs`     | 文档更新        | `docs: 更新部署文档 MySQL 配置`                |
+| `docs`     | 文档更新        | `docs: 更新部署文档 PostgreSQL 配置`           |
 | `style`    | 代码格式（不影响逻辑） | `style(asset): 用 black 格式化`            |
 | `refactor` | 重构（无功能变化）   | `refactor(asset): 重构查询逻辑`              |
 | `perf`     | 性能优化        | `perf(asset): 优化列表查询索引`                |
@@ -155,7 +155,7 @@ git push origin feature/asset-batch-import
 
 ---
 
-## 6. CI/CD 配置（GitHub Actions + MySQL）
+## 6. CI/CD 配置（GitHub Actions + PostgreSQL）
 
 创建 `.github/workflows/ci-cd.yml`：
 
@@ -175,16 +175,15 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      mysql:
-        image: mysql:8.0
+      postgres:
+        image: postgres:16
         env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: asset_db
-          MYSQL_USER: asset_user
-          MYSQL_PASSWORD: test_password
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: asset_db
+          POSTGRES_USER: asset_user
         ports:
-          - 3306:3306
-        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=5
+          - 5432:5432
+        options: --health-cmd="pg_isready -U postgres" --health-interval=10s --health-timeout=5s --health-retries=5
 
     steps:
       - uses: actions/checkout@v4
@@ -208,12 +207,12 @@ jobs:
 
       - name: Run tests
         env:
-          DB_ENGINE: django.db.backends.mysql
+          DB_ENGINE: django.db.backends.postgresql
           DB_NAME: asset_db
           DB_USER: asset_user
           DB_PASSWORD: test_password
           DB_HOST: 127.0.0.1
-          DB_PORT: 3306
+          DB_PORT: 5432
           DJANGO_SECRET_KEY: test-secret-key
           DJANGO_DEBUG: "False"
         run: |

@@ -41,7 +41,7 @@ dependencies = [
     "djangorestframework==3.16.0",
     "django-cors-headers==4.7.0",
     "django-filter==25.1",
-    "mysqlclient==2.2.7",
+    "psycopg[binary]==3.3.4",
     "pillow==11.3.0",
     "qrcode==8.2",
     "requests==2.32.5",

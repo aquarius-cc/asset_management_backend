@@ -107,3 +107,17 @@ class TestDashboardMaintenanceReminders:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["code"] == 0
         assert isinstance(response.data["data"], list)
+
+
+@pytest.mark.django_db
+class TestDashboardRecentAssetRecordcodes:
+    def test_returns_out_assets(self, authenticated_client, asset, user):
+        """recent_asset_recordcodes 应返回出库记录（调用 get_recent_out_assets）"""
+        from apps.assetmanagement.models import OutAsset
+
+        OutAsset.objects.create(asset_recordcode=asset, outasset_date="2024-01-01")
+        url = reverse("dashboard-recent-asset-recordcodes")
+        response = authenticated_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["code"] == 0
+        assert isinstance(response.data["data"], list)

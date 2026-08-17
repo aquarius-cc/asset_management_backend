@@ -321,9 +321,13 @@ class TestDashboardSelector:
     def test_get_asset_trend(self, asset):
         """获取资产趋势数据"""
         result = DashboardSelector.get_asset_trend(days=30)
-        assert "days" in result
-        assert "trend" in result
-        assert result["days"] == 30
+        assert isinstance(result, list)
+        assert len(result) >= 30
+        assert result[0]["date"]
+        assert "new_assets" in result[0]
+        assert "distributed" in result[0]
+        assert "recovered" in result[0]
+        assert "scrapped" in result[0]
 
     def test_get_department_distribution(self, asset):
         """获取资产按部门分布统计"""

@@ -48,3 +48,36 @@ class DashboardViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ViewSet):
             limit = 10
         result = DashboardSelector.get_recent_recycle_assets(limit=limit)
         return success_response(data=result)
+
+    @action(detail=False, methods=["get"])
+    def trend(self, request) -> Response:
+        try:
+            days = min(int(request.query_params.get("days", 30) or 30), 365)
+        except (ValueError, TypeError):
+            days = 30
+        result = DashboardSelector.get_asset_trend(days=days)
+        return success_response(data=result)
+
+    @action(detail=False, methods=["get"])
+    def department_distribution(self, request) -> Response:
+        result = DashboardSelector.get_department_distribution()
+        return success_response(data=result)
+
+    @action(detail=False, methods=["get"], url_path="type_distribution")
+    def type_distribution(self, request) -> Response:
+        result = DashboardSelector.get_type_distribution()
+        return success_response(data=result)
+
+    @action(detail=False, methods=["get"], url_path="expiring_assets")
+    def expiring_assets(self, request) -> Response:
+        try:
+            days = min(int(request.query_params.get("days", 30) or 30), 365)
+        except (ValueError, TypeError):
+            days = 30
+        result = DashboardSelector.get_expiring_assets(days=days)
+        return success_response(data=result)
+
+    @action(detail=False, methods=["get"], url_path="maintenance_reminders")
+    def maintenance_reminders(self, request) -> Response:
+        result = DashboardSelector.get_maintenance_reminders()
+        return success_response(data=result)

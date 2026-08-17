@@ -263,8 +263,13 @@ class DashboardSelector:
         ]
 
     @staticmethod
-    def get_asset_trend(days: int = 30) -> dict[str, Any]:
-        """获取资产趋势数据(按日统计)"""
+    def get_asset_trend(days: int = 30) -> list[dict[str, Any]]:
+        """获取资产趋势数据(按日统计)
+
+        返回格式对齐前端 types/dashboard.ts AssetTrendData：
+        [{"date": "YYYY-MM-DD", "new_assets": N, "distributed": 0, "recovered": 0, "scrapped": 0}]
+        注：distributed/recovered/scrapped 暂无独立数据源，填 0 占位。
+        """
         from datetime import timedelta
 
         from django.db.models.functions import TruncDate
@@ -281,16 +286,7 @@ class DashboardSelector:
             .order_by("date")
         )
 
-        daily_value = (
-            Asset.objects.filter(is_deleted=False, created_at__date__gte=start_date, created_at__date__lte=end_date)
-            .annotate(date=TruncDate("created_at"))
-            .values("date")
-            .annotate(value=Sum("asset_purchase_price"))
-            .order_by("date")
-        )
-
         create_map = {item["date"].isoformat(): item["count"] for item in daily_creates}
-        value_map = {item["date"].isoformat(): float(item["value"] or 0) for item in daily_value}
 
         trend_data = []
         current_date = start_date
@@ -299,110 +295,112 @@ class DashboardSelector:
             trend_data.append(
                 {
                     "date": date_str,
-                    "new_count": create_map.get(date_str, 0),
-                    "total_value": value_map.get(date_str, 0),
+                    "new_assets": create_map.get(date_str, 0),
+                    "distributed": 0,
+                    "recovered": 0,
+                    "scrapped": 0,
                 }
             )
             current_date += timedelta(days=1)
 
-        return {
-            "days": days,
-            "trend": trend_data,
-        }
+        return trend_data
 
     @staticmethod
-    def get_department_distribution() -> list:
-        """获取资产按部门分布统计"""
+    def get_department_distribution() -> list[dict[str, Any]]:
+        """获取资产按部门分布统计
+
+        返回格式对齐前端 types/dashboard.ts 内联类型：
+        [{"department_name": str, "asset_count": int, "percentage": float}]
+        """
         dept_stats = (
             Asset.objects.filter(is_deleted=False, asset_manager_recordcode__isnull=False)
-            .values(
-                "asset_manager_recordcode__employee_department__department_code",
-                "asset_manager_recordcode__employee_department__department_name",
-            )
-            .annotate(asset_count=Count("id"), total_value=Sum("asset_purchase_price"))
+            .values("asset_manager_recordcode__employee_department__department_name")
+            .annotate(asset_count=Count("id"))
             .order_by("-asset_count")
         )
 
+        total = sum(item["asset_count"] for item in dept_stats) or 1
         return [
             {
-                "department_code": item["asset_manager_recordcode__employee_department__department_code"] or "未知",
                 "department_name": item["asset_manager_recordcode__employee_department__department_name"] or "未知",
                 "asset_count": item["asset_count"],
-                "total_value": float(item["total_value"] or 0),
+                "percentage": round(item["asset_count"] / total * 100, 1),
             }
             for item in dept_stats
         ]
 
     @staticmethod
-    def get_type_distribution() -> list:
-        """获取资产按类型分布统计"""
+    def get_type_distribution() -> list[dict[str, Any]]:
+        """获取资产按类型分布统计
+
+        返回格式对齐前端 types/dashboard.ts 内联类型：
+        [{"type_name": str, "count": int, "percentage": float}]
+        """
         type_stats = (
             Asset.objects.filter(is_deleted=False, asset_type_recordcode__isnull=False)
-            .values(
-                "asset_type_recordcode__type_code",
-                "asset_type_recordcode__type_name",
-                "asset_type_recordcode__level",
-            )
-            .annotate(asset_count=Count("id"), total_value=Sum("asset_purchase_price"))
+            .values("asset_type_recordcode__type_name")
+            .annotate(asset_count=Count("id"))
             .order_by("-asset_count")
         )
 
+        total = sum(item["asset_count"] for item in type_stats) or 1
         return [
             {
-                "type_code": item["asset_type_recordcode__type_code"],
                 "type_name": item["asset_type_recordcode__type_name"],
-                "level": item["asset_type_recordcode__level"],
-                "asset_count": item["asset_count"],
-                "total_value": float(item["total_value"] or 0),
+                "count": item["asset_count"],
+                "percentage": round(item["asset_count"] / total * 100, 1),
             }
             for item in type_stats
         ]
 
     @staticmethod
-    def get_expiring_assets(days: int = 30) -> list:
-        """获取即将到期的资产(保修期即将结束)"""
+    def get_expiring_assets(days: int = 30) -> list[dict[str, Any]]:
+        """获取即将到期的资产(保修期即将结束)
+
+        返回格式对齐前端 types/dashboard.ts ExpiringAsset：
+        [{"id": int, "asset_code": str, "asset_name": str, "expire_date": str, "days_until_expire": int}]
+        """
+        from datetime import date
+
+        from dateutil.relativedelta import relativedelta
+
         expiring_assets = (
             Asset.objects.filter(is_deleted=False, asset_warranty_period__gt=0, asset_purchase_date__isnull=False)
-            .select_related("asset_type_recordcode", "asset_storage_recordcode", "asset_manager_recordcode")
             .order_by("asset_purchase_date")[:50]
         )
 
         result = []
         for asset in expiring_assets:
-            from datetime import date
-
-            from dateutil.relativedelta import relativedelta
-
             warranty_end = asset.asset_purchase_date + relativedelta(months=asset.asset_warranty_period * 12)
             days_remaining = (warranty_end - date.today()).days
 
             if 0 <= days_remaining <= days:
                 result.append(
                     {
+                        "id": asset.id,
                         "asset_code": asset.asset_code,
                         "asset_name": asset.asset_name,
-                        "asset_purchase_date": asset.asset_purchase_date.isoformat(),
-                        "warranty_period": asset.asset_warranty_period,
-                        "warranty_end_date": warranty_end.isoformat(),
-                        "days_remaining": days_remaining,
-                        "asset_manager": asset.asset_manager_recordcode.employee_name
-                        if asset.asset_manager_recordcode
-                        else None,
+                        "expire_date": warranty_end.isoformat(),
+                        "days_until_expire": days_remaining,
                     }
                 )
 
-        return sorted(result, key=lambda x: x["days_remaining"])
+        return sorted(result, key=lambda x: x["days_until_expire"])
 
     @staticmethod
-    def get_maintenance_reminders() -> list:
-        """获取维护提醒数据"""
+    def get_maintenance_reminders() -> list[dict[str, Any]]:
+        """获取维护提醒数据
+
+        返回格式对齐前端 types/dashboard.ts MaintenanceReminder：
+        [{"id": int, "asset_code": str, "asset_name": str, "maintenance_date": str, "type": str}]
+        注：maintenance_date 取 asset_entry_date（入库日期），type 暂固定为 "定期检查"。
+        """
         from django.utils import timezone
 
         now = timezone.now().date()
 
         assets = (
             Asset.objects.filter(is_deleted=False, asset_current_status="in_use", asset_entry_date__isnull=False)
-            .select_related("asset_type_recordcode", "asset_storage_recordcode", "asset_manager_recordcode")
             .order_by("asset_entry_date")[:50]
         )
 
@@ -413,18 +411,12 @@ class DashboardSelector:
             if usage_months >= 24:
                 result.append(
                     {
+                        "id": asset.id,
                         "asset_code": asset.asset_code,
                         "asset_name": asset.asset_name,
-                        "asset_entry_date": asset.asset_entry_date.isoformat(),
-                        "usage_months": usage_months,
-                        "asset_type": asset.asset_type_recordcode.type_name if asset.asset_type_recordcode else None,
-                        "asset_manager": asset.asset_manager_recordcode.employee_name
-                        if asset.asset_manager_recordcode
-                        else None,
-                        "storage_name": asset.asset_storage_recordcode.storage_name
-                        if asset.asset_storage_recordcode
-                        else None,
+                        "maintenance_date": asset.asset_entry_date.isoformat(),
+                        "type": "定期检查",
                     }
                 )
 
-        return sorted(result, key=lambda x: x["usage_months"], reverse=True)
+        return sorted(result, key=lambda x: x["maintenance_date"])

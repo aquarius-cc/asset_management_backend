@@ -5,6 +5,7 @@ import pytest
 from apps.assetmanagement.models import Asset, AssetType, Storage
 from apps.assetmanagement.services.storage_service import StorageService
 from core.exceptions import AppValidationError
+from core.models_audit import AuditLog
 
 
 def _storage_data(**overrides):
@@ -115,3 +116,55 @@ class TestBatchDeleteStorage:
         result = StorageService.batch_delete_storage(["BD3", "NOPE"])
         assert result["success_count"] == 1
         assert result["fail_count"] == 1
+
+
+@pytest.mark.django_db
+class TestStorageAuditLogOperator:
+    def test_create_records_operator(self):
+        StorageService.create_storage(
+            _storage_data(),
+            operator_jobcode="OP001",
+            operator_name="操作员A",
+        )
+        log = AuditLog.objects.filter(
+            record_code="SC001",
+            operation_type="create",
+            app_label="storage",
+        ).first()
+        assert log is not None
+        assert log.operator_jobcode == "OP001"
+        assert log.operator_name == "操作员A"
+
+    def test_delete_records_operator(self):
+        StorageService.create_storage(_storage_data())
+        StorageService.delete_storage("SC001", operator_jobcode="OP002", operator_name="操作员B")
+        log = AuditLog.objects.filter(
+            record_code="SC001",
+            operation_type="delete",
+            app_label="storage",
+        ).first()
+        assert log is not None
+        assert log.operator_jobcode == "OP002"
+        assert log.operator_name == "操作员B"
+
+    def test_batch_create_records_operator(self):
+        data = [_storage_data(storage_code="BA1", storage_name="BA1")]
+        StorageService.batch_create_storage(data, operator_jobcode="OP003", operator_name="操作员C")
+        log = AuditLog.objects.filter(
+            record_code="BA1",
+            operation_type="create",
+            app_label="storage",
+        ).first()
+        assert log is not None
+        assert log.operator_jobcode == "OP003"
+
+    def test_batch_delete_records_operator(self):
+        StorageService.create_storage(_storage_data(storage_code="BD_A", storage_name="BD_A"))
+        StorageService.batch_delete_storage(["BD_A"], operator_jobcode="OP004", operator_name="操作员D")
+        log = AuditLog.objects.filter(
+            record_code="BD_A",
+            operation_type="delete",
+            app_label="storage",
+        ).first()
+        assert log is not None
+        assert log.operator_jobcode == "OP004"

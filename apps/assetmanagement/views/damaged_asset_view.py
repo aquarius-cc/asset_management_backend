@@ -90,11 +90,8 @@ class DamagedAssetViewSet(
         return DamagedAssetDetailSerializer
 
     def get_queryset(self):
-        # RBAC 行级数据隔离
-        if self.action == "list":
-            return DamagedAssetSelector.get_queryset_for_user(self.request.user)
-        # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
-        return DamagedAsset.objects.with_asset_details().filter(is_deleted=False)
+        # RBAC 行级数据隔离(所有动作统一限权)
+        return DamagedAssetSelector.get_queryset_for_user(self.request.user).with_asset_details()
 
     def destroy(self, request, *args, **kwargs):
         obj = self.get_object()
@@ -179,15 +176,15 @@ class DamagedAssetViewSet(
 
     @action(detail=False, methods=["get"], url_path="by-asset/(?P<asset_recordcode>[^/.]+)")
     def by_asset(self, request, asset_recordcode=None) -> Response:
-        asset = AssetSelector.get_asset_by_code(asset_recordcode)
-        if asset is None:
+        visible = AssetSelector.get_queryset_for_user(request.user).filter(asset_code=asset_recordcode).exists()
+        if not visible:
             return error_response(message=f"资产 {asset_recordcode} 不存在", status_code=404)
-        records = DamagedAssetSelector.get_by_asset_code(asset_recordcode)
+        records = DamagedAssetSelector.get_by_asset_code(asset_recordcode, user=request.user)
         return self._paginate_and_respond(records)
 
     @action(detail=False, methods=["get"])
     def statistics(self, request) -> Response:
-        queryset = self.queryset
+        queryset = self.get_queryset()
         total = queryset.count()
         status_stats = queryset.values("approval_status").annotate(count=Count("id")).order_by("approval_status")
         status_dict = dict(APPROVAL_STATUS_CHOICES)
@@ -205,11 +202,16 @@ class DamagedAssetViewSet(
         serializer = DamagedAssetBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         ids = serializer.validated_data["ids"]
+        operator_jobcode, operator_name = resolve_operator(request.user)
         success_ids = []
         fail_items = []
         for asset_recordcode_code in ids:
             try:
-                DamagedAssetService.cancel_asset_recordcode(asset_recordcode_code)
+                DamagedAssetService.cancel_asset_recordcode(
+                    asset_recordcode_code,
+                    operator_jobcode=operator_jobcode,
+                    operator_name=operator_name,
+                )
                 success_ids.append(asset_recordcode_code)
             except AppValidationError as e:
                 fail_items.append(

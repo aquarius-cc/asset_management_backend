@@ -30,6 +30,7 @@ from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMi
 from core.pagination import CustomPageNumberPagination
 from core.permissions import IsAssetAdminOrAbove
 from utils.response_utils import error_response, success_response
+from utils.user_utils import resolve_operator
 
 from ._export_mixin import ExportExcelMixin
 from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
@@ -105,10 +106,10 @@ class WasteAssetViewSet(
 
     @action(detail=False, methods=["get"], url_path="by-asset/(?P<asset_recordcode>[^/.]+)")
     def by_asset(self, request, asset_recordcode=None) -> Response:
-        asset = AssetSelector.get_asset_by_code(asset_recordcode)
-        if asset is None:
+        visible = AssetSelector.get_queryset_for_user(request.user).filter(asset_code=asset_recordcode).exists()
+        if not visible:
             return error_response(message=f"资产 {asset_recordcode} 不存在", status_code=404)
-        records = WasteAssetSelector.get_by_asset_code(asset_recordcode)
+        records = WasteAssetSelector.get_by_asset_code(asset_recordcode, user=request.user)
         return self._paginate_and_respond(records)
 
     @action(detail=False, methods=["get"])
@@ -116,7 +117,7 @@ class WasteAssetViewSet(
         from django.db.models import Count
         from django.utils import timezone
 
-        queryset = WasteAsset.objects.filter(is_deleted=False)
+        queryset = self.get_queryset()
         total = queryset.count()
         current_year = timezone.now().year
         current_year_count = queryset.filter(waste_asset_date__year=current_year).count()
@@ -167,7 +168,7 @@ class WasteAssetViewSet(
                 end_date = dt.strptime(end_date_str, "%Y-%m-%d").date()
             except ValueError:
                 return error_response(message="结束日期格式错误,应为 YYYY-MM-DD", status_code=400)
-        qs = WasteAsset.objects.with_asset_details().all()
+        qs = self.get_queryset()
         if start_date:
             qs = qs.filter(waste_asset_date__gte=start_date)
         if end_date:
@@ -179,11 +180,16 @@ class WasteAssetViewSet(
         serializer = WasteAssetBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         ids = serializer.validated_data["ids"]
+        operator_jobcode, operator_name = resolve_operator(request.user)
         success_ids = []
         fail_items = []
         for asset_recordcode_code in ids:
             try:
-                WasteAssetService.cancel_waste_asset(asset_recordcode_code)
+                WasteAssetService.cancel_waste_asset(
+                    asset_recordcode_code,
+                    operator_jobcode=operator_jobcode,
+                    operator_name=operator_name,
+                )
                 success_ids.append(asset_recordcode_code)
             except WasteAsset.DoesNotExist:
                 fail_items.append(

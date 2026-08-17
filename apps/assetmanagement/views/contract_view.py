@@ -26,6 +26,7 @@ from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMi
 from core.pagination import CustomPageNumberPagination
 from core.permissions import IsSystemAdmin
 from utils.response_utils import error_response, success_response
+from utils.user_utils import resolve_operator
 
 from ._export_mixin import ExportExcelMixin
 from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
@@ -92,14 +93,24 @@ class ContractViewSet(
 
     def destroy(self, request, *args, **kwargs):
         contract = self.get_object()
-        ContractService.delete_contract(contract.contract_code)
+        operator_jobcode, operator_name = resolve_operator(request.user)
+        ContractService.delete_contract(
+            contract.contract_code,
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+        )
         return success_response(message="删除成功")
 
     @action(detail=False, methods=["post"], url_path="batch-delete")
     def batch_delete(self, request):
         serializer = ContractBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        result = ContractService.batch_delete_contract(serializer.validated_data["ids"])
+        operator_jobcode, operator_name = resolve_operator(request.user)
+        result = ContractService.batch_delete_contract(
+            serializer.validated_data["ids"],
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+        )
         return success_response(
             data={
                 "total": result["total"],
@@ -115,7 +126,12 @@ class ContractViewSet(
     def batch_create(self, request):
         serializer = ContractBatchCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        result = ContractService.batch_create_contract(serializer.validated_data["items"])
+        operator_jobcode, operator_name = resolve_operator(request.user)
+        result = ContractService.batch_create_contract(
+            serializer.validated_data["items"],
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+        )
         return success_response(
             data={
                 "total": result["total"],
@@ -157,7 +173,13 @@ class ContractViewSet(
         if not new_status:
             return error_response(message="请提供结算状态(pending/settled)", status_code=400)
         contract = self.get_object()
-        updated = ContractService.update_settlement_status(contract.contract_code, new_status)
+        operator_jobcode, operator_name = resolve_operator(request.user)
+        updated = ContractService.update_settlement_status(
+            contract.contract_code,
+            new_status,
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+        )
         serializer = ContractDetailSerializer(instance=updated)
         return success_response(data={"contract": serializer.data}, message="结算状态更新成功")
 

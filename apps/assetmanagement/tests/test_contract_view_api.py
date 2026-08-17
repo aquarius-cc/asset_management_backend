@@ -16,6 +16,7 @@ from django.urls import reverse
 from rest_framework import status
 
 from apps.assetmanagement.models import Contract
+from core.models_audit import AuditLog
 
 
 @pytest.fixture
@@ -172,3 +173,47 @@ class TestContractViewSet:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["code"] == 0
         assert "results" in response.data["data"]
+
+
+@pytest.mark.django_db
+class TestContractAuditLogOperator:
+    def test_destroy_records_operator(self, admin_authenticated_client, contract):
+        """删除合同后审计日志应记录操作人"""
+        url = reverse("contracts-detail", kwargs={"recordcode": contract.recordcode})
+        response = admin_authenticated_client.delete(url)
+        assert response.status_code == status.HTTP_200_OK
+        log = AuditLog.objects.filter(
+            record_code=contract.contract_code,
+            operation_type="delete",
+            app_label="contract",
+        ).first()
+        assert log is not None
+        assert log.operator_jobcode is not None
+
+    def test_batch_delete_records_operator(self, admin_authenticated_client, contract):
+        """批量删除合同后审计日志应记录操作人"""
+        url = reverse("contracts-batch-delete")
+        data = {"ids": [contract.contract_code]}
+        response = admin_authenticated_client.post(url, data, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        log = AuditLog.objects.filter(
+            record_code=contract.contract_code,
+            operation_type="delete",
+            app_label="contract",
+        ).first()
+        assert log is not None
+        assert log.operator_jobcode is not None
+
+    def test_update_settlement_status_records_operator(self, admin_authenticated_client, contract):
+        """更新合同状态后审计日志应记录操作人"""
+        url = reverse("contracts-update-settlement-status", kwargs={"recordcode": contract.recordcode})
+        data = {"status": "purchase_finished"}
+        response = admin_authenticated_client.post(url, data, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        log = AuditLog.objects.filter(
+            record_code=contract.contract_code,
+            operation_type="update",
+            app_label="contract",
+        ).first()
+        assert log is not None
+        assert log.operator_jobcode is not None

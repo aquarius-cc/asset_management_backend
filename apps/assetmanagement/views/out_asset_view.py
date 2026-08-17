@@ -233,7 +233,8 @@ class OutAssetViewSet(
         if result["fail_count"] > 0:
             fail_item = result["fail_items"][0]
             return error_response(
-                message=fail_item["error_message"], status_code=400, business_code=fail_item.get("error_code")
+                message=fail_item["error_message"], status_code=400,
+                errors={"error_code": fail_item.get("error_code")},
             )
         return success_response(message="删除成功")
 
@@ -298,7 +299,8 @@ class OutAssetViewSet(
         if result["fail_count"] > 0:
             fail_item = result["fail_items"][0]
             return error_response(
-                message=fail_item["error_message"], status_code=400, business_code=fail_item.get("error_code")
+                message=fail_item["error_message"], status_code=400,
+                errors={"error_code": fail_item.get("error_code")},
             )
         return success_response(message="取消出库成功,资产状态已恢复")
 

@@ -18,6 +18,7 @@ from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMi
 from core.pagination import CustomPageNumberPagination
 from core.permissions import IsSystemAdmin
 from utils.response_utils import success_response
+from utils.user_utils import resolve_operator
 
 from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
 
@@ -59,21 +60,36 @@ class AssetTypeViewSet(
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        asset_type = AssetTypeService.create_asset_type(serializer.validated_data)
+        operator_jobcode, operator_name = resolve_operator(request.user)
+        asset_type = AssetTypeService.create_asset_type(
+            serializer.validated_data,
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+        )
         return success_response(
             data=AssetTypeSerializer(asset_type).data, message="创建成功", status_code=status.HTTP_201_CREATED
         )
 
     def destroy(self, request, *args, **kwargs):
         asset_type = self.get_object()
-        AssetTypeService.delete_asset_type(asset_type.type_code)
+        operator_jobcode, operator_name = resolve_operator(request.user)
+        AssetTypeService.delete_asset_type(
+            asset_type.type_code,
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+        )
         return success_response(message="删除成功")
 
     @action(detail=False, methods=["post"], url_path="batch-delete")
     def batch_delete(self, request):
         serializer = AssetTypeBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        result = AssetTypeService.batch_delete_asset_type(serializer.validated_data["ids"])
+        operator_jobcode, operator_name = resolve_operator(request.user)
+        result = AssetTypeService.batch_delete_asset_type(
+            serializer.validated_data["ids"],
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+        )
         return success_response(
             data={
                 "total": result["total"],
@@ -89,7 +105,12 @@ class AssetTypeViewSet(
     def batch_create(self, request):
         serializer = AssetTypeBatchCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        result = AssetTypeService.batch_create_asset_type(serializer.validated_data["items"])
+        operator_jobcode, operator_name = resolve_operator(request.user)
+        result = AssetTypeService.batch_create_asset_type(
+            serializer.validated_data["items"],
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+        )
         return success_response(
             data={
                 "total": result["total"],

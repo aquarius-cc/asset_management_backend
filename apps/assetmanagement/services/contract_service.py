@@ -28,12 +28,18 @@ class ContractService:
 
     @staticmethod
     @transaction.atomic
-    def create_contract(contract_data: dict[str, Any]) -> Contract:
+    def create_contract(
+        contract_data: dict[str, Any],
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+    ) -> Contract:
         """
         创建单个合同
 
         Args:
             contract_data: 合同数据字典
+            operator_jobcode: 操作人工号
+            operator_name: 操作人姓名
 
         Returns:
             Contract: 创建成功的合同实例
@@ -57,6 +63,8 @@ class ContractService:
                 "contract_name": contract.contract_name,
                 "contract_type": contract.contract_type,
             },
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
         )
 
         return contract
@@ -105,13 +113,20 @@ class ContractService:
 
     @staticmethod
     @transaction.atomic
-    def update_settlement_status(contract_code: str, status: str) -> Contract:
+    def update_settlement_status(
+        contract_code: str,
+        status: str,
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+    ) -> Contract:
         """
         更新合同状态
 
         Args:
             contract_code: 合同编码
             status: 合同状态
+            operator_jobcode: 操作人工号
+            operator_name: 操作人姓名
 
         Returns:
             Contract: 更新后的合同实例
@@ -137,6 +152,8 @@ class ContractService:
             description=f"更新合同状态: {contract.contract_name}",
             before_data={"contract_status": before_status},
             after_data={"contract_status": status},
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
         )
 
         return contract
@@ -148,12 +165,18 @@ class ContractService:
 
     @staticmethod
     @transaction.atomic
-    def delete_contract(contract_code: str) -> None:
+    def delete_contract(
+        contract_code: str,
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+    ) -> None:
         """
         删除合同(软删除)
 
         Args:
             contract_code: 合同编码
+            operator_jobcode: 操作人工号
+            operator_name: 操作人姓名
         """
         contract = ContractSelector.get_contract_by_code(contract_code)
         if not contract or contract.is_deleted:
@@ -173,6 +196,8 @@ class ContractService:
                 "contract_code": contract.contract_code,
                 "contract_name": contract.contract_name,
             },
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
         )
 
         contract.delete()
@@ -180,6 +205,8 @@ class ContractService:
     @staticmethod
     def batch_create_contract(
         contract_data_list: list[dict[str, Any]],
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
     ) -> dict[str, Any]:
         """
         【新增】批量创建合同(逐条独立执行,返回详细结果)
@@ -203,6 +230,8 @@ class ContractService:
             try:
                 result = ContractService.create_contract(
                     copy.deepcopy(contract_data),
+                    operator_jobcode=operator_jobcode,
+                    operator_name=operator_name,
                 )
                 success_items.append(result)
             except AppValidationError as e:
@@ -235,13 +264,21 @@ class ContractService:
         }
 
     @staticmethod
-    def batch_delete_contract(contract_codes: list[str]) -> dict[str, Any]:
+    def batch_delete_contract(
+        contract_codes: list[str],
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+    ) -> dict[str, Any]:
         """
         批量删除合同(软删除,逐条独立执行)
         """
 
         def _delete_item(contract_code: str) -> None:
-            ContractService.delete_contract(contract_code)
+            ContractService.delete_contract(
+                contract_code,
+                operator_jobcode=operator_jobcode,
+                operator_name=operator_name,
+            )
 
         return BatchOperationMixin.batch_delete_execute(
             ids=contract_codes,

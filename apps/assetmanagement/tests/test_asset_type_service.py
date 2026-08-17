@@ -7,6 +7,7 @@ import pytest
 from apps.assetmanagement.models import AssetType
 from apps.assetmanagement.services.asset_type_service import AssetTypeService
 from core.exceptions import AppValidationError
+from core.models_audit import AuditLog
 
 
 @pytest.mark.django_db
@@ -162,3 +163,53 @@ class TestBatchDeleteAssetType:
         result = AssetTypeService.batch_delete_asset_type(["BD3", "NOPE"])
         assert result["success_count"] == 1
         assert result["fail_count"] == 1
+
+
+@pytest.mark.django_db
+class TestAssetTypeAuditLogOperator:
+    def test_create_records_operator(self):
+        AssetTypeService.create_asset_type(
+            {"type_code": "AUDIT1", "type_name": "审计测试1"},
+            operator_jobcode="OP10",
+            operator_name="审计员A",
+        )
+        log = AuditLog.objects.filter(
+            record_code__isnull=False,
+            operation_type="create",
+            app_label="asset_type",
+        ).first()
+        assert log is not None
+        assert log.operator_jobcode == "OP10"
+        assert log.operator_name == "审计员A"
+
+    def test_delete_records_operator(self):
+        at = AssetTypeService.create_asset_type({"type_code": "AUDIT2", "type_name": "审计测试2"})
+        AssetTypeService.delete_asset_type("AUDIT2", operator_jobcode="OP11", operator_name="审计员B")
+        log = AuditLog.objects.filter(
+            record_code=at.recordcode,
+            operation_type="delete",
+            app_label="asset_type",
+        ).first()
+        assert log is not None
+        assert log.operator_jobcode == "OP11"
+        assert log.operator_name == "审计员B"
+
+    def test_batch_create_records_operator(self):
+        data = [{"type_code": "AUDIT_B1", "type_name": "批量审计1"}]
+        AssetTypeService.batch_create_asset_type(data, operator_jobcode="OP12", operator_name="审计员C")
+        log = AuditLog.objects.filter(
+            operation_type="create",
+            app_label="asset_type",
+            operator_jobcode="OP12",
+        ).first()
+        assert log is not None
+
+    def test_batch_delete_records_operator(self):
+        _ = AssetTypeService.create_asset_type({"type_code": "AUDIT_BD", "type_name": "批量删除审计"})
+        AssetTypeService.batch_delete_asset_type(["AUDIT_BD"], operator_jobcode="OP13", operator_name="审计员D")
+        log = AuditLog.objects.filter(
+            operation_type="delete",
+            app_label="asset_type",
+            operator_jobcode="OP13",
+        ).first()
+        assert log is not None

@@ -25,12 +25,18 @@ class StorageService:
 
     @staticmethod
     @transaction.atomic
-    def create_storage(storage_data: dict[str, Any]) -> Storage:
+    def create_storage(
+        storage_data: dict[str, Any],
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+    ) -> Storage:
         """
         创建单个仓库
 
         Args:
             storage_data: 仓库数据字典
+            operator_jobcode: 操作人工号
+            operator_name: 操作人姓名
 
         Returns:
             Storage: 创建成功的仓库实例
@@ -58,18 +64,26 @@ class StorageService:
                 "storage_name": storage.storage_name,
                 "storage_type": storage.storage_type,
             },
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
         )
 
         return storage
 
     @staticmethod
     @transaction.atomic
-    def delete_storage(storage_code: str) -> None:
+    def delete_storage(
+        storage_code: str,
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+    ) -> None:
         """
         删除仓库(软删除)
 
         Args:
             storage_code: 仓库编码
+            operator_jobcode: 操作人工号
+            operator_name: 操作人姓名
 
         Raises:
             AppValidationError: 仓库不存在或存在关联资产时抛出
@@ -89,6 +103,8 @@ class StorageService:
                 "storage_code": storage.storage_code,
                 "storage_name": storage.storage_name,
             },
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
         )
 
         storage.delete()
@@ -96,6 +112,8 @@ class StorageService:
     @staticmethod
     def batch_create_storage(
         storage_data_list: list[dict[str, Any]],
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
     ) -> dict[str, Any]:
         """
         【新增】批量创建仓库(逐条独立执行,返回详细结果)
@@ -122,6 +140,8 @@ class StorageService:
             try:
                 result = StorageService.create_storage(
                     copy.deepcopy(storage_data),
+                    operator_jobcode=operator_jobcode,
+                    operator_name=operator_name,
                 )
                 success_items.append(result)
             except AppValidationError as e:
@@ -154,7 +174,11 @@ class StorageService:
         }
 
     @staticmethod
-    def batch_delete_storage(storage_codes: list[str]) -> dict[str, Any]:
+    def batch_delete_storage(
+        storage_codes: list[str],
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+    ) -> dict[str, Any]:
         """
         批量删除仓库(软删除,逐条独立执行)
 
@@ -162,7 +186,11 @@ class StorageService:
         """
 
         def _delete_item(storage_code: str) -> None:
-            StorageService.delete_storage(storage_code)
+            StorageService.delete_storage(
+                storage_code,
+                operator_jobcode=operator_jobcode,
+                operator_name=operator_name,
+            )
 
         return BatchOperationMixin.batch_delete_execute(
             ids=storage_codes,

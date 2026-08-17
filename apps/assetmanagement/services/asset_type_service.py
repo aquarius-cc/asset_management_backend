@@ -34,12 +34,18 @@ class AssetTypeService:
 
     @staticmethod
     @transaction.atomic
-    def create_asset_type(asset_type_data: dict[str, Any]) -> AssetType:
+    def create_asset_type(
+        asset_type_data: dict[str, Any],
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+    ) -> AssetType:
         """
         创建单个资产类型
 
         Args:
             asset_type_data: 资产类型数据,支持 parent_type_code(业务编码)或 parent(recordcode)
+            operator_jobcode: 操作人工号
+            operator_name: 操作人姓名
 
         Returns:
             AssetType: 创建成功的资产类型实例
@@ -97,18 +103,26 @@ class AssetTypeService:
                 "type_name": asset_type.type_name,
                 "level": asset_type.level,
             },
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
         )
 
         return asset_type
 
     @staticmethod
     @transaction.atomic
-    def delete_asset_type(type_code: str) -> None:
+    def delete_asset_type(
+        type_code: str,
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+    ) -> None:
         """
         删除资产类型(软删除)
 
         Args:
             type_code: 资产类型编码
+            operator_jobcode: 操作人工号
+            operator_name: 操作人姓名
 
         Raises:
             AppValidationError: 资产类型不存在或存在关联资产时抛出
@@ -128,6 +142,8 @@ class AssetTypeService:
                 "type_code": asset_type.type_code,
                 "type_name": asset_type.type_name,
             },
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
         )
 
         asset_type.delete()
@@ -135,6 +151,8 @@ class AssetTypeService:
     @staticmethod
     def batch_create_asset_type(
         asset_type_data_list: list[dict[str, Any]],
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
     ) -> dict[str, Any]:
         """
         批量创建资产类型(逐条独立执行,返回详细结果)
@@ -154,6 +172,8 @@ class AssetTypeService:
             try:
                 result = AssetTypeService.create_asset_type(
                     copy.deepcopy(asset_type_data),
+                    operator_jobcode=operator_jobcode,
+                    operator_name=operator_name,
                 )
                 success_items.append(result)
             except AppValidationError as e:
@@ -186,13 +206,21 @@ class AssetTypeService:
         }
 
     @staticmethod
-    def batch_delete_asset_type(asset_type_codes: list[str]) -> dict[str, Any]:
+    def batch_delete_asset_type(
+        asset_type_codes: list[str],
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+    ) -> dict[str, Any]:
         """
         批量删除资产类型(软删除,逐条独立执行)
         """
 
         def _delete_item(asset_type_code: str) -> None:
-            AssetTypeService.delete_asset_type(asset_type_code)
+            AssetTypeService.delete_asset_type(
+                asset_type_code,
+                operator_jobcode=operator_jobcode,
+                operator_name=operator_name,
+            )
 
         return BatchOperationMixin.batch_delete_execute(
             ids=asset_type_codes,

@@ -37,7 +37,7 @@ class DashboardViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ViewSet):
             limit = min(int(request.query_params.get("limit", 10) or 10), 100)
         except (ValueError, TypeError):
             limit = 10
-        result = DashboardSelector.get_recent_recycle_assets(limit=limit)
+        result = DashboardSelector.get_recent_out_assets(limit=limit)
         return success_response(data=result)
 
     @action(detail=False, methods=["get"], url_path="recent_recycle_assets")

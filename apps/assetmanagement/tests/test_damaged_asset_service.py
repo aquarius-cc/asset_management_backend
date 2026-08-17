@@ -33,6 +33,25 @@ def asset_in_use(db, storage, asset_type, user):
 
 
 @pytest.fixture
+def asset_recycled_pending(db, storage, asset_type, user):
+    """创建处于 recycled_pending 状态的资产(可申请报废)"""
+    asset = Asset.objects.create(
+        asset_code="A_DMG_RP",
+        asset_name="待报废测试",
+        asset_purchase_price=3000.00,
+        asset_purchase_date="2024-01-01",
+        asset_entry_date="2024-01-15",
+        asset_storage_recordcode=storage,
+        asset_type_recordcode=asset_type,
+        asset_current_status="recycled_pending",
+    )
+    asset.asset_applicant_recordcode = user
+    asset.asset_manager_recordcode = user
+    asset.save(update_fields=["asset_applicant_recordcode", "asset_manager_recordcode"])
+    return asset
+
+
+@pytest.fixture
 def asset_damaged(db, storage, asset_type, user):
     """创建处于 damaged 状态的资产"""
     asset = Asset.objects.create(
@@ -63,8 +82,8 @@ def pending_damaged(db, asset_in_use):
 
 @pytest.mark.django_db
 class TestCreateDamagedAsset:
-    def test_create_success(self, asset_in_use):
-        data = {"asset_recordcode": asset_in_use, "damaged_asset_number": 1}
+    def test_create_success(self, asset_recycled_pending):
+        data = {"asset_recordcode": asset_recycled_pending, "damaged_asset_number": 1}
         result = DamagedAssetService.create_damaged_asset(data)
         assert result.pk is not None
         assert result.approval_status == "pending"
@@ -74,21 +93,27 @@ class TestCreateDamagedAsset:
             DamagedAssetService.create_damaged_asset({})
         assert exc_info.value.error_code == "MISSING_ASSET_CODE"
 
-    def test_create_duplicate_record_raises(self, asset_in_use):
-        DamagedAssetService.create_damaged_asset({"asset_recordcode": asset_in_use, "damaged_asset_number": 1})
+    def test_create_duplicate_record_raises(self, asset_recycled_pending):
+        DamagedAssetService.create_damaged_asset({"asset_recordcode": asset_recycled_pending, "damaged_asset_number": 1})
         with pytest.raises(AppValidationError) as exc_info:
-            DamagedAssetService.create_damaged_asset({"asset_recordcode": asset_in_use, "damaged_asset_number": 1})
+            DamagedAssetService.create_damaged_asset({"asset_recordcode": asset_recycled_pending, "damaged_asset_number": 1})
         assert exc_info.value.error_code == "DUPLICATE_DAMAGED_RECORD"
 
-    def test_create_populates_original_status(self, asset_in_use):
+    def test_create_populates_original_status(self, asset_recycled_pending):
         """创建时应自动记录申请前状态(审批拒绝回退依据,业务约束 §三.5)"""
         result = DamagedAssetService.create_damaged_asset(
-            {"asset_recordcode": asset_in_use, "damaged_asset_number": 1}
+            {"asset_recordcode": asset_recycled_pending, "damaged_asset_number": 1}
         )
         result.refresh_from_db()
-        assert result.original_status == "in_use"
-        asset_in_use.refresh_from_db()
-        assert asset_in_use.asset_current_status == "damaged"
+        assert result.original_status == "recycled_pending"
+        asset_recycled_pending.refresh_from_db()
+        assert asset_recycled_pending.asset_current_status == "damaged"
+
+    def test_create_in_use_asset_raises(self, asset_in_use):
+        """in_use 资产不允许直接申请报废(须先回收),应抛出 InvalidTransitionError"""
+        with pytest.raises(AppValidationError) as exc_info:
+            DamagedAssetService.create_damaged_asset({"asset_recordcode": asset_in_use, "damaged_asset_number": 1})
+        assert exc_info.value.error_code == "INVALID_STATE_TRANSITION"
 
 
 @pytest.mark.django_db

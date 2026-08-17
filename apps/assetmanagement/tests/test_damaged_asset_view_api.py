@@ -44,9 +44,9 @@ class TestDamagedAssetViewSet:
         assert len(response.data["data"]["results"]) == 1
 
     def test_create_damaged_asset(self, admin_authenticated_client, asset, employee):
-        """测试创建待报废资产(资产需处于 in_use 或 recycled_pending 状态)"""
-        # 将资产从 in_store 转为 in_use,以满足 damaged() FSM 要求
-        asset.asset_current_status = "in_use"
+        """测试创建待报废资产(资产需处于 recycled_pending/broken/repairing/lost 状态)"""
+        # 将资产从 in_store 转为 recycled_pending,以满足 damaged() FSM 要求
+        asset.asset_current_status = "recycled_pending"
         asset.save(update_fields=["asset_current_status"])
 
         url = reverse("damaged-assets-list")

@@ -42,7 +42,7 @@ class DamagedAssetService:
 
         damaged_asset = DamagedAsset.objects.create(**damaged_data)
 
-        # 触发 FSM 状态流转: (in_use|recycled_pending|broken|repairing|lost) → damaged
+        # 触发 FSM 状态流转: (recycled_pending|broken|repairing|lost) → damaged
         asset = Asset.objects.select_for_update().get(pk=asset.pk)
         old_status = asset.asset_current_status
         # 记录申请前状态(审批拒绝时回退依据,业务约束 §三.5;服务端权威,不信任客户端传值)

@@ -150,12 +150,12 @@ class AssetFSM:
             AssetState.BROKEN: "mark_broken",
             AssetState.LOST: "mark_lost",
         },
-        # 在用 → 待发放(回收)、已损坏、已遗失、待报废
+        # 在用 → 待发放(回收)、已损坏、已遗失
+        # 【业务决策】in_use 不允许直接申请报废,须先回收(recycle → recycled_pending)再申请报废
         AssetState.IN_USE: {
             AssetState.RECYCLED_PENDING: "recycle",
             AssetState.BROKEN: "mark_broken",
             AssetState.LOST: "mark_lost",
-            AssetState.DAMAGED: "to_damaged",
         },
         # 待发放 → 在用(再次出库)、已损坏、已遗失、待报废
         AssetState.RECYCLED_PENDING: {
@@ -330,9 +330,9 @@ class AssetFSM:
     @classmethod
     def damaged(cls, asset: "Asset") -> None:
         """
-        申请报废: (in_use | recycled_pending) → damaged
-        资产从在用或待发放状态转为待报废状态。
-        支持使用中和待发放两种场景的报废申请。
+        申请报废: (recycled_pending | broken | repairing | lost) → damaged
+        资产转为待报废状态。
+        【业务决策】in_use 不允许直接申请报废,须先回收再申请。
         触发时机: 创建待报废记录(DamagedAsset)后,由 DamagedAssetService 调用。
         Args:
             asset: 资产实例

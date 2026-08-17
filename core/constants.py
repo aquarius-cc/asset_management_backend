@@ -5,7 +5,6 @@
 提供项目中使用的所有常量定义:
 - 资产相关状态常量
 - 用户和部门状态常量
-- 错误码定义
 - 分页配置
 """
 
@@ -100,31 +99,6 @@ HARDDISK_STATUS_CHOICES: list[tuple[str, str]] = [
     ("lost", "丢失"),
     ("damaged", "损坏"),
 ]
-
-# ============================
-# 错误码常量
-# ============================
-ERROR_CODES: dict[str, str] = {
-    # 通用错误码
-    "VALIDATION_ERROR": "E001",
-    "NOT_FOUND": "E002",
-    "PERMISSION_DENIED": "E003",
-    "BUSINESS_LOGIC_ERROR": "E004",
-    "RESOURCE_CONFLICT": "E005",
-    "INTERNAL_ERROR": "E006",
-    # 资产出库业务错误码(2xxx)
-    "ILLEGAL_OUTASSET": "2001",  # 非法出库
-    "ASSET_ALREADY_IN_USE": "2002",  # 资产已被领用
-    "ASSET_ALREADY_REGISTERED": "2003",  # 资产已登记
-    # 部门管理业务错误码(3xxx)
-    "DEPT_PERMISSION_DENIED": "3002",  # 部门操作权限不足
-    "SUPERUSER_CANNOT_DELETE": "3003",  # 超级管理员不可删除
-    # 部门关联业务错误码(4xxx)
-    "DEPT_HAS_EMPLOYEES": "4002",  # 部门下存在员工
-    "DEPT_HAS_ASSETS": "4003",  # 部门下存在资产
-    # 系统错误码(5xxx)
-    "DATABASE_ERROR": "5001",  # 数据库操作失败
-}
 
 # ============================
 # 分页配置

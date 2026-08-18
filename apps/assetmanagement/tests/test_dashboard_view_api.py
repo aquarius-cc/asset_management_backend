@@ -45,6 +45,20 @@ class TestDashboardTrend:
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data["data"]) >= 300
 
+    def test_trend_date_range(self, authenticated_client, asset):
+        url = reverse("dashboard-trend")
+        response = authenticated_client.get(url, {"start_date": "2026-01-01", "end_date": "2026-01-10"})
+        assert response.status_code == status.HTTP_200_OK
+        assert isinstance(response.data["data"], list)
+        assert len(response.data["data"]) == 10
+
+    def test_trend_date_range_fallback_to_days(self, authenticated_client, asset):
+        """不传 start_date/end_date 时回退到 days 模式"""
+        url = reverse("dashboard-trend")
+        response = authenticated_client.get(url, {"days": 5})
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["data"]) >= 5
+
 
 @pytest.mark.django_db
 class TestDashboardDepartmentDistribution:

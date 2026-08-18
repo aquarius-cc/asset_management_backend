@@ -121,6 +121,22 @@ class AssetSelector:
             return None
 
     @staticmethod
+    def get_asset_for_public_scan(recordcode: str) -> Asset | None:
+        """公开扫码查询:按 recordcode 获取资产,预加载类型/仓库/保管人。
+
+        与 get_asset_by_recordcode 的区别:本方法带 select_related,
+        用于 public_scan_view 等需要关联数据的只读场景。
+        """
+        try:
+            return Asset.objects.select_related(
+                "asset_type_recordcode",
+                "asset_storage_recordcode",
+                "asset_manager_recordcode",
+            ).get(recordcode=recordcode, is_deleted=False)
+        except Asset.DoesNotExist:
+            return None
+
+    @staticmethod
     def get_asset_detail_by_code(asset_code: str) -> Asset | None:
         try:
             return Asset.objects.select_related(
@@ -287,9 +303,8 @@ class AssetSelector:
     def get_operation_logs_for_asset(asset: Asset, limit: int = 50) -> QuerySet[AssetOperationLog]:
         """获取资产的操作日志"""
         return (
-            AssetOperationLog.objects.filter(asset_recordcode=asset)
-            .select_related("operator_employee")
-            .order_by("-created_at")[:limit]
+            AssetOperationLog.objects.filter(asset_code=asset.asset_code)
+            .order_by("-operation_time")[:limit]
         )
 
 

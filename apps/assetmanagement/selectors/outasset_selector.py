@@ -185,8 +185,8 @@ class OutAssetSelector:
             return None
 
     @staticmethod
-    def get_outassets_by_applicant(applicant_jobcode: str) -> QuerySet[OutAsset]:
-        return (
+    def get_outassets_by_applicant(applicant_jobcode: str, user=None) -> QuerySet[OutAsset]:
+        qs = (
             OutAsset.objects.filter(
                 asset_recordcode__asset_applicant_recordcode__employee_jobcode=applicant_jobcode,
                 is_deleted=False,
@@ -194,14 +194,20 @@ class OutAssetSelector:
             .with_asset_details()
             .order_by("-outasset_date")
         )
+        if user:
+            qs = get_asset_linked_queryset_for_user(user, qs)
+        return qs
 
     @staticmethod
-    def get_outassets_by_asset(asset_code: str) -> QuerySet[OutAsset]:
-        return (
+    def get_outassets_by_asset(asset_code: str, user=None) -> QuerySet[OutAsset]:
+        qs = (
             OutAsset.objects.filter(asset_recordcode__asset_code=asset_code, is_deleted=False)
             .with_asset_details()
             .order_by("-outasset_date")
         )
+        if user:
+            qs = get_asset_linked_queryset_for_user(user, qs)
+        return qs
 
     @staticmethod
     def get_outassets_by_status(status: str) -> QuerySet[OutAsset]:
@@ -277,21 +283,25 @@ class RecycleAssetSelector:
         return RecycleAsset.objects.filter(outasset_recordcode__recordcode=recordcode, is_deleted=False).exists()
 
     @staticmethod
-    def get_by_asset_code(asset_code: str) -> QuerySet[RecycleAsset]:
+    def get_by_asset_code(asset_code: str, user=None) -> QuerySet[RecycleAsset]:
         # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
-        return RecycleAsset.objects.filter(
+        qs = RecycleAsset.objects.filter(
             asset_recordcode__asset_code=asset_code, is_deleted=False
         ).with_asset_details()
+        if user:
+            qs = get_asset_linked_queryset_for_user(user, qs)
+        return qs
 
     @staticmethod
-    def get_by_outasset_recordcode(outasset_recordcode: str) -> RecycleAsset | None:
+    def get_by_outasset_recordcode(outasset_recordcode: str, user=None) -> RecycleAsset | None:
         """按出库记录编码查询回收记录"""
         # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
-        return (
-            RecycleAsset.objects.filter(outasset_recordcode__recordcode=outasset_recordcode, is_deleted=False)
-            .with_asset_details()
-            .first()
-        )
+        qs = RecycleAsset.objects.filter(
+            outasset_recordcode__recordcode=outasset_recordcode, is_deleted=False
+        ).with_asset_details()
+        if user:
+            qs = get_asset_linked_queryset_for_user(user, qs)
+        return qs.first()
 
 
 class DamagedAssetSelector:
@@ -344,8 +354,8 @@ class DamagedAssetSelector:
         return DamagedAsset.objects.filter(asset_recordcode__asset_code=asset_code, is_deleted=False).exists()
 
     @staticmethod
-    def get_by_asset_code(asset_code: str) -> QuerySet[DamagedAsset]:
-        return DamagedAsset.objects.filter(asset_recordcode__asset_code=asset_code, is_deleted=False).select_related(
+    def get_by_asset_code(asset_code: str, user=None) -> QuerySet[DamagedAsset]:
+        qs = DamagedAsset.objects.filter(asset_recordcode__asset_code=asset_code, is_deleted=False).select_related(
             "asset_recordcode",
             "asset_recordcode__asset_type_recordcode",
             "asset_recordcode__asset_contract_recordcode",
@@ -353,6 +363,9 @@ class DamagedAssetSelector:
             "asset_recordcode__asset_manager_recordcode",
             "approver",
         )
+        if user:
+            qs = get_asset_linked_queryset_for_user(user, qs)
+        return qs
 
 
 class WasteAssetSelector:
@@ -378,9 +391,12 @@ class WasteAssetSelector:
             return None
 
     @staticmethod
-    def get_by_asset_code(asset_code: str) -> QuerySet[WasteAsset]:
+    def get_by_asset_code(asset_code: str, user=None) -> QuerySet[WasteAsset]:
         # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
-        return WasteAsset.objects.filter(asset_recordcode__asset_code=asset_code, is_deleted=False).with_asset_details()
+        qs = WasteAsset.objects.filter(asset_recordcode__asset_code=asset_code, is_deleted=False).with_asset_details()
+        if user:
+            qs = get_asset_linked_queryset_for_user(user, qs)
+        return qs
 
 
 class BrokenAssetSelector:

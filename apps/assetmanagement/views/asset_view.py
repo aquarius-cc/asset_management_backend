@@ -10,7 +10,7 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
-from rest_framework.response import Response
+from rest_framework.response import Response  # noqa: F401 — used in -> Response annotations
 
 from apps.assetmanagement.models import Asset
 from apps.assetmanagement.selectors import AssetSelector
@@ -48,11 +48,7 @@ class AssetViewSet(
     ResponseWrapperMixin,
     viewsets.ModelViewSet,
 ):
-    queryset = (
-        Asset.objects.select_related("asset_type_recordcode", "asset_contract_recordcode", "asset_storage_recordcode")
-        .prefetch_related("harddisk_sns")
-        .all()
-    )
+    queryset = AssetSelector.get_assets_with_all_relations()
     pagination_class = CustomPageNumberPagination
     lookup_field = "recordcode"
     admin_actions = [
@@ -475,11 +471,11 @@ class AssetViewSet(
         """GET /assets/{recordcode}/logs/ — 获取资产状态变更日志"""
         asset = self.get_object()
         from apps.assetmanagement.selectors import AssetSelector
-        from apps.assetmanagement.serializers import AssetOperationLogListSerializer
+        from apps.assetmanagement.serializers import AssetOperationLogSerializer
         from utils.response_utils import success_response
 
         logs = AssetSelector.get_operation_logs_for_asset(asset)
-        return success_response(data=AssetOperationLogListSerializer(logs, many=True).data)
+        return success_response(data=AssetOperationLogSerializer(logs, many=True).data)
 
     @action(detail=True, methods=["get"], url_path="qr-code-image", permission_classes=[permissions.IsAuthenticated])
     def qr_code_image(self, request, recordcode=None):

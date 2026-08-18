@@ -208,17 +208,65 @@ class DashboardSelector:
 
     @staticmethod
     def get_overview_statistics() -> dict[str, Any]:
-        """获取仪表盘概览统计(资产+合同+在用资产)"""
+        """获取仪表盘概览统计 — 资产 + 合同 + 状态分布 + 月度/累计操作数"""
+        from django.utils import timezone
+
+        from apps.assetmanagement.models import OutAsset, RecycleAsset
+
+        now = timezone.now()
+
         asset_stats = Asset.objects.filter(is_deleted=False).aggregate(
             total=Count("id"), total_value=Sum("asset_purchase_price")
         )
         contract_stats = Contract.objects.filter(is_deleted=False).aggregate(total=Count("id"))
-        active_assets = Asset.objects.filter(is_deleted=False, asset_current_status="in_use").count()
+
+        # 按状态分组（一次查询覆盖全部 8 种状态）
+        status_counts = dict(
+            Asset.objects.filter(is_deleted=False)
+            .values_list("asset_current_status")
+            .annotate(count=Count("id"))
+            .values_list("asset_current_status", "count")
+        )
+
+        STATUS_LABELS = {
+            "in_store": "在库",
+            "in_use": "在用",
+            "recycled_pending": "已回收待发放",
+            "broken": "已损坏",
+            "repairing": "维修中",
+            "lost": "已遗失",
+            "damaged": "待报废",
+            "scrapped": "已报废",
+        }
+        status_distribution = {
+            code: {"name": label, "count": status_counts.get(code, 0)}
+            for code, label in STATUS_LABELS.items()
+        }
+
+        # 月度 / 累计操作数
+        monthly_distributed = OutAsset.objects.filter(
+            is_deleted=False, outasset_date__year=now.year, outasset_date__month=now.month
+        ).count()
+        monthly_recycled = RecycleAsset.objects.filter(
+            is_deleted=False, recycle_asset_date__year=now.year, recycle_asset_date__month=now.month
+        ).count()
+        total_distributed = OutAsset.objects.filter(is_deleted=False).count()
+        total_recycled = RecycleAsset.objects.filter(is_deleted=False).count()
+
         return {
             "total_assets": asset_stats["total"] or 0,
             "total_value": asset_stats["total_value"] or 0,
             "total_contracts": contract_stats["total"] or 0,
-            "active_assets": active_assets,
+            "active_assets": status_counts.get("in_use", 0),
+            "in_stock_assets": status_counts.get("in_store", 0),
+            "monthly_distributed": monthly_distributed,
+            "monthly_recycled": monthly_recycled,
+            "pending_waste": status_counts.get("damaged", 0),
+            "wasted_assets": status_counts.get("scrapped", 0),
+            "total_recycled": total_recycled,
+            "total_distributed": total_distributed,
+            "status_distribution": status_distribution,
+            "timestamp": now.isoformat(),
         }
 
     @staticmethod
@@ -228,16 +276,32 @@ class DashboardSelector:
 
         outassets = (
             OutAsset.objects.filter(is_deleted=False)
-            .select_related("asset_recordcode", "asset_recordcode__asset_applicant_recordcode")
+            .select_related(
+                "asset_recordcode",
+                "outasset_applicant_recordcode",
+                "outasset_applicant_recordcode__employee_department",
+            )
             .order_by("-outasset_date")[:limit]
         )
         return [
             {
+                "id": oa.pk,
                 "recordcode": oa.recordcode,
                 "asset_code": oa.asset_recordcode.asset_code if oa.asset_recordcode else None,
                 "asset_name": oa.asset_recordcode.asset_name if oa.asset_recordcode else None,
                 "outasset_date": oa.outasset_date,
                 "outasset_type": oa.outasset_type,
+                "recipient_name": (
+                    oa.outasset_applicant_recordcode.employee_name
+                    if oa.outasset_applicant_recordcode
+                    else None
+                ),
+                "department_name": (
+                    oa.outasset_applicant_recordcode.employee_department.department_name
+                    if oa.outasset_applicant_recordcode
+                    and oa.outasset_applicant_recordcode.employee_department
+                    else None
+                ),
             }
             for oa in outassets
         ]
@@ -249,37 +313,63 @@ class DashboardSelector:
 
         recycles = (
             RecycleAsset.objects.filter(is_deleted=False)
-            .select_related("asset_recordcode", "outasset_recordcode")
+            .select_related(
+                "asset_recordcode",
+                "outasset_recordcode",
+                "operator_employee",
+                "operator_employee__employee_department",
+            )
             .order_by("-recycle_asset_date")[:limit]
         )
         return [
             {
+                "id": r.pk,
                 "recordcode": r.recordcode,
                 "asset_code": r.asset_recordcode.asset_code if r.asset_recordcode else None,
                 "asset_name": r.asset_recordcode.asset_name if r.asset_recordcode else None,
                 "recycle_asset_date": r.recycle_asset_date,
+                "returner_name": (
+                    r.operator_employee.employee_name if r.operator_employee else None
+                ),
+                "department_name": (
+                    r.operator_employee.employee_department.department_name
+                    if r.operator_employee and r.operator_employee.employee_department
+                    else None
+                ),
             }
             for r in recycles
         ]
 
     @staticmethod
-    def get_asset_trend(days: int = 30) -> list[dict[str, Any]]:
+    def get_asset_trend(
+        days: int = 30,
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> list[dict[str, Any]]:
         """获取资产趋势数据(按日统计)
+
+        支持两种模式：
+        1. 日期范围模式：传入 start_date/end_date (YYYY-MM-DD)，返回该范围内每日数据
+        2. 天数模式：传入 days，返回最近 N 天数据（默认）
 
         返回格式对齐前端 types/dashboard.ts AssetTrendData：
         [{"date": "YYYY-MM-DD", "new_assets": N, "distributed": 0, "recovered": 0, "scrapped": 0}]
         注：distributed/recovered/scrapped 暂无独立数据源，填 0 占位。
         """
-        from datetime import timedelta
+        from datetime import date, timedelta
 
         from django.db.models.functions import TruncDate
         from django.utils import timezone
 
-        end_date = timezone.now().date()
-        start_date = end_date - timedelta(days=days)
+        if start_date and end_date:
+            range_start = date.fromisoformat(start_date)
+            range_end = date.fromisoformat(end_date)
+        else:
+            range_end = timezone.now().date()
+            range_start = range_end - timedelta(days=days)
 
         daily_creates = (
-            Asset.objects.filter(is_deleted=False, created_at__date__gte=start_date, created_at__date__lte=end_date)
+            Asset.objects.filter(is_deleted=False, created_at__date__gte=range_start, created_at__date__lte=range_end)
             .annotate(date=TruncDate("created_at"))
             .values("date")
             .annotate(count=Count("id"))
@@ -289,8 +379,8 @@ class DashboardSelector:
         create_map = {item["date"].isoformat(): item["count"] for item in daily_creates}
 
         trend_data = []
-        current_date = start_date
-        while current_date <= end_date:
+        current_date = range_start
+        while current_date <= range_end:
             date_str = current_date.isoformat()
             trend_data.append(
                 {

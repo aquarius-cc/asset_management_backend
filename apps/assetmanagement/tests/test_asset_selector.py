@@ -237,3 +237,23 @@ class TestAssetTypeSelector:
         """获取不存在类型的路径"""
         path = AssetTypeSelector.get_type_path("NOTEXIST")
         assert len(path) == 0
+
+
+@pytest.mark.django_db
+class TestAssetSelectorPublicScan:
+    def test_get_asset_for_public_scan_found(self, asset):
+        result = AssetSelector.get_asset_for_public_scan(asset.recordcode)
+        assert result is not None
+        assert result.asset_code == "A001"
+        assert hasattr(result, "asset_type_recordcode")
+        assert hasattr(result, "asset_storage_recordcode")
+
+    def test_get_asset_for_public_scan_not_found(self):
+        result = AssetSelector.get_asset_for_public_scan("nonexistent")
+        assert result is None
+
+    def test_get_asset_for_public_scan_deleted(self, asset):
+        asset.is_deleted = True
+        asset.save(update_fields=["is_deleted"])
+        result = AssetSelector.get_asset_for_public_scan(asset.recordcode)
+        assert result is None

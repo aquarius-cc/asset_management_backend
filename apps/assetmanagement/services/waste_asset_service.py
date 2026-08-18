@@ -31,7 +31,7 @@ class WasteAssetService:
         if not damaged_asset:
             raise AppValidationError(detail="缺少待报废记录", error_code="MISSING_DAMAGED_ASSET")
 
-        if damaged_asset.approval_status != "approved":
+        if damaged_asset.approval_status != DamagedAsset.ApprovalStatus.APPROVED:
             raise AppValidationError(detail="待报废记录未通过审批,无法报废", error_code="DAMAGED_ASSET_NOT_APPROVED")
 
         # waste_data["asset_recordcode"] 承载 DamagedAsset,创建 WasteAsset 时需转换为底层 Asset
@@ -43,7 +43,7 @@ class WasteAssetService:
             asset = Asset.objects.select_for_update().get(pk=asset.pk)
 
             # 仅当资产尚未转为 scrapped 时才触发 FSM(避免与 approve_asset_recordcode 重复调用)
-            if asset.asset_current_status != "scrapped":
+            if asset.asset_current_status != Asset.AssetStatus.SCRAPPED:
                 try:
                     AssetFSM.approve(asset)
                 except InvalidTransitionError as e:
@@ -66,7 +66,7 @@ class WasteAssetService:
     def create_from_damaged_asset(
         damaged_asset: DamagedAsset, operator_jobcode: str | None = None, operator_name: str | None = None
     ) -> WasteAsset:
-        if damaged_asset.approval_status != "approved":
+        if damaged_asset.approval_status != DamagedAsset.ApprovalStatus.APPROVED:
             raise AppValidationError(
                 detail=f"待报废记录未审批通过,当前状态: {damaged_asset.approval_status}",
                 error_code="DAMAGED_ASSET_NOT_APPROVED",

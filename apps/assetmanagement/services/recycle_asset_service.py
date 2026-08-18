@@ -70,7 +70,7 @@ class RecycleAssetService:
         recycle_data["outasset_recordcode"] = outasset
 
         asset = outasset.asset_recordcode
-        if asset.asset_current_status != "in_use":
+        if asset.asset_current_status != Asset.AssetStatus.IN_USE:
             raise AppValidationError(
                 detail=f"资产当前状态为 {asset.asset_current_status},不能回收",
                 error_code="INVALID_ASSET_STATUS_FOR_RECYCLE",
@@ -261,7 +261,7 @@ class RecycleAssetService:
                 raise AppValidationError(detail=f"回收记录 {record_code} 不存在", error_code="NOT_FOUND")
 
             asset = Asset.objects.select_for_update().get(pk=recycle_asset.asset_recordcode.pk)
-            if asset.asset_current_status != "recycled_pending":
+            if asset.asset_current_status != Asset.AssetStatus.RECYCLED_PENDING:
                 raise AppValidationError(
                     detail=f"关联资产当前状态为 {asset.asset_current_status},不允许删除回收记录",
                     error_code="STATUS_NOT_ALLOWED",
@@ -294,8 +294,8 @@ class RecycleAssetService:
 
             AuditLogger.log_state_change(
                 asset=asset,
-                from_state="recycled_pending",
-                to_state="in_use",
+                from_state=Asset.AssetStatus.RECYCLED_PENDING,
+                to_state=Asset.AssetStatus.IN_USE,
                 trigger="cancel_recycle",
                 operator_jobcode=operator_jobcode,
                 operator_name=operator_name,
@@ -339,7 +339,7 @@ class RecycleAssetService:
         # 准备出库数据
         outasset_data = {
             "asset_recordcode": asset,
-            "outasset_type": "reissue",
+            "outasset_type": OutAsset.OutassetType.REISSUE,
             "outasset_number": 1,
             "outasset_description": f"重新发放 - 原回收记录: {recycle_asset.recordcode}",
         }

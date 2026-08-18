@@ -119,14 +119,14 @@ class DamagedAssetService:
 
         damaged_asset = DamagedAsset.objects.select_for_update().get(pk=damaged_asset.pk)
 
-        if damaged_asset.approval_status != "pending":
+        if damaged_asset.approval_status != DamagedAsset.ApprovalStatus.PENDING:
             raise AppValidationError(
                 detail=f"待报废记录状态为 {damaged_asset.approval_status},不允许审批",
                 error_code="INVALID_APPROVAL_STATUS",
             )
 
         # 更新审批状态
-        damaged_asset.approval_status = "approved"
+        damaged_asset.approval_status = DamagedAsset.ApprovalStatus.APPROVED
         damaged_asset.approver = EmployeeSelector.get_employee_by_jobcode(approver_jobcode)
         damaged_asset.save()
 
@@ -146,8 +146,8 @@ class DamagedAssetService:
         # 审计日志
         AuditLogger.log_state_change(
             asset=asset,
-            from_state="damaged",
-            to_state="scrapped",
+            from_state=Asset.AssetStatus.DAMAGED,
+            to_state=Asset.AssetStatus.SCRAPPED,
             trigger="approve",
             operator_jobcode=approver_jobcode,
             operator_name=operator_name,
@@ -194,14 +194,14 @@ class DamagedAssetService:
 
         damaged_asset = DamagedAsset.objects.select_for_update().get(pk=damaged_asset.pk)
 
-        if damaged_asset.approval_status != "pending":
+        if damaged_asset.approval_status != DamagedAsset.ApprovalStatus.PENDING:
             raise AppValidationError(
                 detail=f"待报废记录状态为 {damaged_asset.approval_status},不允许审批",
                 error_code="INVALID_APPROVAL_STATUS",
             )
 
         # 更新审批状态
-        damaged_asset.approval_status = "rejected"
+        damaged_asset.approval_status = DamagedAsset.ApprovalStatus.REJECTED
         damaged_asset.approver = EmployeeSelector.get_employee_by_jobcode(approver_jobcode)
         damaged_asset.save()
 
@@ -258,7 +258,7 @@ class DamagedAssetService:
 
         damaged_asset = DamagedAsset.objects.select_for_update().get(pk=damaged_asset.pk)
 
-        if damaged_asset.approval_status != "pending":
+        if damaged_asset.approval_status != DamagedAsset.ApprovalStatus.PENDING:
             raise AppValidationError(
                 detail=f"待报废记录状态为 {damaged_asset.approval_status},不允许取消",
                 error_code="INVALID_APPROVAL_STATUS",

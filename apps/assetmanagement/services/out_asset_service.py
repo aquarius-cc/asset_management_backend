@@ -45,7 +45,7 @@ class OutAssetService:
         if not asset:
             raise AppValidationError(detail="缺少资产编码", error_code="MISSING_ASSET_CODE")
 
-        if asset.asset_current_status not in ["in_store", "recycled_pending"]:
+        if asset.asset_current_status not in [Asset.AssetStatus.IN_STORE, Asset.AssetStatus.RECYCLED_PENDING]:
             raise AppValidationError(
                 detail=f"资产当前状态为 {asset.asset_current_status},不能出库",
                 error_code="ILLEGAL_OUTASSET",  # 2001: 非法出库
@@ -187,7 +187,7 @@ class OutAssetService:
                 raise AppValidationError(detail=f"出库记录 {recordcode} 不存在", error_code="NOT_FOUND")
 
             asset = Asset.objects.select_for_update().get(pk=outasset.asset_recordcode.pk)
-            if asset.asset_current_status != "in_use":
+            if asset.asset_current_status != Asset.AssetStatus.IN_USE:
                 raise AppValidationError(
                     detail=f"关联资产当前状态为 {asset.asset_current_status},不允许删除出库记录",
                     error_code="STATUS_NOT_ALLOWED",
@@ -195,7 +195,7 @@ class OutAssetService:
             if RecycleAsset.objects.filter(outasset_recordcode=outasset, is_deleted=False).exists():
                 raise AppValidationError(detail="出库记录存在关联回收记录,不允许删除", error_code="HAS_RECYCLE_RECORDS")
 
-            previous_status = outasset.outasset_previous_status or "in_store"
+            previous_status = outasset.outasset_previous_status or Asset.AssetStatus.IN_STORE
 
             # 保存快照数据用于恢复资产字段
             snapshot = outasset.outasset_snapshot or {}
@@ -234,7 +234,7 @@ class OutAssetService:
                 update_fields.append("asset_using_location")
 
             # 恢复仓库(仅当原状态为 in_store 时,从快照恢复)
-            if previous_status == "in_store" and snapshot.get("asset_storage_recordcode"):
+            if previous_status == Asset.AssetStatus.IN_STORE and snapshot.get("asset_storage_recordcode"):
                 from apps.assetmanagement.models import Storage
 
                 storage = Storage.objects.filter(recordcode=snapshot["asset_storage_recordcode"]).first()
@@ -246,7 +246,7 @@ class OutAssetService:
 
             AuditLogger.log_state_change(
                 asset=asset,
-                from_state="in_use",
+                from_state=Asset.AssetStatus.IN_USE,
                 to_state=previous_status,
                 trigger="cancel_outasset",
                 operator_jobcode=operator_jobcode,

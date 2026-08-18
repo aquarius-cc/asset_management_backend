@@ -9,7 +9,7 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
-from rest_framework.response import Response
+from rest_framework.response import Response  # noqa: F401 — used in -> Response annotations
 
 from apps.assetmanagement.models import Contract
 from apps.assetmanagement.selectors import ContractSelector

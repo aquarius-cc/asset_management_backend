@@ -98,39 +98,17 @@ class RecycleAssetService:
 
         # AC-32/AC-33: 回收时标记损坏/遗失
         if is_broken:
-            # 回收 → recycled_pending → broken
-            try:
-                AssetFSM.recycle(asset)
-            except InvalidTransitionError as e:
-                raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
-
-            # 更新资产字段
-            if storage_obj:
-                asset.asset_storage_recordcode = storage_obj
-            if recycle_person_obj:
-                asset.asset_entry_person_recordcode = recycle_person_obj
-            asset.asset_applicant_recordcode = None
-            asset.asset_manager_recordcode = None
-            asset.asset_using_location = None
-            asset.save(
-                update_fields=[
-                    "asset_current_status",
-                    "asset_applicant_recordcode",
-                    "asset_manager_recordcode",
-                    "asset_using_location",
-                    "asset_storage_recordcode",
-                    "asset_entry_person_recordcode",
-                ]
+            # 回收 → recycled_pending → broken(两次 FSM 转换合并为一次 save)
+            RecycleAssetService._do_recycle_asset_update(
+                asset, storage_obj, recycle_person_obj, recycle_asset,
+                operator_jobcode, operator_name,
             )
-
-            # 标记损坏
             try:
                 AssetFSM.mark_broken(asset)
             except InvalidTransitionError as e:
                 raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
             asset.save(update_fields=["asset_current_status"])
 
-            # 创建 BrokenAsset 记录
             BrokenAsset.objects.create(
                 asset_recordcode=asset,
                 broken_date=recycle_asset.recycle_asset_date,
@@ -139,47 +117,18 @@ class RecycleAssetService:
                 operator_employee=recycle_person_obj,
             )
 
-            AuditLogger.log_asset_recycle(
-                asset=asset,
-                recordcode=recycle_asset.recordcode,
-                operator_jobcode=operator_jobcode or recycle_data.get("operator_employee"),
-                operator_name=operator_name or recycle_data.get("asset_entry_person_name"),
-            )
-
         elif is_lost:
-            # 回收 → recycled_pending → lost
-            try:
-                AssetFSM.recycle(asset)
-            except InvalidTransitionError as e:
-                raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
-
-            # 更新资产字段
-            if storage_obj:
-                asset.asset_storage_recordcode = storage_obj
-            if recycle_person_obj:
-                asset.asset_entry_person_recordcode = recycle_person_obj
-            asset.asset_applicant_recordcode = None
-            asset.asset_manager_recordcode = None
-            asset.asset_using_location = None
-            asset.save(
-                update_fields=[
-                    "asset_current_status",
-                    "asset_applicant_recordcode",
-                    "asset_manager_recordcode",
-                    "asset_using_location",
-                    "asset_storage_recordcode",
-                    "asset_entry_person_recordcode",
-                ]
+            # 回收 → recycled_pending → lost(两次 FSM 转换合并为一次 save)
+            RecycleAssetService._do_recycle_asset_update(
+                asset, storage_obj, recycle_person_obj, recycle_asset,
+                operator_jobcode, operator_name,
             )
-
-            # 标记遗失
             try:
                 AssetFSM.mark_lost(asset)
             except InvalidTransitionError as e:
                 raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
             asset.save(update_fields=["asset_current_status"])
 
-            # 创建 LostAsset 记录
             LostAsset.objects.create(
                 asset_recordcode=asset,
                 lost_date=recycle_asset.recycle_asset_date,
@@ -188,50 +137,62 @@ class RecycleAssetService:
                 operator_employee=recycle_person_obj,
             )
 
-            AuditLogger.log_asset_recycle(
-                asset=asset,
-                recordcode=recycle_asset.recordcode,
-                operator_jobcode=operator_jobcode or recycle_data.get("operator_employee"),
-                operator_name=operator_name or recycle_data.get("asset_entry_person_name"),
-            )
-
         else:
             # 正常回收(无损坏/遗失标记)
-            try:
-                AssetFSM.recycle(asset)
-            except InvalidTransitionError as e:
-                raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
-
-            if storage_obj:
-                asset.asset_storage_recordcode = storage_obj
-            if recycle_person_obj:
-                asset.asset_entry_person_recordcode = recycle_person_obj
-
-            asset.asset_applicant_recordcode = None
-            asset.asset_manager_recordcode = None
-            asset.asset_using_location = None
-
-            update_fields = [
-                "asset_current_status",
-                "asset_applicant_recordcode",
-                "asset_manager_recordcode",
-                "asset_using_location",
-            ]
-            if storage_obj:
-                update_fields.append("asset_storage_recordcode")
-            if recycle_person_obj:
-                update_fields.append("asset_entry_person_recordcode")
-
-            asset.save(update_fields=update_fields)
-
-            AuditLogger.log_asset_recycle(
-                asset=asset,
-                recordcode=recycle_asset.recordcode,
-                operator_jobcode=operator_jobcode or recycle_data.get("operator_employee"),
-                operator_name=operator_name or recycle_data.get("asset_entry_person_name"),
+            RecycleAssetService._do_recycle_asset_update(
+                asset, storage_obj, recycle_person_obj, recycle_asset,
+                operator_jobcode, operator_name,
             )
 
         return recycle_asset
+
+    @staticmethod
+    def _do_recycle_asset_update(
+        asset: Asset,
+        storage_obj: "Storage | None",
+        recycle_person_obj: "Employee | None",
+        recycle_asset: RecycleAsset,
+        operator_jobcode: str | None,
+        operator_name: str | None,
+    ) -> None:
+        """执行回收的公共逻辑:FSM 转换 + 字段清空 + 审计日志。
+
+        三个分支(normal/broken/lost)共享此逻辑。
+        broken/lost 分支调用后需自行执行第二次 FSM 转换 + 创建子记录。
+        """
+        try:
+            AssetFSM.recycle(asset)
+        except InvalidTransitionError as e:
+            raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
+
+        if storage_obj:
+            asset.asset_storage_recordcode = storage_obj
+        if recycle_person_obj:
+            asset.asset_entry_person_recordcode = recycle_person_obj
+        asset.asset_applicant_recordcode = None
+        asset.asset_manager_recordcode = None
+        asset.asset_using_location = None
+
+        update_fields = [
+            "asset_current_status",
+            "asset_applicant_recordcode",
+            "asset_manager_recordcode",
+            "asset_using_location",
+        ]
+        if storage_obj:
+            update_fields.append("asset_storage_recordcode")
+        if recycle_person_obj:
+            update_fields.append("asset_entry_person_recordcode")
+        asset.save(update_fields=update_fields)
+
+        # 审计日志:operator_jobcode 回退到 recycle_person 的工号(避免传入 Employee 对象)
+        fallback_jobcode = recycle_person_obj.employee_jobcode if recycle_person_obj else None
+        AuditLogger.log_asset_recycle(
+            asset=asset,
+            recordcode=recycle_asset.recordcode,
+            operator_jobcode=operator_jobcode or fallback_jobcode,
+            operator_name=operator_name or "",
+        )
 
     @staticmethod
     @transaction.atomic

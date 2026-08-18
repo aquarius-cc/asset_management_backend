@@ -11,6 +11,7 @@ from django.db import transaction
 
 from apps.assetmanagement.audit import AuditLogger
 from apps.assetmanagement.models import Asset, BrokenAsset, FoundAsset, LostAsset
+from apps.assetmanagement.models.operation_log import AssetOperationLog
 from apps.assetmanagement.state_machine import AssetFSM
 
 
@@ -29,7 +30,7 @@ class AssetLifecycleMixin:
         """标记资产为已损坏"""
         asset = Asset.objects.select_for_update().get(asset_code=asset_code)
 
-        if asset.asset_current_status == "broken":
+        if asset.asset_current_status == Asset.AssetStatus.BROKEN:
             return asset
 
         from apps.usermanagement.selectors import EmployeeSelector
@@ -51,7 +52,7 @@ class AssetLifecycleMixin:
             asset_code=asset.asset_code,
             asset_name=asset.asset_name,
             asset_specification=asset.asset_specification,
-            operation_type="broken",
+            operation_type=AssetOperationLog.OperationType.BROKEN,
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
             description=f"资产标记为已损坏: {broken_reason}",
@@ -71,7 +72,7 @@ class AssetLifecycleMixin:
         """标记资产为已遗失"""
         asset = Asset.objects.select_for_update().get(asset_code=asset_code)
 
-        if asset.asset_current_status == "lost":
+        if asset.asset_current_status == Asset.AssetStatus.LOST:
             return asset
 
         from apps.usermanagement.selectors import EmployeeSelector
@@ -94,7 +95,7 @@ class AssetLifecycleMixin:
             asset_code=asset.asset_code,
             asset_name=asset.asset_name,
             asset_specification=asset.asset_specification,
-            operation_type="lost",
+            operation_type=AssetOperationLog.OperationType.LOST,
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
             description=f"资产标记为已遗失: {lost_reason}",
@@ -137,7 +138,7 @@ class AssetLifecycleMixin:
             asset_code=asset.asset_code,
             asset_name=asset.asset_name,
             asset_specification=asset.asset_specification,
-            operation_type="found",
+            operation_type=AssetOperationLog.OperationType.FOUND,
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
             description="遗失资产找回,转入待发放状态",
@@ -171,7 +172,7 @@ class AssetLifecycleMixin:
             asset_code=obj.asset_recordcode.asset_code,
             asset_name=obj.asset_recordcode.asset_name,
             asset_specification=obj.asset_recordcode.asset_specification,
-            operation_type="delete",
+            operation_type=AssetOperationLog.OperationType.DELETE,
             description=f"维修记录删除: {recordcode}",
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
@@ -194,7 +195,7 @@ class AssetLifecycleMixin:
             asset_code=obj.asset_recordcode.asset_code,
             asset_name=obj.asset_recordcode.asset_name,
             asset_specification=obj.asset_recordcode.asset_specification,
-            operation_type="delete",
+            operation_type=AssetOperationLog.OperationType.DELETE,
             description=f"损坏资产记录删除: {recordcode}",
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
@@ -217,7 +218,7 @@ class AssetLifecycleMixin:
             asset_code=obj.asset_recordcode.asset_code,
             asset_name=obj.asset_recordcode.asset_name,
             asset_specification=obj.asset_recordcode.asset_specification,
-            operation_type="delete",
+            operation_type=AssetOperationLog.OperationType.DELETE,
             description=f"遗失资产记录删除: {recordcode}",
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
@@ -240,7 +241,7 @@ class AssetLifecycleMixin:
             asset_code=obj.asset_recordcode.asset_code,
             asset_name=obj.asset_recordcode.asset_name,
             asset_specification=obj.asset_recordcode.asset_specification,
-            operation_type="delete",
+            operation_type=AssetOperationLog.OperationType.DELETE,
             description=f"找回资产记录删除: {recordcode}",
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,

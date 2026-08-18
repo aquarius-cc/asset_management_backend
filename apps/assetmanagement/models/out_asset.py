@@ -64,6 +64,7 @@ class OutAsset(BaseModel):
 
         RECEIVE = "receive", "领用"
         BORROW = "borrow", "借用"
+        REISSUE = "reissue", "重新发放"
 
     class OutassetPreviousStatus(models.TextChoices):
         IN_STORE = "in_store", "在库"

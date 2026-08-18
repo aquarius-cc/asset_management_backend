@@ -29,6 +29,7 @@ from typing import Any
 
 from django.utils import timezone
 
+from apps.assetmanagement.models.operation_log import AssetOperationLog
 from apps.assetmanagement.services.operation_log_service import OperationLogService
 from core.request_context import get_current_ip
 
@@ -176,7 +177,7 @@ class AuditLogger:
             asset_code=asset.asset_code,
             asset_name=asset.asset_name,
             asset_specification=asset.asset_specification,
-            operation_type="state_change",
+            operation_type=AssetOperationLog.OperationType.STATE_CHANGE,
             description=f"状态从 {from_state} 变更为 {to_state} (触发: {trigger})",
             before_data={"asset_current_status": from_state},
             after_data={"asset_current_status": to_state},

@@ -186,7 +186,7 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
         if not asset:
             raise AppValidationError(detail=f"资产 {asset_code} 不存在", error_code="ASSET_NOT_FOUND")
         asset = Asset.objects.select_for_update().get(pk=asset.pk)
-        if asset.asset_current_status != "in_store":
+        if asset.asset_current_status != Asset.AssetStatus.IN_STORE:
             raise AppValidationError(
                 detail=f"资产当前状态为 {asset.asset_current_status},不允许删除", error_code="ASSET_IN_USE"
             )
@@ -248,7 +248,7 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
                             {"id": asset_code, "error_code": "NOT_FOUND", "error_message": f"资产 {asset_code} 不存在"}
                         )
                         continue
-                    if asset.asset_current_status != "in_store":
+                    if asset.asset_current_status != Asset.AssetStatus.IN_STORE:
                         fail_items.append(
                             {
                                 "id": asset_code,

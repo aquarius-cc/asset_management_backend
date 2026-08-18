@@ -129,7 +129,7 @@ class OperationLogService:
             asset_code=asset.asset_code,
             asset_name=asset.asset_name,
             asset_specification=asset.asset_specification,
-            operation_type="create",
+            operation_type=AssetOperationLog.OperationType.CREATE,
             description=f"资产入库: {asset.asset_name}",
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
@@ -155,7 +155,7 @@ class OperationLogService:
             asset_code=asset.asset_code,
             asset_name=asset.asset_name,
             asset_specification=asset.asset_specification,
-            operation_type="update",
+            operation_type=AssetOperationLog.OperationType.UPDATE,
             description=description,
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
@@ -190,7 +190,7 @@ class OperationLogService:
             asset_code=asset_code,
             asset_name=asset_name,
             asset_specification=asset_specification,
-            operation_type="delete",
+            operation_type=AssetOperationLog.OperationType.DELETE,
             description=f"资产删除(软删除): {asset_name}",
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
@@ -208,14 +208,14 @@ class OperationLogService:
         ip_address: str | None = None,
     ) -> AssetOperationLog:
         """记录资产出库操作"""
-        before_data = {"asset_current_status": "in_store"}
-        after_data = {"asset_current_status": "in_use"}
+        before_data = {"asset_current_status": Asset.AssetStatus.IN_STORE}
+        after_data = {"asset_current_status": Asset.AssetStatus.IN_USE}
 
         return cls.log_operation(
             asset_code=asset.asset_code,
             asset_name=asset.asset_name,
             asset_specification=asset.asset_specification,
-            operation_type="out",
+            operation_type=AssetOperationLog.OperationType.OUT,
             description=f"资产出库发放: {recordcode}",
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
@@ -236,14 +236,14 @@ class OperationLogService:
         ip_address: str | None = None,
     ) -> AssetOperationLog:
         """记录资产回收操作"""
-        before_data = {"asset_current_status": "in_use"}
-        after_data = {"asset_current_status": "recycled_pending"}
+        before_data = {"asset_current_status": Asset.AssetStatus.IN_USE}
+        after_data = {"asset_current_status": Asset.AssetStatus.RECYCLED_PENDING}
 
         return cls.log_operation(
             asset_code=asset.asset_code,
             asset_name=asset.asset_name,
             asset_specification=asset.asset_specification,
-            operation_type="recycle",
+            operation_type=AssetOperationLog.OperationType.RECYCLE,
             description=f"资产回收: {recordcode}",
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
@@ -265,13 +265,13 @@ class OperationLogService:
     ) -> AssetOperationLog:
         """记录资产待报废操作"""
         before_data = {"asset_current_status": asset.asset_current_status}
-        after_data = {"asset_current_status": "damaged"}
+        after_data = {"asset_current_status": Asset.AssetStatus.DAMAGED}
 
         return cls.log_operation(
             asset_code=asset.asset_code,
             asset_name=asset.asset_name,
             asset_specification=asset.asset_specification,
-            operation_type="damaged",
+            operation_type=AssetOperationLog.OperationType.DAMAGED,
             description=f"提交报废申请: {damaged_record_code}",
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
@@ -292,14 +292,14 @@ class OperationLogService:
         ip_address: str | None = None,
     ) -> AssetOperationLog:
         """记录资产报废完成操作"""
-        before_data = {"asset_current_status": "damaged"}
-        after_data = {"asset_current_status": "scrapped"}
+        before_data = {"asset_current_status": Asset.AssetStatus.DAMAGED}
+        after_data = {"asset_current_status": Asset.AssetStatus.SCRAPPED}
 
         return cls.log_operation(
             asset_code=asset.asset_code,
             asset_name=asset.asset_name,
             asset_specification=asset.asset_specification,
-            operation_type="waste",
+            operation_type=AssetOperationLog.OperationType.WASTE,
             description=f"资产报废完成: {waste_record_code}",
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
@@ -336,7 +336,7 @@ class OperationLogService:
             asset_code=asset.asset_code,
             asset_name=asset.asset_name,
             asset_specification=asset.asset_specification,
-            operation_type="approve",
+            operation_type=AssetOperationLog.OperationType.APPROVE,
             description=f"报废审批{result_display}",
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
@@ -371,7 +371,7 @@ class OperationLogService:
             asset_code=asset.asset_code,
             asset_name=asset.asset_name,
             asset_specification=asset.asset_specification,
-            operation_type="transfer",
+            operation_type=AssetOperationLog.OperationType.TRANSFER,
             description=f"资产转移: {from_storage} → {to_storage}",
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,

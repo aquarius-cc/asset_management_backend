@@ -106,7 +106,7 @@ class DamagedAssetUpdateSerializer(serializers.ModelSerializer):
         }
 
 
-class DamagedAssetAproveSerializer(serializers.ModelSerializer):
+class DamagedAssetApproveSerializer(serializers.ModelSerializer):
     """
     待报废资产审批序列化器
     用途:approve, reject action

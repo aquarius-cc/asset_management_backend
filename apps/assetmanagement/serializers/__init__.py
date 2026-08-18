@@ -74,7 +74,7 @@ from apps.assetmanagement.serializers.common_serializers import (
     ErrorResponseSerializer,  # noqa: F401
 )
 from apps.assetmanagement.serializers.damaged_asset_serializers import (
-    DamagedAssetAproveSerializer,
+    DamagedAssetApproveSerializer,
     DamagedAssetBatchDeleteSerializer,
     DamagedAssetCreateSerializer,
     DamagedAssetDetailSerializer,
@@ -170,7 +170,6 @@ __all__ = [
     "ContractUpdateSerializer",
     "DamagedAssetApproveSerializer",
     # DamagedAsset 序列化器
-    "DamagedAssetAproveSerializer",
     "DamagedAssetBatchDeleteSerializer",
     "DamagedAssetCreateSerializer",
     "DamagedAssetDetailSerializer",
@@ -232,5 +231,4 @@ __all__ = [
     "WasteAssetSerializer",
 ]
 
-# 拼写兼容别名:类定义为 DamagedAssetAproveSerializer(D1 历史拼写),视图层使用正确拼写
-DamagedAssetApproveSerializer = DamagedAssetAproveSerializer
+

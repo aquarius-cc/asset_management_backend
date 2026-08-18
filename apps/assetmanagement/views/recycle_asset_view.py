@@ -10,7 +10,7 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
-from rest_framework.response import Response
+from rest_framework.response import Response  # noqa: F401 — used in -> Response annotations
 
 from apps.assetmanagement.models import RecycleAsset
 from apps.assetmanagement.selectors import AssetSelector, RecycleAssetSelector
@@ -142,10 +142,10 @@ class RecycleAssetViewSet(
 
     @action(detail=False, methods=["get"], url_path="by-asset/(?P<asset_recordcode_code>[^/.]+)")
     def by_asset(self, request, asset_recordcode_code=None) -> Response:
-        asset = AssetSelector.get_asset_by_code(asset_recordcode_code)
-        if asset is None:
+        visible = AssetSelector.get_queryset_for_user(request.user).filter(asset_code=asset_recordcode_code).exists()
+        if not visible:
             return error_response(message=f"资产 {asset_recordcode_code} 不存在", status_code=404)
-        records = RecycleAssetSelector.get_by_asset_code(asset_recordcode_code)
+        records = RecycleAssetSelector.get_by_asset_code(asset_recordcode_code, user=request.user)
         return self._paginate_and_respond(records)
 
     @extend_schema(
@@ -160,7 +160,7 @@ class RecycleAssetViewSet(
             return error_response(message="请提供出库记录编码", status_code=400)
         from apps.assetmanagement.selectors import RecycleAssetSelector
 
-        record = RecycleAssetSelector.get_by_outasset_recordcode(recordcode)
+        record = RecycleAssetSelector.get_by_outasset_recordcode(recordcode, user=request.user)
         if record is None:
             return error_response(message=f"未找到出库记录 {recordcode} 对应的回收记录", status_code=404)
         serializer = RecycleAssetDetailSerializer(record)

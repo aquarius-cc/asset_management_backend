@@ -288,6 +288,18 @@ class TestDashboardSelector:
         assert "total_value" in stats
         assert "total_contracts" in stats
         assert "active_assets" in stats
+        assert "in_stock_assets" in stats
+        assert "monthly_distributed" in stats
+        assert "monthly_recycled" in stats
+        assert "pending_waste" in stats
+        assert "wasted_assets" in stats
+        assert "total_recycled" in stats
+        assert "total_distributed" in stats
+        assert "status_distribution" in stats
+        assert "timestamp" in stats
+        assert stats["total_assets"] == 1
+        assert stats["in_stock_assets"] == 1
+        assert stats["active_assets"] == 0
 
     def test_get_recent_out_assets(self, asset, user):
         """获取最近出库记录"""
@@ -300,6 +312,24 @@ class TestDashboardSelector:
         result = DashboardSelector.get_recent_out_assets()
         assert len(result) == 1
         assert result[0]["asset_code"] == "A001"
+        assert "id" in result[0]
+        assert "recordcode" in result[0]
+        assert "recipient_name" in result[0]
+        assert "department_name" in result[0]
+
+    def test_get_recent_out_assets_with_applicant(self, asset, user):
+        """出库记录携带申请人FK，验证select_related正确填充"""
+        from apps.assetmanagement.models import OutAsset
+
+        outasset = OutAsset.objects.create(
+            asset_recordcode=asset,
+            outasset_applicant_recordcode=user,
+            outasset_date="2024-01-01",
+        )
+        result = DashboardSelector.get_recent_out_assets()
+        assert len(result) == 1
+        assert result[0]["recipient_name"] == "测试用户"
+        assert result[0]["department_name"] == "测试部门"
 
     def test_get_recent_recycle_assets(self, asset, user):
         """获取最近回收记录"""
@@ -317,6 +347,29 @@ class TestDashboardSelector:
         result = DashboardSelector.get_recent_recycle_assets()
         assert len(result) == 1
         assert result[0]["asset_code"] == "A001"
+        assert "id" in result[0]
+        assert "recordcode" in result[0]
+        assert "returner_name" in result[0]
+        assert "department_name" in result[0]
+
+    def test_get_recent_recycle_assets_with_operator(self, asset, user):
+        """回收记录携带操作人FK，验证select_related正确填充"""
+        from apps.assetmanagement.models import OutAsset, RecycleAsset
+
+        outasset = OutAsset.objects.create(
+            asset_recordcode=asset,
+            outasset_date="2024-01-01",
+        )
+        _ = RecycleAsset.objects.create(
+            asset_recordcode=asset,
+            outasset_recordcode=outasset,
+            operator_employee=user,
+            recycle_asset_date="2024-01-02",
+        )
+        result = DashboardSelector.get_recent_recycle_assets()
+        assert len(result) == 1
+        assert result[0]["returner_name"] == "测试用户"
+        assert result[0]["department_name"] == "测试部门"
 
     def test_get_asset_trend(self, asset):
         """获取资产趋势数据"""

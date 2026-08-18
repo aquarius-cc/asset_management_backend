@@ -10,7 +10,7 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
-from rest_framework.response import Response
+from rest_framework.response import Response  # noqa: F401 — used in -> Response annotations
 
 from apps.assetmanagement.models import OutAsset
 from apps.assetmanagement.selectors import AssetSelector, OutAssetSelector
@@ -266,10 +266,10 @@ class OutAssetViewSet(
     )
     @action(detail=False, methods=["get"], url_path="by-asset/(?P<asset_code>[^/.]+)")
     def by_asset(self, request, asset_code=None) -> Response:
-        asset = AssetSelector.get_asset_by_code(asset_code)
-        if asset is None:
+        visible = AssetSelector.get_queryset_for_user(request.user).filter(asset_code=asset_code).exists()
+        if not visible:
             return error_response(message=f"资产 {asset_code} 不存在", status_code=404)
-        records = OutAssetSelector.get_outassets_by_asset(asset_code)
+        records = OutAssetSelector.get_outassets_by_asset(asset_code, user=request.user)
         return self._paginate_and_respond(records)
 
     @extend_schema(
@@ -284,7 +284,7 @@ class OutAssetViewSet(
     def by_applicant(self, request, applicant_jobcode=None) -> Response:
         if not applicant_jobcode:
             return error_response(message="请提供申请人工号", status_code=400)
-        records = OutAssetSelector.get_outassets_by_applicant(applicant_jobcode)
+        records = OutAssetSelector.get_outassets_by_applicant(applicant_jobcode, user=request.user)
         return self._paginate_and_respond(records)
 
     @action(detail=True, methods=["post"], url_path="cancel", permission_classes=[IsAssetAdminOrAbove])
@@ -306,5 +306,12 @@ class OutAssetViewSet(
 
     @action(detail=False, methods=["get"])
     def statistics(self, request) -> Response:
-        stats = OutAssetSelector.get_outasset_statistics()
-        return success_response(data=stats, message="查询成功")
+        from django.db.models import Count
+
+        queryset = self.get_queryset()
+        total = queryset.count()
+        type_counts = queryset.values("outasset_type").annotate(count=Count("id"))
+        return success_response(
+            data={"total_outassets": total, "by_type": {item["outasset_type"]: item["count"] for item in type_counts}},
+            message="查询成功",
+        )

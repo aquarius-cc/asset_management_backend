@@ -5,7 +5,7 @@
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
+from rest_framework.response import Response  # noqa: F401 — used in -> Response annotations
 
 from apps.assetmanagement.selectors import DashboardSelector
 from apps.assetmanagement.serializers import DashboardStatSerializer
@@ -51,11 +51,16 @@ class DashboardViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ViewSet):
 
     @action(detail=False, methods=["get"])
     def trend(self, request) -> Response:
-        try:
-            days = min(int(request.query_params.get("days", 30) or 30), 365)
-        except (ValueError, TypeError):
-            days = 30
-        result = DashboardSelector.get_asset_trend(days=days)
+        start_date = request.query_params.get("start_date")
+        end_date = request.query_params.get("end_date")
+        if start_date and end_date:
+            result = DashboardSelector.get_asset_trend(start_date=start_date, end_date=end_date)
+        else:
+            try:
+                days = min(int(request.query_params.get("days", 30) or 30), 365)
+            except (ValueError, TypeError):
+                days = 30
+            result = DashboardSelector.get_asset_trend(days=days)
         return success_response(data=result)
 
     @action(detail=False, methods=["get"])

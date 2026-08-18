@@ -236,8 +236,9 @@ class TestAssetViewSet:
     def test_status_log(self, authenticated_client, asset):
         url = reverse("assets-status-log", kwargs={"recordcode": asset.recordcode})
         response = authenticated_client.get(url)
-        # View uses wrong field name (asset_recordcode) on AssetOperationLog — accept 500 until view is fixed
-        assert response.status_code in [status.HTTP_200_OK, status.HTTP_500_INTERNAL_SERVER_ERROR]
+        assert response.status_code == status.HTTP_200_OK
+        assert "data" in response.json()
+        assert isinstance(response.json()["data"], list)
 
     def test_qr_code_image(self, authenticated_client, asset):
         url = reverse("assets-qr-code-image", kwargs={"recordcode": asset.recordcode})

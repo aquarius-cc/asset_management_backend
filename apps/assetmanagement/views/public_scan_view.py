@@ -7,17 +7,11 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
-from rest_framework.response import Response
+from rest_framework.response import Response  # noqa: F401 — used in -> Response annotation
 
-from apps.assetmanagement.models import Asset
+from apps.assetmanagement.selectors.asset_selector import AssetSelector
 from utils.response_utils import error_response, success_response
-
-
-def _mask_phone(phone: str | None) -> str | None:
-    """手机号脱敏:前3后4,中间用****替代"""
-    if not phone or len(phone) < 7:
-        return phone
-    return phone[:3] + "****" + phone[-4:]
+from utils.string_utils import mask_phone_number
 
 
 @api_view(["GET"])
@@ -32,18 +26,14 @@ def public_scan_view(request: Request, recordcode: str) -> Response:
     - 存放仓库、资产分类、使用人
     - 保管人联系电话(脱敏:前3后4)
     """
-    try:
-        asset = Asset.objects.select_related(
-            "asset_type_recordcode",
-            "asset_storage_recordcode",
-            "asset_manager_recordcode",
-        ).get(recordcode=recordcode, is_deleted=False)
-    except Asset.DoesNotExist:
+    asset = AssetSelector.get_asset_for_public_scan(recordcode)
+    if asset is None:
         return error_response(
             message="未找到该资产",
             status_code=status.HTTP_404_NOT_FOUND,
         )
 
+    # 脱敏数据格式化:不在 Serializer 中处理,因为该接口为函数视图且返回脱敏数据
     data = {
         "asset_code": asset.asset_code,
         "asset_name": asset.asset_name,
@@ -56,8 +46,10 @@ def public_scan_view(request: Request, recordcode: str) -> Response:
         "asset_manager_name": (
             asset.asset_manager_recordcode.employee_name if asset.asset_manager_recordcode else None
         ),
-        "asset_manager_phone": _mask_phone(
-            getattr(asset.asset_manager_recordcode, "employee_phone", None) if asset.asset_manager_recordcode else None
+        "asset_manager_phone": mask_phone_number(
+            getattr(asset.asset_manager_recordcode, "employee_phone", None)
+            if asset.asset_manager_recordcode
+            else None
         ),
     }
 

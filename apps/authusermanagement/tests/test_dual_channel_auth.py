@@ -24,11 +24,11 @@ from apps.authusermanagement.services import AuthService
 from apps.usermanagement.models import Department, Employee, EmployeeRole
 
 
-LOGIN_URL = "/api/auth/login/"
-REGISTER_URL = "/api/auth/register/"
-LOGOUT_URL = "/api/auth/logout/"
-PROFILE_URL = "/api/auth/profile/"
-REFRESH_URL = "/api/auth/token/refresh/"
+LOGIN_URL = "/api/v1/auth/login/"
+REGISTER_URL = "/api/v1/auth/register/"
+LOGOUT_URL = "/api/v1/auth/logout/"
+PROFILE_URL = "/api/v1/auth/profile/"
+REFRESH_URL = "/api/v1/auth/token/refresh/"
 
 XHR = {"HTTP_X_REQUESTED_WITH": "XMLHttpRequest"}
 

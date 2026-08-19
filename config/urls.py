@@ -122,17 +122,6 @@ urlpatterns = [
     path("api/v1/schema/", SpectacularAPIView.as_view(), name="schema-v1"),
     path("api/v1/swagger/", SpectacularSwaggerView.as_view(url_name="schema-v1"), name="swagger-ui-v1"),
     path("api/v1/redoc/", SpectacularRedocView.as_view(url_name="schema-v1"), name="redoc-v1"),
-    # ==================== 向后兼容:旧 /api/ 前缀(保留过渡期) ====================
-    path("api/auth/", include("apps.authusermanagement.urls")),
-    path("api/users/", include("apps.usermanagement.urls")),
-    path("api/assets/", include("apps.assetmanagement.urls")),
-    path("api/unregisteredassets/", include("apps.unregisteredasset.urls")),
-    path("api/dashboard/", include("apps.assetmanagement.dashboard_urls")),
-    path("api/", include("core.audit_log_urls")),
-    path("api/notifications/", include("apps.notification.urls")),
-    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
-    path("api/swagger/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
-    path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
 ]
 
 # 在开发环境中提供媒体文件服务

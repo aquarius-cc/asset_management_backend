@@ -31,15 +31,6 @@ class DashboardViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ViewSet):
         result = DashboardSelector.get_recent_out_assets(limit=limit)
         return success_response(data=result)
 
-    @action(detail=False, methods=["get"])
-    def recent_asset_recordcodes(self, request) -> Response:
-        try:
-            limit = min(int(request.query_params.get("limit", 10) or 10), 100)
-        except (ValueError, TypeError):
-            limit = 10
-        result = DashboardSelector.get_recent_out_assets(limit=limit)
-        return success_response(data=result)
-
     @action(detail=False, methods=["get"], url_path="recent_recycle_assets")
     def recent_recycle_assets(self, request) -> Response:
         try:

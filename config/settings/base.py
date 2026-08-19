@@ -134,6 +134,12 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# 文件上传安全配置 (SC-5)
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB: 超过此大小写入临时文件
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB: 请求体大小限制
+FILE_UPLOAD_PERMISSIONS = 0o644  # 文件权限: owner rw, group/others r
+FILE_UPLOAD_DIRECTORY_PERMISSIONS = 0o755  # 目录权限: owner rwx, group/others rx
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # REST Framework
@@ -208,7 +214,7 @@ JWT_AUTH_COOKIE_SAMESITE = "Lax"
 # CSRF 双通道配套: csrftoken 需 JS 可读 (写入 X-CSRFToken 请求头)
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = "Lax"
-CSRF_COOKIE_SECURE = config("CSRF_COOKIE_SECURE", default=False, cast=bool)
+CSRF_COOKIE_SECURE = config("CSRF_COOKIE_SECURE", default=True, cast=bool)
 
 # CORS
 # 【修复 S2】移除 CORS_ALLOW_ALL_ORIGINS,仅使用白名单

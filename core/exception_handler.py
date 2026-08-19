@@ -60,9 +60,10 @@ def custom_exception_handler(exc: Any, context: Any) -> Response:
         )
 
     # 捕获 PermissionError(如 AssetOperationLog 只读保护),返回 403
+    # 不返回 str(exc),防止内部实现细节泄露
     if isinstance(exc, PermissionError):
         logger.warning(f"权限错误: {exc}")
-        return error_response(message=str(exc) or "权限不足,无法执行此操作", status_code=status.HTTP_403_FORBIDDEN)
+        return error_response(message="权限不足,无法执行此操作", status_code=status.HTTP_403_FORBIDDEN)
 
     # 未处理的异常
     logger.error(f"未处理异常: {exc}", exc_info=True)

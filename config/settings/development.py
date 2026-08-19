@@ -53,9 +53,11 @@ if SECRET_KEY in _INSECURE_KEYS:
 # 【生产要求】必须设为 False
 DEBUG = True
 
-# 【⚠️ 安全风险】允许所有主机访问
-# 【生产要求】限制为具体域名,如:['api.example.com', 'www.example.com']
-ALLOWED_HOSTS = ["*"]
+# 限制为常见开发主机,可通过 ALLOWED_HOSTS 环境变量覆盖
+ALLOWED_HOSTS = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,0.0.0.0,[::1]").split(",") if h.strip()]
+
+# CSRF: 开发环境 HTTP 不需要 Secure 标志
+CSRF_COOKIE_SECURE = False
 
 # =============================================================================
 # 【邮件配置 - 开发专用】

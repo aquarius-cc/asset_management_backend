@@ -14,6 +14,22 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 if not SECRET_KEY:
     raise ImproperlyConfigured("SECRET_KEY environment variable is required in production")
 
+# C-2: 额外验证 — 拒绝已知弱密钥（belt-and-suspenders）
+_INSECURE_KEYS = frozenset({
+    "django-insecure-placeholder-see-env-settings",
+    "django-insecure-dev-only-key-change-in-production-1234567890",
+    "change-me-in-production",
+    "your-secret-key-here-change-in-production",
+    "change-this-to-a-real-secret-key-before-running",
+    "changeme",
+})
+if SECRET_KEY in _INSECURE_KEYS or len(SECRET_KEY) < 20:
+    raise ImproperlyConfigured(
+        "SECRET_KEY is too weak for production. Must be ≥20 characters.\n"
+        "Generate: python -c \"from django.core.management.utils import "
+        "get_random_secret_key; print(get_random_secret_key())\""
+    )
+
 # 【修复】ALLOWED_HOSTS 缺失时抛出异常
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "")
 if not ALLOWED_HOSTS:

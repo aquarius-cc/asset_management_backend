@@ -13,8 +13,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 # 【修复 S1】生产环境必须从环境变量读取
-# 开发环境会使用下面的默认值,但生产部署时必须通过环境变量设置
-SECRET_KEY = config("SECRET_KEY", default="django-insecure-dev-only-key-change-in-production-1234567890")
+# 开发/测试环境通过各自 settings 文件覆盖此值
+# C-2: 默认值仅作为 fallback，各环境文件负责验证密钥安全性
+SECRET_KEY = config("SECRET_KEY", default="django-insecure-placeholder-see-env-settings")
 
 # 【修复 S3】DEBUG 默认值为 False,生产环境更安全
 DEBUG = config("DEBUG", default=False, cast=bool)
@@ -164,6 +165,7 @@ REST_FRAMEWORK = {
         "anon": "20/minute",
         "user": "100/minute",
         "register": "5/minute",
+        "login": "5/minute",
     },
 }
 

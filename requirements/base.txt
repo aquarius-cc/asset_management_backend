@@ -29,6 +29,10 @@ qrcode[pil]==8.0
 # HTTP 请求库
 requests==2.32.5
 
+# requests 依赖（显式 pin，避免系统级版本冲突）
+urllib3==2.5.0
+chardet==5.2.0
+
 # 环境变量管理
 python-decouple==3.8
 

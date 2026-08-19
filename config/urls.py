@@ -79,15 +79,21 @@ def ready_check(request):
 
     检查服务是否可以接受请求。
     用于 Kubernetes readiness probe 和监控系统。
+    安全要求(H-3)：不向未认证请求暴露数据库错误详情。
     """
+    import logging
+
     from django.db import connection
+
+    logger = logging.getLogger("health")
 
     try:
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
         db_status = "connected"
     except Exception as e:
-        db_status = f"error: {e!s}"
+        db_status = "unavailable"
+        logger.warning(" readiness check failed: %s", e, exc_info=True)
 
     is_ready = db_status == "connected"
 

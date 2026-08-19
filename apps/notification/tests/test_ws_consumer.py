@@ -28,14 +28,21 @@ def _app():
     return URLRouter([re_path(WS_URL_PATTERN, NotificationConsumer.as_asgi())])
 
 
-def _ws_url(jobcode: str, token: str | None) -> str:
-    suffix = f"?token={token}" if token else ""
-    return f"/ws/notifications/{jobcode}/{suffix}"
+def _ws_url(jobcode: str) -> str:
+    return f"/ws/notifications/{jobcode}/"
+
+
+def _make_comm(jobcode: str, token: str | None = None) -> WebsocketCommunicator:
+    """创建带 Sec-WebSocket-Protocol 头的 communicator"""
+    headers = []
+    if token:
+        headers.append((b"sec-websocket-protocol", token.encode("utf-8")))
+    return WebsocketCommunicator(_app(), _ws_url(jobcode), headers=headers)
 
 
 async def _connect(comm: WebsocketCommunicator) -> dict:
     """发送握手, 返回握手响应(accept 或 close)"""
-    await comm.send_input({"type": "websocket.connect", "headers": []})
+    await comm.send_input({"type": "websocket.connect"})
     return await comm.receive_output()
 
 
@@ -60,7 +67,7 @@ def _reject_code(token: str | None, jobcode: str) -> int:
     """在单个事件循环内验证连接被拒绝, 返回关闭码"""
 
     async def scenario():
-        comm = WebsocketCommunicator(_app(), _ws_url(jobcode, token))
+        comm = _make_comm(jobcode, token)
         response = await _connect(comm)
         return response["type"], response.get("code")
 
@@ -76,7 +83,7 @@ class TestNotificationWSConnect:
         token = _issue_access(user)
 
         async def scenario():
-            comm = WebsocketCommunicator(_app(), _ws_url("ws_conn_a", token))
+            comm = _make_comm("ws_conn_a", token)
             response = await _connect(comm)
             if response["type"] != "websocket.accept":
                 return response.get("code"), None
@@ -124,7 +131,7 @@ class TestNotificationWSProtocol:
         token = _issue_access(user)
 
         async def scenario():
-            comm = WebsocketCommunicator(_app(), _ws_url("ws_proto_a", token))
+            comm = _make_comm("ws_proto_a", token)
             response = await _connect(comm)
             assert response["type"] == "websocket.accept"
             await comm.receive_json_from()
@@ -140,7 +147,7 @@ class TestNotificationWSProtocol:
         token = _issue_access(user)
 
         async def scenario():
-            comm = WebsocketCommunicator(_app(), _ws_url("ws_proto_b", token))
+            comm = _make_comm("ws_proto_b", token)
             response = await _connect(comm)
             assert response["type"] == "websocket.accept"
             await comm.receive_json_from()
@@ -163,7 +170,7 @@ class TestNotificationWSProtocol:
         )
 
         async def scenario():
-            comm = WebsocketCommunicator(_app(), _ws_url("ws_read_a", token))
+            comm = _make_comm("ws_read_a", token)
             response = await _connect(comm)
             assert response["type"] == "websocket.accept"
             await comm.receive_json_from()
@@ -186,7 +193,7 @@ class TestNotificationWSProtocol:
         )
 
         async def scenario():
-            comm = WebsocketCommunicator(_app(), _ws_url("ws_read_intruder", token))
+            comm = _make_comm("ws_read_intruder", token)
             response = await _connect(comm)
             assert response["type"] == "websocket.accept"
             await comm.receive_json_from()
@@ -202,7 +209,7 @@ class TestNotificationWSProtocol:
         token = _issue_access(user)
 
         async def scenario():
-            comm = WebsocketCommunicator(_app(), _ws_url("ws_push_a", token))
+            comm = _make_comm("ws_push_a", token)
             response = await _connect(comm)
             assert response["type"] == "websocket.accept"
             await comm.receive_json_from()
@@ -236,7 +243,7 @@ class TestNotificationWSProtocol:
         token = _issue_access(user)
 
         async def scenario():
-            comm = WebsocketCommunicator(_app(), _ws_url("ws_push_iso_a", token))
+            comm = _make_comm("ws_push_iso_a", token)
             response = await _connect(comm)
             assert response["type"] == "websocket.accept"
             await comm.receive_json_from()

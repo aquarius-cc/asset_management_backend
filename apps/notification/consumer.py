@@ -3,13 +3,12 @@ WebSocket 通知消费者 (JWT 最小认证)
 
 接收实时通知推送,支持:
 - 按用户工号分组推送
-- 连接认证(JWT Token)
+- 连接认证(JWT Token via Sec-WebSocket-Protocol 头, H-1 修复)
 - 心跳保活
 """
 
 import json
 import logging
-from urllib.parse import parse_qs
 
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
@@ -36,7 +35,8 @@ class NotificationConsumer(AsyncWebsocketConsumer):
     """
     通知 WebSocket 消费者 (JWT 最小认证)
 
-    连接路径: /ws/notifications/<jobcode>/?token=<access_token>
+    连接路径: /ws/notifications/<jobcode>/
+    认证方式: Sec-WebSocket-Protocol 头携带 JWT (H-1)
     认证规则:
       - token 缺失/无效/过期/用户停用 -> 关闭 4401
       - token 身份 auth_username 与 URL jobcode 不一致 -> 关闭 4403(防冒充)
@@ -73,7 +73,7 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         logger.info("WS connected", extra={"ws_jobcode": self.jobcode})
 
     async def _authenticate(self) -> AuthUser | None:
-        """从查询串解析 token 并校验, 失败返回 None"""
+        """从 Sec-WebSocket-Protocol 头解析 token 并校验, 失败返回 None"""
         raw_token = self._extract_token()
         if not raw_token:
             logger.warning("WS rejected: missing token", extra={"ws_jobcode": self.jobcode})
@@ -85,10 +85,16 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             return None
 
     def _extract_token(self) -> str | None:
-        """从 query string 提取 token 参数"""
-        query = parse_qs(self.scope["query_string"].decode("utf-8", errors="ignore"))
-        tokens = query.get("token")
-        return tokens[0] if tokens else None
+        """从 Sec-WebSocket-Protocol 头提取 JWT token (H-1 修复)"""
+        headers = dict(self.scope.get("headers", []))
+        protocol_raw = headers.get(b"sec-websocket-protocol", b"")
+        if isinstance(protocol_raw, str):
+            protocol_raw = protocol_raw.encode("utf-8")
+        protocols = [p.strip().decode("utf-8") for p in protocol_raw.split(b",") if p.strip()]
+        for p in protocols:
+            if "." in p and len(p) > 20:
+                return p
+        return None
 
     async def disconnect(self, close_code):
         """断开连接"""

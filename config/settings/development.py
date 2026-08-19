@@ -16,6 +16,34 @@
 
 from .base import *
 
+# 开发环境密钥（本地使用，可提交到版本控制）
+# 如需更强密钥，通过环境变量 SECRET_KEY 或 .env 文件覆盖
+import os
+
+SECRET_KEY = os.environ.get(
+    "SECRET_KEY",
+    "dev-only-key-!@#$%^&*()_+-=[]{}|;:,.<>?-not-for-production-2026",
+)
+
+# C-2: 验证密钥安全性 — 防止 base.py placeholder 泄漏到此环境
+from django.core.exceptions import ImproperlyConfigured
+
+_INSECURE_KEYS = frozenset({
+    "django-insecure-placeholder-see-env-settings",
+    "django-insecure-dev-only-key-change-in-production-1234567890",
+    "change-me-in-production",
+    "your-secret-key-here-change-in-production",
+    "change-this-to-a-real-secret-key-before-running",
+    "changeme",
+    "",
+})
+if SECRET_KEY in _INSECURE_KEYS:
+    raise ImproperlyConfigured(
+        "SECRET_KEY is insecure. Set a strong key via env var or .env file.\n"
+        "Generate: python -c \"from django.core.management.utils import "
+        "get_random_secret_key; print(get_random_secret_key())\""
+    )
+
 
 # =============================================================================
 # 【安全配置 - 开发专用】

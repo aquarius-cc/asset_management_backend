@@ -28,8 +28,8 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-}
       # Django 配置
       - DJANGO_SETTINGS_MODULE=config.settings.production
-      # 【安全注意】生产环境必须设置强随机密钥
-      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      # 【安全】生产环境必须显式设置 SECRET_KEY，缺失时 Django 启动失败
+      - SECRET_KEY=${SECRET_KEY}
       - DEBUG=${DEBUG:-False}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1}
     volumes:

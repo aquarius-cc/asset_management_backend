@@ -32,6 +32,7 @@ from apps.authusermanagement.serializers import (
 from apps.authusermanagement.services import AuthService
 from core.exceptions import AppValidationError
 from core.permissions import IsSystemAdmin
+from core.throttles import LoginRateThrottle, RegisterRateThrottle
 from utils.response_utils import error_response, success_response
 from utils.user_utils import resolve_operator
 
@@ -160,8 +161,6 @@ class RegisterAPIView(APIView):
 
     permission_classes = [permissions.AllowAny]
     # 【修复】限制注册频率,防止批量注册攻击(5次/分钟)
-    from core.throttles import RegisterRateThrottle
-
     throttle_classes = [RegisterRateThrottle]
 
     @extend_schema(
@@ -217,8 +216,8 @@ class LoginAPIView(APIView):
     """
 
     permission_classes = [permissions.AllowAny]
-    # 【修复】限制登录频率,防止暴力破解攻击
-    throttle_classes = []  # 使用全局 throttle 配置
+    # H-4: 账户级登录限流（5次/分钟/用户）+ 全局 IP 级限流（20次/分钟/IP）
+    throttle_classes = [LoginRateThrottle]
 
     @extend_schema(
         operation_id="auth_login",

@@ -71,7 +71,7 @@ python manage.py runserver
 参考 `.env.example` 文件，配置以下环境变量：
 
 - `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` - 数据库配置
-- `SECRET_KEY` - Django 密钥（生产环境必须修改）
+- `SECRET_KEY` - Django 密钥（**生产环境必须通过环境变量注入，禁止使用 `base.py` 中的开发默认值**）
 - `DEBUG` - 调试模式（生产环境设为 `False`）
 - `ALLOWED_HOSTS` - 允许的主机域名
 

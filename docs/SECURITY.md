@@ -170,19 +170,19 @@ def custom_exception_handler(exc, context):
 
 - 使用 `.env` 文件（已加入 `.gitignore`）存储敏感配置。
 
-- `config/settings.py` 中通过 `os.getenv()` 读取。
+- `config/settings/production.py` 中通过 `os.getenv()` 强制读取，缺失则启动失败。
 
+```python
+# config/settings/base.py — 开发环境 fallback（仅限本地开发）
+SECRET_KEY = config("SECRET_KEY", default="django-insecure-dev-only-key-change-in-production-1234567890")
+
+# config/settings/production.py — 生产环境强制从环境变量读取
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise ImproperlyConfigured("SECRET_KEY environment variable is required in production")
 ```
-python
 
-# config/settings.py
-
-from dotenv import load_dotenv
-import os
-load_dotenv()
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
-DB_PASSWORD = os.getenv('DB_PASSWORD')
-```
+> **注意：** `base.py` 中的默认值仅供开发环境使用。生产部署必须设置 `DJANGO_SETTINGS_MODULE=config.settings.production` 并通过环境变量注入 `SECRET_KEY`，否则启动时会抛出 `ImproperlyConfigured` 异常。
 
 ### 3.2 敏感字段序列化控制
 

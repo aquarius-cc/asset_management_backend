@@ -136,7 +136,7 @@ class TestGetByLoggingIdAPI:
     def test_api_returns_record(self):
         """API 应返回匹配的记录"""
         log = AssetOperationLog.objects.create(asset_code="TEST001", operation_type="create", description="测试")
-        url = f"/api/assets/operation-logs/by-logging-id/{log.logging_id}/"
+        url = f"/api/v1/assets/operation-logs/by-logging-id/{log.logging_id}/"
         response = self.client.get(url)
 
         assert response.status_code == 200
@@ -145,7 +145,7 @@ class TestGetByLoggingIdAPI:
 
     def test_api_returns_404_for_nonexistent(self):
         """API 对不存在的 logging_id 应返回 404"""
-        url = "/api/assets/operation-logs/by-logging-id/nonexistent-Log-20250123-A1B2C3D4/"
+        url = "/api/v1/assets/operation-logs/by-logging-id/nonexistent-Log-20250123-A1B2C3D4/"
         response = self.client.get(url)
 
         assert response.status_code == 404

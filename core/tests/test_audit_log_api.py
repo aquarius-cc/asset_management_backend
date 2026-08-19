@@ -187,40 +187,40 @@ class AuditLogListViewTest(TestCase):
 
     def test_list_should_return_all_logs(self):
         """列表查询应返回所有审计日志"""
-        response = self.client.get("/api/audit-logs/")
+        response = self.client.get("/api/v1/audit-logs/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["code"], 0)
         self.assertEqual(response.data["data"]["count"], 3)
 
     def test_list_should_filter_by_app_label(self):
         """按 app_label 过滤应返回正确结果"""
-        response = self.client.get("/api/audit-logs/", {"app_label": "department"})
+        response = self.client.get("/api/v1/audit-logs/", {"app_label": "department"})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["data"]["count"], 1)
         self.assertEqual(response.data["data"]["results"][0]["app_label"], "department")
 
     def test_list_should_filter_by_operation_type(self):
         """按 operation_type 过滤应返回正确结果"""
-        response = self.client.get("/api/audit-logs/", {"operation_type": "login"})
+        response = self.client.get("/api/v1/audit-logs/", {"operation_type": "login"})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["data"]["count"], 1)
         self.assertEqual(response.data["data"]["results"][0]["operation_type"], "login")
 
     def test_list_should_return_error_when_invalid_operation_type(self):
         """无效操作类型应返回 400 错误"""
-        response = self.client.get("/api/audit-logs/", {"operation_type": "invalid"})
+        response = self.client.get("/api/v1/audit-logs/", {"operation_type": "invalid"})
         self.assertEqual(response.status_code, 400)
         self.assertIn("无效的操作类型", response.data["message"])
 
     def test_list_should_filter_by_days(self):
         """按 days 过滤应返回正确结果"""
-        response = self.client.get("/api/audit-logs/", {"days": "1"})
+        response = self.client.get("/api/v1/audit-logs/", {"days": "1"})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["data"]["count"], 3)
 
     def test_list_should_return_error_when_invalid_days(self):
         """无效 days 参数应返回 400 错误"""
-        response = self.client.get("/api/audit-logs/", {"days": "abc"})
+        response = self.client.get("/api/v1/audit-logs/", {"days": "abc"})
         self.assertEqual(response.status_code, 400)
         self.assertIn("days 参数必须是整数", response.data["message"])
 
@@ -228,7 +228,7 @@ class AuditLogListViewTest(TestCase):
         """按日期范围过滤应返回正确结果"""
         today = datetime.now().strftime("%Y-%m-%d")
         response = self.client.get(
-            "/api/audit-logs/",
+            "/api/v1/audit-logs/",
             {
                 "start_date": today,
                 "end_date": today,
@@ -239,19 +239,19 @@ class AuditLogListViewTest(TestCase):
 
     def test_list_should_return_error_when_invalid_start_date(self):
         """无效 start_date 格式应返回 400 错误"""
-        response = self.client.get("/api/audit-logs/", {"start_date": "invalid-date"})
+        response = self.client.get("/api/v1/audit-logs/", {"start_date": "invalid-date"})
         self.assertEqual(response.status_code, 400)
         self.assertIn("start_date 格式错误", response.data["message"])
 
     def test_list_should_return_error_when_invalid_end_date(self):
         """无效 end_date 格式应返回 400 错误"""
-        response = self.client.get("/api/audit-logs/", {"end_date": "invalid-date"})
+        response = self.client.get("/api/v1/audit-logs/", {"end_date": "invalid-date"})
         self.assertEqual(response.status_code, 400)
         self.assertIn("end_date 格式错误", response.data["message"])
 
     def test_list_should_paginate_results(self):
         """列表查询应支持分页"""
-        response = self.client.get("/api/audit-logs/", {"page": "1", "page_size": "2"})
+        response = self.client.get("/api/v1/audit-logs/", {"page": "1", "page_size": "2"})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["data"]["results"]), 2)
         self.assertEqual(response.data["data"]["count"], 3)
@@ -280,13 +280,13 @@ class AuditLogDetailViewTest(TestCase):
 
     def test_detail_should_return_log_when_exists(self):
         """详情查询应返回存在的记录"""
-        response = self.client.get(f"/api/audit-logs/{self.log.pk}/")
+        response = self.client.get(f"/api/v1/audit-logs/{self.log.pk}/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["data"]["record_code"], "DEPT001")
 
     def test_detail_should_return_404_when_not_exists(self):
         """详情查询不存在的记录应返回 404"""
-        response = self.client.get("/api/audit-logs/99999/")
+        response = self.client.get("/api/v1/audit-logs/99999/")
         self.assertEqual(response.status_code, 404)
 
 
@@ -313,13 +313,13 @@ class AuditLogByLoggingIdViewTest(TestCase):
 
     def test_by_logging_id_should_return_log_when_exists(self):
         """按 logging_id 查询应返回存在的记录"""
-        response = self.client.get(f"/api/audit-logs/by-logging-id/{self.log.logging_id}/")
+        response = self.client.get(f"/api/v1/audit-logs/by-logging-id/{self.log.logging_id}/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["data"]["logging_id"], self.log.logging_id)
 
     def test_by_logging_id_should_return_404_when_not_exists(self):
         """按 logging_id 查询不存在的记录应返回 404"""
-        response = self.client.get("/api/audit-logs/by-logging-id/NOTEXIST-Log-20260101-XXXXXXXX/")
+        response = self.client.get("/api/v1/audit-logs/by-logging-id/NOTEXIST-Log-20260101-XXXXXXXX/")
         self.assertEqual(response.status_code, 404)
 
 
@@ -351,19 +351,19 @@ class RecentAuditLogsViewTest(TestCase):
 
     def test_recent_should_return_logs(self):
         """最近审计日志查询应返回结果"""
-        response = self.client.get("/api/audit-logs/recent/", {"days": "1"})
+        response = self.client.get("/api/v1/audit-logs/recent/", {"days": "1"})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["data"]["count"], 1)
 
     def test_recent_should_return_error_when_invalid_days(self):
         """无效 days 参数应返回 400 错误"""
-        response = self.client.get("/api/audit-logs/recent/", {"days": "abc"})
+        response = self.client.get("/api/v1/audit-logs/recent/", {"days": "abc"})
         self.assertEqual(response.status_code, 400)
         self.assertIn("days 参数必须是整数", response.data["message"])
 
     def test_recent_should_return_error_when_days_out_of_range(self):
         """days 超出范围应返回 400 错误"""
-        response = self.client.get("/api/audit-logs/recent/", {"days": "400"})
+        response = self.client.get("/api/v1/audit-logs/recent/", {"days": "400"})
         self.assertEqual(response.status_code, 400)
         self.assertIn("days 参数必须在 1-365 之间", response.data["message"])
 
@@ -391,13 +391,13 @@ class AuditLogsByAppLabelViewTest(TestCase):
 
     def test_by_app_label_should_return_logs(self):
         """按应用标识查询应返回结果"""
-        response = self.client.get("/api/audit-logs/by-app/department/")
+        response = self.client.get("/api/v1/audit-logs/by-app/department/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["data"]["count"], 1)
 
     def test_by_app_label_should_return_404_when_no_logs(self):
         """按应用标识查询无记录时应返回 404"""
-        response = self.client.get("/api/audit-logs/by-app/nonexistent/")
+        response = self.client.get("/api/v1/audit-logs/by-app/nonexistent/")
         self.assertEqual(response.status_code, 404)
 
 
@@ -424,11 +424,11 @@ class AuditLogsByOperatorViewTest(TestCase):
 
     def test_by_operator_should_return_logs(self):
         """按操作人查询应返回结果"""
-        response = self.client.get("/api/audit-logs/by-operator/E001/")
+        response = self.client.get("/api/v1/audit-logs/by-operator/E001/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["data"]["count"], 1)
 
     def test_by_operator_should_return_404_when_no_logs(self):
         """按操作人查询无记录时应返回 404"""
-        response = self.client.get("/api/audit-logs/by-operator/NONEXIST/")
+        response = self.client.get("/api/v1/audit-logs/by-operator/NONEXIST/")
         self.assertEqual(response.status_code, 404)

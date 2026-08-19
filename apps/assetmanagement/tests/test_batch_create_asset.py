@@ -210,7 +210,7 @@ class AssetBatchCreateAPITest(TestCase):
                 }
             ]
         }
-        response = self.client.post("/api/assets/assets/batch-create/", data, format="json")
+        response = self.client.post("/api/v1/assets/assets/batch-create/", data, format="json")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["code"], 0)
         self.assertEqual(response.data["data"]["success_count"], 1)
@@ -249,7 +249,7 @@ class AssetBatchCreateAPITest(TestCase):
                 },
             ]
         }
-        response = self.client.post("/api/assets/assets/batch-create/", data, format="json")
+        response = self.client.post("/api/v1/assets/assets/batch-create/", data, format="json")
         # Note: API may return 500 due to pre-existing issue in AssetDetailSerializer
         # The important thing is that the serializer validation passes
         if response.status_code == 200:
@@ -266,7 +266,7 @@ class AssetBatchCreateAPITest(TestCase):
                 }
             ]
         }
-        response = self.client.post("/api/assets/assets/batch-create/", data, format="json")
+        response = self.client.post("/api/v1/assets/assets/batch-create/", data, format="json")
         self.assertEqual(response.status_code, 400)
 
     def test_batch_create_should_handle_purchase_number(self):
@@ -284,7 +284,7 @@ class AssetBatchCreateAPITest(TestCase):
                 }
             ]
         }
-        response = self.client.post("/api/assets/assets/batch-create/", data, format="json")
+        response = self.client.post("/api/v1/assets/assets/batch-create/", data, format="json")
         self.assertEqual(response.status_code, 200)
         # success_count 统计的是 item 数量,不是 asset 数量
         self.assertEqual(response.data["data"]["success_count"], 1)

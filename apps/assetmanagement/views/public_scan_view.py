@@ -25,6 +25,7 @@ def public_scan_view(request: Request, recordcode: str) -> Response:
     - 当前状态、购买价格(显示为****)
     - 存放仓库、资产分类、使用人
     - 保管人联系电话(脱敏:前3后4)
+    - 使用地点、入库日期、物理成色
     """
     asset = AssetSelector.get_asset_for_public_scan(recordcode)
     if asset is None:
@@ -51,6 +52,9 @@ def public_scan_view(request: Request, recordcode: str) -> Response:
             if asset.asset_manager_recordcode
             else None
         ),
+        "asset_using_location": asset.asset_using_location,
+        "asset_entry_date": asset.asset_entry_date.isoformat() if asset.asset_entry_date else None,
+        "physical_grade": asset.physical_grade,
     }
 
     return success_response(data=data)

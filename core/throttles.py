@@ -4,10 +4,12 @@
 提供项目统一的频率限制:
 - RegisterRateThrottle: 注册接口频率限制(5次/分钟/IP)
 - LoginRateThrottle: 登录接口频率限制(5次/分钟/用户)
+- LoginLockoutThrottle: 登录锁定(连续失败5次后锁定15分钟)
 """
 
 import logging
 
+from django.core.cache import cache
 from rest_framework.throttling import AnonRateThrottle
 
 logger = logging.getLogger(__name__)
@@ -45,3 +47,54 @@ class LoginRateThrottle(AnonRateThrottle):
         if not username:
             username = "anonymous"
         return f"throttle_login_{username}"
+
+
+class LoginLockoutThrottle(AnonRateThrottle):
+    """
+    登录锁定:连续失败5次后锁定15分钟
+
+    依据: 03-业务规则与状态机.md §4.6
+    "连续登录失败 5 次后,账户锁定 15 分钟"
+
+    使用 Django cache 存储失败计数,Redis 生产环境自动过期。
+    """
+
+    scope = "login"
+    LOCKOUT_THRESHOLD = 5
+    LOCKOUT_DURATION = 15 * 60  # 15分钟
+
+    def _get_username(self, request):
+        username = ""
+        try:
+            if hasattr(request, "data"):
+                username = request.data.get("auth_username", "")
+        except Exception:
+            pass
+        return username or "anonymous"
+
+    def get_cache_key(self, request, view):
+        username = self._get_username(request)
+        return f"throttle_login_{username}"
+
+    def allow_request(self, request, view):
+        username = self._get_username(request)
+        fail_key = f"login_fail_{username}"
+        fail_count = cache.get(fail_key, 0)
+        if fail_count >= self.LOCKOUT_THRESHOLD:
+            logger.warning(f"登录锁定: {username} 已失败 {fail_count} 次,锁定中")
+            return False
+        return super().allow_request(request, view)
+
+    def record_failure(self, request, view):
+        """登录失败时调用"""
+        username = self._get_username(request)
+        fail_key = f"login_fail_{username}"
+        count = cache.get(fail_key, 0)
+        cache.set(fail_key, count + 1, self.LOCKOUT_DURATION)
+        if count + 1 >= self.LOCKOUT_THRESHOLD:
+            logger.warning(f"登录锁定触发: {username} 连续失败 {count + 1} 次,锁定 15 分钟")
+
+    def record_success(self, request, view):
+        """登录成功时调用"""
+        username = self._get_username(request)
+        cache.delete(f"login_fail_{username}")

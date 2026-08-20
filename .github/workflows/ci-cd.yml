@@ -116,14 +116,16 @@ jobs:
         run: |
           python manage.py migrate --settings=config.settings.test_postgres
 
-      - name: Run tests
+      - name: Run tests with coverage
         env:
           DB_HOST: 127.0.0.1
           DB_NAME: asset_management_test
           DB_USER: postgres
           DB_PASSWORD: rootpassword
         run: |
-          python manage.py test --settings=config.settings.test_postgres
+          pip install pytest pytest-cov
+          pytest --cov=. --cov-fail-under=80 --cov-report=xml -v \
+            --settings=config.settings.test_postgres
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
@@ -155,6 +157,11 @@ jobs:
         run: |
           pip install bandit
           bandit -r apps core config utils -f json -o bandit-report.json || true
+
+      - name: Run pip-audit
+        run: |
+          pip install pip-audit
+          pip-audit --fail-on=high
 
       - name: Upload Bandit report
         uses: github/codeql-action/upload-sarif@v3

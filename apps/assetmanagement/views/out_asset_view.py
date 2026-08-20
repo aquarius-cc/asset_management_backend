@@ -159,7 +159,7 @@ class OutAssetViewSet(
         if ordering:
             filters["ordering"] = ordering
 
-        queryset = OutAssetSelector.get_recyclable_outassets(filters if filters else None)
+        queryset = OutAssetSelector.get_recyclable_outassets(filters if filters else None, user=request.user)
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)

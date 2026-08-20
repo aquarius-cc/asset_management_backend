@@ -132,6 +132,7 @@ class OutAssetService:
         outasset = OutAssetSelector.get_outasset_by_record_code(recordcode)
         if not outasset:
             raise AppValidationError(detail=f"出库记录 {recordcode} 不存在", error_code="OUTASSET_NOT_FOUND")
+        outasset = OutAsset.objects.select_for_update().get(pk=outasset.pk)
 
         before_data = {key: getattr(outasset, key) for key in update_data.keys()}
 

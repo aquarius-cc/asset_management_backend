@@ -208,6 +208,7 @@ class RecycleAssetService:
         recycle_asset = RecycleAsset.objects.filter(recordcode=recordcode, is_deleted=False).first()
         if not recycle_asset:
             raise AppValidationError(detail=f"回收记录 {recordcode} 不存在", error_code="RECYCLE_ASSET_NOT_FOUND")
+        recycle_asset = RecycleAsset.objects.select_for_update().get(pk=recycle_asset.pk)
 
         before_data = {key: getattr(recycle_asset, key) for key in update_data.keys()}
 
@@ -330,7 +331,7 @@ class RecycleAssetService:
         if not asset:
             raise AppValidationError(detail="回收记录未关联资产", error_code="MISSING_RELATED_ASSET")
 
-        if asset.asset_current_status != "recycled_pending":
+        if asset.asset_current_status != Asset.AssetStatus.RECYCLED_PENDING:
             raise AppValidationError(
                 detail=f"资产当前状态为 {asset.asset_current_status},只有已回收待发放的资产才能重新发放",
                 error_code="INVALID_ASSET_STATUS_FOR_REISSUE",

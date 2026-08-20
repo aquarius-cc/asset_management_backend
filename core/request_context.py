@@ -68,7 +68,13 @@ class RequestContextMiddleware:
 
     @staticmethod
     def _get_client_ip(request) -> str | None:
-        """从 request 中提取客户端 IP"""
+        """
+        从 request 中提取客户端 IP
+
+        信任边界:必须部署在可信反向代理(Nginx/ALB)之后,
+        代理负责覆写/追加 X-Forwarded-For。
+        无代理直连时回退到 REMOTE_ADDR。
+        """
         x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
         if x_forwarded_for:
             return x_forwarded_for.split(",")[0].strip()

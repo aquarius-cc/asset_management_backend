@@ -724,7 +724,6 @@ stateDiagram-v2
     in_store --> in_use : 出库
     in_use --> recycled_pending : 回收申请
     recycled_pending --> in_store : 回收审批通过
-    in_use --> damaged : 报废申请
     recycled_pending --> damaged : 报废申请
     damaged --> scrapped : 报废审批通过
     damaged --> in_use : 报废审批拒绝/取消
@@ -734,7 +733,7 @@ stateDiagram-v2
 1. in_store -> in_use: 出库创建时自动转换
 2. in_use -> recycled_pending: 回收创建时自动转换
 3. recycled_pending -> in_store: 回收审批通过后转换
-4. in_use/recycled_pending -> damaged: 报废申请创建时转换
+4. recycled_pending -> damaged: 报废申请创建时转换（in_use须先回收至recycled_pending）
 5. damaged -> scrapped: 报废审批通过后转换
 6. damaged -> in_use: 报废审批拒绝或取消时转换
 """

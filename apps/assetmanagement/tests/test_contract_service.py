@@ -1,5 +1,6 @@
 """合同管理服务测试"""
 
+import json
 from decimal import Decimal
 
 import pytest
@@ -45,7 +46,10 @@ class TestAddPaymentRecord:
         result = ContractService.add_payment_record("C001", Decimal("10000.00"), "首付款")
         assert result.amount_paid == Decimal("10000.00")
         assert result.amount_unpaid == Decimal("40000.00")
-        assert "10000" in result.paid_record
+        data = json.loads(result.paid_record)
+        assert len(data["payments"]) == 1
+        assert data["payments"][0]["amount"] == "10000.00"
+        assert data["payments"][0]["status"] == "pending"
 
     def test_add_payment_nonexistent_contract_raises(self):
         with pytest.raises(AppValidationError) as exc_info:
@@ -202,3 +206,54 @@ class TestBatchDeleteContract:
         result = ContractService.batch_delete_contract(["BDC3", "NOPE"])
         assert result["success_count"] == 1
         assert result["fail_count"] == 1
+
+
+@pytest.mark.django_db
+class TestDeletePaymentRecord:
+    def test_delete_payment_success(self):
+        ContractService.create_contract(_contract_data(contract_amount=Decimal("50000.00")))
+        contract = ContractService.add_payment_record("C001", Decimal("10000.00"), "首付款")
+        data = json.loads(contract.paid_record)
+        payment_id = data["payments"][0]["id"]
+        result = ContractService.delete_payment_record("C001", payment_id)
+        updated_data = json.loads(result.paid_record)
+        assert updated_data["payments"][0]["status"] == "deleted"
+
+    def test_delete_payment_nonexistent_contract_raises(self):
+        with pytest.raises(AppValidationError) as exc_info:
+            ContractService.delete_payment_record("NOPE", "pay_xxx")
+        assert exc_info.value.error_code == "CONTRACT_NOT_FOUND"
+
+    def test_delete_payment_nonexistent_payment_raises(self):
+        ContractService.create_contract(_contract_data())
+        with pytest.raises(AppValidationError) as exc_info:
+            ContractService.delete_payment_record("C001", "pay_nonexistent")
+        assert exc_info.value.error_code == "PAYMENT_NOT_FOUND"
+
+
+@pytest.mark.django_db
+class TestApprovePaymentRecord:
+    def test_approve_payment_success(self):
+        ContractService.create_contract(_contract_data(contract_amount=Decimal("50000.00")))
+        contract = ContractService.add_payment_record("C001", Decimal("10000.00"), "首付款")
+        data = json.loads(contract.paid_record)
+        payment_id = data["payments"][0]["id"]
+        result = ContractService.approve_payment_record("C001", payment_id)
+        updated_data = json.loads(result.paid_record)
+        assert updated_data["payments"][0]["status"] == "approved"
+
+    def test_approve_deleted_payment_raises(self):
+        ContractService.create_contract(_contract_data(contract_amount=Decimal("50000.00")))
+        contract = ContractService.add_payment_record("C001", Decimal("10000.00"))
+        data = json.loads(contract.paid_record)
+        payment_id = data["payments"][0]["id"]
+        ContractService.delete_payment_record("C001", payment_id)
+        with pytest.raises(AppValidationError) as exc_info:
+            ContractService.approve_payment_record("C001", payment_id)
+        assert exc_info.value.error_code == "PAYMENT_ALREADY_DELETED"
+
+    def test_approve_nonexistent_payment_raises(self):
+        ContractService.create_contract(_contract_data())
+        with pytest.raises(AppValidationError) as exc_info:
+            ContractService.approve_payment_record("C001", "pay_nonexistent")
+        assert exc_info.value.error_code == "PAYMENT_NOT_FOUND"

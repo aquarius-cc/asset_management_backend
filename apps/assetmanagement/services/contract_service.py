@@ -5,6 +5,8 @@
 """
 
 import copy
+import json
+import uuid
 from decimal import Decimal
 from typing import Any
 
@@ -17,6 +19,19 @@ from apps.assetmanagement.state_machine.contract_fsm import ContractFSM, Contrac
 from core.audit_service import GenericAuditService
 from core.batch_mixins import BatchOperationMixin
 from core.exceptions import AppValidationError
+
+
+def _parse_paid_record(raw: str | None) -> dict:
+    """解析 paid_record,兼容纯文本旧格式"""
+    if not raw:
+        return {"payments": []}
+    try:
+        data = json.loads(raw)
+        if "payments" not in data:
+            data["payments"] = []
+        return data
+    except (json.JSONDecodeError, TypeError):
+        return {"payments": []}
 
 
 class ContractService:
@@ -90,13 +105,18 @@ class ContractService:
         if amount <= 0:
             raise AppValidationError(detail="付款金额必须大于0", error_code="INVALID_PAYMENT_AMOUNT")
 
-        current_record = contract.paid_record or ""
-        timestamp = timezone.now().strftime("%Y-%m-%d %H:%M:%S")
-        new_record = f"{timestamp}: 付款 {amount} 元"
-        if description:
-            new_record += f" - {description}"
-        new_record += "\n"
-        contract.paid_record = current_record + new_record
+        current_data = _parse_paid_record(contract.paid_record)
+        payment = {
+            "id": f"pay_{uuid.uuid4().hex[:12]}",
+            "date": timezone.now().strftime("%Y-%m-%d"),
+            "amount": str(amount),
+            "description": description,
+            "payment_method": "bank_transfer",
+            "status": "pending",
+            "created_at": timezone.now().isoformat(),
+        }
+        current_data["payments"].append(payment)
+        contract.paid_record = json.dumps(current_data, ensure_ascii=False)
 
         contract.amount_paid = (contract.amount_paid or 0) + amount
         # 自动计算未付金额
@@ -285,3 +305,65 @@ class ContractService:
             process_fn=_delete_item,
             max_batch_size=100,
         )
+
+    @staticmethod
+    @transaction.atomic
+    def delete_payment_record(contract_code: str, payment_id: str) -> Contract:
+        """
+        删除支付记录(软删除:status → deleted)
+
+        Args:
+            contract_code: 合同编码
+            payment_id: 支付记录 ID
+
+        Returns:
+            Contract: 更新后的合同实例
+        """
+        contract = ContractSelector.get_contract_by_code(contract_code)
+        if not contract:
+            raise AppValidationError(detail=f"合同 {contract_code} 不存在", error_code="CONTRACT_NOT_FOUND")
+
+        data = _parse_paid_record(contract.paid_record)
+        for p in data["payments"]:
+            if p["id"] == payment_id:
+                p["status"] = "deleted"
+                break
+        else:
+            raise AppValidationError(detail="支付记录不存在", error_code="PAYMENT_NOT_FOUND")
+
+        contract.paid_record = json.dumps(data, ensure_ascii=False)
+        contract.save(update_fields=["paid_record", "updated_at"])
+        return contract
+
+    @staticmethod
+    @transaction.atomic
+    def approve_payment_record(contract_code: str, payment_id: str) -> Contract:
+        """
+        审核通过支付记录(status → approved)
+
+        Args:
+            contract_code: 合同编码
+            payment_id: 支付记录 ID
+
+        Returns:
+            Contract: 更新后的合同实例
+        """
+        contract = ContractSelector.get_contract_by_code(contract_code)
+        if not contract:
+            raise AppValidationError(detail=f"合同 {contract_code} 不存在", error_code="CONTRACT_NOT_FOUND")
+
+        data = _parse_paid_record(contract.paid_record)
+        for p in data["payments"]:
+            if p["id"] == payment_id:
+                if p["status"] == "deleted":
+                    raise AppValidationError(
+                        detail="已删除的支付记录不可审核", error_code="PAYMENT_ALREADY_DELETED"
+                    )
+                p["status"] = "approved"
+                break
+        else:
+            raise AppValidationError(detail="支付记录不存在", error_code="PAYMENT_NOT_FOUND")
+
+        contract.paid_record = json.dumps(data, ensure_ascii=False)
+        contract.save(update_fields=["paid_record", "updated_at"])
+        return contract

@@ -125,7 +125,7 @@ class BaseModel(TimestampModel):
                 import logging
 
                 logger = logging.getLogger(__name__)
-                logger.warning(f"recordcode 碰撞,重试生成: {self.recordcode}")
+                logger.warning(f"recordcode 碰撞,重试生成: prefix={self.RECORDCODE_PREFIX}")
                 self.recordcode = generate_recordcode_with_prefix(self.RECORDCODE_PREFIX)
                 super().save(*args, **kwargs)
             else:

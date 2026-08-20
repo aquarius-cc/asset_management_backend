@@ -429,6 +429,21 @@ class BrokenAssetSelector:
     def exists_by_asset_code(asset_code: str) -> bool:
         return BrokenAsset.objects.filter(asset_recordcode__asset_code=asset_code, is_deleted=False).exists()
 
+    @staticmethod
+    def get_by_asset_code(asset_code: str, user=None) -> QuerySet[BrokenAsset]:
+        qs = BrokenAsset.objects.filter(
+            asset_recordcode__asset_code=asset_code, is_deleted=False
+        ).select_related(
+            "asset_recordcode",
+            "asset_recordcode__asset_type_recordcode",
+            "asset_recordcode__asset_contract_recordcode",
+            "asset_recordcode__asset_storage_recordcode",
+            "asset_recordcode__asset_manager_recordcode",
+        )
+        if user:
+            qs = get_asset_linked_queryset_for_user(user, qs)
+        return qs
+
 
 class LostAssetSelector:
     """遗失记录查询选择器"""
@@ -456,6 +471,21 @@ class LostAssetSelector:
     @staticmethod
     def exists_by_asset_code(asset_code: str) -> bool:
         return LostAsset.objects.filter(asset_recordcode__asset_code=asset_code, is_deleted=False).exists()
+
+    @staticmethod
+    def get_by_asset_code(asset_code: str, user=None) -> QuerySet[LostAsset]:
+        qs = LostAsset.objects.filter(
+            asset_recordcode__asset_code=asset_code, is_deleted=False
+        ).select_related(
+            "asset_recordcode",
+            "asset_recordcode__asset_type_recordcode",
+            "asset_recordcode__asset_contract_recordcode",
+            "asset_recordcode__asset_storage_recordcode",
+            "asset_recordcode__asset_manager_recordcode",
+        )
+        if user:
+            qs = get_asset_linked_queryset_for_user(user, qs)
+        return qs
 
 
 class FoundAssetSelector:
@@ -487,6 +517,23 @@ class FoundAssetSelector:
             lost_asset_recordcode__recordcode=lost_asset_recordcode, is_deleted=False
         ).exists()
 
+    @staticmethod
+    def get_by_asset_code(asset_code: str, user=None) -> QuerySet[FoundAsset]:
+        qs = FoundAsset.objects.filter(
+            lost_asset_recordcode__asset_recordcode__asset_code=asset_code,
+            is_deleted=False,
+        ).select_related(
+            "lost_asset_recordcode",
+            "lost_asset_recordcode__asset_recordcode",
+            "lost_asset_recordcode__asset_recordcode__asset_type_recordcode",
+            "lost_asset_recordcode__asset_recordcode__asset_contract_recordcode",
+            "lost_asset_recordcode__asset_recordcode__asset_storage_recordcode",
+            "lost_asset_recordcode__asset_recordcode__asset_manager_recordcode",
+        )
+        if user:
+            qs = get_asset_linked_queryset_for_user(user, qs)
+        return qs
+
 
 class RepairAssetSelector:
     """维修记录查询选择器"""
@@ -512,3 +559,18 @@ class RepairAssetSelector:
     @staticmethod
     def exists_by_asset_code(asset_code: str) -> bool:
         return RepairAsset.objects.filter(asset_recordcode__asset_code=asset_code, is_deleted=False).exists()
+
+    @staticmethod
+    def get_by_asset_code(asset_code: str, user=None) -> QuerySet[RepairAsset]:
+        qs = RepairAsset.objects.filter(
+            asset_recordcode__asset_code=asset_code, is_deleted=False
+        ).select_related(
+            "asset_recordcode",
+            "asset_recordcode__asset_type_recordcode",
+            "asset_recordcode__asset_contract_recordcode",
+            "asset_recordcode__asset_storage_recordcode",
+            "asset_recordcode__asset_manager_recordcode",
+        )
+        if user:
+            qs = get_asset_linked_queryset_for_user(user, qs)
+        return qs

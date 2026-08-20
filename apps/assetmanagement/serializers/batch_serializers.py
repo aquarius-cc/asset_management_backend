@@ -181,3 +181,56 @@ class AssetTypeBatchCreateSerializer(serializers.Serializer):
         if len(codes) != len(set(codes)):
             raise serializers.ValidationError("提交记录中存在重复的资产类型编码")
         return value
+
+
+# ========== 损坏资产批量操作序列化器 ==========
+
+
+class BrokenAssetBatchCreateItemSerializer(serializers.Serializer):
+    """单条损坏资产批量创建数据校验"""
+
+    row_number = serializers.IntegerField(required=False, help_text="Excel 行号")
+    asset_recordcode = serializers.CharField(required=True, help_text="资产 recordcode")
+    broken_date = serializers.DateField(required=False, help_text="损坏日期")
+    broken_reason = serializers.CharField(required=True, max_length=200, help_text="损坏原因")
+    broken_description = serializers.CharField(required=False, allow_blank=True, default="", help_text="损坏描述")
+
+
+class BrokenAssetBatchCreateSerializer(serializers.Serializer):
+    """批量创建损坏资产请求校验"""
+
+    MAX_BATCH_SIZE = 100
+    items = BrokenAssetBatchCreateItemSerializer(many=True, required=True)
+
+    def validate_items(self, value: list[dict]) -> list[dict]:
+        if len(value) > self.MAX_BATCH_SIZE:
+            raise serializers.ValidationError(f"单次批量创建不能超过 {self.MAX_BATCH_SIZE} 条")
+        return value
+
+
+# ========== 遗失资产批量操作序列化器 ==========
+
+
+class LostAssetBatchCreateItemSerializer(serializers.Serializer):
+    """单条遗失资产批量创建数据校验"""
+
+    row_number = serializers.IntegerField(required=False, help_text="Excel 行号")
+    asset_code = serializers.CharField(required=True, help_text="资产编码")
+    lost_date = serializers.DateField(required=True, help_text="遗失日期")
+    lost_reason = serializers.CharField(required=True, max_length=200, help_text="遗失原因")
+    lost_description = serializers.CharField(required=False, allow_blank=True, default="", help_text="遗失描述")
+
+
+class LostAssetBatchCreateSerializer(serializers.Serializer):
+    """批量创建遗失资产请求校验"""
+
+    MAX_BATCH_SIZE = 100
+    items = LostAssetBatchCreateItemSerializer(many=True, required=True)
+
+    def validate_items(self, value: list[dict]) -> list[dict]:
+        if len(value) > self.MAX_BATCH_SIZE:
+            raise serializers.ValidationError(f"单次批量创建不能超过 {self.MAX_BATCH_SIZE} 条")
+        asset_codes = [item.get("asset_code") for item in value]
+        if len(asset_codes) != len(set(asset_codes)):
+            raise serializers.ValidationError("提交记录中存在重复的资产编码")
+        return value

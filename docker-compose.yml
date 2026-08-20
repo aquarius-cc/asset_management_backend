@@ -61,8 +61,9 @@ services:
       - POSTGRES_PASSWORD=${DB_PASSWORD:-assetpassword}
       - POSTGRES_USER=${DB_USER:-postgres}
       - POSTGRES_DB=${DB_NAME:-asset_management_backend}
+    # 仅允许宿主机本地访问,禁止外部网络连接数据库
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       # 数据卷挂载（持久化数据）
       - postgres_data:/var/lib/postgresql/data

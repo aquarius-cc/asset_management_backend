@@ -17,7 +17,9 @@ from apps.assetmanagement.selectors import (
     FoundAssetSelector,
     LostAssetSelector,
 )
+from apps.assetmanagement.selectors.asset_selector import AssetSelector
 from apps.assetmanagement.serializers import (
+    BrokenAssetBatchCreateSerializer,
     BrokenAssetCreateSerializer,
     BrokenAssetDetailSerializer,
     BrokenAssetListSerializer,
@@ -26,6 +28,7 @@ from apps.assetmanagement.serializers import (
     FoundAssetDetailSerializer,
     FoundAssetListSerializer,
     FoundAssetUpdateSerializer,
+    LostAssetBatchCreateSerializer,
     LostAssetCreateSerializer,
     LostAssetDetailSerializer,
     LostAssetListSerializer,
@@ -109,6 +112,43 @@ class BrokenAssetViewSet(
             message=f"Batch delete done: {len(success_ids)} success, {len(fail_items)} fail",
         )
 
+    @action(detail=False, methods=["post"], url_path="batch-create")
+    def batch_create(self, request):
+        serializer = BrokenAssetBatchCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        operator_jobcode, operator_name = resolve_operator(request.user)
+        result = AssetLifecycleMixin.batch_create_broken_assets(
+            items=serializer.validated_data["items"],
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+        )
+        success_serializer = BrokenAssetCreateSerializer(result["success_items"], many=True)
+        return success_response(
+            data={
+                "total": result["total"],
+                "success_count": result["success_count"],
+                "fail_count": result["fail_count"],
+                "success_items": success_serializer.data,
+                "fail_items": result["fail_items"],
+            },
+            message=f"批量创建完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
+        )
+
+    @action(detail=False, methods=["get"], url_path="by-asset/(?P<asset_code>[^/.]+)")
+    def by_asset(self, request, asset_code=None):
+        visible = AssetSelector.get_queryset_for_user(request.user).filter(
+            asset_code=asset_code
+        ).exists()
+        if not visible:
+            return error_response(message=f"资产 {asset_code} 不存在", status_code=404)
+        records = BrokenAssetSelector.get_by_asset_code(asset_code, user=request.user)
+        page = self.paginate_queryset(records)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(records, many=True)
+        return success_response(data=serializer.data, message="查询成功")
+
 
 @extend_schema(tags=["遗失资产"])
 class LostAssetViewSet(
@@ -177,6 +217,43 @@ class LostAssetViewSet(
             message=f"Batch delete done: {len(success_ids)} success, {len(fail_items)} fail",
         )
 
+    @action(detail=False, methods=["post"], url_path="batch-create")
+    def batch_create(self, request):
+        serializer = LostAssetBatchCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        operator_jobcode, operator_name = resolve_operator(request.user)
+        result = AssetLifecycleMixin.batch_create_lost_assets(
+            items=serializer.validated_data["items"],
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+        )
+        success_serializer = LostAssetCreateSerializer(result["success_items"], many=True)
+        return success_response(
+            data={
+                "total": result["total"],
+                "success_count": result["success_count"],
+                "fail_count": result["fail_count"],
+                "success_items": success_serializer.data,
+                "fail_items": result["fail_items"],
+            },
+            message=f"批量创建完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
+        )
+
+    @action(detail=False, methods=["get"], url_path="by-asset/(?P<asset_code>[^/.]+)")
+    def by_asset(self, request, asset_code=None):
+        visible = AssetSelector.get_queryset_for_user(request.user).filter(
+            asset_code=asset_code
+        ).exists()
+        if not visible:
+            return error_response(message=f"资产 {asset_code} 不存在", status_code=404)
+        records = LostAssetSelector.get_by_asset_code(asset_code, user=request.user)
+        page = self.paginate_queryset(records)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(records, many=True)
+        return success_response(data=serializer.data, message="查询成功")
+
 
 @extend_schema(tags=["找回资产"])
 class FoundAssetViewSet(
@@ -244,3 +321,18 @@ class FoundAssetViewSet(
             },
             message=f"Batch delete done: {len(success_ids)} success, {len(fail_items)} fail",
         )
+
+    @action(detail=False, methods=["get"], url_path="by-asset/(?P<asset_code>[^/.]+)")
+    def by_asset(self, request, asset_code=None):
+        visible = AssetSelector.get_queryset_for_user(request.user).filter(
+            asset_code=asset_code
+        ).exists()
+        if not visible:
+            return error_response(message=f"资产 {asset_code} 不存在", status_code=404)
+        records = FoundAssetSelector.get_by_asset_code(asset_code, user=request.user)
+        page = self.paginate_queryset(records)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(records, many=True)
+        return success_response(data=serializer.data, message="查询成功")

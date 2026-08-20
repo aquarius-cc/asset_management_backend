@@ -4,10 +4,11 @@
 """
 
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response  # noqa: F401 — used in -> Response annotation
+from rest_framework.throttling import AnonRateThrottle
 
 from apps.assetmanagement.selectors.asset_selector import AssetSelector
 from utils.response_utils import error_response, success_response
@@ -16,6 +17,7 @@ from utils.string_utils import mask_phone_number
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
+@throttle_classes([AnonRateThrottle])
 def public_scan_view(request: Request, recordcode: str) -> Response:
     """
     公开扫码查看资产信息(无需 JWT 认证)

@@ -331,8 +331,12 @@ SPECTACULAR_SETTINGS = {
     "WARNINGS": True if DEBUG else False,
 }
 
-# 【修复 auth.W004】auth_username 使用条件唯一约束(仅激活用户唯一),
-# 软删除场景下允许已删除用户保留用户名,因此抑制该警告
+# 【SILENCED_SYSTEM_CHECKS 说明】
+# auth.W004: Django 检测到 User.username 无 unique=True 约束。
+# 本项目使用 auth_username 字段(非 Django 内置 username),
+# 已通过 UniqueConstraint(fields=["auth_phone"], condition=Q(auth_is_active=True))
+# 实现条件唯一。软删除(is_active=False)允许已删除用户保留用户名,
+# 因此抑制此警告。修改此配置前须评估对用户注册唯一性的影响。
 SILENCED_SYSTEM_CHECKS = ["auth.W004"]
 
 # ============================

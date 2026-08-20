@@ -8,6 +8,9 @@ from .base import *
 # 生产环境关闭调试
 DEBUG = False
 
+# 安全断言:生产环境 CSRF cookie 必须标记为 Secure
+assert CSRF_COOKIE_SECURE is True, "生产环境 CSRF_COOKIE_SECURE 必须为 True"
+
 # 【修复】从环境变量强制读取密钥,缺失时抛出异常
 # 统一使用 SECRET_KEY 变量名,与 base.py 保持一致
 SECRET_KEY = os.getenv("SECRET_KEY")

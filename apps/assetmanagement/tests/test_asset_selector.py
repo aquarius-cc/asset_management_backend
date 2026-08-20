@@ -7,6 +7,7 @@ import pytest
 from apps.assetmanagement.selectors.asset_selector import AssetSelector, AssetTypeSelector
 from apps.authusermanagement.models import AuthUser
 from apps.usermanagement.models import Department, Employee
+from core.tests import TEST_PASSWORD
 
 
 @pytest.mark.django_db
@@ -23,7 +24,7 @@ class TestAssetSelector:
             employee_phone="13800132001",
         )
         # 模拟系统管理员权限(is_superuser=True)
-        auth_user = AuthUser.objects.create_superuser(auth_username="admin", password="test123")
+        auth_user = AuthUser.objects.create_superuser(auth_username="admin", password=TEST_PASSWORD)
         employee.auth_user = auth_user
         employee.save()
 
@@ -44,7 +45,7 @@ class TestAssetSelector:
             employee_department=other_department,
             employee_phone="13800132002",
         )
-        other_user = AuthUser.objects.create_user(auth_username="other", password="test123")
+        other_user = AuthUser.objects.create_user(auth_username="other", password=TEST_PASSWORD)
 
         # 普通用户应看不到资产(因为资产在测试部门)
         queryset = AssetSelector.get_queryset_for_user(other_user)

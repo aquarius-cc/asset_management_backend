@@ -21,6 +21,7 @@ from apps.assetmanagement.models import (
 )
 from apps.authusermanagement.models import AuthUser
 from apps.usermanagement.models import Department, Employee
+from core.tests import TEST_PASSWORD
 
 
 User = get_user_model()
@@ -141,7 +142,7 @@ def auth_user(db):
     """
     测试认证用户(用于API认证)
     """
-    return AuthUser.objects.create_user(auth_username="testuser", password="testpass123", auth_phone="13800138000")
+    return AuthUser.objects.create_user(auth_username="testuser", password=TEST_PASSWORD, auth_phone="13800138000")
 
 
 @pytest.fixture
@@ -151,7 +152,7 @@ def admin_auth_user(db):
     创建 superuser 以通过 IsAssetAdminOrAbove 权限检查
     """
     return AuthUser.objects.create_superuser(
-        auth_username="adminuser", password="adminpass123", auth_phone="13800138001"
+        auth_username="adminuser", password=TEST_PASSWORD, auth_phone="13800138001"
     )
 
 

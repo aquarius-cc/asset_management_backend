@@ -20,6 +20,7 @@ from core.department_scope import (
     get_department_codes_for_user,
     resolve_asset_department_codes,
 )
+from core.tests import TEST_PASSWORD
 from core.permissions import (
     IsAssetAdminOrAbove,
     IsAuditorOrAdmin,
@@ -63,7 +64,7 @@ def _make_user(username, role, department=None):
         )
     user = User.objects.create_user(
         auth_username=username,
-        password="test1234",
+        password=TEST_PASSWORD,
         auth_is_staff=(role == EmployeeRole.SYSTEM_ADMIN),
     )
     Employee.objects.create(
@@ -243,7 +244,7 @@ class TestPermissionClasses:
         assert self._check(IsSystemAdmin, auditor) is False
 
     def test_admin_allows_superuser(self, db):
-        su = User.objects.create_superuser(auth_username="su", password="test1234")
+        su = User.objects.create_superuser(auth_username="su", password=TEST_PASSWORD)
         assert self._check(IsSystemAdmin, su) is True
 
     # --- IsDeptManagerOrAbove ---
@@ -321,7 +322,7 @@ class TestDepartmentScope:
         assert codes == ["DEPT-A"]
 
     def test_no_employee_returns_none(self, db):
-        user = User.objects.create_user(auth_username="noemp", password="test1234")
+        user = User.objects.create_user(auth_username="noemp", password=TEST_PASSWORD)
         assert get_department_codes_for_user(user) is None
 
 
@@ -490,7 +491,7 @@ def test_audit_log_permission_matrix(role, expected, db):
 
 class TestEdgeCases:
     def test_superuser_bypasses_all(self, db):
-        su = User.objects.create_superuser(auth_username="su_t", password="test1234")
+        su = User.objects.create_superuser(auth_username="su_t", password=TEST_PASSWORD)
         for cls in [IsSystemAdmin, IsDeptManagerOrAbove, IsAssetAdminOrAbove, IsAuditorOrAdmin]:
             perm = cls()
             request = RequestFactory().get("/api/test/")
@@ -498,7 +499,7 @@ class TestEdgeCases:
             assert perm.has_permission(request, None) is True
 
     def test_no_employee_defaults_to_unrestricted(self, db):
-        user = User.objects.create_user(auth_username="no_emp", password="test1234")
+        user = User.objects.create_user(auth_username="no_emp", password=TEST_PASSWORD)
         codes = get_department_codes_for_user(user)
         assert codes is None
 
@@ -510,7 +511,7 @@ class TestEdgeCases:
             role=EmployeeRole.ASSET_ADMIN,
             employee_phone=_phone(),
         )
-        user = User.objects.create_user(auth_username="nd", password="test1234")
+        user = User.objects.create_user(auth_username="nd", password=TEST_PASSWORD)
         codes = get_department_codes_for_user(user)
         assert codes == []
 
@@ -525,7 +526,7 @@ class TestEdgeCases:
             role=EmployeeRole.ASSET_ADMIN,
             employee_phone=_phone(),
         )
-        user = User.objects.create_user(auth_username="nds", password="test1234")
+        user = User.objects.create_user(auth_username="nds", password=TEST_PASSWORD)
         scope = get_effective_data_scope_for_user(user)
         assert scope == {
             "scope_type": "departments",
@@ -556,7 +557,7 @@ class TestNoDepartmentWriteDegradation:
             role=role,
             employee_phone=_phone(),
         )
-        return User.objects.create_user(auth_username=username, password="test1234")
+        return User.objects.create_user(auth_username=username, password=TEST_PASSWORD)
 
     def _check(self, perm_class, user):
         perm = perm_class()

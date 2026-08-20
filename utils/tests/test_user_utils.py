@@ -13,13 +13,14 @@ import pytest
 
 from apps.authusermanagement.models import AuthUser
 from apps.usermanagement.models import Employee, EmployeeRole
+from core.tests import TEST_PASSWORD
 from utils.user_utils import resolve_operator
 
 
 def _create_user(username: str) -> AuthUser:
     return cast(
         AuthUser,
-        AuthUser.objects.create_user(auth_username=username, password="test1234", auth_phone="13800138000"),
+        AuthUser.objects.create_user(auth_username=username, password=TEST_PASSWORD, auth_phone="13800138000"),
     )
 
 

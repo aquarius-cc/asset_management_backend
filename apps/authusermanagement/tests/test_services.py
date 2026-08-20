@@ -8,6 +8,7 @@ from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from apps.authusermanagement.models import AuthUser
 from apps.authusermanagement.services import AuthService
 from core.exceptions import AppValidationError
+from core.tests import TEST_PASSWORD
 
 
 ValidationError = AppValidationError  # 测试中统一使用 AppValidationError
@@ -48,7 +49,7 @@ class TestAuthService:
     def test_register_duplicate_email(self, auth_user):
         """测试注册重复邮箱"""
         AuthUser.objects.create_user(
-            auth_username="emailuser", password="pass123", email="dup@example.com", auth_phone="13710010002"
+            auth_username="emailuser", password=TEST_PASSWORD, email="dup@example.com", auth_phone="13710010002"
         )
 
         with pytest.raises(ValidationError):
@@ -64,7 +65,7 @@ class TestAuthService:
     def test_register_duplicate_phone(self, auth_user):
         """测试注册重复手机号"""
         AuthUser.objects.create_user(
-            auth_username="phoneuser", password="pass123", auth_phone="13710010004"
+            auth_username="phoneuser", password=TEST_PASSWORD, auth_phone="13710010004"
         )
 
         with pytest.raises(ValidationError):
@@ -74,7 +75,7 @@ class TestAuthService:
 
     def test_authenticate_user(self, auth_user):
         """测试用户认证"""
-        user = AuthService.authenticate_user("testuser", "testpass123")
+        user = AuthService.authenticate_user("testuser", TEST_PASSWORD)
 
         assert user is not None
         assert user.auth_username == "testuser"
@@ -99,7 +100,7 @@ class TestAuthService:
 
     def test_update_user_duplicate_username(self, auth_user):
         """测试更新时用户名重复"""
-        AuthUser.objects.create_user(auth_username="takenname", password="pass123", auth_phone="13710010005")
+        AuthUser.objects.create_user(auth_username="takenname", password=TEST_PASSWORD, auth_phone="13710010005")
 
         with pytest.raises(ValidationError) as exc_info:
             AuthService.update_user(
@@ -110,7 +111,7 @@ class TestAuthService:
     def test_update_user_duplicate_email(self, auth_user):
         """测试更新时邮箱重复"""
         AuthUser.objects.create_user(
-            auth_username="emailowner", password="pass123", email="taken@example.com", auth_phone="13710010006"
+            auth_username="emailowner", password=TEST_PASSWORD, email="taken@example.com", auth_phone="13710010006"
         )
 
         with pytest.raises(ValidationError) as exc_info:
@@ -121,7 +122,7 @@ class TestAuthService:
 
     def test_update_user_duplicate_phone(self, auth_user):
         """测试更新时手机号重复"""
-        AuthUser.objects.create_user(auth_username="phoneowner", password="pass123", auth_phone="13710010007")
+        AuthUser.objects.create_user(auth_username="phoneowner", password=TEST_PASSWORD, auth_phone="13710010007")
 
         with pytest.raises(ValidationError) as exc_info:
             AuthService.update_user(

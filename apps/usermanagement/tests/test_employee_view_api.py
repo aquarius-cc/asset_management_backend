@@ -13,6 +13,7 @@ from rest_framework.test import APIClient
 
 from apps.authusermanagement.models import AuthUser
 from apps.usermanagement.models import Department, Employee, Permission
+from core.tests import TEST_PASSWORD
 
 
 @pytest.fixture
@@ -29,7 +30,7 @@ def department(db):
 
 @pytest.fixture
 def auth_user(db):
-    return AuthUser.objects.create_user(auth_username="EMP001", password="testpass123")
+    return AuthUser.objects.create_user(auth_username="EMP001", password=TEST_PASSWORD)
 
 
 @pytest.fixture
@@ -98,7 +99,7 @@ class TestGetEmployeePermissions:
 
     def test_superuser_other_returns_200(self, api_client, db):
         superuser = AuthUser.objects.create_superuser(
-            auth_username="ADMIN001", password="testpass123", auth_phone="13800138001"
+            auth_username="ADMIN001", password=TEST_PASSWORD, auth_phone="13800138001"
         )
         Employee.objects.create(employee_jobcode="OTHER", employee_name="他人")
         api_client.force_authenticate(user=superuser)

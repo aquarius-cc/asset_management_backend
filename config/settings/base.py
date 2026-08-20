@@ -61,6 +61,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "core.csp_middleware.ContentSecurityPolicyMiddleware",  # L-2: CSP 安全头
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -244,6 +245,20 @@ CORS_ALLOW_HEADERS = [
     "x-requested-with",
 ]
 CORS_ALLOW_METHODS = ["DELETE", "GET", "OPTIONS", "PATCH", "POST", "PUT"]
+
+# Content-Security-Policy (L-2)
+# 开发环境自动使用 Report-Only 模式,生产环境强制执行
+CSP_DIRECTIVES = {
+    "default-src": "'self'",
+    "script-src": "'self' 'unsafe-inline' 'unsafe-eval'",
+    "style-src": "'self' 'unsafe-inline'",
+    "img-src": "'self' data: blob:",
+    "connect-src": "'self' ws: wss:",
+    "font-src": "'self'",
+    "object-src": "'none'",
+    "base-uri": "'self'",
+    "form-action": "'self'",
+}
 
 # Logging
 LOGGING = {

@@ -16,6 +16,7 @@ from apps.usermanagement.models import Department, Employee, EmployeeRole, Role,
 from apps.usermanagement.services.role_service import RoleService
 from core.exceptions import AppValidationError
 from core.models_audit import AuditLog
+from core.tests import TEST_PASSWORD
 
 
 User = get_user_model()
@@ -25,7 +26,7 @@ def _make_user(username, role=None, department=None):
     """创建带 Employee 的 AuthUser(角色可选)"""
     user = User.objects.create_user(
         auth_username=username,
-        password="testpass123",
+        password=TEST_PASSWORD,
         auth_is_staff=(role == EmployeeRole.SYSTEM_ADMIN),
     )
     if role:
@@ -194,7 +195,7 @@ class TestAssignRoleD2:
 
     def test_recompute_fallback_when_only_invalid_role(self):
         """Employee.role 为幽灵自定义码且无有效 UserRole → 回退 regular_user"""
-        user = User.objects.create_user(auth_username="d6", password="testpass123")
+        user = User.objects.create_user(auth_username="d6", password=TEST_PASSWORD)
         Employee.objects.create(employee_jobcode="d6", employee_name="幽灵角色员工", role="ghost_role")
 
         RoleService._recompute_employee_role(user)
@@ -231,7 +232,7 @@ class TestRemoveRoleD2:
         assert Employee.objects.get(employee_jobcode=user.auth_username).role == before
 
     def test_remove_no_employee_user_noop(self):
-        user = User.objects.create_user(auth_username="x3", password="testpass123")
+        user = User.objects.create_user(auth_username="x3", password=TEST_PASSWORD)
         asset_admin = _seed_role("asset_admin")
         RoleService.assign_role(user.auth_id, asset_admin.id)
 

@@ -152,7 +152,7 @@ class OutAssetSelector:
         return queryset
 
     @staticmethod
-    def get_recyclable_outassets(filters: dict[str, Any] | None = None) -> QuerySet[OutAsset]:
+    def get_recyclable_outassets(filters: dict[str, Any] | None = None, user=None) -> QuerySet[OutAsset]:
         # 【P0-25 修复】跨表 JOIN 过滤关联表 is_deleted=False,防止返回已删除资产的出库记录
         # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法,添加额外 FK
         base_queryset = (
@@ -167,6 +167,9 @@ class OutAssetSelector:
             )
             .order_by("-outasset_date")
         )
+        # RBAC 行级数据隔离
+        if user:
+            base_queryset = get_asset_linked_queryset_for_user(user, base_queryset)
         if filters:
             base_queryset = OutAssetSelector._apply_filters(base_queryset, filters)
         return base_queryset

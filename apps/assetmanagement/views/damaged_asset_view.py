@@ -148,8 +148,8 @@ class DamagedAssetViewSet(
         asset_recordcode = obj.asset_recordcode.recordcode if obj.asset_recordcode else None
         if not asset_recordcode:
             return error_response(message="关联资产不存在", status_code=400)
-        approver_jobcode = request.data.get("approver_jobcode") or request.user.auth_username
-        operator_name = request.data.get("operator_name") or request.user.auth_username
+        approver_jobcode = request.user.auth_username
+        operator_name = request.user.auth_username
         result = DamagedAssetService.approve_asset_recordcode(
             asset_recordcode_code=asset_recordcode, approver_jobcode=approver_jobcode, operator_name=operator_name
         )
@@ -167,8 +167,8 @@ class DamagedAssetViewSet(
         asset_recordcode = obj.asset_recordcode.recordcode if obj.asset_recordcode else None
         if not asset_recordcode:
             return error_response(message="关联资产不存在", status_code=400)
-        approver_jobcode = request.data.get("approver_jobcode") or request.user.auth_username
-        operator_name = request.data.get("operator_name") or request.user.auth_username
+        approver_jobcode = request.user.auth_username
+        operator_name = request.user.auth_username
         result = DamagedAssetService.reject_asset_recordcode(
             asset_recordcode_code=asset_recordcode, approver_jobcode=approver_jobcode, operator_name=operator_name
         )

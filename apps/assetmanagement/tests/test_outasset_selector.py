@@ -97,6 +97,64 @@ class TestOutAssetSelector:
         # 资产状态是 in_use,应该返回
         assert queryset.count() == 1
 
+    def test_get_recyclable_outassets_rbac_isolation(self, asset, user):
+        """C-2 验证: get_recyclable_outassets 传入 user 后启用 RBAC 行级隔离"""
+        from apps.assetmanagement.models import Asset, OutAsset
+        from apps.assetmanagement.selectors.outasset_selector import OutAssetSelector
+        from apps.usermanagement.models import Department, Employee
+
+        # 创建第二个部门和用户
+        dept_b = Department.objects.create(department_code="D002", department_name="部门B")
+        user_b = Employee.objects.create(
+            employee_jobcode="U002",
+            employee_name="用户B",
+            employee_department=dept_b,
+            employee_phone="13900139002",
+        )
+
+        # 创建 AuthUser 并关联 Employee（auth_username 必须匹配 employee_jobcode）
+        auth_user_a = AuthUser.objects.create_user(auth_username="U001", password=TEST_PASSWORD, auth_phone="13700000001")
+        user.auth_user = auth_user_a
+        user.save(update_fields=[])
+
+        auth_user_b = AuthUser.objects.create_user(auth_username="U002", password=TEST_PASSWORD, auth_phone="13700000002")
+        user_b.auth_user = auth_user_b
+        user_b.save(update_fields=[])
+
+        # 资产 A 归属部门 A（通过 asset_manager_recordcode）
+        asset.asset_current_status = "in_use"
+        asset.asset_manager_recordcode = user  # user 在 D001
+        asset.save(update_fields=["asset_current_status", "asset_manager_recordcode"])
+        OutAsset.objects.create(asset_recordcode=asset, outasset_date="2024-01-01")
+
+        # 资产 B 归属部门 B
+        asset_b = Asset.objects.create(
+            asset_code="A002",
+            asset_name="资产B",
+            asset_purchase_price=2000.00,
+            asset_purchase_date="2024-01-01",
+            asset_entry_date="2024-01-15",
+            asset_storage_recordcode=asset.asset_storage_recordcode,
+            asset_type_recordcode=asset.asset_type_recordcode,
+            asset_current_status="in_use",
+            asset_manager_recordcode=user_b,  # user_b 在 D002
+        )
+        OutAsset.objects.create(asset_recordcode=asset_b, outasset_date="2024-01-02")
+
+        # 不传 user → 无隔离，返回全部
+        all_qs = OutAssetSelector.get_recyclable_outassets()
+        assert all_qs.count() == 2
+
+        # 传入 auth_user_a（D001） → 仅返回 D001 的资产
+        qs_a = OutAssetSelector.get_recyclable_outassets(user=auth_user_a)
+        assert qs_a.count() == 1
+        assert qs_a.first().asset_recordcode == asset
+
+        # 传入 auth_user_b（D002） → 仅返回 D002 的资产
+        qs_b = OutAssetSelector.get_recyclable_outassets(user=auth_user_b)
+        assert qs_b.count() == 1
+        assert qs_b.first().asset_recordcode == asset_b
+
     def test_get_all_out_assets(self, asset, user):
         """获取所有出库记录"""
         _ = OutAsset.objects.create(

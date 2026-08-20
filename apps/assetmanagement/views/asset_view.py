@@ -137,8 +137,8 @@ class AssetViewSet(
         return success_response(data=response_serializer.data, message=message, status_code=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
-        self.get_object()
-        asset_code = self.kwargs.get("recordcode")
+        asset = self.get_object()
+        asset_code = asset.asset_code
         asset = AssetService.update_asset(
             asset_code=asset_code,
             update_data=request.data,
@@ -152,8 +152,8 @@ class AssetViewSet(
         return self.update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
-        self.get_object()
-        asset_code = self.kwargs.get("recordcode")
+        asset = self.get_object()
+        asset_code = asset.asset_code
         AssetService.delete_asset(
             asset_code=asset_code,
             operator_jobcode=resolve_operator(request.user)[0],
@@ -297,8 +297,8 @@ class AssetViewSet(
     )
     @action(detail=True, methods=["POST"], url_path="change_outasset_employee")
     def change_outasset_employee(self, request, recordcode=None) -> Response:
-        self.get_object()
-        asset_code = self.kwargs.get("recordcode")
+        asset = self.get_object()
+        asset_code = asset.asset_code
         applicant_jobcode = request.data.get("applicant_jobcode")
         manager_jobcode = request.data.get("manager_jobcode")
         asset = AssetService.change_outasset_employee(asset_code, applicant_jobcode, manager_jobcode)

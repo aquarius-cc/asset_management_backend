@@ -5,6 +5,7 @@ channels/db.py), 与 pytest-django 默认事务包装在 PostgreSQL 上存在连
 故此处使用 transaction=True(autocommit) 并保证每个测试使用唯一用户名/手机号。
 """
 
+import itertools
 from datetime import timedelta
 
 import pytest
@@ -18,8 +19,8 @@ from rest_framework_simplejwt.tokens import AccessToken
 from apps.authusermanagement.models import AuthUser
 from apps.authusermanagement.services import AuthService
 from apps.notification.consumer import NotificationConsumer
-from core.tests import TEST_PASSWORD
 from apps.notification.models import Notification
+from core.tests import TEST_PASSWORD
 
 
 WS_URL_PATTERN = r"ws/notifications/(?P<jobcode>\w+)/$"
@@ -47,16 +48,15 @@ async def _connect(comm: WebsocketCommunicator) -> dict:
     return await comm.receive_output()
 
 
-_phone_seq = 0
+_phone_seq = itertools.count(1)
 
 
 def _make_user(name: str) -> AuthUser:
-    global _phone_seq
-    _phone_seq += 1
+    seq = next(_phone_seq)
     return AuthUser.objects.create_user(
         auth_username=name,
         password=TEST_PASSWORD,
-        auth_phone=f"138{_phone_seq:08d}",
+        auth_phone=f"138{seq:08d}",
     )
 
 

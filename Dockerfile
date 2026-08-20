@@ -47,8 +47,8 @@ COPY . /app/
 # 入口脚本
 # =============================================================================
 # 使用 docker-entrypoint.sh 进行数据库迁移和启动
-ENTRYPOINT ["sh", "/app/docker-entrypoint.sh"]
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--timeout", "120", "config.wsgi:application"]
+ENTRYPOINT ["bash", "/app/docker-entrypoint.sh"]
+CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]
 
 # =============================================================================
 # 端口暴露

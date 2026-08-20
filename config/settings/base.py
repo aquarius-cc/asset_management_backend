@@ -213,6 +213,8 @@ JWT_AUTH_COOKIE_SECURE = config("JWT_AUTH_COOKIE_SECURE", default=False, cast=bo
 JWT_AUTH_COOKIE_SAMESITE = "Lax"
 
 # CSRF 双通道配套: csrftoken 需 JS 可读 (写入 X-CSRFToken 请求头)
+# 安全边界: csrf_token 为公开值(不含敏感信息), httpOnly=False 是 double-submit cookie 模式的必要配置
+# 真正的安全依赖: SameSite=Lax + Secure(生产环境) + Origin 校验
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SECURE = config("CSRF_COOKIE_SECURE", default=True, cast=bool)

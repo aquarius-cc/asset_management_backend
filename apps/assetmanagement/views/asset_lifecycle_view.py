@@ -82,7 +82,7 @@ class BrokenAssetViewSet(
     def batch_delete(self, request):
         ids = request.data.get("ids", [])
         if not ids:
-            return error_response(message="ids is required", status_code=400)
+            return error_response(message="缺少 ids 参数", status_code=400)
         success_ids = []
         fail_items = []
         operator_jobcode, operator_name = resolve_operator(request.user)
@@ -150,7 +150,7 @@ class LostAssetViewSet(
     def batch_delete(self, request):
         ids = request.data.get("ids", [])
         if not ids:
-            return error_response(message="ids is required", status_code=400)
+            return error_response(message="缺少 ids 参数", status_code=400)
         success_ids = []
         fail_items = []
         operator_jobcode, operator_name = resolve_operator(request.user)
@@ -218,7 +218,7 @@ class FoundAssetViewSet(
     def batch_delete(self, request):
         ids = request.data.get("ids", [])
         if not ids:
-            return error_response(message="ids is required", status_code=400)
+            return error_response(message="缺少 ids 参数", status_code=400)
         success_ids = []
         fail_items = []
         operator_jobcode, operator_name = resolve_operator(request.user)

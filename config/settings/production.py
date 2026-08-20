@@ -81,3 +81,13 @@ CORS_ALLOWED_ORIGINS = [origin.strip() for origin in cors_origins.split(",") if 
 LOGGING["handlers"]["console"]["level"] = "WARNING"
 LOGGING["loggers"]["django"]["level"] = "WARNING"
 LOGGING["loggers"]["rest_framework"]["level"] = "WARNING"
+
+# WebSocket 通道层:生产环境必须使用 Redis
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {"hosts": [os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")]},
+    },
+}
+assert CHANNEL_LAYERS["default"]["BACKEND"] != "channels.layers.InMemoryChannelLayer", \
+    "生产环境禁止使用 InMemoryChannelLayer"

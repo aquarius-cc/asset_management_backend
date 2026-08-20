@@ -8,6 +8,8 @@ RBAC 权限矩阵自动化测试
 - 边界场景测试(无 Employee / is_superuser / 跨部门)
 """
 
+import itertools
+
 import pytest
 from django.contrib.auth import get_user_model
 from django.test import RequestFactory
@@ -20,13 +22,13 @@ from core.department_scope import (
     get_department_codes_for_user,
     resolve_asset_department_codes,
 )
-from core.tests import TEST_PASSWORD
 from core.permissions import (
     IsAssetAdminOrAbove,
     IsAuditorOrAdmin,
     IsDeptManagerOrAbove,
     IsSystemAdmin,
 )
+from core.tests import TEST_PASSWORD
 
 
 User = get_user_model()
@@ -35,20 +37,12 @@ User = get_user_model()
 # Helpers
 # =====================================================================
 
-_counter = 0
-
-
-def _uid():
-    global _counter
-    _counter += 1
-    return f"U{_counter:03d}"
+_phone_seq = itertools.count(1)
 
 
 def _phone():
     """生成测试用唯一手机号(满足 unique_employee_phone_not_deleted 条件约束)"""
-    global _counter
-    _counter += 1
-    return f"138{_counter:08d}"
+    return f"138{next(_phone_seq):08d}"
 
 
 def _make_user(username, role, department=None):

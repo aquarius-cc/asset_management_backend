@@ -53,6 +53,8 @@ class ContractViewSet(
         "batch_create",
         "update_settlement_status",
         "payment_record",
+        "delete_payment",
+        "approve_payment",
     ]
 
     def get_permissions(self):
@@ -219,3 +221,19 @@ class ContractViewSet(
             return self.get_paginated_response(serializer.data)
         serializer = self.get_serializer(contracts, many=True)
         return success_response(data={"count": contracts.count(), "results": serializer.data}, message="查询成功")
+
+    @action(detail=True, methods=["post"], url_path=r"payment_record/(?P<payment_id>[^/]+)/delete")
+    def delete_payment(self, request, recordcode=None, payment_id=None):
+        """删除支付记录(软删除)"""
+        contract = self.get_object()
+        updated = ContractService.delete_payment_record(contract.contract_code, payment_id)
+        serializer = ContractDetailSerializer(instance=updated)
+        return success_response(data={"contract": serializer.data}, message="支付记录删除成功")
+
+    @action(detail=True, methods=["post"], url_path=r"payment_record/(?P<payment_id>[^/]+)/approve")
+    def approve_payment(self, request, recordcode=None, payment_id=None):
+        """审核通过支付记录"""
+        contract = self.get_object()
+        updated = ContractService.approve_payment_record(contract.contract_code, payment_id)
+        serializer = ContractDetailSerializer(instance=updated)
+        return success_response(data={"contract": serializer.data}, message="支付记录审核成功")

@@ -48,6 +48,13 @@ drf-spectacular-sidecar==2025.1.24
 # WebSocket 支持（P1-8 实时通知）
 channels==4.3.2
 
+# ASGI 服务器（替代 gunicorn 用于 WebSocket 支持）
+daphne==4.2.0
+
+# Redis 连接（channels_redis 依赖）
+channels-redis==4.2.1
+redis==6.2.0
+
 # ==================== 安装命令 ====================
 # pip install -r requirements/base.txt
 # 推荐使用国内镜像加速：

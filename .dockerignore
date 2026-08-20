@@ -89,5 +89,4 @@ Thumbs.db
 # =============================================================================
 docker-compose*.yml
 Dockerfile
-docker-entrypoint.sh
 .dockerignore

@@ -36,7 +36,9 @@ XHR = {"HTTP_X_REQUESTED_WITH": "XMLHttpRequest"}
 
 @pytest.fixture
 def api_client():
-    """API 测试客户端"""
+    """API 测试客户端(清除缓存防止登录锁定累积)"""
+    from django.core.cache import cache
+    cache.clear()
     return APIClient()
 
 

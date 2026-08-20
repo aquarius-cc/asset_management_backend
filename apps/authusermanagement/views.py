@@ -32,7 +32,7 @@ from apps.authusermanagement.serializers import (
 from apps.authusermanagement.services import AuthService
 from core.exceptions import AppValidationError
 from core.permissions import IsSystemAdmin
-from core.throttles import LoginRateThrottle, RegisterRateThrottle
+from core.throttles import LoginLockoutThrottle, LoginRateThrottle, RegisterRateThrottle
 from utils.response_utils import error_response, success_response
 from utils.user_utils import resolve_operator
 
@@ -216,8 +216,9 @@ class LoginAPIView(APIView):
     """
 
     permission_classes = [permissions.AllowAny]
-    # H-4: 账户级登录限流（5次/分钟/用户）+ 全局 IP 级限流（20次/分钟/IP）
-    throttle_classes = [LoginRateThrottle]
+    # H-4: 账户级登录限流(5次/分钟/用户) + 全局 IP 级限流(20次/分钟/IP)
+    # 登录锁定:连续失败5次后锁定15分钟
+    throttle_classes = [LoginRateThrottle, LoginLockoutThrottle]
 
     @extend_schema(
         operation_id="auth_login",
@@ -259,8 +260,17 @@ class LoginAPIView(APIView):
         if request.META.get("HTTP_X_REQUESTED_WITH") != "XMLHttpRequest":
             return error_response(message="非法请求来源", status_code=status.HTTP_403_FORBIDDEN)
 
+        # 获取锁定 throttle 实例(用于记录失败/成功)
+        lockout_throttle = None
+        for t in self.get_throttles():
+            if isinstance(t, LoginLockoutThrottle):
+                lockout_throttle = t
+                break
+
         serializer = LoginSerializer(data=request.data)
         if not serializer.is_valid():
+            if lockout_throttle:
+                lockout_throttle.record_failure(request, self)
             return error_response(message="登录失败", errors=serializer.errors, status_code=status.HTTP_400_BAD_REQUEST)
 
         validated_data = cast(dict[str, Any], serializer.validated_data)
@@ -269,11 +279,15 @@ class LoginAPIView(APIView):
         )
 
         if user and user.auth_is_active:
+            if lockout_throttle:
+                lockout_throttle.record_success(request, self)
             data = {"user": AuthUserSerializer(user).data, **AuthService.issue_tokens(user)}
             response = success_response(data=data, message="登录成功")
             set_auth_cookies(request, response, data["access"], data["refresh"])
             return response
 
+        if lockout_throttle:
+            lockout_throttle.record_failure(request, self)
         return error_response(message="用户名或密码错误", status_code=status.HTTP_401_UNAUTHORIZED)
 
 

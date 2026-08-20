@@ -18,6 +18,7 @@ from apps.assetmanagement.serializers.asset_batch_serializers import (
 )
 from apps.authusermanagement.models import AuthUser
 from apps.usermanagement.models import Department, Employee
+from core.tests import TEST_PASSWORD
 
 
 class AssetBatchItemSerializerTest(TestCase):
@@ -161,7 +162,7 @@ class AssetBatchCreateAPITest(TestCase):
         """创建测试用户和数据"""
         self.user = AuthUser.objects.create_superuser(
             auth_username="testadmin",
-            password="testpass123",
+            password=TEST_PASSWORD,
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)

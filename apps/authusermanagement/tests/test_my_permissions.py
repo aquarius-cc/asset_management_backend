@@ -26,6 +26,7 @@ from apps.usermanagement.models import (
 )
 from apps.usermanagement.services.permission_service import PermissionService
 from core.department_scope import get_effective_data_scope_for_user
+from core.tests import TEST_PASSWORD
 
 
 @pytest.fixture
@@ -38,7 +39,7 @@ def _make_user(username, role=None, department=None, is_superuser=False) -> Auth
     """创建带 Employee 的 AuthUser(角色可选)"""
     user = AuthUser.objects.create_user(
         auth_username=username,
-        password="testpass123",
+        password=TEST_PASSWORD,
         auth_is_staff=(is_superuser or role == EmployeeRole.SYSTEM_ADMIN),
     )
     user.is_superuser = is_superuser

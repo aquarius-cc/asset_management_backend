@@ -14,6 +14,7 @@ from apps.authusermanagement.models import AuthUser
 from apps.usermanagement.models import MAX_DEPARTMENT_LEVEL, Department, Employee
 from apps.usermanagement.services import DepartmentService, EmployeeService
 from core.exceptions import AppValidationError, BusinessLogicError
+from core.tests import TEST_PASSWORD
 
 
 ValidationError = AppValidationError
@@ -35,13 +36,13 @@ class TestEmployeeAuthBinding:
     @pytest.fixture
     def auth_user_a(self, db):
         return AuthUser.objects.create_user(
-            auth_username="auth_a", password="pass1234", auth_phone="13710000201"
+            auth_username="auth_a", password=TEST_PASSWORD, auth_phone="13710000201"
         )
 
     @pytest.fixture
     def auth_user_b(self, db):
         return AuthUser.objects.create_user(
-            auth_username="auth_b", password="pass1234", auth_phone="13710000202"
+            auth_username="auth_b", password=TEST_PASSWORD, auth_phone="13710000202"
         )
 
     def test_bind_auth_user_success(self, bind_employee, auth_user_a):

@@ -16,6 +16,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.unregisteredasset.models import UnregisteredAsset
+from core.tests import TEST_PASSWORD
 
 
 @pytest.fixture
@@ -200,7 +201,7 @@ class TestUnregisteredAssetAPI:
         from apps.authusermanagement.models import AuthUser
         from apps.usermanagement.models import Employee, EmployeeRole
 
-        user = AuthUser.objects.create_user(auth_username="nd_admin1", password="test1234")
+        user = AuthUser.objects.create_user(auth_username="nd_admin1", password=TEST_PASSWORD)
         Employee.objects.create(
             employee_jobcode="nd_admin1",
             employee_name="无部门资产管理员",
@@ -220,7 +221,7 @@ class TestUnregisteredAssetAPI:
         from apps.authusermanagement.models import AuthUser
 
         user = AuthUser.objects.create_user(
-            auth_username="staff_only", password="test1234", auth_is_staff=True
+            auth_username="staff_only", password=TEST_PASSWORD, auth_is_staff=True
         )
         api_client.force_authenticate(user=user)
         url = reverse(

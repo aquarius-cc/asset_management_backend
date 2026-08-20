@@ -25,6 +25,7 @@ from apps.assetmanagement.selectors.outasset_selector import (
     WasteAssetSelector,
 )
 from apps.authusermanagement.models import AuthUser
+from core.tests import TEST_PASSWORD
 
 
 @pytest.mark.django_db
@@ -38,7 +39,7 @@ class TestOutAssetSelector:
             outasset_date="2024-01-01",
         )
         # 模拟用户
-        auth_user = AuthUser.objects.create_user(auth_username="test", password="test123")
+        auth_user = AuthUser.objects.create_user(auth_username="test", password=TEST_PASSWORD)
         user.auth_user = auth_user
         user.save()
 
@@ -205,7 +206,7 @@ class TestRecycleAssetSelector:
             recycle_asset_date="2024-01-02",
         )
         # 模拟用户
-        auth_user = AuthUser.objects.create_user(auth_username="test", password="test123")
+        auth_user = AuthUser.objects.create_user(auth_username="test", password=TEST_PASSWORD)
         user.auth_user = auth_user
         user.save()
 
@@ -313,7 +314,7 @@ class TestDamagedAssetSelector:
             asset_recordcode=asset,
         )
         # 模拟用户
-        auth_user = AuthUser.objects.create_user(auth_username="test", password="test123")
+        auth_user = AuthUser.objects.create_user(auth_username="test", password=TEST_PASSWORD)
         user.auth_user = auth_user
         user.save()
 
@@ -374,7 +375,7 @@ class TestWasteAssetSelector:
             waste_asset_date="2024-01-01",
         )
         # 模拟用户
-        auth_user = AuthUser.objects.create_user(auth_username="test", password="test123")
+        auth_user = AuthUser.objects.create_user(auth_username="test", password=TEST_PASSWORD)
         user.auth_user = auth_user
         user.save()
 
@@ -437,7 +438,7 @@ class TestBrokenAssetSelector:
             broken_reason="测试损坏",
         )
         # 模拟用户
-        auth_user = AuthUser.objects.create_user(auth_username="test", password="test123")
+        auth_user = AuthUser.objects.create_user(auth_username="test", password=TEST_PASSWORD)
         user.auth_user = auth_user
         user.save()
 
@@ -498,7 +499,7 @@ class TestLostAssetSelector:
             lost_reason="测试遗失",
         )
         # 模拟用户
-        auth_user = AuthUser.objects.create_user(auth_username="test", password="test123")
+        auth_user = AuthUser.objects.create_user(auth_username="test", password=TEST_PASSWORD)
         user.auth_user = auth_user
         user.save()
 
@@ -563,7 +564,7 @@ class TestFoundAssetSelector:
             lost_asset_recordcode=lost,
         )
         # 模拟用户
-        auth_user = AuthUser.objects.create_user(auth_username="test", password="test123")
+        auth_user = AuthUser.objects.create_user(auth_username="test", password=TEST_PASSWORD)
         user.auth_user = auth_user
         user.save()
 
@@ -641,7 +642,7 @@ class TestRepairAssetSelector:
             repair_reason="测试维修",
         )
         # 模拟用户
-        auth_user = AuthUser.objects.create_user(auth_username="test", password="test123")
+        auth_user = AuthUser.objects.create_user(auth_username="test", password=TEST_PASSWORD)
         user.auth_user = auth_user
         user.save()
 

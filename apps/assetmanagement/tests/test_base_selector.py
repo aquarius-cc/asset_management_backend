@@ -12,6 +12,7 @@ from apps.assetmanagement.selectors.base_selector import (
     StorageSelector,
 )
 from apps.authusermanagement.models import AuthUser
+from core.tests import TEST_PASSWORD
 
 
 @pytest.mark.django_db
@@ -159,7 +160,7 @@ class TestHardDiskSNSelector:
             harddisk_status="normal",
         )
         # 模拟用户
-        auth_user = AuthUser.objects.create_user(auth_username="test", password="test123")
+        auth_user = AuthUser.objects.create_user(auth_username="test", password=TEST_PASSWORD)
         user.auth_user = auth_user
         user.save()
 

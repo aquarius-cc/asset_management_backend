@@ -21,6 +21,7 @@ from rest_framework.test import APIClient
 from apps.notification.helpers import notify_dept_managers, send_notification_on_commit
 from apps.notification.models import Notification
 from apps.notification.service import send_notification_sync
+from core.tests import TEST_PASSWORD
 
 
 User = get_user_model()
@@ -210,7 +211,7 @@ def test_send_notification_on_commit_raises_outside_atomic_block():
 class TestNotificationViews:
     def setup_method(self):
         self.client = APIClient()
-        self.user = User.objects.create_user(auth_username="EMP010", password="testpass123")
+        self.user = User.objects.create_user(auth_username="EMP010", password=TEST_PASSWORD)
         self.client.force_authenticate(user=self.user)
 
     def test_notification_list(self):

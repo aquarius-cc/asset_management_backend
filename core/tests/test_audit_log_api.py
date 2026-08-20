@@ -19,6 +19,7 @@ from rest_framework.test import APIClient
 
 from core.audit_query_service import AuditLogQueryService
 from core.models_audit import AuditLog
+from core.tests import TEST_PASSWORD
 
 
 class AuditLogQueryServiceTest(TestCase):
@@ -146,7 +147,7 @@ class AuditLogListViewTest(TestCase):
         """创建测试用审计日志数据并强制认证"""
         from apps.authusermanagement.models import AuthUser
 
-        self.user = AuthUser.objects.create_user(auth_username="testuser", password="testpass123")
+        self.user = AuthUser.objects.create_user(auth_username="testuser", password=TEST_PASSWORD)
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
@@ -264,7 +265,7 @@ class AuditLogDetailViewTest(TestCase):
         """创建测试用审计日志数据并强制认证"""
         from apps.authusermanagement.models import AuthUser
 
-        self.user = AuthUser.objects.create_user(auth_username="testuser", password="testpass123")
+        self.user = AuthUser.objects.create_user(auth_username="testuser", password=TEST_PASSWORD)
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
@@ -297,7 +298,7 @@ class AuditLogByLoggingIdViewTest(TestCase):
         """创建测试用审计日志数据并强制认证"""
         from apps.authusermanagement.models import AuthUser
 
-        self.user = AuthUser.objects.create_user(auth_username="testuser", password="testpass123")
+        self.user = AuthUser.objects.create_user(auth_username="testuser", password=TEST_PASSWORD)
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
@@ -330,7 +331,7 @@ class RecentAuditLogsViewTest(TestCase):
         """创建测试用审计日志数据并强制认证"""
         from apps.authusermanagement.models import AuthUser
 
-        self.user = AuthUser.objects.create_user(auth_username="testuser", password="testpass123")
+        self.user = AuthUser.objects.create_user(auth_username="testuser", password=TEST_PASSWORD)
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
@@ -375,7 +376,7 @@ class AuditLogsByAppLabelViewTest(TestCase):
         """创建测试用审计日志数据并强制认证"""
         from apps.authusermanagement.models import AuthUser
 
-        self.user = AuthUser.objects.create_user(auth_username="testuser", password="testpass123")
+        self.user = AuthUser.objects.create_user(auth_username="testuser", password=TEST_PASSWORD)
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
@@ -408,7 +409,7 @@ class AuditLogsByOperatorViewTest(TestCase):
         """创建测试用审计日志数据并强制认证"""
         from apps.authusermanagement.models import AuthUser
 
-        self.user = AuthUser.objects.create_user(auth_username="testuser", password="testpass123")
+        self.user = AuthUser.objects.create_user(auth_username="testuser", password=TEST_PASSWORD)
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 

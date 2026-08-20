@@ -18,6 +18,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 from apps.authusermanagement.models import AuthUser
 from apps.authusermanagement.services import AuthService
 from apps.notification.consumer import NotificationConsumer
+from core.tests import TEST_PASSWORD
 from apps.notification.models import Notification
 
 
@@ -54,7 +55,7 @@ def _make_user(name: str) -> AuthUser:
     _phone_seq += 1
     return AuthUser.objects.create_user(
         auth_username=name,
-        password="testpass123",
+        password=TEST_PASSWORD,
         auth_phone=f"138{_phone_seq:08d}",
     )
 

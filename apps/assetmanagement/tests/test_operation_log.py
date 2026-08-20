@@ -17,6 +17,7 @@ from rest_framework.test import APIClient
 
 from apps.assetmanagement.models import AssetOperationLog
 from apps.assetmanagement.services.operation_log_service import OperationLogQueryService
+from core.tests import TEST_PASSWORD
 
 
 @pytest.mark.django_db
@@ -129,7 +130,7 @@ class TestGetByLoggingIdAPI:
         """创建测试用户并强制认证"""
         from apps.authusermanagement.models import AuthUser
 
-        self.user = AuthUser.objects.create_user(auth_username="testuser", password="testpass123")
+        self.user = AuthUser.objects.create_user(auth_username="testuser", password=TEST_PASSWORD)
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 

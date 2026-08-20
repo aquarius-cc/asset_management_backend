@@ -17,6 +17,7 @@ from rest_framework.test import APIClient
 
 from apps.authusermanagement.models import AuthUser
 from apps.usermanagement.models import Department, Employee, EmployeeRole
+from core.tests import TEST_PASSWORD
 
 
 _phone_seq = 0
@@ -33,7 +34,7 @@ def _make_user(username, role, department=None):
     _phone_seq += 1
     user = AuthUser.objects.create_user(
         auth_username=username,
-        password="test1234",
+        password=TEST_PASSWORD,
         auth_phone=f"137{_phone_seq:08d}",
     )
     if role:
@@ -75,7 +76,7 @@ def regular_user(db, dept):
 
 @pytest.fixture
 def other_user(db):
-    return AuthUser.objects.create_user(auth_username="adm_other", password="test1234")
+    return AuthUser.objects.create_user(auth_username="adm_other", password=TEST_PASSWORD)
 
 
 @pytest.mark.django_db

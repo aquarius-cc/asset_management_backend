@@ -22,6 +22,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from apps.authusermanagement.models import AuthUser
 from apps.authusermanagement.services import AuthService
 from apps.usermanagement.models import Department, Employee, EmployeeRole
+from core.tests import TEST_PASSWORD
 
 
 LOGIN_URL = "/api/v1/auth/login/"
@@ -43,7 +44,7 @@ def _make_user(username: str, role=None, department=None, is_superuser: bool = F
     """创建带可选 Employee 的 AuthUser(与 test_my_permissions 一致)"""
     user = AuthUser.objects.create_user(
         auth_username=username,
-        password="testpass123",
+        password=TEST_PASSWORD,
         auth_is_staff=(is_superuser or role == EmployeeRole.SYSTEM_ADMIN),
     )
     user.is_superuser = is_superuser
@@ -62,7 +63,7 @@ def _make_department(code: str = "IT-001") -> Department:
     return Department.objects.create(department_code=code, department_name=f"部门{code}")
 
 
-def _login(client: APIClient, username: str = "testuser", password: str = "testpass123"):
+def _login(client: APIClient, username: str = "testuser", password: str = TEST_PASSWORD):
     return client.post(LOGIN_URL, {"auth_username": username, "password": password}, **XHR)
 
 
@@ -194,7 +195,7 @@ class TestLoginDualChannel:
 
     def test_login_requires_x_requested_with(self, api_client):
         _make_user("testuser")
-        resp = api_client.post(LOGIN_URL, {"auth_username": "testuser", "password": "testpass123"})
+        resp = api_client.post(LOGIN_URL, {"auth_username": "testuser", "password": TEST_PASSWORD})
         assert resp.status_code == 403
 
     def test_login_wrong_password(self, api_client):

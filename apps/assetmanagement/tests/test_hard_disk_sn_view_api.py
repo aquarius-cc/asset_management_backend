@@ -16,11 +16,12 @@ from rest_framework.test import APIClient
 
 from apps.assetmanagement.models import HardDiskSN
 from apps.authusermanagement.models import AuthUser
+from core.tests import TEST_PASSWORD
 
 
 @pytest.fixture
 def admin_user(db: Any) -> AuthUser:
-    return cast(AuthUser, AuthUser.objects.create_superuser(auth_username="ADMIN01", password="testpass123"))
+    return cast(AuthUser, AuthUser.objects.create_superuser(auth_username="ADMIN01", password=TEST_PASSWORD))
 
 
 @pytest.fixture

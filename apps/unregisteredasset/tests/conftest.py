@@ -18,6 +18,7 @@ from apps.assetmanagement.models import Asset, AssetType, Storage
 from apps.authusermanagement.models import AuthUser
 from apps.unregisteredasset.models import UnregisteredAsset
 from apps.usermanagement.models import Department, Employee, EmployeeRole
+from core.tests import TEST_PASSWORD
 
 
 @pytest.fixture
@@ -25,7 +26,7 @@ def auth_user(db):
     """
     测试认证用户(用于API认证)
     """
-    return AuthUser.objects.create_user(auth_username="testuser", password="testpass123", auth_phone="13800138000")
+    return AuthUser.objects.create_user(auth_username="testuser", password=TEST_PASSWORD, auth_phone="13800138000")
 
 
 @pytest.fixture
@@ -37,7 +38,7 @@ def admin_auth_user(db):
     删除操作使用 IsSystemAdmin(替代遗留 is_staff 门禁),故夹具不依赖 auth_is_staff。
     """
     user = AuthUser.objects.create_user(
-        auth_username="adminuser", password="adminpass123", auth_phone="13800138001"
+        auth_username="adminuser", password=TEST_PASSWORD, auth_phone="13800138001"
     )
     Employee.objects.create(
         employee_jobcode="adminuser",
@@ -88,7 +89,7 @@ def dept_manager_user(db):
     )
     user = AuthUser.objects.create_user(
         auth_username="dmuser",
-        password="dmpass123",
+        password=TEST_PASSWORD,
         auth_phone="13800138002",
     )
     Employee.objects.create(

@@ -43,5 +43,5 @@ class LoginRateThrottle(AnonRateThrottle):
         except Exception:
             pass
         if not username:
-            return None
+            username = "anonymous"
         return f"throttle_login_{username}"

@@ -139,7 +139,7 @@ class DamagedAssetService:
         )
 
         # 更新资产状态
-        asset = damaged_asset.asset_recordcode
+        asset = Asset.objects.select_for_update().get(pk=damaged_asset.asset_recordcode.pk)
         AssetFSM.approve(asset)
         asset.save(update_fields=["asset_current_status", "updated_at"])
 

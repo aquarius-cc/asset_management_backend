@@ -92,7 +92,7 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             protocol_raw = protocol_raw.encode("utf-8")
         protocols = [p.strip().decode("utf-8") for p in protocol_raw.split(b",") if p.strip()]
         for p in protocols:
-            if "." in p and len(p) > 20:
+            if p.count(".") == 2 and len(p) > 20:
                 return p
         return None
 

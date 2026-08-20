@@ -247,3 +247,47 @@ class AssetLifecycleMixin:
             operator_name=operator_name,
         )
         return {"recordcode": recordcode, "status": "deleted"}
+
+    @staticmethod
+    def batch_create_broken_assets(
+        items: list[dict],
+        operator_jobcode: str = "",
+        operator_name: str = "",
+    ) -> dict:
+        """批量创建损坏资产记录"""
+        from core.batch_mixins import BatchOperationMixin
+
+        def _create_one(idx: int, item: dict):
+            return AssetLifecycleMixin.mark_asset_broken(
+                asset_code=item["asset_recordcode"],
+                broken_reason=item["broken_reason"],
+                broken_description=item.get("broken_description", ""),
+                operator_jobcode=operator_jobcode,
+                operator_name=operator_name,
+            )
+
+        return BatchOperationMixin.batch_execute(
+            items=items, process_fn=_create_one, max_batch_size=100, use_transaction=False,
+        )
+
+    @staticmethod
+    def batch_create_lost_assets(
+        items: list[dict],
+        operator_jobcode: str = "",
+        operator_name: str = "",
+    ) -> dict:
+        """批量创建遗失资产记录"""
+        from core.batch_mixins import BatchOperationMixin
+
+        def _create_one(idx: int, item: dict):
+            return AssetLifecycleMixin.mark_asset_lost(
+                asset_code=item["asset_code"],
+                lost_reason=item["lost_reason"],
+                lost_description=item.get("lost_description", ""),
+                operator_jobcode=operator_jobcode,
+                operator_name=operator_name,
+            )
+
+        return BatchOperationMixin.batch_execute(
+            items=items, process_fn=_create_one, max_batch_size=100, use_transaction=False,
+        )

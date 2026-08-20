@@ -61,9 +61,13 @@ from apps.assetmanagement.serializers.batch_serializers import (
     AssetTypeBatchCreateItemSerializer,
     AssetTypeBatchCreateSerializer,
     AssetTypeBatchDeleteSerializer,
+    BrokenAssetBatchCreateItemSerializer,
+    BrokenAssetBatchCreateSerializer,
     ContractBatchCreateItemSerializer,
     ContractBatchCreateSerializer,
     ContractBatchDeleteSerializer,
+    LostAssetBatchCreateItemSerializer,
+    LostAssetBatchCreateSerializer,
     StorageBatchCreateItemSerializer,
     StorageBatchCreateSerializer,
     StorageBatchDeleteSerializer,
@@ -143,7 +147,6 @@ __all__ = [
     "AssetDetailSerializer",
     "AssetListSerializer",
     "AssetOperationLogSerializer",
-    # 资产序列化器
     "AssetSerializer",
     "AssetTypeBatchCreateItemSerializer",
     "AssetTypeBatchCreateSerializer",
@@ -151,9 +154,10 @@ __all__ = [
     "AssetTypeSerializer",
     "AssetUpdateSerializer",
     "AssettypeSimpleSerializer",
+    "BrokenAssetBatchCreateItemSerializer",
+    "BrokenAssetBatchCreateSerializer",
     "BrokenAssetCreateSerializer",
     "BrokenAssetDetailSerializer",
-    # BrokenAsset 序列化器
     "BrokenAssetListSerializer",
     "BrokenAssetSerializer",
     "BrokenAssetUpdateSerializer",
@@ -161,7 +165,6 @@ __all__ = [
     "CombinedAssetSerializer",
     "ContractBatchCreateItemSerializer",
     "ContractBatchCreateSerializer",
-    # 批量操作序列化器
     "ContractBatchDeleteSerializer",
     "ContractCreateSerializer",
     "ContractDetailSerializer",
@@ -169,7 +172,6 @@ __all__ = [
     "ContractSimpleSerializer",
     "ContractUpdateSerializer",
     "DamagedAssetApproveSerializer",
-    # DamagedAsset 序列化器
     "DamagedAssetBatchDeleteSerializer",
     "DamagedAssetCreateSerializer",
     "DamagedAssetDetailSerializer",
@@ -179,7 +181,6 @@ __all__ = [
     "DiskItemSerializer",
     "FoundAssetCreateSerializer",
     "FoundAssetDetailSerializer",
-    # FoundAsset 序列化器
     "FoundAssetListSerializer",
     "FoundAssetSerializer",
     "FoundAssetUpdateSerializer",
@@ -187,9 +188,10 @@ __all__ = [
     "HardDiskSNCreateSerializer",
     "HardDiskSNSerializer",
     "HardDiskSNSimpleSerializer",
+    "LostAssetBatchCreateItemSerializer",
+    "LostAssetBatchCreateSerializer",
     "LostAssetCreateSerializer",
     "LostAssetDetailSerializer",
-    # LostAsset 序列化器
     "LostAssetListSerializer",
     "LostAssetSerializer",
     "LostAssetUpdateSerializer",
@@ -198,7 +200,6 @@ __all__ = [
     "OutAssetBatchItemSerializer",
     "OutAssetCreateSerializer",
     "OutAssetDetailSerializer",
-    # OutAsset 序列化器
     "OutAssetListSerializer",
     "OutAssetSerializer",  # 向后兼容别名
     "OutAssetUpdateSerializer",
@@ -207,27 +208,23 @@ __all__ = [
     "RecycleAssetBatchItemSerializer",
     "RecycleAssetCreateSerializer",
     "RecycleAssetDetailSerializer",
-    # RecycleAsset 序列化器
     "RecycleAssetListSerializer",
     "RecycleAssetSerializer",  # 向后兼容别名
     "RecycleAssetUpdateSerializer",
     "RepairAssetBatchDeleteSerializer",
     "RepairAssetCreateSerializer",
     "RepairAssetDetailSerializer",
-    # RepairAsset 序列化器
     "RepairAssetListSerializer",
     "RepairAssetUpdateSerializer",
     "StorageBatchCreateItemSerializer",
     "StorageBatchCreateSerializer",
     "StorageBatchDeleteSerializer",
-    # 基础序列化器
     "StorageSerializer",
     "StorageSimpleSerializer",
     "WasteAssetBatchDeleteSerializer",
     "WasteAssetCreateSerializer",
     "WasteAssetDetailSerializer",
     "WasteAssetListSerializer",
-    # WasteAsset 序列化器
     "WasteAssetSerializer",
 ]
 

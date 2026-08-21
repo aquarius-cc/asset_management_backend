@@ -12,10 +12,12 @@ from decouple import config
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-# 【修复 S1】生产环境必须从环境变量读取
-# 开发/测试环境通过各自 settings 文件覆盖此值
-# C-2: 默认值仅作为 fallback，各环境文件负责验证密钥安全性
-SECRET_KEY = config("SECRET_KEY", default="django-insecure-placeholder-see-env-settings")
+# 安全: 不设弱默认值,各环境文件负责提供密钥
+# - production.py: 从环境变量读取,缺失或弱密钥则抛异常
+# - development.py: 从环境变量读取,缺失则用开发专用密钥
+# - test.py: 硬编码测试密钥
+# 若直接使用 base.py 且未设置 SECRET_KEY,Django 将抛出 ImproperlyConfigured
+SECRET_KEY = config("SECRET_KEY", default="")
 
 # 【修复 S3】DEBUG 默认值为 False,生产环境更安全
 DEBUG = config("DEBUG", default=False, cast=bool)

@@ -24,7 +24,7 @@ psycopg[binary]==3.3.4
 pillow==11.3.0
 
 # 二维码生成（HIGH-15）
-qrcode[pil]==8.0
+qrcode[pil]==8.2
 
 # HTTP 请求库
 requests==2.32.5

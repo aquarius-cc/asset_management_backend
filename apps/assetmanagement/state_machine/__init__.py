@@ -20,7 +20,8 @@
         asset.save()
 """
 
-from apps.assetmanagement.state_machine.core import AssetFSM, AssetState, InvalidTransitionError
+from apps.assetmanagement.state_machine.constants import AssetState, InvalidTransitionError
+from apps.assetmanagement.state_machine.core import AssetFSM
 
 
 __all__ = ["AssetFSM", "AssetState", "InvalidTransitionError"]

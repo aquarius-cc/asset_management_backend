@@ -12,6 +12,7 @@ import logging
 from django.core.cache import cache
 from rest_framework.throttling import AnonRateThrottle
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -42,8 +43,8 @@ class LoginRateThrottle(AnonRateThrottle):
         try:
             if hasattr(request, "data"):
                 username = request.data.get("auth_username", "")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("LoginRateThrottle: 无法读取请求数据: %s", exc)
         if not username:
             username = "anonymous"
         return f"throttle_login_{username}"
@@ -68,8 +69,8 @@ class LoginLockoutThrottle(AnonRateThrottle):
         try:
             if hasattr(request, "data"):
                 username = request.data.get("auth_username", "")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("LoginLockoutThrottle: 无法读取请求数据: %s", exc)
         return username or "anonymous"
 
     def get_cache_key(self, request, view):

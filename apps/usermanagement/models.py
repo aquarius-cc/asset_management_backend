@@ -263,6 +263,9 @@ class Employee(BaseModel):
 
     def _blacklist_user_tokens(self):
         """黑名单该用户的所有 Refresh Token,强制重新登录"""
+        import logging
+
+        logger = logging.getLogger(__name__)
         try:
             from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
@@ -277,15 +280,18 @@ class Employee(BaseModel):
                     blacklisted_count += 1
 
             if blacklisted_count > 0:
-                import logging
-
-                logger = logging.getLogger(__name__)
                 logger.info(
-                    f"角色变更:已黑名单 {blacklisted_count} 个 Token (employee_jobcode={self.employee_jobcode})"
+                    "角色变更:已黑名单 %d 个 Token (employee_jobcode=%s)",
+                    blacklisted_count,
+                    self.employee_jobcode,
                 )
         except Exception:
-            # Token 黑名单操作失败不影响业务
-            pass
+            logger.error(
+                "角色变更:Token 黑名单操作失败 (employee_jobcode=%s), "
+                "旧 Token 仍可使用直到过期",
+                self.employee_jobcode,
+                exc_info=True,
+            )
 
 
 class Role(BaseModel):

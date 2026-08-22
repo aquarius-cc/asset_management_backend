@@ -282,3 +282,24 @@ class DamagedAssetService:
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
         )
+
+    @staticmethod
+    def batch_delete_asset_recordcodes(asset_recordcodes: list[str], operator_jobcode: str | None, operator_name: str | None) -> dict[str, Any]:
+        """
+        批量取消待报废申请(DR-1 收敛: 循环框架复用 BatchOperationMixin)
+
+        【契约变更说明】原 View 手写循环将 AppValidationError 写死为 VALIDATION_ERROR;
+        迁移后透传 e.error_code(如 DAMAGED_ASSET_NOT_FOUND)。前端已确认无 error_code
+        分支消费(见 project-audit-report/evidence/b5-frontend-error-code-search.md)。
+        """
+        from core.batch_mixins import BatchOperationMixin
+
+        def _delete_one(asset_recordcode_code: str) -> None:
+            DamagedAssetService.cancel_asset_recordcode(
+                asset_recordcode_code,
+                operator_jobcode=operator_jobcode,
+                operator_name=operator_name,
+            )
+
+        return BatchOperationMixin.batch_delete_execute(asset_recordcodes, _delete_one)
+

@@ -138,3 +138,30 @@ class WasteAssetService:
                 operator_jobcode=operator_jobcode,
                 operator_name=operator_name,
             )
+
+    @staticmethod
+    def batch_delete_waste_assets(waste_asset_codes: list[str], operator_jobcode: str | None, operator_name: str | None) -> dict[str, Any]:
+        """
+        批量删除报废记录(DR-1 收敛)
+
+        【契约变更说明】原 View 循环无 AppValidationError 分支, Service 抛出的
+        WASTE_ASSET_NOT_FOUND 被遮蔽为 INTERNAL_ERROR; 迁移后透传真实错误码。
+        _delete_one 内局部转换 DoesNotExist -> NOT_FOUND, 单条 cancel_waste_asset
+        的公开行为不变。
+        """
+        from core.batch_mixins import BatchOperationMixin
+
+        def _delete_one(waste_asset_code: str) -> None:
+            try:
+                WasteAssetService.cancel_waste_asset(
+                    waste_asset_code,
+                    operator_jobcode=operator_jobcode,
+                    operator_name=operator_name,
+                )
+            except WasteAsset.DoesNotExist:
+                raise AppValidationError(
+                    detail=f"已报废记录 {waste_asset_code} 不存在", error_code="NOT_FOUND"
+                ) from None
+
+        return BatchOperationMixin.batch_delete_execute(waste_asset_codes, _delete_one)
+

@@ -1,7 +1,7 @@
 """
-B-5 治理基线快照（Commit 0）
+B-5 治理基线快照(Commit 0)
 
-锁定 8 个未迁移批量端点的【当前】响应结构,作为 DR-1 收敛的行为基线:
+锁定 8 个未迁移批量端点的【当前】响应结构, 作为 DR-1 收敛的行为基线:
 - A/B 组(标准形态): 迁移后这些断言应原样通过(零行为变更证明)
 - C 组(damaged/waste): 锁定【迁移前】的差异化错误码/文案,
   Commit 2 迁移时在同一 diff 中显式更新为新期望值
@@ -97,9 +97,9 @@ class TestWasteBaseline:
         self, admin_client_fixture, storage, asset_type
     ):
         """[已变更 commit e85b6cf+本次] WASTE_ASSET_NOT_FOUND 不再被遮蔽为 INTERNAL_ERROR"""
-        from apps.assetmanagement.models import Asset
-
         import datetime as _dt
+
+        from apps.assetmanagement.models import Asset
 
         Asset.objects.create(
             asset_code="W_BASE_1", asset_name="基线资产",
@@ -118,3 +118,16 @@ class TestWasteBaseline:
         # 迁移后: 透传 Service 原生错误码(比原计划的 NOT_FOUND 更精确)
         assert fail["error_code"] == "WASTE_ASSET_NOT_FOUND"
         assert fail["error_message"] == "已报废记录 W_BASE_1 不存在"
+
+
+@pytest.mark.django_db
+class TestManyVsItemwiseEquivalence:
+    """B-5 Commit 3 前置证明: many=True 与逐条序列化输出等价(AssetTypeSerializer)"""
+
+    def test_many_equals_itemwise(self, asset_type):
+        from apps.assetmanagement.serializers import AssetTypeSerializer
+
+        items = [asset_type, asset_type]
+        many_output = AssetTypeSerializer(items, many=True).data
+        itemwise_output = [AssetTypeSerializer(item).data for item in items]
+        assert many_output == itemwise_output

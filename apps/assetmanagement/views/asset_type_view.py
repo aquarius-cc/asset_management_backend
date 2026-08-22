@@ -14,6 +14,7 @@ from apps.assetmanagement.serializers import (
     AssetTypeSerializer,
 )
 from apps.assetmanagement.services import AssetTypeService
+from core.batch_mixins import BatchResponseHelper
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
 from core.permissions import IsSystemAdmin
@@ -90,14 +91,9 @@ class AssetTypeViewSet(
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
         )
-        return success_response(
-            data={
-                "total": result["total"],
-                "success_count": result["success_count"],
-                "fail_count": result["fail_count"],
-                "success_ids": result["success_ids"],
-                "fail_items": result["fail_items"],
-            },
+        # 【DR-1 收敛】响应组装复用 BatchResponseHelper
+        return BatchResponseHelper.delete_response(
+            result,
             message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
 
@@ -111,13 +107,10 @@ class AssetTypeViewSet(
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
         )
-        return success_response(
-            data={
-                "total": result["total"],
-                "success_count": result["success_count"],
-                "fail_count": result["fail_count"],
-                "success_items": [AssetTypeSerializer(item).data for item in result.get("success_items", [])],
-                "fail_items": result["fail_items"],
-            },
+        # 【DR-1 收敛】many=True 与逐条序列化等价性由 test_b5_many_vs_itemwise 实证锁定
+        return BatchResponseHelper.create_response(
+            result,
+            AssetTypeSerializer,
             message=f"批量创建完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
+            request_items=serializer.initial_data.get("items"),
         )

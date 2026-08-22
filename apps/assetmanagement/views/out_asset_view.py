@@ -244,14 +244,9 @@ class OutAssetViewSet(
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
         )
-        return success_response(
-            data={
-                "total": result["total"],
-                "success_count": result["success_count"],
-                "fail_count": result["fail_count"],
-                "success_ids": result["success_ids"],
-                "fail_items": result["fail_items"],
-            },
+        # 【DR-1 收敛】响应组装复用 BatchResponseHelper
+        return BatchResponseHelper.delete_response(
+            result,
             message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
 

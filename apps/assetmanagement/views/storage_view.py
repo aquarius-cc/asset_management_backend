@@ -7,7 +7,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
-from rest_framework.response import Response  # noqa: F401 — used in -> Response annotations
+from rest_framework.response import Response
 
 from apps.assetmanagement.models import Storage
 from apps.assetmanagement.selectors import StorageSelector
@@ -17,6 +17,7 @@ from apps.assetmanagement.serializers import (
     StorageSerializer,
 )
 from apps.assetmanagement.services import StorageService
+from core.batch_mixins import BatchResponseHelper
 from core.constants import STORAGE_TYPE_CHOICES
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
@@ -104,14 +105,9 @@ class StorageViewSet(
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
         )
-        return success_response(
-            data={
-                "total": result["total"],
-                "success_count": result["success_count"],
-                "fail_count": result["fail_count"],
-                "success_ids": result["success_ids"],
-                "fail_items": result["fail_items"],
-            },
+        # 【DR-1 收敛】响应组装复用 BatchResponseHelper
+        return BatchResponseHelper.delete_response(
+            result,
             message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
 

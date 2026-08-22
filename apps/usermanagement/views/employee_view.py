@@ -25,6 +25,7 @@ from apps.usermanagement.serializers import (
 )
 from apps.usermanagement.services import EmployeeService
 from apps.usermanagement.views.employee_auth_mixin import EmployeeAuthMixin
+from core.batch_mixins import BatchResponseHelper
 from core.mixins import LoggingMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
 from core.permissions import IsSystemAdmin
@@ -201,16 +202,10 @@ class EmployeeViewSet(  # type: ignore[misc]
 
         result = EmployeeService.batch_create_employee(serializer.validated_data["items"])
 
-        success_serializer = EmployeeDetailSerializer(result["success_items"], many=True)
-
-        return success_response(
-            data={
-                "total": result["total"],
-                "success_count": result["success_count"],
-                "fail_count": result["fail_count"],
-                "success_items": success_serializer.data,
-                "fail_items": result["fail_items"],
-            },
+        # 【DR-1 收敛】响应组装复用 BatchResponseHelper(message 显式传入, 契约不变)
+        return BatchResponseHelper.create_response(
+            result,
+            EmployeeDetailSerializer,
             message=f"批量创建完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
 
@@ -222,14 +217,8 @@ class EmployeeViewSet(  # type: ignore[misc]
 
         result = EmployeeService.batch_delete_employee(serializer.validated_data["ids"])
 
-        return success_response(
-            data={
-                "total": result["total"],
-                "success_count": result["success_count"],
-                "fail_count": result["fail_count"],
-                "success_ids": result["success_ids"],
-                "fail_items": result["fail_items"],
-            },
+        return BatchResponseHelper.delete_response(
+            result,
             message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
 

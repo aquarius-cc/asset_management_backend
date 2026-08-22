@@ -34,7 +34,7 @@ from apps.assetmanagement.serializers import (
     LostAssetUpdateSerializer,
 )
 from apps.assetmanagement.services.asset_lifecycle_mixin import AssetLifecycleMixin
-from utils.response_utils import success_response
+from core.batch_mixins import BatchResponseHelper
 from utils.user_utils import resolve_operator
 
 from ._lifecycle_base import AssetLifecycleViewSetBase
@@ -63,15 +63,10 @@ class BrokenAssetViewSet(AssetLifecycleViewSetBase):
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
         )
-        success_serializer = BrokenAssetCreateSerializer(result["success_items"], many=True)
-        return success_response(
-            data={
-                "total": result["total"],
-                "success_count": result["success_count"],
-                "fail_count": result["fail_count"],
-                "success_items": success_serializer.data,
-                "fail_items": result["fail_items"],
-            },
+        # 【DR-1 收敛】响应组装复用 BatchResponseHelper(message 显式传入, 契约不变)
+        return BatchResponseHelper.create_response(
+            result,
+            BrokenAssetCreateSerializer,
             message=f"批量创建完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
 
@@ -99,15 +94,10 @@ class LostAssetViewSet(AssetLifecycleViewSetBase):
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
         )
-        success_serializer = LostAssetCreateSerializer(result["success_items"], many=True)
-        return success_response(
-            data={
-                "total": result["total"],
-                "success_count": result["success_count"],
-                "fail_count": result["fail_count"],
-                "success_items": success_serializer.data,
-                "fail_items": result["fail_items"],
-            },
+        # 【DR-1 收敛】响应组装复用 BatchResponseHelper(message 显式传入, 契约不变)
+        return BatchResponseHelper.create_response(
+            result,
+            LostAssetCreateSerializer,
             message=f"批量创建完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
 

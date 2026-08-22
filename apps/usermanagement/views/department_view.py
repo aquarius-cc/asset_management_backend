@@ -22,6 +22,7 @@ from apps.usermanagement.serializers import (
     EmployeeSerializer,
 )
 from apps.usermanagement.services import DepartmentService
+from core.batch_mixins import BatchResponseHelper
 from core.mixins import LoggingMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
 from core.permissions import IsSystemAdmin
@@ -307,16 +308,9 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
 
         result = DepartmentService.batch_create_department(serializer.validated_data["items"])
 
-        success_serializer = DepartmentSerializer(result["success_items"], many=True)
-
-        return success_response(
-            data={
-                "total": result["total"],
-                "success_count": result["success_count"],
-                "fail_count": result["fail_count"],
-                "success_items": success_serializer.data,
-                "fail_items": result["fail_items"],
-            },
+        return BatchResponseHelper.create_response(
+            result,
+            DepartmentSerializer,
             message=f"批量创建完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
 
@@ -328,13 +322,7 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
 
         result = DepartmentService.batch_delete_department(serializer.validated_data["ids"])
 
-        return success_response(
-            data={
-                "total": result["total"],
-                "success_count": result["success_count"],
-                "fail_count": result["fail_count"],
-                "success_ids": result["success_ids"],
-                "fail_items": result["fail_items"],
-            },
+        return BatchResponseHelper.delete_response(
+            result,
             message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )

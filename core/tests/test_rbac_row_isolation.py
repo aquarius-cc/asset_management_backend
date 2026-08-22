@@ -19,7 +19,6 @@ from apps.assetmanagement.selectors.asset_selector import AssetSelector
 from apps.usermanagement.models import Department, Employee, EmployeeRole
 from core.department_scope import (
     get_asset_linked_queryset_for_user,
-    get_department_codes_for_user,
     resolve_asset_department_codes,
 )
 from core.permissions import (
@@ -212,116 +211,161 @@ def asset_admin_b(db, dept_b):
 # =====================================================================
 # 1. 权限类测试
 # =====================================================================
+class TestAssetSelectorRowIsolation:
+    def test_admin_sees_all(self, sys_admin, asset_in_dept_a, asset_in_dept_b):
+        qs = AssetSelector.get_queryset_for_user(sys_admin)
+        assert qs.count() == 2
 
+    def test_auditor_sees_all(self, auditor, asset_in_dept_a, asset_in_dept_b):
+        qs = AssetSelector.get_queryset_for_user(auditor)
+        assert qs.count() == 2
 
-class TestPermissionClasses:
-    def _check(self, perm_class, user):
-        perm = perm_class()
-        request = RequestFactory().get("/api/test/")
-        request.user = user
-        return perm.has_permission(request, None)
+    def test_dept_a_manager_sees_dept_a_only(self, dept_manager, asset_in_dept_a, asset_in_dept_b):
+        qs = AssetSelector.get_queryset_for_user(dept_manager)
+        codes = list(qs.values_list("asset_code", flat=True))
+        assert "AST-A001" in codes
+        assert "AST-B001" not in codes
 
-    # --- IsSystemAdmin ---
-    def test_admin_allows_admin(self, sys_admin):
-        assert self._check(IsSystemAdmin, sys_admin) is True
+    def test_dept_a_asset_admin_sees_dept_a_only(self, asset_admin, asset_in_dept_a, asset_in_dept_b):
+        qs = AssetSelector.get_queryset_for_user(asset_admin)
+        codes = list(qs.values_list("asset_code", flat=True))
+        assert "AST-A001" in codes
+        assert "AST-B001" not in codes
 
-    def test_admin_rejects_manager(self, dept_manager):
-        assert self._check(IsSystemAdmin, dept_manager) is False
+    def test_dept_b_asset_admin_sees_dept_b_only(self, asset_admin_b, asset_in_dept_a, asset_in_dept_b):
+        qs = AssetSelector.get_queryset_for_user(asset_admin_b)
+        codes = list(qs.values_list("asset_code", flat=True))
+        assert "AST-B001" in codes
+        assert "AST-A001" not in codes
 
-    def test_admin_rejects_asset_admin(self, asset_admin):
-        assert self._check(IsSystemAdmin, asset_admin) is False
-
-    def test_admin_rejects_regular(self, regular_user):
-        assert self._check(IsSystemAdmin, regular_user) is False
-
-    def test_admin_rejects_auditor(self, auditor):
-        assert self._check(IsSystemAdmin, auditor) is False
-
-    def test_admin_allows_superuser(self, db):
-        su = User.objects.create_superuser(auth_username="su", password=TEST_PASSWORD)
-        assert self._check(IsSystemAdmin, su) is True
-
-    # --- IsDeptManagerOrAbove ---
-    def test_manager_allows_admin(self, sys_admin):
-        assert self._check(IsDeptManagerOrAbove, sys_admin) is True
-
-    def test_manager_allows_manager(self, dept_manager):
-        assert self._check(IsDeptManagerOrAbove, dept_manager) is True
-
-    def test_manager_rejects_asset_admin(self, asset_admin):
-        assert self._check(IsDeptManagerOrAbove, asset_admin) is False
-
-    def test_manager_rejects_regular(self, regular_user):
-        assert self._check(IsDeptManagerOrAbove, regular_user) is False
-
-    def test_manager_rejects_auditor(self, auditor):
-        assert self._check(IsDeptManagerOrAbove, auditor) is False
-
-    # --- IsAssetAdminOrAbove ---
-    def test_asset_allows_admin(self, sys_admin):
-        assert self._check(IsAssetAdminOrAbove, sys_admin) is True
-
-    def test_asset_allows_manager(self, dept_manager):
-        assert self._check(IsAssetAdminOrAbove, dept_manager) is True
-
-    def test_asset_allows_asset_admin(self, asset_admin):
-        assert self._check(IsAssetAdminOrAbove, asset_admin) is True
-
-    def test_asset_rejects_regular(self, regular_user):
-        assert self._check(IsAssetAdminOrAbove, regular_user) is False
-
-    def test_asset_rejects_auditor(self, auditor):
-        assert self._check(IsAssetAdminOrAbove, auditor) is False
-
-    # --- IsAuditorOrAdmin ---
-    def test_auditor_allows_admin(self, sys_admin):
-        assert self._check(IsAuditorOrAdmin, sys_admin) is True
-
-    def test_auditor_allows_auditor(self, auditor):
-        assert self._check(IsAuditorOrAdmin, auditor) is True
-
-    def test_auditor_rejects_manager(self, dept_manager):
-        assert self._check(IsAuditorOrAdmin, dept_manager) is False
-
-    def test_auditor_rejects_asset_admin(self, asset_admin):
-        assert self._check(IsAuditorOrAdmin, asset_admin) is False
-
-    def test_auditor_rejects_regular(self, regular_user):
-        assert self._check(IsAuditorOrAdmin, regular_user) is False
+    def test_regular_user_read_only(self, regular_user, asset_in_dept_a, asset_in_dept_b):
+        qs = AssetSelector.get_queryset_for_user(regular_user)
+        codes = list(qs.values_list("asset_code", flat=True))
+        assert "AST-A001" in codes
+        assert "AST-B001" not in codes
 
 
 # =====================================================================
-# 2. 行级数据隔离测试
+# 4. 资产部门归属动态解析测试
 # =====================================================================
 
 
-class TestDepartmentScope:
-    def test_superuser_no_restriction(self, sys_admin):
-        assert get_department_codes_for_user(sys_admin) is None
+class TestResolveAssetDepartment:
+    def test_resolves_via_manager(self, asset_in_dept_b):
+        codes = resolve_asset_department_codes(asset_in_dept_b)
+        assert codes is not None
+        assert "DEPT-B" in codes
 
-    def test_auditor_no_restriction(self, auditor):
-        assert get_department_codes_for_user(auditor) is None
-
-    def test_dept_manager_sees_own(self, dept_manager, dept_a):
-        codes = get_department_codes_for_user(dept_manager)
+    def test_resolves_via_entry_person(self, asset_in_dept_a):
+        codes = resolve_asset_department_codes(asset_in_dept_a)
         assert codes is not None
         assert "DEPT-A" in codes
 
-    def test_asset_admin_sees_own_only(self, asset_admin, dept_a):
-        codes = get_department_codes_for_user(asset_admin)
-        assert codes == ["DEPT-A"]
-
-    def test_regular_user_sees_own_only(self, regular_user, dept_a):
-        codes = get_department_codes_for_user(regular_user)
-        assert codes == ["DEPT-A"]
-
-    def test_no_employee_returns_none(self, db):
-        user = User.objects.create_user(auth_username="noemp", password=TEST_PASSWORD)
-        assert get_department_codes_for_user(user) is None
+    def test_resolves_via_storage_manager(self, db, storage_a):
+        """manager 和 entry_person 都为空时通过 storage.manager 解析"""
+        asset_type = AssetType.objects.create(type_code="T999", type_name="空资产")
+        asset = Asset.objects.create(
+            asset_code="AST-NULL",
+            asset_name="无归属资产",
+            asset_purchase_price=1000,
+            asset_purchase_date="2024-01-01",
+            asset_entry_date="2024-01-15",
+            asset_type_recordcode=asset_type,
+            asset_storage_recordcode=storage_a,
+            asset_current_status="in_store",
+        )
+        codes = resolve_asset_department_codes(asset)
+        assert codes is not None
+        assert "DEPT-A" in codes  # storage_a 的 manager 在 dept_a
 
 
 # =====================================================================
-# 3. AssetSelector 行级过滤测试
+# 5. 资产关联记录行级过滤测试
+# =====================================================================
+
+
+class TestAssetLinkedRowIsolation:
+    def test_filters_by_department(self, asset_admin, asset_in_dept_a, asset_in_dept_b):
+        from apps.assetmanagement.models import OutAsset
+
+        OutAsset.objects.create(asset_recordcode=asset_in_dept_a, outasset_date="2024-01-01")
+        OutAsset.objects.create(asset_recordcode=asset_in_dept_b, outasset_date="2024-02-01")
+        qs = get_asset_linked_queryset_for_user(asset_admin, OutAsset.objects.all())
+        assert qs.count() == 1
+        assert qs.first().asset_recordcode.asset_code == "AST-A001"
+
+    def test_admin_sees_all_linked(self, sys_admin, asset_in_dept_a, asset_in_dept_b):
+        from apps.assetmanagement.models import OutAsset
+
+        OutAsset.objects.create(asset_recordcode=asset_in_dept_a, outasset_date="2024-01-01")
+        OutAsset.objects.create(asset_recordcode=asset_in_dept_b, outasset_date="2024-02-01")
+        qs = get_asset_linked_queryset_for_user(sys_admin, OutAsset.objects.all())
+        assert qs.count() == 2
+
+
+# =====================================================================
+# 6. 参数化权限矩阵测试(短 jobcode)
+# =====================================================================
+
+
+# 权限类 → (role, module, expected)
+PERM_CASES = [
+    # IsSystemAdmin
+    ("sa", EmployeeRole.SYSTEM_ADMIN, "asset", True),
+    ("sa", EmployeeRole.SYSTEM_ADMIN, "storage", True),
+    # IsAssetAdminOrAbove
+    ("dm", EmployeeRole.DEPT_MANAGER, "asset", True),
+    ("dm", EmployeeRole.DEPT_MANAGER, "damaged", True),
+    ("dm", EmployeeRole.DEPT_MANAGER, "storage", False),
+    ("aa", EmployeeRole.ASSET_ADMIN, "asset", True),
+    ("aa", EmployeeRole.ASSET_ADMIN, "damaged", False),
+    ("aa", EmployeeRole.ASSET_ADMIN, "storage", False),
+    # Regular / Auditor
+    ("ru", EmployeeRole.REGULAR_USER, "asset", False),
+    ("ru", EmployeeRole.REGULAR_USER, "storage", False),
+    ("au", EmployeeRole.AUDITOR, "asset", False),
+    ("au", EmployeeRole.AUDITOR, "storage", False),
+]
+
+
+@pytest.mark.parametrize("suffix,role,module,expected", PERM_CASES)
+def test_write_permission_matrix(suffix, role, module, expected, db):
+    """写操作权限矩阵:角色 x 模块"""
+    user = _make_user(f"t{suffix}_{module[:3]}", role)
+    perm_map = {
+        "asset": IsAssetAdminOrAbove,
+        "damaged": IsDeptManagerOrAbove,
+        "storage": IsSystemAdmin,
+    }
+    perm = perm_map[module]()
+    request = RequestFactory().get("/api/test/")
+    request.user = user
+    result = perm.has_permission(request, None)
+    assert result == expected, f"Role={role}, Module={module}: expected {expected}, got {result}"
+
+
+AUDIT_CASES = [
+    (EmployeeRole.SYSTEM_ADMIN, True),
+    (EmployeeRole.DEPT_MANAGER, False),
+    (EmployeeRole.ASSET_ADMIN, False),
+    (EmployeeRole.REGULAR_USER, False),
+    (EmployeeRole.AUDITOR, True),
+]
+
+
+@pytest.mark.parametrize("role,expected", AUDIT_CASES)
+def test_audit_log_permission_matrix(role, expected, db):
+    """审计日志查看权限矩阵"""
+    user = _make_user(f"al_{role[:3]}", role)
+    perm = IsAuditorOrAdmin()
+    request = RequestFactory().get("/api/test/")
+    request.user = user
+    result = perm.has_permission(request, None)
+    assert result == expected, f"Role={role}: expected {expected}, got {result}"
+
+
+# =====================================================================
+# 7. 边界场景测试
 # =====================================================================
 
 

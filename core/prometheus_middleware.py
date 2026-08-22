@@ -46,7 +46,7 @@ class PrometheusMiddleware:
     def __init__(self, get_response: "Callable[[HttpRequest], HttpResponse]") -> None:
         self.get_response = get_response
 
-    def __call__(self, request: "HttpRequest") -> HttpResponse:
+    def __call__(self, request: "HttpRequest") -> "HttpResponse":
         # 排除 /metrics/ 自身,避免递归计数
         if request.path == "/metrics/":
             return self.get_response(request)

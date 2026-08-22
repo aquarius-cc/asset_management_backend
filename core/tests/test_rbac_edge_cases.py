@@ -15,12 +15,9 @@ from django.contrib.auth import get_user_model
 from django.test import RequestFactory
 
 from apps.assetmanagement.models import Asset, AssetType, Storage
-from apps.assetmanagement.selectors.asset_selector import AssetSelector
 from apps.usermanagement.models import Department, Employee, EmployeeRole
 from core.department_scope import (
-    get_asset_linked_queryset_for_user,
     get_department_codes_for_user,
-    resolve_asset_department_codes,
 )
 from core.permissions import (
     IsAssetAdminOrAbove,
@@ -212,116 +209,110 @@ def asset_admin_b(db, dept_b):
 # =====================================================================
 # 1. 权限类测试
 # =====================================================================
+class TestEdgeCases:
+    def test_superuser_bypasses_all(self, db):
+        su = User.objects.create_superuser(auth_username="su_t", password=TEST_PASSWORD)
+        for cls in [IsSystemAdmin, IsDeptManagerOrAbove, IsAssetAdminOrAbove, IsAuditorOrAdmin]:
+            perm = cls()
+            request = RequestFactory().get("/api/test/")
+            request.user = su
+            assert perm.has_permission(request, None) is True
+
+    def test_no_employee_defaults_to_unrestricted(self, db):
+        user = User.objects.create_user(auth_username="no_emp", password=TEST_PASSWORD)
+        codes = get_department_codes_for_user(user)
+        assert codes is None
+
+    def test_employee_no_department_restricted(self, db):
+        Employee.objects.create(
+            employee_jobcode="nd",
+            employee_name="无部门",
+            employee_department=None,
+            role=EmployeeRole.ASSET_ADMIN,
+            employee_phone=_phone(),
+        )
+        user = User.objects.create_user(auth_username="nd", password=TEST_PASSWORD)
+        codes = get_department_codes_for_user(user)
+        assert codes == []
+
+    def test_employee_no_department_effective_scope_restrictive(self, db):
+        """无部门 Employee:有效数据范围为最严兜底(空部门范围)。"""
+        from core.department_scope import get_effective_data_scope_for_user
+
+        Employee.objects.create(
+            employee_jobcode="nds",
+            employee_name="无部门",
+            employee_department=None,
+            role=EmployeeRole.ASSET_ADMIN,
+            employee_phone=_phone(),
+        )
+        user = User.objects.create_user(auth_username="nds", password=TEST_PASSWORD)
+        scope = get_effective_data_scope_for_user(user)
+        assert scope == {
+            "scope_type": "departments",
+            "department_codes": [],
+            "include_children": False,
+        }
+
+    def test_request_level_caching(self, asset_admin):
+        codes1 = get_department_codes_for_user(asset_admin)
+        codes2 = get_department_codes_for_user(asset_admin)
+        assert codes1 == codes2
+        assert hasattr(asset_admin, "_rbac_employee")
 
 
-class TestPermissionClasses:
+# =====================================================================
+# 8. 无部门最严兜底(写权限降级)
+# =====================================================================
+
+
+class TestNoDepartmentWriteDegradation:
+    """部门级角色无部门时,所有 RBAC 写权限类必须拒绝(与 read-only 权限码/空数据范围语义一致)。"""
+
+    def _make_no_dept_user(self, username, role):
+        Employee.objects.create(
+            employee_jobcode=username,
+            employee_name=f"{username}无部门",
+            employee_department=None,
+            role=role,
+            employee_phone=_phone(),
+        )
+        return User.objects.create_user(auth_username=username, password=TEST_PASSWORD)
+
     def _check(self, perm_class, user):
         perm = perm_class()
         request = RequestFactory().get("/api/test/")
         request.user = user
         return perm.has_permission(request, None)
 
-    # --- IsSystemAdmin ---
-    def test_admin_allows_admin(self, sys_admin):
-        assert self._check(IsSystemAdmin, sys_admin) is True
+    def test_no_dept_asset_admin_rejected_by_write_classes(self, db):
+        user = self._make_no_dept_user("nda1", EmployeeRole.ASSET_ADMIN)
+        assert self._check(IsAssetAdminOrAbove, user) is False
+        assert self._check(IsDeptManagerOrAbove, user) is False
+        assert self._check(IsSystemAdmin, user) is False
 
-    def test_admin_rejects_manager(self, dept_manager):
-        assert self._check(IsSystemAdmin, dept_manager) is False
+    def test_no_dept_dept_manager_rejected_by_approval_write(self, db):
+        user = self._make_no_dept_user("ndm1", EmployeeRole.DEPT_MANAGER)
+        assert self._check(IsDeptManagerOrAbove, user) is False
+        assert self._check(IsAssetAdminOrAbove, user) is False
 
-    def test_admin_rejects_asset_admin(self, asset_admin):
-        assert self._check(IsSystemAdmin, asset_admin) is False
+    def test_no_dept_regular_user_rejected_by_all(self, db):
+        user = self._make_no_dept_user("ndr1", EmployeeRole.REGULAR_USER)
+        for cls in [IsSystemAdmin, IsDeptManagerOrAbove, IsAssetAdminOrAbove, IsAuditorOrAdmin]:
+            assert self._check(cls, user) is False
 
-    def test_admin_rejects_regular(self, regular_user):
-        assert self._check(IsSystemAdmin, regular_user) is False
+    def test_no_dept_system_admin_exempt_global(self, db):
+        user = self._make_no_dept_user("ndsa1", EmployeeRole.SYSTEM_ADMIN)
+        assert self._check(IsSystemAdmin, user) is True
+        assert self._check(IsDeptManagerOrAbove, user) is True
+        assert self._check(IsAssetAdminOrAbove, user) is True
 
-    def test_admin_rejects_auditor(self, auditor):
-        assert self._check(IsSystemAdmin, auditor) is False
+    def test_no_dept_auditor_exempt_global(self, db):
+        user = self._make_no_dept_user("ndau1", EmployeeRole.AUDITOR)
+        assert self._check(IsAuditorOrAdmin, user) is True
+        assert self._check(IsAssetAdminOrAbove, user) is False
 
-    def test_admin_allows_superuser(self, db):
-        su = User.objects.create_superuser(auth_username="su", password=TEST_PASSWORD)
-        assert self._check(IsSystemAdmin, su) is True
-
-    # --- IsDeptManagerOrAbove ---
-    def test_manager_allows_admin(self, sys_admin):
-        assert self._check(IsDeptManagerOrAbove, sys_admin) is True
-
-    def test_manager_allows_manager(self, dept_manager):
-        assert self._check(IsDeptManagerOrAbove, dept_manager) is True
-
-    def test_manager_rejects_asset_admin(self, asset_admin):
-        assert self._check(IsDeptManagerOrAbove, asset_admin) is False
-
-    def test_manager_rejects_regular(self, regular_user):
-        assert self._check(IsDeptManagerOrAbove, regular_user) is False
-
-    def test_manager_rejects_auditor(self, auditor):
-        assert self._check(IsDeptManagerOrAbove, auditor) is False
-
-    # --- IsAssetAdminOrAbove ---
-    def test_asset_allows_admin(self, sys_admin):
-        assert self._check(IsAssetAdminOrAbove, sys_admin) is True
-
-    def test_asset_allows_manager(self, dept_manager):
-        assert self._check(IsAssetAdminOrAbove, dept_manager) is True
-
-    def test_asset_allows_asset_admin(self, asset_admin):
+    def test_with_dept_asset_admin_still_allowed(self, asset_admin):
+        """对照组:有部门的 asset_admin 写权限不受影响(无回归)。"""
         assert self._check(IsAssetAdminOrAbove, asset_admin) is True
-
-    def test_asset_rejects_regular(self, regular_user):
-        assert self._check(IsAssetAdminOrAbove, regular_user) is False
-
-    def test_asset_rejects_auditor(self, auditor):
-        assert self._check(IsAssetAdminOrAbove, auditor) is False
-
-    # --- IsAuditorOrAdmin ---
-    def test_auditor_allows_admin(self, sys_admin):
-        assert self._check(IsAuditorOrAdmin, sys_admin) is True
-
-    def test_auditor_allows_auditor(self, auditor):
-        assert self._check(IsAuditorOrAdmin, auditor) is True
-
-    def test_auditor_rejects_manager(self, dept_manager):
-        assert self._check(IsAuditorOrAdmin, dept_manager) is False
-
-    def test_auditor_rejects_asset_admin(self, asset_admin):
-        assert self._check(IsAuditorOrAdmin, asset_admin) is False
-
-    def test_auditor_rejects_regular(self, regular_user):
-        assert self._check(IsAuditorOrAdmin, regular_user) is False
-
-
-# =====================================================================
-# 2. 行级数据隔离测试
-# =====================================================================
-
-
-class TestDepartmentScope:
-    def test_superuser_no_restriction(self, sys_admin):
-        assert get_department_codes_for_user(sys_admin) is None
-
-    def test_auditor_no_restriction(self, auditor):
-        assert get_department_codes_for_user(auditor) is None
-
-    def test_dept_manager_sees_own(self, dept_manager, dept_a):
-        codes = get_department_codes_for_user(dept_manager)
-        assert codes is not None
-        assert "DEPT-A" in codes
-
-    def test_asset_admin_sees_own_only(self, asset_admin, dept_a):
-        codes = get_department_codes_for_user(asset_admin)
-        assert codes == ["DEPT-A"]
-
-    def test_regular_user_sees_own_only(self, regular_user, dept_a):
-        codes = get_department_codes_for_user(regular_user)
-        assert codes == ["DEPT-A"]
-
-    def test_no_employee_returns_none(self, db):
-        user = User.objects.create_user(auth_username="noemp", password=TEST_PASSWORD)
-        assert get_department_codes_for_user(user) is None
-
-
-# =====================================================================
-# 3. AssetSelector 行级过滤测试
-# =====================================================================
-
-
+        assert self._check(IsSystemAdmin, asset_admin) is False

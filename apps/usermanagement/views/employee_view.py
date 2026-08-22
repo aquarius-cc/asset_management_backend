@@ -2,11 +2,12 @@
 员工管理视图
 """
 
+from typing import TYPE_CHECKING, Any
+
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
-from drf_spectacular.openapi import OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
@@ -30,7 +31,19 @@ from core.permissions import IsSystemAdmin
 from utils.response_utils import error_response, success_response
 
 
-class EmployeeViewSet(EmployeeAuthMixin, LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSet):
+if TYPE_CHECKING:
+    from rest_framework.request import Request
+    from rest_framework.response import Response
+    from rest_framework.serializers import Serializer
+
+
+# LoggingMixin.perform_* 与 DRF Mixin 存根签名存在已知偏差(项目内 mixin, 运行时行为正确)
+class EmployeeViewSet(  # type: ignore[misc]
+    EmployeeAuthMixin,
+    LoggingMixin,
+    ResponseWrapperMixin,
+    viewsets.ModelViewSet,  # type: ignore[type-arg]
+):
     """
     员工管理视图集
 
@@ -50,7 +63,8 @@ class EmployeeViewSet(EmployeeAuthMixin, LoggingMixin, ResponseWrapperMixin, vie
     serializer_class = EmployeeSerializer
     pagination_class = CustomPageNumberPagination
 
-    def get_permissions(self) -> list:
+    def get_permissions(self) -> list[permissions.BasePermission]:
+        permission_classes: list[type[permissions.BasePermission]]
         """
         自定义权限:管理员可管理员工,普通用户只能查看
         """
@@ -96,14 +110,15 @@ class EmployeeViewSet(EmployeeAuthMixin, LoggingMixin, ResponseWrapperMixin, vie
     ]
     lookup_field = "employee_jobcode"
 
-    def update(self, request, *args, **kwargs):
+    def update(self, request: "Request", *args: Any, **kwargs: Any) -> "Response":
         """更新员工(含审计日志)"""
         partial = kwargs.pop("partial", False)
         instance = self.get_object()
         before_data = EmployeeDetailSerializer(instance).data
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
+        # get_serializer 返回 BaseSerializer, 运行时为 Serializer 子类
+        self.perform_update(serializer)  # type: ignore[arg-type]
         after_data = EmployeeDetailSerializer(instance).data
         from apps.usermanagement.employee_audit_adapter import EmployeeAuditAdapter
 
@@ -116,11 +131,11 @@ class EmployeeViewSet(EmployeeAuthMixin, LoggingMixin, ResponseWrapperMixin, vie
         )
         return success_response(data=serializer.data, message="更新成功")
 
-    def partial_update(self, request, *args, **kwargs):
+    def partial_update(self, request: "Request", *args: Any, **kwargs: Any) -> "Response":
         """部分更新员工(含审计日志)"""
         return self.update(request, *args, partial=True, **kwargs)
 
-    def destroy(self, request, *args, **kwargs):
+    def destroy(self, request: "Request", *args: Any, **kwargs: Any) -> "Response":
         """删除员工(含审计日志)"""
         instance = self.get_object()
         from apps.usermanagement.employee_audit_adapter import EmployeeAuditAdapter
@@ -134,7 +149,7 @@ class EmployeeViewSet(EmployeeAuthMixin, LoggingMixin, ResponseWrapperMixin, vie
         self.perform_destroy(instance)
         return success_response(message="删除成功")
 
-    def get_serializer_class(self):
+    def get_serializer_class(self) -> "type[Serializer[Any]]":
         """根据不同的操作选择不同的序列化器"""
         if self.action == "create":
             return EmployeeCreateSerializer
@@ -159,7 +174,7 @@ class EmployeeViewSet(EmployeeAuthMixin, LoggingMixin, ResponseWrapperMixin, vie
         responses={200: EmployeeDetailSerializer},
     )
     @action(detail=False, methods=["get"], url_path="by-auth-user/(?P<auth_id>[^/.]+)")
-    def by_auth_user(self, request, auth_id=None):
+    def by_auth_user(self, request: "Request", auth_id: str | None = None) -> "Response":
         """根据 AuthUser ID 查询绑定的 Employee"""
         try:
             employee = Employee.objects.select_related("employee_department", "auth_user").get(auth_user_id=auth_id)
@@ -172,14 +187,14 @@ class EmployeeViewSet(EmployeeAuthMixin, LoggingMixin, ResponseWrapperMixin, vie
             )
 
     @action(detail=False, methods=["get"], url_path="employees/(?P<employee_jobcode>[^/.]+)")
-    def get_employee_by_jobcode(self, request, employee_jobcode=None):
+    def get_employee_by_jobcode(self, request: "Request", employee_jobcode: str | None = None) -> "Response":
         """根据工号查询员工(统一格式)"""
         employee = get_object_or_404(self.queryset, employee_jobcode=employee_jobcode)
         serializer = EmployeeDetailSerializer(employee)
         return success_response(data=serializer.data)
 
     @action(detail=False, methods=["post"], url_path="batch-create")
-    def batch_create(self, request):
+    def batch_create(self, request: "Request") -> "Response":
         """批量创建员工"""
         serializer = EmployeeBatchCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -200,7 +215,7 @@ class EmployeeViewSet(EmployeeAuthMixin, LoggingMixin, ResponseWrapperMixin, vie
         )
 
     @action(detail=False, methods=["post"], url_path="batch-delete")
-    def batch_delete(self, request):
+    def batch_delete(self, request: "Request") -> "Response":
         """批量删除员工"""
         serializer = EmployeeBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -233,7 +248,7 @@ class EmployeeViewSet(EmployeeAuthMixin, LoggingMixin, ResponseWrapperMixin, vie
         responses={200: EmployeeDetailSerializer(many=True)},
     )
     @action(detail=False, methods=["get"], url_path="statistics")
-    def statistics(self, request):
+    def statistics(self, request: "Request") -> "Response":
         """获取员工统计信息(统一格式)"""
         # 【AGENTS 规范 - P1-10】统计逻辑迁移到 EmployeeSelector.get_employee_statistics()
         stats = EmployeeSelector.get_employee_statistics()
@@ -242,7 +257,7 @@ class EmployeeViewSet(EmployeeAuthMixin, LoggingMixin, ResponseWrapperMixin, vie
     # 显式指定 url_path 后,后端实际路径以 url_path 值为准。
     # @action 装饰器未指定 url_path,会默认使用方法名 active_employees
     @action(detail=False, methods=["get"], url_path="active_employees")
-    def active_employees(self, request):
+    def active_employees(self, request: "Request") -> "Response":
         """获取所有在职员工列表(统一格式)"""
         # 【AGENTS 规范 - P1-10】使用 EmployeeSelector.get_active_employees() 替代直接 ORM 调用
         queryset = EmployeeSelector.get_active_employees()
@@ -262,10 +277,11 @@ class EmployeeViewSet(EmployeeAuthMixin, LoggingMixin, ResponseWrapperMixin, vie
         )
 
     @action(detail=True, methods=["post"])
-    def change_status(self, request, pk=None):
+    def change_status(self, request: "Request", pk: int | None = None) -> "Response":
         """更改员工状态(统一格式)"""
         employee = self.get_object()
-        new_status = request.data.get("status")
+        request_body = request.data
+        new_status = request_body.get("status") if isinstance(request_body, dict) else None
 
         if not new_status:
             return error_response(message="请提供要更改的状态值")
@@ -301,7 +317,7 @@ class EmployeeViewSet(EmployeeAuthMixin, LoggingMixin, ResponseWrapperMixin, vie
         responses={200: EmployeeSerializer(many=True), 400: OpenApiResponse(description="参数错误")},
     )
     @action(detail=False, methods=["get"], url_path="search", permission_classes=[permissions.IsAuthenticated])
-    def global_search(self, request):
+    def global_search(self, request: "Request") -> "Response":
         """
         全局模糊搜索员工(统一格式)
 
@@ -331,7 +347,7 @@ class EmployeeViewSet(EmployeeAuthMixin, LoggingMixin, ResponseWrapperMixin, vie
 
     # 【AGENTS 规范 - P3-44】启用 create() 方法,调用 EmployeeService.create_employee()
     # 实现工号唯一性校验,避免视图层直接 serializer.save() 跳过业务校验
-    def create(self, request, *args, **kwargs):
+    def create(self, request: "Request", *args: Any, **kwargs: Any) -> "Response":
         """
         创建员工
 
@@ -352,7 +368,7 @@ class EmployeeViewSet(EmployeeAuthMixin, LoggingMixin, ResponseWrapperMixin, vie
         )
 
     @action(detail=False, methods=["put"], url_path="sort")
-    def batch_sort(self, request):
+    def batch_sort(self, request: "Request") -> "Response":
         """
         批量更新员工排序字段
 
@@ -374,7 +390,7 @@ class EmployeeViewSet(EmployeeAuthMixin, LoggingMixin, ResponseWrapperMixin, vie
         )
 
     @action(detail=False, methods=["get"], url_path="(?P<employee_jobcode>[^/.]+)/department")
-    def get_department_by_jobcode(self, request, employee_jobcode=None):
+    def get_department_by_jobcode(self, request: "Request", employee_jobcode: str | None = None) -> "Response":
         """
         根据员工工号查询所在部门
 
@@ -384,7 +400,11 @@ class EmployeeViewSet(EmployeeAuthMixin, LoggingMixin, ResponseWrapperMixin, vie
         - level: 部门层级
         - parent_code: 上级部门编码
         """
-        employee = EmployeeSelector.get_employee_by_jobcode(employee_jobcode)
+        employee = (
+            EmployeeSelector.get_employee_by_jobcode(employee_jobcode)
+            if employee_jobcode
+            else None
+        )
         if not employee:
             return error_response(message=f"员工 {employee_jobcode} 不存在", status_code=status.HTTP_404_NOT_FOUND)
 

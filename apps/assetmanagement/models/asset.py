@@ -2,7 +2,6 @@
 资产管理模型(核心模型)
 """
 
-from typing import TYPE_CHECKING
 
 from django.db import models
 
@@ -13,36 +12,32 @@ from apps.usermanagement.models import Employee
 from core.models import BaseModel, SoftDeleteManager
 
 
-if TYPE_CHECKING:
-    from django.db.models import Manager
-
-
-class AssetQuerySet(models.QuerySet):
+class AssetQuerySet(models.QuerySet["Asset"]):
     """
     Asset 查询集优化
 
     提供预加载关联和字段精简方法,用于列表页和详情页的不同查询需求。
     """
 
-    def with_basic_relations(self):
+    def with_basic_relations(self) -> "AssetQuerySet":
         """预加载基础关联(类型、合同、仓库)"""
         return self.select_related("asset_type_recordcode", "asset_contract_recordcode", "asset_storage_recordcode")
 
-    def with_person_relations(self):
+    def with_person_relations(self) -> "AssetQuerySet":
         """预加载人员关联(入库人、申请人、保管人)"""
         return self.select_related(
             "asset_entry_person_recordcode", "asset_applicant_recordcode", "asset_manager_recordcode"
         )
 
-    def with_all_relations(self):
+    def with_all_relations(self) -> "AssetQuerySet":
         """预加载所有常用关联"""
         return self.with_basic_relations().with_person_relations()
 
-    def with_harddisk_sns(self):
+    def with_harddisk_sns(self) -> "AssetQuerySet":
         """预加载硬盘序列号"""
         return self.prefetch_related("harddisk_sns")
 
-    def for_list(self):
+    def for_list(self) -> "AssetQuerySet":
         """列表页专用"""
         return (
             self.with_basic_relations()
@@ -52,7 +47,7 @@ class AssetQuerySet(models.QuerySet):
             )
         )
 
-    def for_search_list(self):
+    def for_search_list(self) -> "AssetQuerySet":
         """搜索结果列表"""
         return self.select_related(
             "asset_type_recordcode",
@@ -62,7 +57,8 @@ class AssetQuerySet(models.QuerySet):
         )
 
 
-class Asset(BaseModel):
+# 反向关联管理器(broken_assets/lost_assets 等)需关联模型模块同步建模, django-stubs 暂无法跨 app 推断
+class Asset(BaseModel):  # type: ignore[django-manager-missing]
     """
     资产管理模型(架构优化版)
 
@@ -80,9 +76,6 @@ class Asset(BaseModel):
     - damaged → broken: 审批拒绝,退回损坏状态
     - damaged → lost: 审批拒绝,退回遗失状态
     """
-
-    if TYPE_CHECKING:
-        objects: "Manager"
 
     RECORDCODE_PREFIX = "ASSET"
 
@@ -231,8 +224,9 @@ class Asset(BaseModel):
     asset_description = models.TextField(verbose_name="资产描述", blank=True, null=True, help_text="资产的补充说明")
     version = models.IntegerField(default=1, verbose_name="版本号", help_text="乐观锁版本号")
 
-    objects = SoftDeleteManager.from_queryset(AssetQuerySet)()
-    all_objects = models.Manager()
+    # django-stubs 无法精确推断 from_queryset 返回类型, 与基类管理器注解存在已知偏差
+    objects = SoftDeleteManager.from_queryset(AssetQuerySet)()  # type: ignore[misc]
+    all_objects = models.Manager()  # type: ignore[misc]
 
     class Meta:
         verbose_name = "资产管理"

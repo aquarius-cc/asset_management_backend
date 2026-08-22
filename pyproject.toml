@@ -153,6 +153,20 @@ ignore_missing_imports = true
 # 路径配置
 files = ["apps", "core", "config", "utils"]
 
+plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
+
+[tool.django-stubs]
+django_settings_module = "config.settings.test"
+
+# 渐进收紧：已补全类型注解的核心模块，禁止回退为无注解函数
+[[tool.mypy.overrides]]
+module = [
+  "apps.usermanagement.views.employee_view",
+  "apps.assetmanagement.models.asset",
+]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
 # 报告
 show_error_codes = true
 pretty = true

@@ -1,11 +1,11 @@
 """
-批量操作 API 契约快照测试（DR-1 重构回归屏障，CT-4）
+批量操作 API 契约快照测试(DR-1 重构回归屏障, CT-4)
 
-锁定以下契约，防止 DR-1 收敛（batch_mixins 复用 / ViewSet 基类提取 /
-BatchResponseHelper 引入）过程中发生行为漂移：
+锁定以下契约, 防止 DR-1 收敛(batch_mixins 复用 / ViewSet 基类提取 /
+BatchResponseHelper 引入)过程中发生行为漂移:
 - 响应 data 的键名集合与类型
 - message 文案逐字一致
-- fail_items 条目结构（index/row_number/input_data/error_code/error_message）
+- fail_items 条目结构(index/row_number/input_data/error_code/error_message)
 
 若本文件任何断言在重构后失败, 说明 API 契约被破坏, 必须回滚。
 """
@@ -31,7 +31,7 @@ def admin_authenticated_client(api_client, admin_auth_user):
 
 @pytest.mark.django_db
 class TestLifecycleBatchContract:
-    """资产生命周期批量接口契约快照（BrokenAsset 代表三胞胎）"""
+    """资产生命周期批量接口契约快照(BrokenAsset 代表三胞胎)"""
 
     def test_batch_delete_contract(self, admin_authenticated_client, broken_asset):
         """批量删除: 锁定 data 键集、计数语义与 message 文案"""
@@ -84,7 +84,7 @@ class TestLifecycleBatchContract:
         )
         missing = admin_authenticated_client.get(missing_url)
         assert missing.status_code == status.HTTP_404_NOT_FOUND
-        assert missing.data["message"] == f"资产 NO_SUCH_ASSET 不存在"
+        assert missing.data["message"] == "资产 NO_SUCH_ASSET 不存在"
 
 
 @pytest.mark.django_db
@@ -202,3 +202,82 @@ class TestBatchCreateFailItemEcho:
         assert fail_item["error_code"] == "DUPLICATE_EMPLOYEE_JOBCODE"
         # input_data 与用户原始输入逐字一致(键名/值)
         assert fail_item["input_data"] == item
+
+class TestBatchResponseHelperUnit:
+    """BatchResponseHelper.create_response 的 request_items 回写单元测试(无 DB 依赖)"""
+
+    def _make_serializer(self, items):
+        """构造携带 initial_data 的最小 serializer 桩(仅需满足 helper 的调用面)"""
+
+        class _StubSerializer:
+            def __init__(self, data):
+                self._data = data
+
+            def __call__(self, items, many=False):
+                return self
+
+            @property
+            def data(self):
+                return [{"stub": True} for _ in items]
+
+        stub = _StubSerializer(None)
+        stub.initial_data = {"items": items}
+        return stub
+
+    def test_request_items_echo_and_json_serializable(self):
+        """失败条目 input_data 被原始输入替换, 且整体可 JSON 序列化(模拟含模型实例的 validated_data)"""
+        import json
+
+        from core.batch_mixins import BatchResponseHelper
+
+        raw_items = [{"asset_type": "SVR-01", "asset_name": "服务器", "sort_order": 1}]
+        result = {
+            "total": 1,
+            "success_count": 0,
+            "fail_count": 1,
+            "success_items": [],
+            "fail_items": [
+                {
+                    "index": 0,
+                    "row_number": None,
+                    # 模拟 validated_data 中的模型实例(不可 JSON 序列化)
+                    "input_data": {"asset_type": object(), "asset_name": "服务器", "sort_order": 1},
+                    "error_code": "VALIDATION_ERROR",
+                    "error_message": "校验失败",
+                }
+            ],
+        }
+        response = BatchResponseHelper.create_response(
+            result, self._make_serializer(raw_items), message="批量创建完成,成功 0 条,失败 1 条",
+            request_items=raw_items,
+        )
+        # 整体可 JSON 序列化(修复前此处抛 TypeError)
+        payload = json.loads(json.dumps(response.data))
+        assert payload["data"]["fail_items"][0]["input_data"] == raw_items[0]
+
+    def test_request_items_none_keeps_original_behavior(self):
+        """不传 request_items 时行为与旧版完全一致(向后兼容)"""
+        from core.batch_mixins import BatchResponseHelper
+
+        result = {
+            "total": 1, "success_count": 0, "fail_count": 1, "success_items": [],
+            "fail_items": [{"index": 0, "input_data": {"a": 1}, "error_code": "E", "error_message": "m"}],
+        }
+        response = BatchResponseHelper.create_response(
+            result, self._make_serializer([]), message="msg",
+        )
+        assert response.data["data"]["fail_items"][0]["input_data"] == {"a": 1}
+
+    def test_index_out_of_range_defensive(self):
+        """index 越界时不回写也不抛错(防御分支)"""
+        from core.batch_mixins import BatchResponseHelper
+
+        result = {
+            "total": 1, "success_count": 0, "fail_count": 1, "success_items": [],
+            "fail_items": [{"index": 99, "input_data": {"keep": True}, "error_code": "E", "error_message": "m"}],
+        }
+        response = BatchResponseHelper.create_response(
+            result, self._make_serializer([{"a": 1}]), message="msg",
+            request_items=[{"a": 1}],
+        )
+        assert response.data["data"]["fail_items"][0]["input_data"] == {"keep": True}

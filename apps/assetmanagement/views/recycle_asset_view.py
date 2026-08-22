@@ -10,7 +10,7 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
-from rest_framework.response import Response  # noqa: F401 — used in -> Response annotations
+from rest_framework.response import Response
 
 from apps.assetmanagement.models import RecycleAsset
 from apps.assetmanagement.selectors import AssetSelector, RecycleAssetSelector
@@ -24,6 +24,7 @@ from apps.assetmanagement.serializers import (
     RecycleAssetUpdateSerializer,
 )
 from apps.assetmanagement.services import RecycleAssetService
+from core.batch_mixins import BatchResponseHelper
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
 from core.permissions import IsAssetAdminOrAbove
@@ -196,16 +197,12 @@ class RecycleAssetViewSet(
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
         )
-        success_serializer = RecycleAssetCreateSerializer(result["success_items"], many=True)
-        return success_response(
-            data={
-                "total": result["total"],
-                "success_count": result["success_count"],
-                "fail_count": result["fail_count"],
-                "success_items": success_serializer.data,
-                "fail_items": result["fail_items"],
-            },
+        # 【DR-1/B-8】响应组装复用 BatchResponseHelper; input_data 以用户原始输入回显
+        return BatchResponseHelper.create_response(
+            result,
+            RecycleAssetCreateSerializer,
             message=f"批量回收完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
+            request_items=serializer.initial_data.get("items"),
         )
 
     def destroy(self, request, *args, **kwargs):

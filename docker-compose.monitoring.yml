@@ -1,19 +1,19 @@
-version: "3.8"
 # 监控基础设施: Prometheus + Grafana
 # 依据: Project_Requirements/03-安全与运维/10-监控告警SOP.md §3
 services:
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.53.3
     ports: ["9090:9090"]
     volumes:
       - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./config/alert_rules.yml:/etc/prometheus/alert_rules.yml
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.retention.time=30d"
     restart: unless-stopped
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:11.2.2
     ports: ["3000:3000"]
     environment:
       GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:-admin}"
@@ -24,14 +24,14 @@ services:
     restart: unless-stopped
 
   postgres-exporter:
-    image: prometheuscommunity/postgres-exporter:latest
+    image: prometheuscommunity/postgres-exporter:0.16.0
     ports: ["9187:9187"]
     environment:
       DATA_SOURCE_NAME: "postgresql://${DB_USER:-postgres}:${DB_PASSWORD}@${DB_HOST:-db}:5432/${DB_NAME:-asset_management}?sslmode=disable"
     restart: unless-stopped
 
   redis-exporter:
-    image: oliver006/redis_exporter:latest
+    image: oliver006/redis_exporter:v1.67.0
     ports: ["9121:9121"]
     environment:
       REDIS_ADDR: "redis://redis:6379"

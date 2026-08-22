@@ -67,6 +67,7 @@ MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "core.prometheus_middleware.PrometheusMiddleware",  # OC-4: Prometheus 指标采集
     "core.request_context.RequestContextMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -273,15 +274,18 @@ LOGGING = {
         "simple": {"format": "{levelname} {message}", "style": "{"},
         "json": {"()": "core.json_formatter.StructuredJSONFormatter"},
     },
+    "filters": {
+        "trace_id": {"()": "core.logging_filters.TraceIDFilter"},
+    },
     "handlers": {
         "file": {
             "level": "INFO",
-            # 【修复】使用 RotatingFileHandler 替代 FileHandler,支持日志轮转
             "class": "logging.handlers.RotatingFileHandler",
             "filename": BASE_DIR / "django.log",
             "maxBytes": 1024 * 1024 * 10,  # 10MB
             "backupCount": 5,
             "formatter": "json",
+            "filters": ["trace_id"],
         },
         "console": {
             "level": "DEBUG",
@@ -290,9 +294,9 @@ LOGGING = {
         },
     },
     "loggers": {
-        "django": {"handlers": ["console"], "level": "INFO", "propagate": True},
-        "django.server": {"handlers": ["console"], "level": "INFO", "propagate": False},
-        "rest_framework": {"handlers": ["console"], "level": "DEBUG"},
+        "django": {"handlers": ["console", "file"], "level": "INFO", "propagate": False},
+        "django.server": {"handlers": ["console", "file"], "level": "INFO", "propagate": False},
+        "rest_framework": {"handlers": ["console", "file"], "level": "DEBUG"},
     },
 }
 

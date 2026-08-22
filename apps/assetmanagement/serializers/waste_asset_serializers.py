@@ -13,6 +13,7 @@
 from rest_framework import serializers
 
 from apps.assetmanagement.models import WasteAsset
+from core.constants import MAX_BATCH_SIZE as DEFAULT_MAX_BATCH_SIZE
 
 
 # ==================== WasteAsset 序列化器 ====================
@@ -133,7 +134,7 @@ WasteAssetSerializer = WasteAssetListSerializer
 class WasteAssetBatchDeleteSerializer(serializers.Serializer):
     """已报废资产批量删除请求校验"""
 
-    MAX_BATCH_SIZE = 100
+    MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     ids = serializers.ListField(child=serializers.CharField(), required=True, help_text="已报废记录编码列表")
 
     def validate_ids(self, value):

@@ -105,3 +105,10 @@ HARDDISK_STATUS_CHOICES: list[tuple[str, str]] = [
 # ============================
 DEFAULT_PAGE_SIZE: int = 20
 MAX_PAGE_SIZE: int = 100
+
+
+# ============================
+# 批量操作常量
+# ============================
+# 【DR-1 收敛】单一事实来源: 全项目批量操作条目上限(序列化器/Service/View 统一引用)
+MAX_BATCH_SIZE: int = 100

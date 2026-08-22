@@ -17,6 +17,7 @@ from apps.assetmanagement.models import MAX_ASSET_TYPE_LEVEL, Asset, AssetType
 from apps.assetmanagement.selectors import AssetTypeSelector
 from core.audit_service import GenericAuditService
 from core.batch_mixins import BatchOperationMixin
+from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError
 
 
@@ -159,7 +160,6 @@ class AssetTypeService:
 
         复用 AssetTypeService.create_asset_type() 单条创建逻辑。
         """
-        MAX_BATCH_SIZE = 100
         if len(asset_type_data_list) > MAX_BATCH_SIZE:
             raise AppValidationError(
                 detail=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条", error_code="BATCH_SIZE_EXCEEDED"

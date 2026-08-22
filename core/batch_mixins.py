@@ -27,6 +27,7 @@ import logging
 from collections.abc import Callable
 from typing import Any, TypeVar
 
+from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError
 
 
@@ -44,7 +45,8 @@ class BatchOperationMixin:
     - 支持创建(返回对象)和删除(返回 ID)两种模式
     """
 
-    DEFAULT_MAX_BATCH_SIZE = 100
+    # DR-1: 常量单一来源(core/constants.py), 保留类属性作为向后兼容的 fallback 入口
+    DEFAULT_MAX_BATCH_SIZE = MAX_BATCH_SIZE
 
     @classmethod
     def batch_execute(

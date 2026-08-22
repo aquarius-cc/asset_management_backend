@@ -7,6 +7,8 @@
 
 from rest_framework import serializers
 
+from core.constants import MAX_BATCH_SIZE as DEFAULT_MAX_BATCH_SIZE
+
 
 # ========== 合同批量操作序列化器 ==========
 
@@ -14,7 +16,7 @@ from rest_framework import serializers
 class ContractBatchDeleteSerializer(serializers.Serializer):
     """【P3-优化】批量删除合同请求校验"""
 
-    MAX_BATCH_SIZE = 100
+    MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     ids = serializers.ListField(child=serializers.CharField(), required=True, help_text="合同编码列表")
 
     def validate_ids(self, value: list[str]) -> list[str]:
@@ -68,7 +70,7 @@ class ContractBatchCreateItemSerializer(serializers.Serializer):
 class ContractBatchCreateSerializer(serializers.Serializer):
     """【新增】批量创建合同请求校验"""
 
-    MAX_BATCH_SIZE = 100
+    MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     items = ContractBatchCreateItemSerializer(many=True, required=True)
 
     def validate_items(self, value: list[dict]) -> list[dict]:
@@ -87,7 +89,7 @@ class ContractBatchCreateSerializer(serializers.Serializer):
 class StorageBatchDeleteSerializer(serializers.Serializer):
     """批量删除仓库请求校验"""
 
-    MAX_BATCH_SIZE = 100
+    MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     ids = serializers.ListField(child=serializers.CharField(), required=True, help_text="仓库编码列表")
 
     def validate_ids(self, value: list[str]) -> list[str]:
@@ -117,7 +119,7 @@ class StorageBatchCreateItemSerializer(serializers.Serializer):
 class StorageBatchCreateSerializer(serializers.Serializer):
     """【新增】批量创建仓库请求校验"""
 
-    MAX_BATCH_SIZE = 100
+    MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     items = StorageBatchCreateItemSerializer(many=True, required=True)
 
     def validate_items(self, value: list[dict]) -> list[dict]:
@@ -140,7 +142,7 @@ class StorageBatchCreateSerializer(serializers.Serializer):
 class AssetTypeBatchDeleteSerializer(serializers.Serializer):
     """批量删除资产类型请求校验"""
 
-    MAX_BATCH_SIZE = 100
+    MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     ids = serializers.ListField(child=serializers.CharField(), required=True, help_text="资产类型编码列表")
 
     def validate_ids(self, value: list[str]) -> list[str]:
@@ -170,7 +172,7 @@ class AssetTypeBatchCreateItemSerializer(serializers.Serializer):
 class AssetTypeBatchCreateSerializer(serializers.Serializer):
     """【新增】批量创建资产类型请求校验"""
 
-    MAX_BATCH_SIZE = 100
+    MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     items = AssetTypeBatchCreateItemSerializer(many=True, required=True)
 
     def validate_items(self, value: list[dict]) -> list[dict]:
@@ -199,7 +201,7 @@ class BrokenAssetBatchCreateItemSerializer(serializers.Serializer):
 class BrokenAssetBatchCreateSerializer(serializers.Serializer):
     """批量创建损坏资产请求校验"""
 
-    MAX_BATCH_SIZE = 100
+    MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     items = BrokenAssetBatchCreateItemSerializer(many=True, required=True)
 
     def validate_items(self, value: list[dict]) -> list[dict]:
@@ -224,7 +226,7 @@ class LostAssetBatchCreateItemSerializer(serializers.Serializer):
 class LostAssetBatchCreateSerializer(serializers.Serializer):
     """批量创建遗失资产请求校验"""
 
-    MAX_BATCH_SIZE = 100
+    MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     items = LostAssetBatchCreateItemSerializer(many=True, required=True)
 
     def validate_items(self, value: list[dict]) -> list[dict]:

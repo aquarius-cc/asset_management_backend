@@ -24,6 +24,7 @@ from django.db import transaction
 from apps.usermanagement.audit_adapter import DepartmentAuditAdapter
 from apps.usermanagement.models import MAX_DEPARTMENT_LEVEL, Department, Employee
 from apps.usermanagement.selectors import DepartmentSelector
+from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError, BusinessLogicError
 
 
@@ -266,7 +267,6 @@ class DepartmentService:
         Raises:
             ValidationError: 部门不存在或批量大小超限
         """
-        MAX_BATCH_SIZE = 100
         if len(items) > MAX_BATCH_SIZE:
             raise AppValidationError(
                 detail=f"单次批量排序不能超过 {MAX_BATCH_SIZE} 条", error_code="BATCH_SIZE_EXCEEDED"
@@ -299,7 +299,6 @@ class DepartmentService:
         复用 DepartmentService.create_department() 单条创建逻辑。
         使用 copy.deepcopy 避免原始数据被修改。
         """
-        MAX_BATCH_SIZE = 100
         if len(dept_data_list) > MAX_BATCH_SIZE:
             raise AppValidationError(
                 detail=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条", error_code="BATCH_SIZE_EXCEEDED"
@@ -351,7 +350,6 @@ class DepartmentService:
         - 部门下不存在员工
         - 部门下不存在子部门
         """
-        MAX_BATCH_SIZE = 100
         if len(department_codes) > MAX_BATCH_SIZE:
             raise AppValidationError(
                 detail=f"单次批量删除不能超过 {MAX_BATCH_SIZE} 条", error_code="BATCH_SIZE_EXCEEDED"

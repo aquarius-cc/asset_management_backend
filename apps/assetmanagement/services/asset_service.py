@@ -18,6 +18,7 @@ from apps.assetmanagement.selectors import (
 )
 from apps.assetmanagement.state_machine import AssetFSM
 from core.batch_mixins import BatchOperationMixin
+from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError
 
 from .asset_lifecycle_mixin import AssetLifecycleMixin
@@ -232,7 +233,6 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
     def batch_delete_asset(
         asset_codes: list[str], operator_jobcode: str | None = None, operator_name: str | None = None
     ) -> dict[str, Any]:
-        MAX_BATCH_SIZE = 100
         if len(asset_codes) > MAX_BATCH_SIZE:
             raise AppValidationError(
                 detail=f"单次批量删除不能超过 {MAX_BATCH_SIZE} 条", error_code="BATCH_SIZE_EXCEEDED"

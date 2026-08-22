@@ -15,6 +15,7 @@ from rest_framework import serializers
 from apps.assetmanagement.interfaces import get_employee_queryset, get_employee_serializer_class
 from apps.assetmanagement.models import Asset, OutAsset
 from apps.assetmanagement.serializers.base_model_serializers import ContractSerializer
+from core.constants import MAX_BATCH_SIZE as DEFAULT_MAX_BATCH_SIZE
 
 
 # ==================== OutAsset 序列化器 ====================
@@ -218,7 +219,7 @@ class OutAssetBatchItemSerializer(serializers.Serializer):
 
 
 class OutAssetBatchCreateSerializer(serializers.Serializer):
-    MAX_BATCH_SIZE = 100
+    MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     items = OutAssetBatchItemSerializer(many=True, required=True)
 
     def validate_items(self, value):
@@ -232,7 +233,7 @@ class OutAssetBatchCreateSerializer(serializers.Serializer):
 
 
 class OutAssetBatchDeleteSerializer(serializers.Serializer):
-    MAX_BATCH_SIZE = 100
+    MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     ids = serializers.ListField(child=serializers.CharField(), required=True)
 
     def validate_ids(self, value):

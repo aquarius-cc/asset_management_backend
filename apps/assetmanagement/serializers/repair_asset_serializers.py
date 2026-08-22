@@ -5,6 +5,7 @@ RepairAsset serializers
 from rest_framework import serializers
 
 from apps.assetmanagement.models import Asset, RepairAsset
+from core.constants import MAX_BATCH_SIZE as DEFAULT_MAX_BATCH_SIZE
 
 
 class RepairAssetListSerializer(serializers.ModelSerializer):
@@ -126,7 +127,7 @@ RepairAssetSerializer = RepairAssetListSerializer
 class RepairAssetBatchDeleteSerializer(serializers.Serializer):
     """维修资产批量删除请求校验"""
 
-    MAX_BATCH_SIZE = 100
+    MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     ids = serializers.ListField(child=serializers.CharField(), required=True, help_text="维修记录编码列表")
 
     def validate_ids(self, value):

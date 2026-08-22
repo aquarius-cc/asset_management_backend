@@ -7,6 +7,7 @@ from typing import Any
 from rest_framework import serializers
 
 from apps.usermanagement.models import MAX_DEPARTMENT_LEVEL, Department
+from core.constants import MAX_BATCH_SIZE as DEFAULT_MAX_BATCH_SIZE
 
 
 class DepartmentSerializer(serializers.ModelSerializer):
@@ -313,7 +314,7 @@ class DepartmentBatchItemSerializer(serializers.Serializer):
 class DepartmentBatchCreateSerializer(serializers.Serializer):
     """批量创建部门请求校验"""
 
-    MAX_BATCH_SIZE = 100
+    MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     items = DepartmentBatchItemSerializer(many=True, required=True)
 
     def validate_items(self, value: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -329,7 +330,7 @@ class DepartmentBatchCreateSerializer(serializers.Serializer):
 class DepartmentBatchDeleteSerializer(serializers.Serializer):
     """批量删除部门请求校验"""
 
-    MAX_BATCH_SIZE = 100
+    MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     ids = serializers.ListField(child=serializers.CharField(), required=True, help_text="部门编码列表")
 
     def validate_ids(self, value: list[str]) -> list[str]:

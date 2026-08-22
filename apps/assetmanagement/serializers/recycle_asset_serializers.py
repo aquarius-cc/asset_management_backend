@@ -15,6 +15,7 @@ from rest_framework import serializers
 from apps.assetmanagement.interfaces import get_employee_queryset
 from apps.assetmanagement.models import OutAsset, RecycleAsset, Storage
 from apps.assetmanagement.serializers.asset_crud_serializers import AssetDetailSerializer
+from core.constants import MAX_BATCH_SIZE as DEFAULT_MAX_BATCH_SIZE
 
 
 # ==================== RecycleAsset 序列化器 ====================
@@ -218,7 +219,7 @@ class RecycleAssetBatchItemSerializer(serializers.Serializer):
 
 
 class RecycleAssetBatchCreateSerializer(serializers.Serializer):
-    MAX_BATCH_SIZE = 100
+    MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     items = RecycleAssetBatchItemSerializer(many=True, required=True)
     recycle_asset_storage = serializers.SlugRelatedField(
         slug_field="storage_code", queryset=Storage.objects.all(), required=False, allow_null=True
@@ -237,7 +238,7 @@ class RecycleAssetBatchCreateSerializer(serializers.Serializer):
 
 
 class RecycleAssetBatchDeleteSerializer(serializers.Serializer):
-    MAX_BATCH_SIZE = 100
+    MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     ids = serializers.ListField(child=serializers.CharField(), required=True)
 
     def validate_ids(self, value):

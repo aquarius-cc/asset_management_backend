@@ -25,6 +25,7 @@ from django.db import transaction
 
 from apps.usermanagement.employee_audit_adapter import EmployeeAuditAdapter
 from apps.usermanagement.models import Employee
+from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError, BusinessLogicError
 
 
@@ -299,7 +300,6 @@ class EmployeeService:
         复用 EmployeeService.create_employee() 单条创建逻辑。
         使用 copy.deepcopy 避免原始数据被修改。
         """
-        MAX_BATCH_SIZE = 100
         if len(employee_data_list) > MAX_BATCH_SIZE:
             raise AppValidationError(
                 detail=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条", error_code="BATCH_SIZE_EXCEEDED"
@@ -354,7 +354,6 @@ class EmployeeService:
         """
         from apps.assetmanagement.models import Asset
 
-        MAX_BATCH_SIZE = 100
         if len(employee_jobcodes) > MAX_BATCH_SIZE:
             raise AppValidationError(
                 detail=f"单次批量删除不能超过 {MAX_BATCH_SIZE} 条", error_code="BATCH_SIZE_EXCEEDED"

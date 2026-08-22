@@ -24,6 +24,7 @@ from django.db import transaction
 from apps.usermanagement.audit_adapter import DepartmentAuditAdapter
 from apps.usermanagement.models import MAX_DEPARTMENT_LEVEL, Department, Employee
 from apps.usermanagement.selectors import DepartmentSelector
+from core.batch_mixins import BatchOperationMixin
 from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError, BusinessLogicError
 
@@ -304,41 +305,13 @@ class DepartmentService:
                 detail=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条", error_code="BATCH_SIZE_EXCEEDED"
             )
 
-        success_items: list[Department] = []
-        fail_items: list[dict[str, Any]] = []
+        # 【DR-1 收敛】循环+异常分类框架复用 BatchOperationMixin.batch_execute
+        # (前置 MAX_BATCH_SIZE 校验保留在上方, 保证原错误文案不变)
 
-        for idx, dept_data in enumerate(dept_data_list):
-            try:
-                result = DepartmentService.create_department(dept_data=copy.deepcopy(dept_data))
-                success_items.append(result)
-            except AppValidationError as e:
-                fail_items.append(
-                    {
-                        "index": idx,
-                        "row_number": dept_data.get("row_number"),
-                        "input_data": dept_data,
-                        "error_code": e.error_code or "VALIDATION_ERROR",
-                        "error_message": str(e.detail),
-                    }
-                )
-            except Exception:
-                fail_items.append(
-                    {
-                        "index": idx,
-                        "row_number": dept_data.get("row_number"),
-                        "input_data": dept_data,
-                        "error_code": "INTERNAL_ERROR",
-                        "error_message": "服务器内部错误,请稍后重试",
-                    }
-                )
+        def _create_item(idx: int, dept_data: dict[str, Any]) -> Department:
+            return DepartmentService.create_department(dept_data=copy.deepcopy(dept_data))
 
-        return {
-            "total": len(dept_data_list),
-            "success_count": len(success_items),
-            "fail_count": len(fail_items),
-            "success_items": success_items,
-            "fail_items": fail_items,
-        }
+        return BatchOperationMixin.batch_execute(dept_data_list, _create_item)
 
     @staticmethod
     def batch_delete_department(department_codes: list[str]) -> dict[str, Any]:
@@ -355,57 +328,25 @@ class DepartmentService:
                 detail=f"单次批量删除不能超过 {MAX_BATCH_SIZE} 条", error_code="BATCH_SIZE_EXCEEDED"
             )
 
-        success_ids: list[str] = []
-        fail_items: list[dict[str, Any]] = []
+        # 【DR-1 收敛】逐条删除框架复用 BatchOperationMixin.batch_delete_execute
+        # (前置 MAX_BATCH_SIZE 校验保留在上方, 保证原错误文案不变)
 
-        for dept_code in department_codes:
-            try:
-                with transaction.atomic():
-                    department = DepartmentSelector.get_department_by_code(dept_code)
-                    if not department or department.is_deleted:
-                        fail_items.append(
-                            {
-                                "id": dept_code,
-                                "error_code": "NOT_FOUND",
-                                "error_message": f"部门 {dept_code} 不存在或已删除",
-                            }
-                        )
-                        continue
-
-                    # 检查下属员工(SoftDeleteManager 自动排除已删除)
-                    if Employee.objects.filter(employee_department=department).exists():
-                        fail_items.append(
-                            {
-                                "id": dept_code,
-                                "error_code": "DEPT_HAS_EMPLOYEES",  # 4002
-                                "error_message": "部门下存在员工,不允许删除",
-                            }
-                        )
-                        continue
-
-                    # 检查子部门(使用 parent FK)
-                    if Department.objects.filter(parent=department).exists():
-                        fail_items.append(
-                            {
-                                "id": dept_code,
-                                "error_code": "HAS_CHILD_DEPARTMENTS",
-                                "error_message": "部门下存在子部门,不允许删除",
-                            }
-                        )
-                        continue
-
-                    department.delete()
-                success_ids.append(dept_code)
-
-            except Exception:
-                fail_items.append(
-                    {"id": dept_code, "error_code": "INTERNAL_ERROR", "error_message": "服务器内部错误,请稍后重试"}
+        def _delete_one(dept_code: str) -> None:
+            department = DepartmentSelector.get_department_by_code(dept_code)
+            if not department or department.is_deleted:
+                raise AppValidationError(
+                    detail=f"部门 {dept_code} 不存在或已删除", error_code="NOT_FOUND"
                 )
+            # 检查下属员工(SoftDeleteManager 自动排除已删除)
+            if Employee.objects.filter(employee_department=department).exists():
+                raise AppValidationError(
+                    detail="部门下存在员工,不允许删除", error_code="DEPT_HAS_EMPLOYEES"  # 4002
+                )
+            # 检查子部门(使用 parent FK)
+            if Department.objects.filter(parent=department).exists():
+                raise AppValidationError(
+                    detail="部门下存在子部门,不允许删除", error_code="HAS_CHILD_DEPARTMENTS"
+                )
+            department.delete()
 
-        return {
-            "total": len(department_codes),
-            "success_count": len(success_ids),
-            "fail_count": len(fail_items),
-            "success_ids": success_ids,
-            "fail_items": fail_items,
-        }
+        return BatchOperationMixin.batch_delete_execute(department_codes, _delete_one)

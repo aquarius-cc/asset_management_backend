@@ -25,6 +25,7 @@ from django.db import transaction
 
 from apps.usermanagement.employee_audit_adapter import EmployeeAuditAdapter
 from apps.usermanagement.models import Employee
+from core.batch_mixins import BatchOperationMixin
 from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError, BusinessLogicError
 
@@ -305,41 +306,13 @@ class EmployeeService:
                 detail=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条", error_code="BATCH_SIZE_EXCEEDED"
             )
 
-        success_items: list[Employee] = []
-        fail_items: list[dict[str, Any]] = []
+        # 【DR-1 收敛】循环+异常分类框架复用 BatchOperationMixin.batch_execute
+        # (前置 MAX_BATCH_SIZE 校验保留在上方, 保证原错误文案不变)
 
-        for idx, employee_data in enumerate(employee_data_list):
-            try:
-                result = EmployeeService.create_employee(employee_data=copy.deepcopy(employee_data))
-                success_items.append(result)
-            except AppValidationError as e:
-                fail_items.append(
-                    {
-                        "index": idx,
-                        "row_number": employee_data.get("row_number"),
-                        "input_data": employee_data,
-                        "error_code": e.error_code or "VALIDATION_ERROR",
-                        "error_message": str(e.detail),
-                    }
-                )
-            except Exception:
-                fail_items.append(
-                    {
-                        "index": idx,
-                        "row_number": employee_data.get("row_number"),
-                        "input_data": employee_data,
-                        "error_code": "INTERNAL_ERROR",
-                        "error_message": "服务器内部错误,请稍后重试",
-                    }
-                )
+        def _create_item(idx: int, employee_data: dict[str, Any]) -> Employee:
+            return EmployeeService.create_employee(employee_data=copy.deepcopy(employee_data))
 
-        return {
-            "total": len(employee_data_list),
-            "success_count": len(success_items),
-            "fail_count": len(fail_items),
-            "success_items": success_items,
-            "fail_items": fail_items,
-        }
+        return BatchOperationMixin.batch_execute(employee_data_list, _create_item)
 
     @staticmethod
     def batch_delete_employee(employee_jobcodes: list[str]) -> dict[str, Any]:
@@ -358,9 +331,6 @@ class EmployeeService:
             raise AppValidationError(
                 detail=f"单次批量删除不能超过 {MAX_BATCH_SIZE} 条", error_code="BATCH_SIZE_EXCEEDED"
             )
-
-        success_ids: list[str] = []
-        fail_items: list[dict[str, Any]] = []
 
         # 批量预检查:一次查询所有员工
         existing_employees = {
@@ -386,41 +356,22 @@ class EmployeeService:
             ).values_list("asset_manager_recordcode", flat=True)
             employees_with_assets.update(manager_recordcodes)
 
-        # 逐条处理删除
-        for jobcode in employee_jobcodes:
-            try:
-                employee = existing_employees.get(jobcode)
-                if not employee or employee.is_deleted:
-                    fail_items.append(
-                        {"id": jobcode, "error_code": "NOT_FOUND", "error_message": f"员工 {jobcode} 不存在或已删除"}
-                    )
-                    continue
+        # 【DR-1 收敛】逐条删除框架复用 BatchOperationMixin.batch_delete_execute
+        # 预检查数据(existing_employees/employees_with_assets)通过闭包注入
 
-                # 检查关联资产(通过 recordcode 匹配)
-                if employee.recordcode in employees_with_assets:
-                    fail_items.append(
-                        {
-                            "id": jobcode,
-                            "error_code": "HAS_RELATED_ASSETS",
-                            "error_message": "员工存在关联资产记录,不允许删除",
-                        }
-                    )
-                    continue
-
-                with transaction.atomic():
-                    employee.delete()
-                EmployeeAuditAdapter.log_delete(employee.employee_jobcode, employee.employee_name)
-                success_ids.append(jobcode)
-
-            except Exception:
-                fail_items.append(
-                    {"id": jobcode, "error_code": "INTERNAL_ERROR", "error_message": "服务器内部错误,请稍后重试"}
+        def _delete_one(jobcode: str) -> None:
+            employee = existing_employees.get(jobcode)
+            if not employee or employee.is_deleted:
+                raise AppValidationError(
+                    detail=f"员工 {jobcode} 不存在或已删除", error_code="NOT_FOUND"
                 )
+            # 检查关联资产(通过 recordcode 匹配)
+            if employee.recordcode in employees_with_assets:
+                raise AppValidationError(
+                    detail="员工存在关联资产记录,不允许删除", error_code="HAS_RELATED_ASSETS"
+                )
+            with transaction.atomic():
+                employee.delete()
+            EmployeeAuditAdapter.log_delete(employee.employee_jobcode, employee.employee_name)
 
-        return {
-            "total": len(employee_jobcodes),
-            "success_count": len(success_ids),
-            "fail_count": len(fail_items),
-            "success_ids": success_ids,
-            "fail_items": fail_items,
-        }
+        return BatchOperationMixin.batch_delete_execute(employee_jobcodes, _delete_one)

@@ -156,3 +156,49 @@ class TestEmployeeBatchContract:
             "index", "row_number", "input_data", "error_code", "error_message",
         }
         assert fail_item["error_code"] not in (None, "")
+
+
+@pytest.mark.django_db
+class TestBatchCreateFailItemEcho:
+    """B-8 回归屏障: 失败条目携带关联字段时不得 500, input_data 必须回显用户原始输入"""
+
+    def test_fail_with_department_echoes_original_input(
+        self, admin_authenticated_client, department
+    ):
+        """失败条目携带合法部门编码(原 B-8 触发条件) → 200 且回显原始提交
+
+        场景: 先创建同工号员工, 再批量提交同工号+部门编码的条目。
+        修复前: validated_data 中 employee_department 为 Department 实例,
+               响应渲染抛 TypeError -> 500;
+        修复后: input_data 为用户原始 dict(employee_department_code="D001")。
+        """
+        from apps.usermanagement.models import Employee
+
+        Employee.objects.create(
+            employee_jobcode="T99999",
+            employee_name="已存在员工",
+            employee_phone="13900000000",
+            employee_location="测试位置",
+            employee_status="active",
+            sort_order=0,
+        )
+        item = {
+            "employee_jobcode": "T99999",
+            "employee_name": "重复工号员工",
+            "employee_phone": "13800000000",
+            "employee_location": "测试位置",
+            "employee_status": "active",
+            "employee_department_code": department.department_code,
+            "employee_description": "",
+            "sort_order": 0,
+        }
+        url = reverse("employees-batch-create")
+        response = admin_authenticated_client.post(url, {"items": [item]}, format="json")
+        assert response.status_code == status.HTTP_200_OK, response.data
+
+        data = response.data["data"]
+        assert data["fail_count"] == 1
+        fail_item = data["fail_items"][0]
+        assert fail_item["error_code"] == "DUPLICATE_EMPLOYEE_JOBCODE"
+        # input_data 与用户原始输入逐字一致(键名/值)
+        assert fail_item["input_data"] == item

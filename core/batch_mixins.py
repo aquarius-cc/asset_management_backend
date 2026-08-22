@@ -214,10 +214,17 @@ class BatchResponseHelper:
         result: dict[str, Any],
         serializer_class: Any,
         message: str,
+        request_items: list[dict[str, Any]] | None = None,
     ) -> Any:
         """批量创建: 将 Service 返回的 success_items 对象列表二次序列化后响应
 
         result 需包含 total/success_count/fail_count/success_items(对象)/fail_items。
+
+        【B-8 修复】request_items: 用户原始提交条目(通常为 serializer.initial_data["items"])。
+        提供时, 失败条目的 input_data 以原始输入回写——键名/值与用户提交逐字一致且
+        天然 JSON 可序列化。原因: validated_data 中的 SlugRelatedField 字段是模型实例,
+        原样进入 fail_items 会导致响应渲染抛 TypeError(500); 而 pk/str 启发式转换又无法
+        还原用户提交的业务编码(slug)。按 index 与 request_items 对齐回显是唯一无损方案。
         """
         serialized = serializer_class(result["success_items"], many=True).data
         data = {
@@ -227,6 +234,11 @@ class BatchResponseHelper:
             "success_items": serialized,
             "fail_items": result["fail_items"],
         }
+        if request_items is not None:
+            for fail_item in data["fail_items"]:
+                idx = fail_item.get("index")
+                if isinstance(idx, int) and 0 <= idx < len(request_items):
+                    fail_item["input_data"] = request_items[idx]
         return success_response(data=data, message=message)
 
     @staticmethod

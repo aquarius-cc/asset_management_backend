@@ -207,6 +207,7 @@ class EmployeeViewSet(  # type: ignore[misc]
             result,
             EmployeeDetailSerializer,
             message=f"批量创建完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
+            request_items=serializer.initial_data.get("items"),
         )
 
     @action(detail=False, methods=["post"], url_path="batch-delete")

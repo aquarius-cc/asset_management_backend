@@ -16,6 +16,23 @@ from rest_framework.throttling import AnonRateThrottle
 logger = logging.getLogger(__name__)
 
 
+def _extract_login_username(request, owner: str) -> str:
+    """从登录请求中提取 auth_username(读取失败时回退 'anonymous')
+
+    【DR-1 收敛】原 LoginRateThrottle.get_cache_key 与
+    LoginLockoutThrottle._get_username 的完全重复实现。
+    行为零变更: 异常捕获范围、日志文案(含类名前缀)、返回值与原实现逐字一致。
+    """
+    username = ""
+    try:
+        if hasattr(request, "data"):
+            username = request.data.get("auth_username", "")
+    except Exception as exc:
+        # AI_REVIEW_NEEDED: silent except 为存量模式, 本次仅原样搬移未改变行为
+        logger.warning("%s: 无法读取请求数据: %s", owner, exc)
+    return username or "anonymous"
+
+
 class RegisterRateThrottle(AnonRateThrottle):
     """
     注册接口频率限制
@@ -31,7 +48,7 @@ class LoginRateThrottle(AnonRateThrottle):
     """
     登录接口频率限制（H-4）
 
-    按 auth_username 维度限流，防止对单一账户暴力破解。
+    按 auth_username 维度限流, 防止对单一账户暴力破解。
     与全局 AnonRateThrottle（IP 维度）形成双层防护。
     """
 
@@ -39,15 +56,7 @@ class LoginRateThrottle(AnonRateThrottle):
 
     def get_cache_key(self, request, view):
         """以请求体中的 auth_username 为限流键"""
-        username = ""
-        try:
-            if hasattr(request, "data"):
-                username = request.data.get("auth_username", "")
-        except Exception as exc:
-            logger.warning("LoginRateThrottle: 无法读取请求数据: %s", exc)
-        if not username:
-            username = "anonymous"
-        return f"throttle_login_{username}"
+        return f"throttle_login_{_extract_login_username(request, 'LoginRateThrottle')}"
 
 
 class LoginLockoutThrottle(AnonRateThrottle):
@@ -65,13 +74,7 @@ class LoginLockoutThrottle(AnonRateThrottle):
     LOCKOUT_DURATION = 15 * 60  # 15分钟
 
     def _get_username(self, request):
-        username = ""
-        try:
-            if hasattr(request, "data"):
-                username = request.data.get("auth_username", "")
-        except Exception as exc:
-            logger.warning("LoginLockoutThrottle: 无法读取请求数据: %s", exc)
-        return username or "anonymous"
+        return _extract_login_username(request, "LoginLockoutThrottle")
 
     def get_cache_key(self, request, view):
         username = self._get_username(request)

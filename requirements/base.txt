@@ -3,11 +3,11 @@
 # 【易错点】更新版本时必须同步测试，避免依赖冲突
 
 # Django 核心框架
-# 版本说明：Django 6.0.5 (LTS) - 长期支持版本
-Django==6.0.5
+# 版本说明：Django 5.2.6 (LTS) - 修复52个已知CVE
+Django==5.2.6
 
 # Django REST Framework
-# 版本说明：DRF 3.16 与 Django 6.0 兼容
+# 版本说明：DRF 3.16 与 Django 5.2 兼容
 djangorestframework==3.16.0
 
 # CORS 跨域支持
@@ -21,39 +21,46 @@ django-filter==25.1
 psycopg[binary]==3.3.4
 
 # 图像处理
-pillow==11.3.0
+# 版本说明：Pillow 12.3.0 修复25个已知CVE
+pillow==12.3.0
 
 # 二维码生成（HIGH-15）
 qrcode[pil]==8.2
 
 # HTTP 请求库
-requests==2.32.5
+# 版本说明：requests 2.33.0 修复1个已知CVE
+requests==2.33.0
 
 # requests 依赖（显式 pin，避免系统级版本冲突）
-urllib3==2.5.0
+# 版本说明：urllib3 2.7.0 修复4个已知CVE
+urllib3==2.7.0
 chardet==5.2.0
 
 # 环境变量管理
 python-decouple==3.8
 
 # JWT 认证
+# 版本说明：PyJWT 2.13.0 修复12个已知CVE（含 crit header 未验证）
 djangorestframework-simplejwt==5.5.1
-PyJWT==2.10.1
+PyJWT==2.13.0
 
 # API 文档生成
-# 【易错点】drf-spectacular 0.28+ 支持 Django 6.0
-drf-spectacular==0.28.0
-drf-spectacular-sidecar==2025.1.24
+# 【易错点】drf-spectacular 0.29+ 支持 Django 5.2/6.0
+drf-spectacular==0.29.0
+drf-spectacular-sidecar==2026.4.14
 
 # WebSocket 支持（P1-8 实时通知）
 channels==4.3.2
 
 # ASGI 服务器（替代 gunicorn 用于 WebSocket 支持）
-daphne==4.2.0
+daphne==4.2.2
 
 # Redis 连接（channels_redis 依赖）
-channels-redis==4.2.1
+channels-redis==4.3.0
 redis==6.2.0
+
+# Prometheus 监控（OC-4 落地）
+prometheus-client==0.26.0
 
 # ==================== 安装命令 ====================
 # pip install -r requirements/base.txt

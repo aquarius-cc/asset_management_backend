@@ -7,15 +7,9 @@
 # Django 扩展（shell_plus, runserver_plus 等）
 django-extensions==3.2.3
 
-# API 文档增强
-# 【易错点】drf-yasg 与 Django 6.0 兼容性问题较多，建议仅使用 drf-spectacular
-# 如需使用 drf-yasg，请验证兼容性后再启用
-# drf-yasg==1.21.11
-
-# drf-spectacular 扩展
-drf-spectacular==0.28.0
-drf-spectacular[markdown]==0.28.0
-drf-spectacular-sidecar==2025.1.24
+# drf-spectacular 扩展（markdown 支持）
+# 【注意】base.txt 已锁定 drf-spectacular==0.29.0，此处仅追加 markdown extra
+drf-spectacular[markdown]==0.29.0
 
 # ==================== 可选开发工具（按需安装） ====================
 # 取消注释以下行以启用：

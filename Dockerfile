@@ -1,62 +1,56 @@
 # =============================================================================
-# Dockerfile - 资产管理系统容器镜像
+# Dockerfile - 资产管理系统容器镜像 (多阶段构建)
 # =============================================================================
-# 基于官方 Python 3.12 镜像构建
 
-# 【易错点】生产环境应使用具体版本号，避免使用 latest
-FROM python:3.12-slim
+# === Stage 1: 构建阶段 (含编译依赖) ===
+FROM python:3.12.8-slim-bookworm AS builder
 
-# =============================================================================
-# 环境变量配置
-# =============================================================================
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
-
-# =============================================================================
-# 工作目录
-# =============================================================================
 WORKDIR /app
 
-# =============================================================================
-# 依赖安装
-# =============================================================================
-# 先复制依赖文件，安装依赖（利用 Docker 缓存层）
-COPY requirements/base.txt /app/requirements/base.txt
-
-# 安装系统依赖（psycopg 需要）
+# 安装编译依赖 (仅此阶段需要)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    # psycopg 系统依赖
     libpq-dev \
     build-essential \
     pkg-config \
-    # 清理缓存
     && rm -rf /var/lib/apt/lists/*
 
-# 安装 Python 依赖
-RUN pip install --no-cache-dir -r requirements/base.txt
+COPY requirements/base.txt /app/requirements/base.txt
+RUN pip install --no-cache-dir --prefix=/install -r requirements/base.txt
 
-# =============================================================================
-# 应用代码复制
-# =============================================================================
-# 复制整个项目（除了 .dockerignore 中的文件）
+# === Stage 2: 运行阶段 (仅运行时依赖) ===
+FROM python:3.12.8-slim-bookworm
+
+# 安装运行时依赖 (无需 build-essential)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# 从 builder 阶段复制已安装的 Python 包
+COPY --from=builder /install /usr/local
+
+# 【安全】创建非 root 用户
+RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuser
+
+WORKDIR /app
+
+# 复制应用代码
 COPY . /app/
 
-# =============================================================================
-# 入口脚本
-# =============================================================================
-# 使用 docker-entrypoint.sh 进行数据库迁移和启动
-ENTRYPOINT ["bash", "/app/docker-entrypoint.sh"]
-CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]
+# 静态文件和媒体目录 + 权限设置
+RUN mkdir -p /app/staticfiles /app/media \
+    && chown -R appuser:appuser /app
 
-# =============================================================================
-# 端口暴露
-# =============================================================================
+# 【安全】切换到非 root 用户
+USER appuser
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
 EXPOSE 8000
 
-# =============================================================================
-# 健康检查
-# =============================================================================
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/')" || exit 1
+
+ENTRYPOINT ["bash", "/app/docker-entrypoint.sh"]
+CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]

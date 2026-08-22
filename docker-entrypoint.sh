@@ -27,8 +27,14 @@ wait_for_db() {
     timeout=60
     count=0
     while ! python -c "
-import psycopg
-conn = psycopg.connect(host='$DB_HOST', port=int('$DB_PORT'), user='$DB_USER', password='$DB_PASSWORD', dbname='$DB_NAME')
+import os, psycopg
+conn = psycopg.connect(
+    host=os.environ['DB_HOST'],
+    port=int(os.environ['DB_PORT']),
+    user=os.environ['DB_USER'],
+    password=os.environ['DB_PASSWORD'],
+    dbname=os.environ['DB_NAME'],
+)
 conn.close()
 " 2>/dev/null; do
         count=$((count + 1))

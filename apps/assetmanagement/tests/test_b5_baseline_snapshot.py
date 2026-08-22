@@ -74,8 +74,11 @@ class TestStandardDeleteBaselines:
 # ==================== C 组: 行为将变更的端点(迁移时更新断言) ====================
 @pytest.mark.django_db
 class TestDamagedBaseline:
-    def test_batch_delete_missing_id_current_behavior(self, admin_client_fixture):
-        """[将变更] 现状: AppValidationError 被写死为 VALIDATION_ERROR + str(e)"""
+    def test_batch_delete_missing_id_after_dr1(self, admin_client_fixture):
+        """[已变更 commit e85b6cf+本次] 错误码透传: VALIDATION_ERROR → DAMAGED_ASSET_NOT_FOUND
+
+        前端证据: 无 error_code 分支消费(b5-frontend-error-code-search.md)。
+        """
         url = reverse("damaged-assets-batch-delete")
         resp = admin_client_fixture.post(url, {"ids": ["NO_SUCH"]}, format="json")
         assert resp.status_code == status.HTTP_200_OK
@@ -83,17 +86,17 @@ class TestDamagedBaseline:
         _assert_batch_shape(data, success_key="success_ids")
         assert data["fail_count"] == 1
         fail = data["fail_items"][0]
-        assert fail["error_code"] == "VALIDATION_ERROR"  # [将变更] → 透传 e.error_code
-        assert "服务器内部错误" not in fail["error_message"]
+        assert fail["error_code"] == "DAMAGED_ASSET_NOT_FOUND"
+        assert fail["error_message"] == "待报废记录 NO_SUCH 不存在"
         assert resp.data["message"] == "批量删除完成,成功 0 条,失败 1 条"
 
 
 @pytest.mark.django_db
 class TestWasteBaseline:
-    def test_batch_delete_missing_id_current_behavior(
+    def test_batch_delete_missing_id_after_dr1(
         self, admin_client_fixture, storage, asset_type
     ):
-        """[将变更] 现状: Service 抛 WASTE_ASSET_NOT_FOUND 但被遮蔽为 INTERNAL_ERROR"""
+        """[已变更 commit e85b6cf+本次] WASTE_ASSET_NOT_FOUND 不再被遮蔽为 INTERNAL_ERROR"""
         from apps.assetmanagement.models import Asset
 
         import datetime as _dt
@@ -112,6 +115,6 @@ class TestWasteBaseline:
         _assert_batch_shape(data, success_key="success_ids")
         assert data["fail_count"] == 1
         fail = data["fail_items"][0]
-        # [将变更] 现状: 无 AppValidationError 分支, WASTE_ASSET_NOT_FOUND 被遮蔽
-        assert fail["error_code"] == "INTERNAL_ERROR"
-        assert fail["error_message"] == "服务器内部错误"
+        # 迁移后: 透传 Service 原生错误码(比原计划的 NOT_FOUND 更精确)
+        assert fail["error_code"] == "WASTE_ASSET_NOT_FOUND"
+        assert fail["error_message"] == "已报废记录 W_BASE_1 不存在"

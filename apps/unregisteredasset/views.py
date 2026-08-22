@@ -19,6 +19,7 @@
 """
 
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import exceptions as drf_exceptions
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
@@ -37,6 +38,8 @@ from apps.unregisteredasset.serializers import (
     UnregisteredAssetUpdateSerializer,
 )
 from apps.unregisteredasset.services import UnregisteredAssetService
+from core.batch_mixins import BatchResponseHelper
+from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError
 from core.mixins import LoggingMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
@@ -241,9 +244,14 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet)
         items = request.data.get("items", [])
         if not items:
             return error_response(message="请提供要创建的数据列表", status_code=status.HTTP_400_BAD_REQUEST)
-        if len(items) > 100:
-            return error_response(message="单次批量创建不能超过 100 条", status_code=status.HTTP_400_BAD_REQUEST)
+        # 【DR-1 收敛】字面量 100 → 统一常量(超限时 400 即时拒绝的契约保持不变)
+        if len(items) > MAX_BATCH_SIZE:
+            return error_response(
+                message=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条", status_code=status.HTTP_400_BAD_REQUEST
+            )
 
+        # 【DR-1 收敛】异常分层: AppValidationError 透传注册错误码,
+        # 消除原 CREATE_FAILED 单码制与 str(e) 的内部异常文本暴露
         success_items = []
         fail_items = []
         for idx, item in enumerate(items):
@@ -256,9 +264,33 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet)
                     operator_name=resolve_operator(request.user)[1],
                 )
                 success_items.append(UnregisteredAssetDetailSerializer(instance).data)
-            except Exception as e:
+            except AppValidationError as e:
                 fail_items.append(
-                    {"index": idx, "error_code": "CREATE_FAILED", "error_message": str(e), "input_data": item}
+                    {
+                        "index": idx,
+                        "error_code": e.error_code or "VALIDATION_ERROR",
+                        "error_message": str(e.detail),
+                        "input_data": item,
+                    }
+                )
+            except drf_exceptions.ValidationError as e:
+                # 条目级 serializer 校验失败(DRF ValidationError)
+                fail_items.append(
+                    {
+                        "index": idx,
+                        "error_code": "VALIDATION_ERROR",
+                        "error_message": str(e.detail),
+                        "input_data": item,
+                    }
+                )
+            except Exception:
+                fail_items.append(
+                    {
+                        "index": idx,
+                        "error_code": "INTERNAL_ERROR",
+                        "error_message": "服务器内部错误,请稍后重试",
+                        "input_data": item,
+                    }
                 )
 
         return success_response(
@@ -353,8 +385,9 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet)
                     }
                 )
 
-        return success_response(
-            data={
+        # 【DR-1 收敛】响应组装复用 BatchResponseHelper
+        return BatchResponseHelper.delete_response(
+            {
                 "total": len(ids),
                 "success_count": len(success_ids),
                 "fail_count": len(fail_items),

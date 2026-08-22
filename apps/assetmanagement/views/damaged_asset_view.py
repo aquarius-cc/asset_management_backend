@@ -11,7 +11,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
-from rest_framework.response import Response  # noqa: F401 — used in -> Response annotations
+from rest_framework.response import Response
 
 from apps.assetmanagement.models import DamagedAsset
 from apps.assetmanagement.selectors import AssetSelector, DamagedAssetSelector
@@ -26,8 +26,8 @@ from apps.assetmanagement.serializers import (
     WasteAssetDetailSerializer,
 )
 from apps.assetmanagement.services import DamagedAssetService
+from core.batch_mixins import BatchResponseHelper
 from core.constants import APPROVAL_STATUS_CHOICES
-from core.exceptions import AppValidationError
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
 from core.permissions import IsDeptManagerOrAbove
@@ -203,31 +203,13 @@ class DamagedAssetViewSet(
         serializer.is_valid(raise_exception=True)
         ids = serializer.validated_data["ids"]
         operator_jobcode, operator_name = resolve_operator(request.user)
-        success_ids = []
-        fail_items = []
-        for asset_recordcode_code in ids:
-            try:
-                DamagedAssetService.cancel_asset_recordcode(
-                    asset_recordcode_code,
-                    operator_jobcode=operator_jobcode,
-                    operator_name=operator_name,
-                )
-                success_ids.append(asset_recordcode_code)
-            except AppValidationError as e:
-                fail_items.append(
-                    {"id": asset_recordcode_code, "error_code": "VALIDATION_ERROR", "error_message": str(e)}
-                )
-            except Exception:
-                fail_items.append(
-                    {"id": asset_recordcode_code, "error_code": "INTERNAL_ERROR", "error_message": "服务器内部错误"}
-                )
-        return success_response(
-            data={
-                "total": len(ids),
-                "success_count": len(success_ids),
-                "fail_count": len(fail_items),
-                "success_ids": success_ids,
-                "fail_items": fail_items,
-            },
-            message=f"批量删除完成,成功 {len(success_ids)} 条,失败 {len(fail_items)} 条",
+        # 【DR-1 收敛】循环下沉至 Service; 错误码透传(原写死 VALIDATION_ERROR 属漂移, 已获前端证据批准修正)
+        result = DamagedAssetService.batch_delete_asset_recordcodes(
+            ids,
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+        )
+        return BatchResponseHelper.delete_response(
+            result,
+            message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )

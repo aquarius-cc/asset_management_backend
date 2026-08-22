@@ -5,7 +5,6 @@
 已报废记录为终态记录,不允许创建和修改。
 """
 
-import logging
 from datetime import datetime as dt
 
 from django_filters.rest_framework import DjangoFilterBackend
@@ -15,7 +14,7 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
-from rest_framework.response import Response  # noqa: F401 — used in -> Response annotations
+from rest_framework.response import Response
 
 from apps.assetmanagement.models import WasteAsset
 from apps.assetmanagement.selectors import AssetSelector, WasteAssetSelector
@@ -26,6 +25,7 @@ from apps.assetmanagement.serializers import (
     WasteAssetSerializer,
 )
 from apps.assetmanagement.services import WasteAssetService
+from core.batch_mixins import BatchResponseHelper
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
 from core.permissions import IsAssetAdminOrAbove
@@ -181,36 +181,13 @@ class WasteAssetViewSet(
         serializer.is_valid(raise_exception=True)
         ids = serializer.validated_data["ids"]
         operator_jobcode, operator_name = resolve_operator(request.user)
-        success_ids = []
-        fail_items = []
-        for asset_recordcode_code in ids:
-            try:
-                WasteAssetService.cancel_waste_asset(
-                    asset_recordcode_code,
-                    operator_jobcode=operator_jobcode,
-                    operator_name=operator_name,
-                )
-                success_ids.append(asset_recordcode_code)
-            except WasteAsset.DoesNotExist:
-                fail_items.append(
-                    {
-                        "id": asset_recordcode_code,
-                        "error_code": "NOT_FOUND",
-                        "error_message": f"已报废记录 {asset_recordcode_code} 不存在",
-                    }
-                )
-            except Exception as e:
-                logging.exception(f"批量删除报废资产失败: {e}")
-                fail_items.append(
-                    {"id": asset_recordcode_code, "error_code": "INTERNAL_ERROR", "error_message": "服务器内部错误"}
-                )
-        return success_response(
-            data={
-                "total": len(ids),
-                "success_count": len(success_ids),
-                "fail_count": len(fail_items),
-                "success_ids": success_ids,
-                "fail_items": fail_items,
-            },
-            message=f"批量删除完成,成功 {len(success_ids)} 条,失败 {len(fail_items)} 条",
+        # 【DR-1 收敛】循环下沉至 Service; WASTE_ASSET_NOT_FOUND 不再被遮蔽为 INTERNAL_ERROR
+        result = WasteAssetService.batch_delete_waste_assets(
+            ids,
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+        )
+        return BatchResponseHelper.delete_response(
+            result,
+            message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )

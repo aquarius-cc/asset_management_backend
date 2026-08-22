@@ -37,9 +37,9 @@ class TestUnregisteredBatchBaseline:
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
         assert resp.data["message"] == "单次批量创建不能超过 100 条"
 
-    def test_batch_create_fail_item_uses_create_failed(self, admin_client_fixture):
-        """[将变更-另立任务] 现状: 失败条目为单码制 CREATE_FAILED + str(e) 直出"""
-        # 缺必填字段的条目 → 失败分支
+    def test_batch_create_fail_item_after_dr1(self, admin_client_fixture):
+        """[已变更 本次] CREATE_FAILED 单码制消灭, 异常分层透传注册错误码"""
+        # 缺必填字段的条目 → DRF 校验失败 → AppValidationError/ValidationError 分支
         resp = admin_client_fixture.post(
             self._url("batch-create"),
             {"items": [{"asset_name": "缺字段条目"}]},
@@ -52,8 +52,9 @@ class TestUnregisteredBatchBaseline:
         }
         assert data["fail_count"] == 1
         fail = data["fail_items"][0]
-        assert fail["error_code"] == "CREATE_FAILED"  # [另立任务] 非注册码
-        assert fail["error_message"]  # 现状为 str(e) 直出
+        assert set(fail.keys()) == {"index", "error_code", "error_message", "input_data"}
+        assert fail["error_code"] not in ("CREATE_FAILED", "INTERNAL_ERROR")
+        assert fail["input_data"] == {"asset_name": "缺字段条目"}
 
     def test_batch_delete_missing_id(self, admin_client_fixture):
         """batch_delete: 不存在记录的 fail 结构"""

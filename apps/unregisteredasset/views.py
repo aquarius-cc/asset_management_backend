@@ -240,11 +240,9 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet)
         """批量创建未登记资产"""
         items = request.data.get("items", [])
         if not items:
-            return error_response(data={"message": "请提供要创建的数据列表"}, status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(message="请提供要创建的数据列表", status_code=status.HTTP_400_BAD_REQUEST)
         if len(items) > 100:
-            return error_response(
-                data={"message": "单次批量创建不能超过 100 条"}, status_code=status.HTTP_400_BAD_REQUEST
-            )
+            return error_response(message="单次批量创建不能超过 100 条", status_code=status.HTTP_400_BAD_REQUEST)
 
         success_items = []
         fail_items = []

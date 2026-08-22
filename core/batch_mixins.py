@@ -29,6 +29,7 @@ from typing import Any, TypeVar
 
 from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError
+from utils.response_utils import success_response
 
 
 logger = logging.getLogger(__name__)
@@ -197,3 +198,38 @@ class BatchOperationMixin:
             "success_ids": success_ids,
             "fail_items": fail_items,
         }
+
+
+class BatchResponseHelper:
+    """
+    View 层批量响应组装辅助(DR-1 收敛)
+
+    【契约保护】message 必须由调用方显式传入原格式化文案——
+    各接口的 message 是动态文案(如 "批量创建完成,成功 X 条,失败 Y 条"),
+    本 Helper 不提供默认兜底, 防止文案漂移破坏前端展示。
+    """
+
+    @staticmethod
+    def create_response(
+        result: dict[str, Any],
+        serializer_class: Any,
+        message: str,
+    ) -> Any:
+        """批量创建: 将 Service 返回的 success_items 对象列表二次序列化后响应
+
+        result 需包含 total/success_count/fail_count/success_items(对象)/fail_items。
+        """
+        serialized = serializer_class(result["success_items"], many=True).data
+        data = {
+            "total": result["total"],
+            "success_count": result["success_count"],
+            "fail_count": result["fail_count"],
+            "success_items": serialized,
+            "fail_items": result["fail_items"],
+        }
+        return success_response(data=data, message=message)
+
+    @staticmethod
+    def delete_response(result: dict[str, Any], message: str) -> Any:
+        """批量删除: Service 返回 dict 原样透传(success_ids 形态)"""
+        return success_response(data=result, message=message)

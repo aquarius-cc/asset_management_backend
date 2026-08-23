@@ -2,8 +2,6 @@
 待报废资产管理模型
 """
 
-from typing import TYPE_CHECKING
-
 from django.db import models
 from django.utils import timezone
 
@@ -12,16 +10,12 @@ from apps.usermanagement.models import Employee
 from core.models import BaseModel, SoftDeleteManager
 
 
-if TYPE_CHECKING:
-    from django.db.models import Manager
-
-
-class DamagedAssetQuerySet(models.QuerySet):
+class DamagedAssetQuerySet(models.QuerySet["DamagedAsset"]):
     """
     DamagedAsset 查询集优化
     """
 
-    def with_asset_details(self):
+    def with_asset_details(self) -> "DamagedAssetQuerySet":
         """预加载资产完整信息"""
         return self.select_related(
             "asset_recordcode",
@@ -32,7 +26,7 @@ class DamagedAssetQuerySet(models.QuerySet):
             "approver",
         )
 
-    def for_list(self):
+    def for_list(self) -> "DamagedAssetQuerySet":
         """待报废列表页专用"""
         return self.with_asset_details().defer(
             "damaged_asset_description",
@@ -45,9 +39,6 @@ class DamagedAsset(BaseModel):
 
     记录待报废的资产信息,包含审批流程状态,审批通过后进入报废流程。
     """
-
-    if TYPE_CHECKING:
-        objects: "Manager"
 
     RECORDCODE_PREFIX = "DAMAGED"
 
@@ -110,8 +101,8 @@ class DamagedAsset(BaseModel):
     )
     version = models.IntegerField(default=1, verbose_name="版本号", help_text="乐观锁版本号")
 
-    objects = SoftDeleteManager.from_queryset(DamagedAssetQuerySet)()
-    all_objects = models.Manager()
+    objects = SoftDeleteManager.from_queryset(DamagedAssetQuerySet)()  # type: ignore[misc]
+    all_objects = models.Manager()  # type: ignore[misc]
 
     class Meta:
         verbose_name = "待报废资产管理"

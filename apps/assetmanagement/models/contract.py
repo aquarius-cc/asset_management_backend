@@ -2,15 +2,9 @@
 合同管理模型
 """
 
-from typing import TYPE_CHECKING
-
 from django.db import models
 
 from core.models import BaseModel
-
-
-if TYPE_CHECKING:
-    from django.db.models import Manager
 
 
 class Contract(BaseModel):
@@ -20,9 +14,6 @@ class Contract(BaseModel):
     用于管理资产相关的采购合同、服务合同等,
     包含合同金额、付款记录、结算状态等信息。
     """
-
-    if TYPE_CHECKING:
-        objects: "Manager"
 
     RECORDCODE_PREFIX = "CONTRACT"
 

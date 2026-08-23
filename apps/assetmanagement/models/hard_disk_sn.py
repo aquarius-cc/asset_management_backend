@@ -2,16 +2,10 @@
 硬盘序列号管理模型
 """
 
-from typing import TYPE_CHECKING
-
 from django.db import models
 
 from apps.assetmanagement.models.asset import Asset
 from core.models import BaseModel, SoftDeleteManager
-
-
-if TYPE_CHECKING:
-    from django.db.models import Manager
 
 
 class HardDiskSN(BaseModel):
@@ -21,9 +15,6 @@ class HardDiskSN(BaseModel):
     管理硬盘类资产的序列号信息,支持跟踪硬盘状态变化。
     关系:Asset (1) → (0..N) HardDiskSN
     """
-
-    if TYPE_CHECKING:
-        objects: "Manager"
 
     RECORDCODE_PREFIX = "HDSN"
 
@@ -78,8 +69,8 @@ class HardDiskSN(BaseModel):
     harddisk_description = models.TextField(blank=True, default="", verbose_name="硬盘描述", help_text="硬盘的补充说明")
     version = models.IntegerField(default=1, verbose_name="版本号", help_text="乐观锁版本号")
 
-    objects = SoftDeleteManager()
-    all_objects = models.Manager()
+    objects = SoftDeleteManager()  # type: ignore[misc]
+    all_objects = models.Manager()  # type: ignore[misc]
 
     class Meta:
         verbose_name = "硬盘序列号管理"

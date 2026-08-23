@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from django.db.models import Manager
 
 
-class AuthUserManager(BaseUserManager):
+class AuthUserManager(BaseUserManager):  # type: ignore[type-arg]
     """
     自定义用户管理器
 
@@ -31,9 +31,9 @@ class AuthUserManager(BaseUserManager):
     """
 
     if TYPE_CHECKING:
-        objects: "Manager"
+        objects: "Manager[AuthUser]"
 
-    def get_by_natural_key(self, username: str) -> "AuthUser":
+    def get_by_natural_key(self, username: str) -> "AuthUser":  # type: ignore[override]
         """
         通过自然键(用户名)获取用户,不区分大小写
 
@@ -43,7 +43,7 @@ class AuthUserManager(BaseUserManager):
         Returns:
             AuthUser: 用户实例
         """
-        return self.get(**{f"{self.model.USERNAME_FIELD}__iexact": username})
+        return self.get(**{f"{self.model.USERNAME_FIELD}__iexact": username})  # type: ignore[no-any-return]
 
     def create_user(self, auth_username: str, password: str | None = None, **extra_fields: Any) -> "AuthUser":
         """
@@ -67,7 +67,7 @@ class AuthUserManager(BaseUserManager):
         if password:
             user.set_password(password)
         user.save(using=self._db)
-        return user
+        return user  # type: ignore[no-any-return]
 
     def create_superuser(self, auth_username: str, password: str | None = None, **extra_fields: Any) -> "AuthUser":
         """
@@ -213,7 +213,7 @@ class AuthUser(AbstractBaseUser, PermissionsMixin):
         super().save(*args, **kwargs)
 
     @property
-    def is_authenticated(self) -> bool:
+    def is_authenticated(self) -> bool:  # type: ignore[override]
         """Django认证系统需要的is_authenticated属性"""
         return True
 
@@ -227,11 +227,11 @@ class AuthUser(AbstractBaseUser, PermissionsMixin):
         return self.auth_is_staff
 
     @property
-    def is_active(self) -> bool:
+    def is_active(self) -> bool:  # type: ignore[override]
         """Django认证系统需要的is_active属性"""
         return self.auth_is_active
 
-    def hard_delete(self, using=None, keep_parents=False):
+    def hard_delete(self, using: Any = None, keep_parents: bool = False) -> None:
         """硬删除:真正从数据库删除记录"""
         super().delete(using=using, keep_parents=keep_parents)
 

@@ -2,8 +2,6 @@
 已报废资产管理模型
 """
 
-from typing import TYPE_CHECKING
-
 from django.db import models
 
 from apps.assetmanagement.models.asset import Asset
@@ -11,16 +9,12 @@ from apps.assetmanagement.models.damaged_asset import DamagedAsset
 from core.models import BaseModel, SoftDeleteManager
 
 
-if TYPE_CHECKING:
-    from django.db.models import Manager
-
-
-class WasteAssetQuerySet(models.QuerySet):
+class WasteAssetQuerySet(models.QuerySet["WasteAsset"]):
     """
     WasteAsset 查询集优化
     """
 
-    def with_asset_details(self):
+    def with_asset_details(self) -> "WasteAssetQuerySet":
         """预加载资产完整信息"""
         return self.select_related(
             "asset_recordcode",
@@ -31,7 +25,7 @@ class WasteAssetQuerySet(models.QuerySet):
             "damaged_recordcode",
         )
 
-    def for_list(self):
+    def for_list(self) -> "WasteAssetQuerySet":
         """已报废列表页专用"""
         return self.with_asset_details().defer(
             "waste_asset_description",
@@ -45,9 +39,6 @@ class WasteAsset(BaseModel):
     记录已完成报废的资产信息,报废后资产状态为"已报废"。
     当待报废资产(DamagedAsset)审批通过后,自动创建已报废记录。
     """
-
-    if TYPE_CHECKING:
-        objects: "Manager"
 
     RECORDCODE_PREFIX = "WASTE"
 
@@ -76,8 +67,8 @@ class WasteAsset(BaseModel):
     )
     version = models.IntegerField(default=1, verbose_name="版本号", help_text="乐观锁版本号")
 
-    objects = SoftDeleteManager.from_queryset(WasteAssetQuerySet)()
-    all_objects = models.Manager()
+    objects = SoftDeleteManager.from_queryset(WasteAssetQuerySet)()  # type: ignore[misc]
+    all_objects = models.Manager()  # type: ignore[misc]
 
     class Meta:
         verbose_name = "已报废资产管理"

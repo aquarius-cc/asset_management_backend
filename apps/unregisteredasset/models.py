@@ -25,7 +25,7 @@
 
 import secrets
 import string
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import models
 from django.utils import timezone
@@ -66,7 +66,7 @@ class UnregisteredAsset(BaseModel):
     RECORDCODE_PREFIX = "UNREG"
 
     if TYPE_CHECKING:
-        objects: "Manager"
+        objects: ClassVar[Manager[Any]]
 
     # ==========================================
     # 场景类型定义
@@ -281,7 +281,7 @@ class UnregisteredAsset(BaseModel):
             )
         ]
 
-    def save(self, *args, **kwargs) -> None:
+    def save(self, *args: Any, **kwargs: Any) -> None:
         """
         保存模型实例
 

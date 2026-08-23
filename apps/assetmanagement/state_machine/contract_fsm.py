@@ -5,6 +5,11 @@
 """
 
 from enum import Enum
+from typing import TYPE_CHECKING
+
+
+if TYPE_CHECKING:
+    from apps.assetmanagement.models import Contract
 
 
 class ContractState(Enum):
@@ -23,7 +28,7 @@ class ContractInvalidTransitionError(Exception):
 
 
 # 合法流转路径: {当前状态: {目标状态: 转换名称}}
-_CONTRACT_TRANSITIONS: dict = {
+_CONTRACT_TRANSITIONS: dict[ContractState, dict[ContractState, str]] = {
     ContractState.PURCHASING: {
         ContractState.PURCHASE_FINISHED: "purchase_finished",
     },
@@ -63,6 +68,6 @@ class ContractFSM:
             raise ContractInvalidTransitionError(f"合同状态转换不合法: {current.value} → {target.value}")
 
     @classmethod
-    def transition(cls, contract, target_status: str) -> None:
+    def transition(cls, contract: "Contract", target_status: str) -> None:
         cls._validate_transition(contract.contract_status, target_status)
         contract.contract_status = target_status

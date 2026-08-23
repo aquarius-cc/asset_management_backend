@@ -47,7 +47,7 @@ def parse_date(date_str: str, format_str: str = "%Y-%m-%d") -> date | None:
         return None
 
 
-def get_date_range(start_date: date, end_date: date) -> list:
+def get_date_range(start_date: date, end_date: date) -> list[date]:
     """
     获取日期范围内的所有日期
 

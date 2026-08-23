@@ -111,7 +111,8 @@ class BatchOperationMixin:
                 # 如果 item 是字典,始终记录 row_number 和 input_data(保持与原有行为一致)
                 if isinstance(item, dict):
                     fail_item["row_number"] = item.get("row_number")
-                    fail_item["input_data"] = item
+                    # 【B-8 防御层】validated_data 中 SlugRelatedField 字段是模型实例, 归一化后方可 JSON 序列化
+                    fail_item["input_data"] = cls._normalize_input_data(item)
                 fail_items.append(fail_item)
             except Exception as e:
                 # 【P1-39 修复】记录异常日志,便于生产环境排查
@@ -123,7 +124,8 @@ class BatchOperationMixin:
                 }
                 if isinstance(item, dict):
                     fail_item["row_number"] = item.get("row_number")
-                    fail_item["input_data"] = item
+                    # 【B-8 防御层】validated_data 中 SlugRelatedField 字段是模型实例, 归一化后方可 JSON 序列化
+                    fail_item["input_data"] = cls._normalize_input_data(item)
                 fail_items.append(fail_item)
 
         return {
@@ -198,6 +200,28 @@ class BatchOperationMixin:
             "success_ids": success_ids,
             "fail_items": fail_items,
         }
+
+    @staticmethod
+    def _normalize_input_data(value: Any) -> Any:
+        """
+        递归归一化失败条目 input_data, 保证 JSON 可序列化(B-8 防御层)
+
+        SlugRelatedField(source=...) 校验后, validated_data 中的关联字段是模型实例,
+        原样进入 fail_items 会导致响应渲染抛 TypeError(500)。此处递归处理嵌套
+        dict/list, 将模型实例降级为其 pk 字符串(启发式还原), 其余类型原样透传。
+
+        【与 BatchResponseHelper.create_response 的分工】View 层传入 request_items 时,
+        input_data 以用户原始输入整条回写(无损还原业务编码); 本方法仅兜底
+        未传 request_items 的调用路径(如 employee/department 批量创建), 防止 500。
+        """
+        if isinstance(value, dict):
+            return {key: BatchOperationMixin._normalize_input_data(val) for key, val in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [BatchOperationMixin._normalize_input_data(val) for val in value]
+        # Django 模型实例必有 pk 属性, 借此判定并降级为 pk 字符串
+        if hasattr(value, "pk"):
+            return str(value.pk)
+        return value
 
 
 class BatchResponseHelper:

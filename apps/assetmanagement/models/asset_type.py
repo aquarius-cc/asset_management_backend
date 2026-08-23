@@ -2,15 +2,10 @@
 资产类型管理模型
 """
 
-from typing import TYPE_CHECKING
-
 from django.db import models
 
 from core.models import BaseModel
 
-
-if TYPE_CHECKING:
-    from django.db.models import Manager
 
 # 资产类型层级最大限制(level 0-5,共 6 层)
 MAX_ASSET_TYPE_LEVEL = 5
@@ -30,9 +25,6 @@ class AssetType(BaseModel):
     继承 BaseModel 获得:recordcode、is_active、is_deleted、
     created_at、updated_at、SoftDeleteManager、delete/restore/hard_delete。
     """
-
-    if TYPE_CHECKING:
-        objects: "Manager"
 
     RECORDCODE_PREFIX = "ASSETTYPE"
 

@@ -44,7 +44,7 @@ class ScrappingTransitionsMixin:
         Raises:
             InvalidTransitionError: 当前状态不允许申请报废时抛出
         """
-        cls._transition(asset, AssetState.DAMAGED)
+        cls._transition(asset, AssetState.DAMAGED)  # type: ignore[attr-defined]
 
     @classmethod
     def cancel_damaged(cls, asset: "Asset") -> None:
@@ -80,7 +80,7 @@ class ScrappingTransitionsMixin:
         Raises:
             InvalidTransitionError: 当前状态不是 damaged 时抛出
         """
-        cls._transition(asset, AssetState.SCRAPPED)
+        cls._transition(asset, AssetState.SCRAPPED)  # type: ignore[attr-defined]
 
     @classmethod
     def reject_to_original(cls, asset: "Asset", original_status: str | None) -> None:
@@ -129,7 +129,7 @@ class ScrappingTransitionsMixin:
         Raises:
             InvalidTransitionError: 当前状态不是 damaged 时抛出
         """
-        cls._transition(asset, AssetState.IN_USE)
+        cls._transition(asset, AssetState.IN_USE)  # type: ignore[attr-defined]
 
     @classmethod
     def reject_to_recycled_pending(cls, asset: "Asset") -> None:
@@ -145,7 +145,7 @@ class ScrappingTransitionsMixin:
         Raises:
             InvalidTransitionError: 当前状态不是 damaged 时抛出
         """
-        cls._transition(asset, AssetState.RECYCLED_PENDING)
+        cls._transition(asset, AssetState.RECYCLED_PENDING)  # type: ignore[attr-defined]
 
     @classmethod
     def reject_to_repairing(cls, asset: "Asset") -> None:
@@ -161,4 +161,4 @@ class ScrappingTransitionsMixin:
         Raises:
             InvalidTransitionError: 当前状态不是 damaged 时抛出
         """
-        cls._transition(asset, AssetState.REPAIRING)
+        cls._transition(asset, AssetState.REPAIRING)  # type: ignore[attr-defined]

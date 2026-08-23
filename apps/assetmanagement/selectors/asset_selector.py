@@ -4,6 +4,7 @@
 提供资产数据的查询方法。
 """
 
+from collections.abc import Iterable
 from typing import Any, cast
 
 from django.db.models import Count, Q, QuerySet, Sum
@@ -32,7 +33,7 @@ class AssetSelector:
         return queryset.filter(build_asset_owned_department_q(dept_codes))
 
     @staticmethod
-    def get_queryset_for_user(user) -> QuerySet[Asset]:
+    def get_queryset_for_user(user: Any) -> QuerySet[Asset]:
         """
         根据用户角色返回行级过滤后的 QuerySet(RBAC 行级数据隔离)。
 
@@ -179,11 +180,12 @@ class AssetSelector:
 
     @staticmethod
     def get_asset_statistics(user: Any = None) -> dict[str, Any]:
-        queryset = Asset.objects.filter(is_deleted=False)
+        queryset: QuerySet[Asset] = Asset.objects.filter(is_deleted=False)
         if user is not None:
             queryset = AssetSelector.apply_user_scope(queryset, user)
-        status_counts = (
-            queryset.values("asset_current_status").annotate(count=Count("id")).order_by("asset_current_status")
+        status_values = queryset.values("asset_current_status")
+        status_counts: Iterable[dict[str, Any]] = cast(
+            "Iterable[dict[str, Any]]", status_values.annotate(count=Count("id")).order_by("asset_current_status")
         )
         status_choices = dict(Asset.ASSET_STATUS_CHOICES)
         status_distribution = {}

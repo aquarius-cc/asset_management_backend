@@ -4,7 +4,7 @@
 
 import secrets
 import string
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from django.db import models
 from django.utils import timezone
@@ -92,7 +92,7 @@ class AssetOperationLog(models.Model):
     """
 
     if TYPE_CHECKING:
-        objects: "Manager"
+        objects: "Manager[AssetOperationLog]"
 
     class OperationType(models.TextChoices):
         """操作类型"""
@@ -184,7 +184,7 @@ class AssetOperationLog(models.Model):
         chars = string.ascii_uppercase + string.digits
         return "".join(secrets.choice(chars) for _ in range(length))
 
-    def save(self, *args, **kwargs) -> None:
+    def save(self, *args: Any, **kwargs: Any) -> None:
         """阻止更新已有记录,创建时自动生成 logging_id"""
         if self.pk:
             raise PermissionError("AssetOperationLog 是只读表,禁止修改已有记录。")
@@ -195,6 +195,6 @@ class AssetOperationLog(models.Model):
             self.logging_id = f"{self.operation_type}-Log-{date_str}-{random_suffix}"
         super().save(*args, **kwargs)
 
-    def delete(self, *args, **kwargs) -> None:
+    def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
         """阻止删除记录"""
         raise PermissionError("AssetOperationLog 是只读表,禁止删除记录。")

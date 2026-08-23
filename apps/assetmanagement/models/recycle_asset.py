@@ -2,8 +2,6 @@
 回收资产管理模型
 """
 
-from typing import TYPE_CHECKING
-
 from django.db import models
 
 from apps.assetmanagement.models.asset import Asset
@@ -12,16 +10,12 @@ from apps.usermanagement.models import Employee
 from core.models import BaseModel, SoftDeleteManager
 
 
-if TYPE_CHECKING:
-    from django.db.models import Manager
-
-
-class RecycleAssetQuerySet(models.QuerySet):
+class RecycleAssetQuerySet(models.QuerySet["RecycleAsset"]):
     """
     RecycleAsset 查询集优化
     """
 
-    def with_asset_details(self):
+    def with_asset_details(self) -> "RecycleAssetQuerySet":
         """预加载资产完整信息"""
         return self.select_related(
             "outasset_recordcode",
@@ -33,7 +27,7 @@ class RecycleAssetQuerySet(models.QuerySet):
             "operator_employee",
         )
 
-    def for_list(self):
+    def for_list(self) -> "RecycleAssetQuerySet":
         """回收列表页专用"""
         return self.with_asset_details().defer(
             "asset_recordcode__asset_description",
@@ -46,9 +40,6 @@ class RecycleAsset(BaseModel):
 
     记录资产的回收信息,关联出库记录,回收后资产状态自动变为"在库"。
     """
-
-    if TYPE_CHECKING:
-        objects: "Manager"
 
     RECORDCODE_PREFIX = "RECYCLE"
 
@@ -109,8 +100,8 @@ class RecycleAsset(BaseModel):
 
     version = models.IntegerField(default=1, verbose_name="版本号", help_text="乐观锁版本号")
 
-    objects = SoftDeleteManager.from_queryset(RecycleAssetQuerySet)()
-    all_objects = models.Manager()
+    objects = SoftDeleteManager.from_queryset(RecycleAssetQuerySet)()  # type: ignore[misc]
+    all_objects = models.Manager()  # type: ignore[misc]
 
     class Meta:
         verbose_name = "回收资产管理"

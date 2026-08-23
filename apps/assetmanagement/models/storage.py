@@ -2,16 +2,10 @@
 仓库管理模型
 """
 
-from typing import TYPE_CHECKING
-
 from django.db import models
 
 from apps.usermanagement.models import Employee
 from core.models import BaseModel
-
-
-if TYPE_CHECKING:
-    from django.db.models import Manager
 
 
 class Storage(BaseModel):
@@ -20,9 +14,6 @@ class Storage(BaseModel):
 
     用于管理资产的存储仓库,包括新货仓库、回收仓库、待报废仓库等类型。
     """
-
-    if TYPE_CHECKING:
-        objects: "Manager"
 
     RECORDCODE_PREFIX = "STORAGE"
 

@@ -19,7 +19,7 @@ from apps.assetmanagement.state_machine.constants import AssetState
 # - 维修完成/找回入池:已使用过的资产(维修/找回)统一回到 recycled_pending,
 #   in_store 仅表示首次入库的新资产
 #
-VALID_TRANSITIONS: dict = {
+VALID_TRANSITIONS: dict[AssetState, dict[AssetState, str]] = {
     # 在库 → 在用(首次出库)、已损坏、已遗失
     AssetState.IN_STORE: {
         AssetState.IN_USE: "outasset",

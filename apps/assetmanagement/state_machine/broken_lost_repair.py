@@ -36,7 +36,7 @@ class BrokenLostRepairTransitionsMixin:
         Raises:
             InvalidTransitionError: 当前状态不允许标记损坏时抛出
         """
-        cls._transition(asset, AssetState.BROKEN)
+        cls._transition(asset, AssetState.BROKEN)  # type: ignore[attr-defined]
 
     @classmethod
     def mark_lost(cls, asset: "Asset") -> None:
@@ -53,7 +53,7 @@ class BrokenLostRepairTransitionsMixin:
         Raises:
             InvalidTransitionError: 当前状态不允许标记遗失时抛出
         """
-        cls._transition(asset, AssetState.LOST)
+        cls._transition(asset, AssetState.LOST)  # type: ignore[attr-defined]
 
     @classmethod
     def found_and_return(cls, asset: "Asset") -> None:
@@ -69,7 +69,7 @@ class BrokenLostRepairTransitionsMixin:
         Raises:
             InvalidTransitionError: 当前状态不是 lost 时抛出
         """
-        cls._transition(asset, AssetState.RECYCLED_PENDING)
+        cls._transition(asset, AssetState.RECYCLED_PENDING)  # type: ignore[attr-defined]
 
     @classmethod
     def reject_to_broken(cls, asset: "Asset") -> None:
@@ -85,7 +85,7 @@ class BrokenLostRepairTransitionsMixin:
         Raises:
             InvalidTransitionError: 当前状态不是 damaged 时抛出
         """
-        cls._transition(asset, AssetState.BROKEN)
+        cls._transition(asset, AssetState.BROKEN)  # type: ignore[attr-defined]
 
     @classmethod
     def reject_to_lost(cls, asset: "Asset") -> None:
@@ -101,7 +101,7 @@ class BrokenLostRepairTransitionsMixin:
         Raises:
             InvalidTransitionError: 当前状态不是 damaged 时抛出
         """
-        cls._transition(asset, AssetState.LOST)
+        cls._transition(asset, AssetState.LOST)  # type: ignore[attr-defined]
 
     # ===================================================================
     # 维修相关状态转换
@@ -121,7 +121,7 @@ class BrokenLostRepairTransitionsMixin:
         Raises:
             InvalidTransitionError: 当前状态不是 broken 时抛出
         """
-        cls._transition(asset, AssetState.REPAIRING)
+        cls._transition(asset, AssetState.REPAIRING)  # type: ignore[attr-defined]
 
     @classmethod
     def repair_done(cls, asset: "Asset") -> None:
@@ -137,7 +137,7 @@ class BrokenLostRepairTransitionsMixin:
         Raises:
             InvalidTransitionError: 当前状态不是 repairing 时抛出
         """
-        cls._transition(asset, AssetState.RECYCLED_PENDING)
+        cls._transition(asset, AssetState.RECYCLED_PENDING)  # type: ignore[attr-defined]
 
     @classmethod
     def repair_failed(cls, asset: "Asset") -> None:
@@ -153,4 +153,4 @@ class BrokenLostRepairTransitionsMixin:
         Raises:
             InvalidTransitionError: 当前状态不是 repairing 时抛出
         """
-        cls._transition(asset, AssetState.DAMAGED)
+        cls._transition(asset, AssetState.DAMAGED)  # type: ignore[attr-defined]

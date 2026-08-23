@@ -57,8 +57,8 @@ class AssetQuerySet(models.QuerySet["Asset"]):
         )
 
 
-# 反向关联管理器(broken_assets/lost_assets 等)需关联模型模块同步建模, django-stubs 暂无法跨 app 推断
-class Asset(BaseModel):  # type: ignore[django-manager-missing]
+# 反向关联管理器(broken_assets/lost_assets 等)已在各关联模型模块通过 related_name 建模
+class Asset(BaseModel):
     """
     资产管理模型(架构优化版)
 

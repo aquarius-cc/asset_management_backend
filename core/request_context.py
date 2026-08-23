@@ -12,6 +12,7 @@
 
 import threading
 import uuid
+from typing import Any
 
 
 _thread_locals = threading.local()
@@ -27,7 +28,7 @@ def get_current_trace_id() -> str | None:
     return getattr(_thread_locals, "trace_id", None)
 
 
-def get_current_request():
+def get_current_request() -> Any:
     """获取当前请求对象"""
     return getattr(_thread_locals, "request", None)
 
@@ -42,10 +43,10 @@ class RequestContextMiddleware:
     【OC-1 落地】每个请求生成全局唯一 trace_id,并在整个调用链透传。
     """
 
-    def __init__(self, get_response):
+    def __init__(self, get_response: Any) -> None:
         self.get_response = get_response
 
-    def __call__(self, request):
+    def __call__(self, request: Any) -> Any:
         # 生成或获取 trace_id(OC-1 落地)
         trace_id = request.META.get("HTTP_X_REQUEST_ID") or str(uuid.uuid4())
         _thread_locals.trace_id = trace_id
@@ -67,7 +68,7 @@ class RequestContextMiddleware:
         return response
 
     @staticmethod
-    def _get_client_ip(request) -> str | None:
+    def _get_client_ip(request: Any) -> str | None:
         """
         从 request 中提取客户端 IP
 
@@ -77,5 +78,5 @@ class RequestContextMiddleware:
         """
         x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
         if x_forwarded_for:
-            return x_forwarded_for.split(",")[0].strip()
-        return request.META.get("REMOTE_ADDR")
+            return x_forwarded_for.split(",")[0].strip()  # type: ignore[no-any-return]
+        return request.META.get("REMOTE_ADDR")  # type: ignore[no-any-return]

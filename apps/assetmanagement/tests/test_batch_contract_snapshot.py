@@ -281,3 +281,45 @@ class TestBatchResponseHelperUnit:
             request_items=[{"a": 1}],
         )
         assert response.data["data"]["fail_items"][0]["input_data"] == {"keep": True}
+
+
+class TestBatchExecuteInputDataNormalization:
+    """B-8 防御层回归屏障(CT-4): batch_execute 失败条目携带模型实例时不得 500"""
+
+    @staticmethod
+    def _raise_validation(idx, item):
+        from core.exceptions import AppValidationError
+
+        raise AppValidationError(detail="校验失败", error_code="VALIDATION_ERROR")
+
+    def test_model_instance_normalized_and_json_serializable(self):
+        """失败条目 input_data 中模型实例降级为 pk 字符串, 嵌套结构递归处理且整体可 JSON 序列化"""
+        import json
+
+        from core.batch_mixins import BatchOperationMixin
+
+        department = type("FakeDepartment", (), {"pk": 5})()
+        warehouse = type("FakeStorage", (), {"pk": 7})()
+        item = {"department": department, "tags": [{"warehouse": warehouse}], "name": "服务器"}
+
+        result = BatchOperationMixin.batch_execute([item], self._raise_validation)
+
+        assert result["fail_count"] == 1
+        assert result["fail_items"][0]["input_data"] == {
+            "department": "5",
+            "tags": [{"warehouse": "7"}],
+            "name": "服务器",
+        }
+        # 修复前此处抛 TypeError: Object of type FakeDepartment is not JSON serializable
+        payload = json.dumps(result["fail_items"], ensure_ascii=False)
+        assert isinstance(payload, str)
+
+    def test_plain_values_pass_through_unchanged(self):
+        """无模型实例的普通条目原样透传, 行为与旧版完全一致"""
+        from core.batch_mixins import BatchOperationMixin
+
+        item = {"asset_name": "服务器", "sort_order": 1, "tags": None}
+
+        result = BatchOperationMixin.batch_execute([item], self._raise_validation)
+
+        assert result["fail_items"][0]["input_data"] == item

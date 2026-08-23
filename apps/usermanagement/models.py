@@ -2,7 +2,7 @@
 用户管理数据库模型
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import models
@@ -33,7 +33,7 @@ class Department(BaseModel):
     """
 
     if TYPE_CHECKING:
-        objects: "Manager"
+        objects: ClassVar[Manager[Any]]
 
     RECORDCODE_PREFIX = "DEPARTMENT"
 
@@ -88,7 +88,7 @@ class Department(BaseModel):
     def __str__(self) -> str:
         return str(self.department_name)
 
-    def save(self, *args, **kwargs):
+    def save(self, *args: Any, **kwargs: Any) -> None:
         """保存时清除自身及所有祖先的后代缓存"""
         from django.core.cache import cache
 
@@ -124,7 +124,7 @@ class Department(BaseModel):
             if not Department.objects.filter(pk=self.parent_id).exists():
                 raise DjangoValidationError({"parent": "上级部门不存在"})
 
-    def get_children(self) -> models.QuerySet:
+    def get_children(self) -> "models.QuerySet[Department]":
         """获取当前部门的所有直接子部门"""
         return Department.objects.filter(parent=self)
 
@@ -132,7 +132,7 @@ class Department(BaseModel):
         """获取当前部门的员工数量(仅未删除的员工)"""
         return Employee.objects.filter(employee_department=self).count()
 
-    def get_all_descendants(self) -> list:
+    def get_all_descendants(self) -> list[str]:
         """获取当前部门的所有后代部门(基于 path 查询,带缓存)"""
         if not self.path:
             return []
@@ -141,12 +141,12 @@ class Department(BaseModel):
         cache_key = f"dept:{self.recordcode}:descendants"
         result = cache.get(cache_key)
         if result is not None:
-            return result
+            return result  # type: ignore[no-any-return]
         result = list(
             Department.objects.filter(path__startswith=f"{self.path}/").values_list("department_code", flat=True)
         )
         cache.set(cache_key, result, timeout=300)  # 5 分钟缓存
-        return result
+        return result  # type: ignore[no-any-return]
 
 
 class EmployeeRole(models.TextChoices):
@@ -170,7 +170,7 @@ class Employee(BaseModel):
     EMPLOYEE_STATUS_CHOICES = [("active", "在职员工"), ("left", "离职员工"), ("retirement", "退休员工")]
 
     if TYPE_CHECKING:
-        objects: "Manager"
+        objects: ClassVar[Manager[Any]]
 
     RECORDCODE_PREFIX = "EMPLOYEE"
 
@@ -243,7 +243,7 @@ class Employee(BaseModel):
     def __str__(self) -> str:
         return str(self.employee_name)
 
-    def save(self, *args, **kwargs):
+    def save(self, *args: Any, **kwargs: Any) -> None:
         """保存时检测角色变更,若角色改变则黑名单当前 JWT Token"""
         # 检测角色是否变更
         if self.pk:
@@ -261,7 +261,7 @@ class Employee(BaseModel):
         if role_changed:
             self._blacklist_user_tokens()
 
-    def _blacklist_user_tokens(self):
+    def _blacklist_user_tokens(self) -> None:
         """黑名单该用户的所有 Refresh Token,强制重新登录"""
         import logging
 
@@ -298,7 +298,7 @@ class Role(BaseModel):
     """角色表(RBAC)"""
 
     if TYPE_CHECKING:
-        objects: "Manager"
+        objects: ClassVar[Manager[Any]]
 
     RECORDCODE_PREFIX = "ROLE"
 
@@ -330,7 +330,7 @@ class Permission(BaseModel):
     """权限点表(RBAC)"""
 
     if TYPE_CHECKING:
-        objects: "Manager"
+        objects: ClassVar[Manager[Any]]
 
     RECORDCODE_PREFIX = "PERMISSION"
 
@@ -367,7 +367,7 @@ class RolePermission(BaseModel):
     """角色-权限关联表(RBAC)"""
 
     if TYPE_CHECKING:
-        objects: "Manager"
+        objects: ClassVar[Manager[Any]]
 
     RECORDCODE_PREFIX = "ROLEPERMISSION"
 
@@ -397,7 +397,7 @@ class UserRole(BaseModel):
     """用户-角色关联表(RBAC)"""
 
     if TYPE_CHECKING:
-        objects: "Manager"
+        objects: ClassVar[Manager[Any]]
 
     RECORDCODE_PREFIX = "USERROLE"
 

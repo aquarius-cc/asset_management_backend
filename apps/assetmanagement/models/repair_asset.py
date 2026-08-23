@@ -1,5 +1,3 @@
-from typing import TYPE_CHECKING
-
 from django.db import models
 
 from apps.assetmanagement.models.asset import Asset
@@ -7,28 +5,21 @@ from apps.usermanagement.models import Employee
 from core.models import BaseModel, SoftDeleteManager
 
 
-if TYPE_CHECKING:
-    from django.db.models import Manager
-
-
-class RepairAssetQuerySet(models.QuerySet):
+class RepairAssetQuerySet(models.QuerySet["RepairAsset"]):
     """维修记录查询集优化"""
 
-    def with_asset_details(self):
+    def with_asset_details(self) -> "RepairAssetQuerySet":
         return self.select_related(
             "asset_recordcode",
             "operator_employee",
         )
 
-    def for_list(self):
+    def for_list(self) -> "RepairAssetQuerySet":
         return self.with_asset_details()
 
 
 class RepairAsset(BaseModel):
     RECORDCODE_PREFIX = "REPAIR"
-
-    if TYPE_CHECKING:
-        objects: "Manager"
 
     class RepairStatus(models.TextChoices):
         IN_PROGRESS = "in_progress", "维修中"
@@ -92,8 +83,8 @@ class RepairAsset(BaseModel):
     )
     version = models.IntegerField(default=1, verbose_name="版本号", help_text="乐观锁版本号")
 
-    objects = SoftDeleteManager.from_queryset(RepairAssetQuerySet)()
-    all_objects = models.Manager()
+    objects = SoftDeleteManager.from_queryset(RepairAssetQuerySet)()  # type: ignore[misc]
+    all_objects = models.Manager()  # type: ignore[misc]
 
     class Meta:
         verbose_name = "维修记录"
@@ -111,5 +102,5 @@ class RepairAsset(BaseModel):
             models.Index(fields=["repair_status"]),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"维修记录-{self.asset_recordcode}"

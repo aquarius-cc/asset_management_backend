@@ -2,8 +2,6 @@
 资产找回记录模型
 """
 
-from typing import TYPE_CHECKING
-
 from django.db import models
 from django.utils import timezone
 
@@ -13,16 +11,12 @@ from apps.usermanagement.models import Employee
 from core.models import BaseModel, SoftDeleteManager
 
 
-if TYPE_CHECKING:
-    from django.db.models import Manager
-
-
-class FoundAssetQuerySet(models.QuerySet):
+class FoundAssetQuerySet(models.QuerySet["FoundAsset"]):
     """
     FoundAsset 查询集优化
     """
 
-    def with_asset_details(self):
+    def with_asset_details(self) -> "FoundAssetQuerySet":
         """预加载资产完整信息"""
         return self.select_related(
             "lost_asset_recordcode",
@@ -32,7 +26,7 @@ class FoundAssetQuerySet(models.QuerySet):
             "asset_recordcode__asset_contract_recordcode",
         )
 
-    def for_list(self):
+    def for_list(self) -> "FoundAssetQuerySet":
         """找回列表页专用"""
         return self.select_related(
             "lost_asset_recordcode",
@@ -47,9 +41,6 @@ class FoundAsset(BaseModel):
 
     记录遗失资产找回信息,关联LostAsset。
     """
-
-    if TYPE_CHECKING:
-        objects: "Manager"
 
     RECORDCODE_PREFIX = "FOUND"
 
@@ -86,8 +77,8 @@ class FoundAsset(BaseModel):
     found_description = models.TextField(verbose_name="找回描述", blank=True, null=True, help_text="找回的详细描述")
     version = models.IntegerField(default=1, verbose_name="版本号", help_text="乐观锁版本号")
 
-    objects = SoftDeleteManager.from_queryset(FoundAssetQuerySet)()
-    all_objects = models.Manager()
+    objects = SoftDeleteManager.from_queryset(FoundAssetQuerySet)()  # type: ignore[misc]
+    all_objects = models.Manager()  # type: ignore[misc]
 
     class Meta:
         verbose_name = "资产找回记录"

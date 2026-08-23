@@ -3,7 +3,6 @@
 """
 
 import uuid
-from typing import TYPE_CHECKING
 
 from django.db import models
 from django.utils import timezone
@@ -13,16 +12,12 @@ from apps.usermanagement.models import Employee
 from core.models import BaseModel, SoftDeleteManager
 
 
-if TYPE_CHECKING:
-    from django.db.models import Manager
-
-
-class OutAssetQuerySet(models.QuerySet):
+class OutAssetQuerySet(models.QuerySet["OutAsset"]):
     """
     OutAsset 查询集优化
     """
 
-    def with_asset_details(self):
+    def with_asset_details(self) -> "OutAssetQuerySet":
         """预加载资产完整信息"""
         return self.select_related(
             "asset_recordcode",
@@ -33,7 +28,7 @@ class OutAssetQuerySet(models.QuerySet):
             "asset_recordcode__asset_manager_recordcode",
         )
 
-    def for_list(self):
+    def for_list(self) -> "OutAssetQuerySet":
         """出库列表页专用"""
         return self.with_asset_details().defer(
             "outasset_description",
@@ -53,11 +48,8 @@ class OutAsset(BaseModel):
     出库资产管理模型
 
     记录资产的领用和借用信息,包含申请人、保管人、使用地点等信息。
-    资产出库后状态自动变为"在用"。
+    资产    出库后状态自动变为"在用"。
     """
-
-    if TYPE_CHECKING:
-        objects: "Manager"
 
     class OutassetType(models.TextChoices):
         """出库类型"""
@@ -140,8 +132,8 @@ class OutAsset(BaseModel):
     )
     version = models.IntegerField(default=1, verbose_name="版本号", help_text="乐观锁版本号")
 
-    objects = SoftDeleteManager.from_queryset(OutAssetQuerySet)()
-    all_objects = models.Manager()
+    objects = SoftDeleteManager.from_queryset(OutAssetQuerySet)()  # type: ignore[misc]
+    all_objects = models.Manager()  # type: ignore[misc]
 
     class Meta:
         verbose_name = "出库资产管理"

@@ -4,6 +4,8 @@
 提供遗失资产记录的查询方法。
 """
 
+from typing import Any
+
 from django.db.models import QuerySet
 
 from apps.assetmanagement.models import LostAsset
@@ -14,22 +16,22 @@ class LostAssetSelector:
     """遗失记录查询选择器"""
 
     @staticmethod
-    def get_queryset_for_user(user) -> QuerySet[LostAsset]:
+    def get_queryset_for_user(user: Any) -> QuerySet[LostAsset]:
         """RBAC 行级过滤"""
-        return get_asset_linked_queryset_for_user(user, LostAsset.objects.for_list().filter(is_deleted=False))
+        return get_asset_linked_queryset_for_user(user, LostAsset.objects.for_list().filter(is_deleted=False))  # type: ignore[attr-defined,no-any-return]
 
     @staticmethod
     def get_lost_assets_for_list() -> QuerySet[LostAsset]:
-        return LostAsset.objects.for_list().filter(is_deleted=False)
+        return LostAsset.objects.for_list().filter(is_deleted=False)  # type: ignore[attr-defined,no-any-return]
 
     @staticmethod
     def get_lost_assets_with_details() -> QuerySet[LostAsset]:
-        return LostAsset.objects.with_asset_details().filter(is_deleted=False)
+        return LostAsset.objects.with_asset_details().filter(is_deleted=False)  # type: ignore[attr-defined,no-any-return]
 
     @staticmethod
     def get_lost_asset_by_recordcode(recordcode: str) -> LostAsset | None:
         try:
-            return LostAsset.objects.with_asset_details().get(recordcode=recordcode, is_deleted=False)
+            return LostAsset.objects.with_asset_details().get(recordcode=recordcode, is_deleted=False)  # type: ignore[attr-defined,no-any-return]
         except LostAsset.DoesNotExist:
             return None
 
@@ -38,7 +40,7 @@ class LostAssetSelector:
         return LostAsset.objects.filter(asset_recordcode__asset_code=asset_code, is_deleted=False).exists()
 
     @staticmethod
-    def get_by_asset_code(asset_code: str, user=None) -> QuerySet[LostAsset]:
+    def get_by_asset_code(asset_code: str, user: Any = None) -> QuerySet[LostAsset]:
         qs = LostAsset.objects.filter(
             asset_recordcode__asset_code=asset_code, is_deleted=False
         ).select_related(

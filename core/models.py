@@ -9,6 +9,7 @@
 """
 
 import uuid
+from typing import Any, ClassVar
 
 from django.db import models
 from django.utils import timezone
@@ -33,7 +34,7 @@ def generate_recordcode() -> str:
     return generate_recordcode_with_prefix("REC")
 
 
-class SoftDeleteManager(models.Manager):
+class SoftDeleteManager(models.Manager[Any]):
     """
     软删除管理器
 
@@ -50,7 +51,7 @@ class SoftDeleteManager(models.Manager):
         MyModel.all_objects.all()
     """
 
-    def get_queryset(self):
+    def get_queryset(self) -> models.QuerySet[Any]:
         """返回不包含已软删除记录的查询集"""
         return super().get_queryset().filter(is_deleted=False)
 
@@ -101,14 +102,14 @@ class BaseModel(TimestampModel):
     is_deleted = models.BooleanField(default=False, verbose_name="是否删除", help_text="软删除标记")
 
     # 默认管理器(过滤已删除记录)
-    objects = SoftDeleteManager()
+    objects: ClassVar[models.Manager[Any]] = SoftDeleteManager()
     # 完整管理器(包含所有记录)
-    all_objects = models.Manager()
+    all_objects: ClassVar[models.Manager[Any]] = models.Manager()
 
     class Meta:
         abstract = True
 
-    def save(self, *args, **kwargs):
+    def save(self, *args: Any, **kwargs: Any) -> None:
         """
         保存时自动生成 recordcode(如未提供)
         【健壮性】添加碰撞重试机制:当 recordcode 唯一约束冲突时,
@@ -131,7 +132,7 @@ class BaseModel(TimestampModel):
             else:
                 raise
 
-    def delete(self, using=None, keep_parents=False):
+    def delete(self, using: Any = None, keep_parents: bool = False) -> None:  # type: ignore[override]
         """
         软删除:将 is_deleted 设置为 True
 
@@ -141,7 +142,7 @@ class BaseModel(TimestampModel):
         self.is_deleted = True
         self.save(using=using, update_fields=["is_deleted", "updated_at"])
 
-    def hard_delete(self, using=None, keep_parents=False):
+    def hard_delete(self, using: Any = None, keep_parents: bool = False) -> None:
         """
         硬删除:真正从数据库删除记录
 
@@ -149,7 +150,7 @@ class BaseModel(TimestampModel):
         """
         super().delete(using=using, keep_parents=keep_parents)
 
-    def restore(self):
+    def restore(self) -> None:
         """
         恢复软删除的记录
 

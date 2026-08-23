@@ -40,7 +40,7 @@ class OutRecycleTransitionsMixin:
             >>> asset.asset_current_status
             'in_use'
         """
-        cls._transition(asset, AssetState.IN_USE)
+        cls._transition(asset, AssetState.IN_USE)  # type: ignore[attr-defined]
 
     @classmethod
     def cancel_outasset(cls, asset: "Asset", previous_status: str) -> None:
@@ -88,7 +88,7 @@ class OutRecycleTransitionsMixin:
         Raises:
             InvalidTransitionError: 当前状态不允许回收时抛出
         """
-        cls._transition(asset, AssetState.RECYCLED_PENDING)
+        cls._transition(asset, AssetState.RECYCLED_PENDING)  # type: ignore[attr-defined]
 
     @classmethod
     def cancel_recycle(cls, asset: "Asset") -> None:

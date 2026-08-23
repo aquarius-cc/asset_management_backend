@@ -100,3 +100,21 @@ if not CHANNEL_LAYERS["default"]["CONFIG"]["hosts"][0]:
 # 【DR-1 收敛】InMemoryChannelLayer 禁止用于生产(必须使用 Redis)
 if CHANNEL_LAYERS["default"]["BACKEND"] == "channels.layers.InMemoryChannelLayer":
     raise ImproperlyConfigured("生产环境禁止使用 InMemoryChannelLayer, 必须使用 Redis")
+
+
+# ==================== Sentry 错误追踪(B-观测性) ====================
+# 仅生产环境、通过 SENTRY_DSN 启用; 未设置时零侵入跳过
+SENTRY_DSN = os.getenv("SENTRY_DSN")
+if SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[DjangoIntegration()],
+        traces_sample_rate=0.1,
+        # send_default_pii=False: 不上报用户 IP/姓名等 PII
+        send_default_pii=False,
+        environment=os.getenv("DJANGO_ENVIRONMENT", "production"),
+        release=os.getenv("APP_VERSION", "unknown"),
+    )

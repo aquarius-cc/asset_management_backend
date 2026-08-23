@@ -66,3 +66,6 @@ prometheus-client==0.26.0
 # pip install -r requirements/base.txt
 # 推荐使用国内镜像加速：
 # pip install -r requirements/base.txt -i https://mirrors.aliyun.com/pypi/simple/
+
+# ==================== 错误追踪 ====================
+sentry-sdk[django]>=2.0,<3.0

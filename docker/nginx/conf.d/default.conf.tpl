@@ -46,6 +46,24 @@ server {
     resolver 8.8.8.8 1.1.1.1 valid=300s;
     resolver_timeout 5s;
 
+    # --- Gzip 压缩 ---
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_min_length 256;
+    gzip_types
+        text/plain
+        text/css
+        text/xml
+        text/javascript
+        application/json
+        application/javascript
+        application/xml
+        application/rss+xml
+        application/atom+xml
+        image/svg+xml;
+
     # --- 安全响应头 ---
     add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
     add_header X-Content-Type-Options "nosniff" always;

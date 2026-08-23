@@ -43,7 +43,7 @@ class WasteAssetViewSet(
     PaginateAndRespondMixin,
     LoggingMixin,
     ResponseWrapperMixin,
-    viewsets.ModelViewSet,
+    viewsets.ModelViewSet[WasteAsset],
 ):
     queryset = WasteAsset.objects.filter(is_deleted=False)
     serializer_class = WasteAssetSerializer

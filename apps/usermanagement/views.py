@@ -117,16 +117,16 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
     def employees(self, request, department_code: str | None = None) -> Response:
         """
         获取指定部门下的所有员工（支持状态筛选）
-        
+
         【AGENTS 规范 - P1-11】使用 EmployeeSelector 替代直接 ORM 调用
         【AGENTS 规范 - 契约驱动】响应格式匹配前端 API 契约
-        
+
         Query Parameters:
             status: 员工状态筛选（可选）
                 - active: 在职员工
                 - left: 离职员工
                 - retirement: 退休员工
-        
+
         Returns:
             {
                 "code": 200,
@@ -141,10 +141,10 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
         try:
             # 获取部门实例（DRF 会根据 lookup_field 自动处理 404）
             department: Department = self.get_object()
-            
+
             # 【AGENTS 规范 - P1-11】使用 Selector 获取员工列表
             employees = EmployeeSelector.get_employees_by_department_instance(department)
-            
+
             # 应用状态筛选
             status_filter: str | None = request.query_params.get('status')
             if status_filter:
@@ -156,10 +156,10 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
                         status_code=status.HTTP_400_BAD_REQUEST
                     )
                 employees = employees.filter(employee_status=status_filter)
-            
+
             # 序列化员工数据
             serializer = EmployeeSerializer(employees, many=True)
-            
+
             # 返回统一格式响应
             return success_response(
                 data={
@@ -169,7 +169,7 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
                 },
                 message='查询成功'
             )
-            
+
         except Exception as e:
             return error_response(message=str(e))
 

@@ -5,6 +5,8 @@
 子类只需定义 export_columns 配置即可。
 """
 
+from typing import Any
+
 from django.http import HttpResponse
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -28,7 +30,7 @@ class ExportExcelMixin:
     导出 URL: /api/v1/{basename}/export/
     """
 
-    export_columns: list[dict] = []
+    export_columns: list[dict[str, Any]] = []
     export_filename: str = "export.xlsx"
     export_sheet_name: str = "数据导出"
 

@@ -70,7 +70,7 @@ class OperatorContextMixin:
     通过 **self.get_operator_context() 写入操作人字段。
     """
 
-    def get_operator_context(self) -> dict:
+    def get_operator_context(self) -> dict[str, str]:
         """返回操作人工号与姓名上下文(默认使用 auth_username)"""
         username = getattr(self.request.user, "auth_username", None) or str(self.request.user)
         return {"operator_jobcode": username, "operator_name": username}

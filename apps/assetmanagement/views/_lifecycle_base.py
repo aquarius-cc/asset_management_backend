@@ -9,6 +9,8 @@ test_batch_contract_snapshot.py 与 test_lifecycle_view_api.py 锁定,
 修改前必须先更新对应快照断言。
 """
 
+from typing import Any
+
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
@@ -33,7 +35,7 @@ class AssetLifecycleViewSetBase(
     PaginateAndRespondMixin,
     LoggingMixin,
     ResponseWrapperMixin,
-    viewsets.ModelViewSet,
+    viewsets.ModelViewSet[Any],
 ):
     """
     损坏/遗失/找回视图集的公共基类。
@@ -100,7 +102,7 @@ class AssetLifecycleViewSetBase(
         if not ids:
             return error_response(message="缺少 ids 参数", status_code=400)
         success_ids: list[str] = []
-        fail_items: list[dict] = []
+        fail_items: list[dict[str, str]] = []
         operator_jobcode, operator_name = resolve_operator(request.user)
         delete_fn = getattr(AssetLifecycleMixin, self.delete_service_method)
         for recordcode in ids:

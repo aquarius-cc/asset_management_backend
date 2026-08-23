@@ -115,8 +115,8 @@ def list_all_tables() -> list[str]:
     """列出数据库中所有用户表"""
     with connection.cursor() as cursor:
         cursor.execute("""
-            SELECT table_name 
-            FROM information_schema.tables 
+            SELECT table_name
+            FROM information_schema.tables
             WHERE table_schema = DATABASE()
             AND table_type = 'BASE TABLE'
             ORDER BY table_name

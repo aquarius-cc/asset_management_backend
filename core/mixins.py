@@ -32,13 +32,13 @@ class LoggingMixin:
     使用 logging 模块而不是 print,便于生产环境日志管理。
     """
 
-    def perform_create(self, serializer: Serializer) -> None:
+    def perform_create(self, serializer: Serializer[Any]) -> None:
         """创建操作前记录日志"""
         action = f"创建 {serializer.Meta.model.__name__ if hasattr(serializer, 'Meta') and hasattr(serializer.Meta, 'model') else '资源'}"
         logger.info(f"[操作日志] {action} - 用户: {self.request.user}")
         super().perform_create(serializer)
 
-    def perform_update(self, serializer: Serializer) -> None:
+    def perform_update(self, serializer: Serializer[Any]) -> None:
         """更新操作前记录日志"""
         action = f"更新 {serializer.Meta.model.__name__ if hasattr(serializer, 'Meta') and hasattr(serializer.Meta, 'model') else '资源'}"
         logger.info(f"[操作日志] {action} - 用户: {self.request.user}")
@@ -66,10 +66,10 @@ class GetSerializerClassMixin:
             }
     """
 
-    serializer_class: type[Serializer] | None = None
-    serializer_action_classes: dict[str, type[Serializer]] = {}
+    serializer_class: type[Serializer[Any]] | None = None
+    serializer_action_classes: dict[str, type[Serializer[Any]]] = {}
 
-    def get_serializer_class(self) -> type[Serializer]:
+    def get_serializer_class(self) -> type[Serializer[Any]]:
         """根据当前动作返回对应的序列化器"""
         if self.action in self.serializer_action_classes:
             return self.serializer_action_classes[self.action]

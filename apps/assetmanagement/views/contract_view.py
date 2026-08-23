@@ -40,7 +40,7 @@ class ContractViewSet(
     PaginateAndRespondMixin,
     LoggingMixin,
     ResponseWrapperMixin,
-    viewsets.ModelViewSet,
+    viewsets.ModelViewSet[Contract],
 ):
     queryset = Contract.objects.all()
     pagination_class = CustomPageNumberPagination

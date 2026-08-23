@@ -30,7 +30,7 @@ class AssetTypeViewSet(
     PaginateAndRespondMixin,
     LoggingMixin,
     ResponseWrapperMixin,
-    viewsets.ModelViewSet,
+    viewsets.ModelViewSet[AssetType],
 ):
     queryset = AssetType.objects.all()
     serializer_class = AssetTypeSerializer

@@ -97,7 +97,7 @@ class DashboardSelector:
         }
 
     @staticmethod
-    def get_recent_out_assets(limit: int = 10) -> list:
+    def get_recent_out_assets(limit: int = 10) -> list[dict[str, Any]]:
         """获取最近出库记录"""
         from apps.assetmanagement.models import OutAsset
 
@@ -134,7 +134,7 @@ class DashboardSelector:
         ]
 
     @staticmethod
-    def get_recent_recycle_assets(limit: int = 10) -> list:
+    def get_recent_recycle_assets(limit: int = 10) -> list[dict[str, Any]]:
         """获取最近回收记录"""
         from apps.assetmanagement.models import RecycleAsset
 

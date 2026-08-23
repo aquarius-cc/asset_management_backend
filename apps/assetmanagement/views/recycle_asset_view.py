@@ -43,7 +43,7 @@ class RecycleAssetViewSet(
     PaginateAndRespondMixin,
     LoggingMixin,
     ResponseWrapperMixin,
-    viewsets.ModelViewSet,
+    viewsets.ModelViewSet[RecycleAsset],
 ):
     queryset = RecycleAsset.objects.filter(is_deleted=False)
     pagination_class = CustomPageNumberPagination

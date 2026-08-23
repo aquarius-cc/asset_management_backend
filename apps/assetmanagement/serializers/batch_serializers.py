@@ -5,6 +5,8 @@
 这些不隶属于特定模型模块,统一归入 batch_serializers。
 """
 
+from typing import Any
+
 from rest_framework import serializers
 
 from core.constants import MAX_BATCH_SIZE as DEFAULT_MAX_BATCH_SIZE
@@ -13,7 +15,7 @@ from core.constants import MAX_BATCH_SIZE as DEFAULT_MAX_BATCH_SIZE
 # ========== 合同批量操作序列化器 ==========
 
 
-class ContractBatchDeleteSerializer(serializers.Serializer):
+class ContractBatchDeleteSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """【P3-优化】批量删除合同请求校验"""
 
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
@@ -27,7 +29,7 @@ class ContractBatchDeleteSerializer(serializers.Serializer):
         return value
 
 
-class ContractBatchCreateItemSerializer(serializers.Serializer):
+class ContractBatchCreateItemSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """【新增】单条合同批量创建数据校验"""
 
     row_number = serializers.IntegerField(required=False, help_text="Excel 行号")
@@ -67,13 +69,13 @@ class ContractBatchCreateItemSerializer(serializers.Serializer):
     )
 
 
-class ContractBatchCreateSerializer(serializers.Serializer):
+class ContractBatchCreateSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """【新增】批量创建合同请求校验"""
 
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     items = ContractBatchCreateItemSerializer(many=True, required=True)
 
-    def validate_items(self, value: list[dict]) -> list[dict]:
+    def validate_items(self, value: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if len(value) > self.MAX_BATCH_SIZE:
             raise serializers.ValidationError(f"单次批量创建不能超过 {self.MAX_BATCH_SIZE} 条")
         # 检查编码重复
@@ -122,7 +124,7 @@ class StorageBatchCreateSerializer(serializers.Serializer):
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     items = StorageBatchCreateItemSerializer(many=True, required=True)
 
-    def validate_items(self, value: list[dict]) -> list[dict]:
+    def validate_items(self, value: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if len(value) > self.MAX_BATCH_SIZE:
             raise serializers.ValidationError(f"单次批量创建不能超过 {self.MAX_BATCH_SIZE} 条")
         # 检查编码重复
@@ -175,7 +177,7 @@ class AssetTypeBatchCreateSerializer(serializers.Serializer):
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     items = AssetTypeBatchCreateItemSerializer(many=True, required=True)
 
-    def validate_items(self, value: list[dict]) -> list[dict]:
+    def validate_items(self, value: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if len(value) > self.MAX_BATCH_SIZE:
             raise serializers.ValidationError(f"单次批量创建不能超过 {self.MAX_BATCH_SIZE} 条")
         # 检查编码重复
@@ -204,7 +206,7 @@ class BrokenAssetBatchCreateSerializer(serializers.Serializer):
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     items = BrokenAssetBatchCreateItemSerializer(many=True, required=True)
 
-    def validate_items(self, value: list[dict]) -> list[dict]:
+    def validate_items(self, value: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if len(value) > self.MAX_BATCH_SIZE:
             raise serializers.ValidationError(f"单次批量创建不能超过 {self.MAX_BATCH_SIZE} 条")
         return value
@@ -229,7 +231,7 @@ class LostAssetBatchCreateSerializer(serializers.Serializer):
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     items = LostAssetBatchCreateItemSerializer(many=True, required=True)
 
-    def validate_items(self, value: list[dict]) -> list[dict]:
+    def validate_items(self, value: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if len(value) > self.MAX_BATCH_SIZE:
             raise serializers.ValidationError(f"单次批量创建不能超过 {self.MAX_BATCH_SIZE} 条")
         asset_codes = [item.get("asset_code") for item in value]

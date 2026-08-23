@@ -217,7 +217,7 @@ class AssetSelector:
         return Asset.objects.filter(asset_storage_recordcode__storage_code=storage_code, is_deleted=False)
 
     @staticmethod
-    def combine_search(field_filters: dict, exact_filters: dict):
+    def combine_search(field_filters: dict[str, str], exact_filters: dict[str, str]):
         """
         多字段 AND 模糊搜索
 

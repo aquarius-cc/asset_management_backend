@@ -21,7 +21,7 @@ from core.constants import MAX_BATCH_SIZE as DEFAULT_MAX_BATCH_SIZE
 # ==================== OutAsset 序列化器 ====================
 
 
-class OutAssetListSerializer(serializers.ModelSerializer):
+class OutAssetListSerializer(serializers.ModelSerializer[OutAsset]):
     """
     出库记录列表序列化器
     用途:list, recyclable action
@@ -72,7 +72,7 @@ class OutAssetListSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class OutAssetCreateSerializer(serializers.ModelSerializer):
+class OutAssetCreateSerializer(serializers.ModelSerializer[OutAsset]):
     """
     出库记录创建序列化器
     用途:create, update, partial_update action
@@ -112,7 +112,7 @@ class OutAssetCreateSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
-class OutAssetDetailSerializer(serializers.ModelSerializer):
+class OutAssetDetailSerializer(serializers.ModelSerializer[OutAsset]):
     """
     出库记录详情序列化器
     用途:retrieve action
@@ -161,7 +161,7 @@ class OutAssetDetailSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class OutAssetUpdateSerializer(serializers.ModelSerializer):
+class OutAssetUpdateSerializer(serializers.ModelSerializer[OutAsset]):
     """
     出库记录更新序列化器
     用途:update, partial_update action
@@ -197,7 +197,7 @@ OutAssetSerializer = OutAssetCreateSerializer
 # ========== 批量操作序列化器(OutAsset) ==========
 
 
-class OutAssetBatchItemSerializer(serializers.Serializer):
+class OutAssetBatchItemSerializer(serializers.Serializer):  # type: ignore[type-arg]
     row_number = serializers.IntegerField(required=False)
     outasset_asset = serializers.SlugRelatedField(
         slug_field="asset_code",
@@ -218,7 +218,7 @@ class OutAssetBatchItemSerializer(serializers.Serializer):
     outasset_using_location = serializers.CharField(required=True, write_only=True)
 
 
-class OutAssetBatchCreateSerializer(serializers.Serializer):
+class OutAssetBatchCreateSerializer(serializers.Serializer):  # type: ignore[type-arg]
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     items = OutAssetBatchItemSerializer(many=True, required=True)
 
@@ -232,7 +232,7 @@ class OutAssetBatchCreateSerializer(serializers.Serializer):
         return value
 
 
-class OutAssetBatchDeleteSerializer(serializers.Serializer):
+class OutAssetBatchDeleteSerializer(serializers.Serializer):  # type: ignore[type-arg]
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     ids = serializers.ListField(child=serializers.CharField(), required=True)
 

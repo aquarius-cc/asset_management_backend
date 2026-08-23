@@ -46,7 +46,7 @@ class OutAssetViewSet(
     PaginateAndRespondMixin,
     LoggingMixin,
     ResponseWrapperMixin,
-    viewsets.ModelViewSet,
+    viewsets.ModelViewSet[OutAsset],
 ):
     queryset = OutAsset.objects.filter(is_deleted=False)
     pagination_class = CustomPageNumberPagination

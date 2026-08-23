@@ -16,6 +16,7 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 
+from apps.assetmanagement.models import RepairAsset
 from apps.assetmanagement.selectors import RepairAssetSelector
 from apps.assetmanagement.selectors.asset_selector import AssetSelector
 from apps.assetmanagement.serializers import (
@@ -76,7 +77,7 @@ class RepairAssetViewSet(
     PaginateAndRespondMixin,
     LoggingMixin,
     ResponseWrapperMixin,
-    viewsets.ModelViewSet,
+    viewsets.ModelViewSet[RepairAsset],
 ):
     # RepairAssetSelector.get_repair_assets_for_list() 不需要 RBAC,可用作类属性
     queryset = RepairAssetSelector.get_repair_assets_for_list()

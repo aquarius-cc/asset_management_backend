@@ -29,7 +29,7 @@ class HardDiskSNViewSet(
     PaginateAndRespondMixin,
     LoggingMixin,
     ResponseWrapperMixin,
-    viewsets.ModelViewSet,
+    viewsets.ModelViewSet[HardDiskSN],
 ):
     queryset = HardDiskSN.objects.select_related("asset_recordcode").all()
     serializer_class = HardDiskSNSerializer

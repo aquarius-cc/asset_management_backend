@@ -17,7 +17,7 @@ from apps.assetmanagement.models import (
 # ==================== BrokenAsset 序列化器 ====================
 
 
-class BrokenAssetListSerializer(serializers.ModelSerializer):
+class BrokenAssetListSerializer(serializers.ModelSerializer[BrokenAsset]):
     """损坏记录列表序列化器 - list action"""
 
     asset_code = serializers.CharField(source="asset_recordcode.asset_code", read_only=True)
@@ -39,7 +39,7 @@ class BrokenAssetListSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class BrokenAssetCreateSerializer(serializers.ModelSerializer):
+class BrokenAssetCreateSerializer(serializers.ModelSerializer[BrokenAsset]):
     """损坏记录创建序列化器 - create action"""
 
     recordcode = serializers.CharField(read_only=True)
@@ -53,7 +53,7 @@ class BrokenAssetCreateSerializer(serializers.ModelSerializer):
         extra_kwargs = {"broken_reason": {"required": True}, "broken_date": {"required": False}}
 
 
-class BrokenAssetUpdateSerializer(serializers.ModelSerializer):
+class BrokenAssetUpdateSerializer(serializers.ModelSerializer[BrokenAsset]):
     """损坏记录更新序列化器 - update/partial_update action"""
 
     recordcode = serializers.CharField(read_only=True)
@@ -65,7 +65,7 @@ class BrokenAssetUpdateSerializer(serializers.ModelSerializer):
         extra_kwargs = {"broken_reason": {"required": False}}
 
 
-class BrokenAssetDetailSerializer(serializers.ModelSerializer):
+class BrokenAssetDetailSerializer(serializers.ModelSerializer[BrokenAsset]):
     """损坏记录详情序列化器 - retrieve action"""
 
     asset_code = serializers.CharField(source="asset_recordcode.asset_code", read_only=True)
@@ -104,7 +104,7 @@ BrokenAssetSerializer = BrokenAssetListSerializer  # 向后兼容
 # ==================== LostAsset 序列化器 ====================
 
 
-class LostAssetListSerializer(serializers.ModelSerializer):
+class LostAssetListSerializer(serializers.ModelSerializer[LostAsset]):
     """遗失记录列表序列化器 - list action"""
 
     asset_code = serializers.CharField(source="asset_recordcode.asset_code", read_only=True)
@@ -127,7 +127,7 @@ class LostAssetListSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class LostAssetCreateSerializer(serializers.ModelSerializer):
+class LostAssetCreateSerializer(serializers.ModelSerializer[LostAsset]):
     """遗失记录创建序列化器 - create action"""
 
     recordcode = serializers.CharField(read_only=True)
@@ -148,7 +148,7 @@ class LostAssetCreateSerializer(serializers.ModelSerializer):
         extra_kwargs = {"lost_reason": {"required": True}, "lost_date": {"required": False}}
 
 
-class LostAssetUpdateSerializer(serializers.ModelSerializer):
+class LostAssetUpdateSerializer(serializers.ModelSerializer[LostAsset]):
     """遗失记录更新序列化器 - update/partial_update action"""
 
     recordcode = serializers.CharField(read_only=True)
@@ -167,7 +167,7 @@ class LostAssetUpdateSerializer(serializers.ModelSerializer):
         extra_kwargs = {"lost_reason": {"required": False}}
 
 
-class LostAssetDetailSerializer(serializers.ModelSerializer):
+class LostAssetDetailSerializer(serializers.ModelSerializer[LostAsset]):
     """遗失记录详情序列化器 - retrieve action"""
 
     asset_code = serializers.CharField(source="asset_recordcode.asset_code", read_only=True)
@@ -207,7 +207,7 @@ LostAssetSerializer = LostAssetListSerializer  # 向后兼容
 # ==================== FoundAsset 序列化器 ====================
 
 
-class FoundAssetListSerializer(serializers.ModelSerializer):
+class FoundAssetListSerializer(serializers.ModelSerializer[FoundAsset]):
     """找回记录列表序列化器 - list action"""
 
     asset_code = serializers.CharField(source="asset_recordcode.asset_code", read_only=True)
@@ -232,7 +232,7 @@ class FoundAssetListSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class FoundAssetCreateSerializer(serializers.ModelSerializer):
+class FoundAssetCreateSerializer(serializers.ModelSerializer[FoundAsset]):
     """找回记录创建序列化器 - create action"""
 
     recordcode = serializers.CharField(read_only=True)
@@ -256,7 +256,7 @@ class FoundAssetCreateSerializer(serializers.ModelSerializer):
         extra_kwargs = {"found_date": {"required": False}}
 
 
-class FoundAssetUpdateSerializer(serializers.ModelSerializer):
+class FoundAssetUpdateSerializer(serializers.ModelSerializer[FoundAsset]):
     """找回记录更新序列化器 - update/partial_update action"""
 
     recordcode = serializers.CharField(read_only=True)
@@ -275,7 +275,7 @@ class FoundAssetUpdateSerializer(serializers.ModelSerializer):
         ]
 
 
-class FoundAssetDetailSerializer(serializers.ModelSerializer):
+class FoundAssetDetailSerializer(serializers.ModelSerializer[FoundAsset]):
     """找回记录详情序列化器 - retrieve action"""
 
     asset_code = serializers.CharField(source="asset_recordcode.asset_code", read_only=True)

@@ -16,7 +16,7 @@ from apps.assetmanagement.models import (
 )
 
 
-class StorageSerializer(serializers.ModelSerializer):
+class StorageSerializer(serializers.ModelSerializer[Storage]):
     class Meta:
         model = Storage
         fields = [
@@ -30,7 +30,7 @@ class StorageSerializer(serializers.ModelSerializer):
         ]
 
 
-class AssetTypeSerializer(serializers.ModelSerializer):
+class AssetTypeSerializer(serializers.ModelSerializer[AssetType]):
     """
     资产类型序列化器
 
@@ -63,7 +63,7 @@ class AssetTypeSerializer(serializers.ModelSerializer):
 # ==================== Contract 序列化器 ====================
 
 
-class ContractListSerializer(serializers.ModelSerializer):
+class ContractListSerializer(serializers.ModelSerializer[Contract]):
     """
     合同列表序列化器
     用途:list action
@@ -93,7 +93,7 @@ class ContractListSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class ContractCreateSerializer(serializers.ModelSerializer):
+class ContractCreateSerializer(serializers.ModelSerializer[Contract]):
     """
     合同创建序列化器
     用途:create action
@@ -135,7 +135,7 @@ class ContractCreateSerializer(serializers.ModelSerializer):
         }
 
 
-class ContractDetailSerializer(serializers.ModelSerializer):
+class ContractDetailSerializer(serializers.ModelSerializer[Contract]):
     """
     合同详情序列化器
     用途:retrieve action
@@ -175,7 +175,7 @@ class ContractDetailSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class ContractUpdateSerializer(serializers.ModelSerializer):
+class ContractUpdateSerializer(serializers.ModelSerializer[Contract]):
     """
     合同更新序列化器
     用途:update, partial_update action
@@ -221,7 +221,7 @@ class ContractUpdateSerializer(serializers.ModelSerializer):
 ContractSerializer = ContractCreateSerializer
 
 
-class HardDiskSNSimpleSerializer(serializers.ModelSerializer):
+class HardDiskSNSimpleSerializer(serializers.ModelSerializer[HardDiskSN]):
     """硬盘序列号精简序列化器(用于 Asset 详情嵌套)"""
 
     class Meta:
@@ -235,7 +235,7 @@ class HardDiskSNSimpleSerializer(serializers.ModelSerializer):
         ]
 
 
-class HardDiskSNSerializer(serializers.ModelSerializer):
+class HardDiskSNSerializer(serializers.ModelSerializer[HardDiskSN]):
     """硬盘序列号完整序列化器"""
 
     asset_code = serializers.CharField(source="asset_recordcode.asset_code", read_only=True)
@@ -260,7 +260,7 @@ class HardDiskSNSerializer(serializers.ModelSerializer):
         read_only_fields = ["recordcode", "created_at", "updated_at"]
 
 
-class HardDiskSNCreateSerializer(serializers.ModelSerializer):
+class HardDiskSNCreateSerializer(serializers.ModelSerializer[HardDiskSN]):
     """硬盘序列号创建序列化器"""
 
     class Meta:
@@ -279,7 +279,7 @@ class HardDiskSNCreateSerializer(serializers.ModelSerializer):
         }
 
 
-class DiskItemSerializer(serializers.Serializer):
+class DiskItemSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """批量操作单条硬盘"""
 
     recordcode = serializers.CharField(required=False, help_text="已有记录的 recordcode(更新时传入)")
@@ -290,7 +290,7 @@ class DiskItemSerializer(serializers.Serializer):
     harddisk_description = serializers.CharField(required=False, allow_blank=True)
 
 
-class HardDiskSNBatchSerializer(serializers.Serializer):
+class HardDiskSNBatchSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """批量保存硬盘序列号(资产入库时调用)"""
 
     asset_recordcode = serializers.CharField(required=True)
@@ -306,7 +306,7 @@ class HardDiskSNBatchSerializer(serializers.Serializer):
         return data
 
 
-class CodeField(serializers.Field):
+class CodeField(serializers.Field):  # type: ignore[type-arg]
     def __init__(self, code_key: str, **kwargs: Any) -> None:
         self.code_key = code_key
         super().__init__(**kwargs)
@@ -326,13 +326,13 @@ class CodeField(serializers.Field):
         return None
 
 
-class ContractSimpleSerializer(serializers.Serializer):
+class ContractSimpleSerializer(serializers.Serializer):  # type: ignore[type-arg]
     contract_code = serializers.CharField(required=True)
 
 
-class StorageSimpleSerializer(serializers.Serializer):
+class StorageSimpleSerializer(serializers.Serializer):  # type: ignore[type-arg]
     storage_code = serializers.CharField(required=True)
 
 
-class AssettypeSimpleSerializer(serializers.Serializer):
+class AssettypeSimpleSerializer(serializers.Serializer):  # type: ignore[type-arg]
     type_code = serializers.CharField(required=True)

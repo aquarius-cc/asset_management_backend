@@ -48,7 +48,7 @@ from utils.response_utils import error_response, success_response
 from utils.user_utils import resolve_operator
 
 
-class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet):
+class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet[UnregisteredAsset]):
     """
     未登记资产视图集
 

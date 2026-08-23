@@ -33,7 +33,7 @@ class StorageViewSet(
     PaginateAndRespondMixin,
     LoggingMixin,
     ResponseWrapperMixin,
-    viewsets.ModelViewSet,
+    viewsets.ModelViewSet[Storage],
 ):
     queryset = Storage.objects.all()
     serializer_class = StorageSerializer

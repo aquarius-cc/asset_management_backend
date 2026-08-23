@@ -16,11 +16,11 @@
 
 【使用方式】
     from .state_machine_adapter import UnregisteredAssetStateAdapter
-    
+
     # S1场景：创建资产并回收
     adapter = UnregisteredAssetStateAdapter()
     adapter.create_and_recycle(asset)
-    
+
     # S2/S3场景：强制回收
     adapter.force_recycle(asset)
 """

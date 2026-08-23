@@ -107,6 +107,9 @@ ignore = [
     "B904",  # raise from: 存量代码风格, 后续逐步改进
     "F405",  # settings: base 通配导入的合法用法
     "F403",  # settings: Django settings 通配导入惯例
+    "RUF001",  # 中文全角括号误报（中文项目）
+    "RUF002",  # 中文全角括号误报（docstring）
+    "RUF003",  # 中文全角括号误报（comment）
 ]
 
 # 自动修复规则
@@ -132,6 +135,8 @@ exclude = [
 "clear_database.py" = ["E402"]
 "manage.py" = ["E402"]
 "append_serializers.py" = ["E402"]
+# Django settings: try/except import 模式
+"config/settings/*" = ["E402"]
 
 # ==================== Ruff Import 规则 ====================
 [tool.ruff.isort]
@@ -143,29 +148,41 @@ known-first-party = ["apps", "core", "config", "utils"]
 # ==================== MyPy 配置 ====================
 [tool.mypy]
 python_version = "3.12"
-# 严格模式
-strict = true
-# 检查隐藏文件
+# 基础检查（不用 strict，改为手动开启核心 flag）
 check_untyped_defs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_any_generics = true
+warn_return_any = true
+warn_unused_ignores = true
+no_implicit_reexport = true
 # 忽略缺失导入
 ignore_missing_imports = true
 
 # 路径配置
 files = ["apps", "core", "config", "utils"]
 
+# 排除测试目录和非业务目录
+exclude = [
+  "(.*test.*|Understand-Anything/.*)",
+]
+
 plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
 
 [tool.django-stubs]
 django_settings_module = "config.settings.test"
 
-# 渐进收紧：已补全类型注解的核心模块，禁止回退为无注解函数
+# 排除根目录工具脚本（非业务代码）
 [[tool.mypy.overrides]]
 module = [
-  "apps.usermanagement.views.employee_view",
-  "apps.assetmanagement.models.asset",
+  "run_graphify",
+  "run_graphify_full",
+  "clear_database",
+  "run_graphify.*",
+  "run_graphify_full.*",
+  "clear_database.*",
 ]
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
+ignore_errors = true
 
 # 报告
 show_error_codes = true

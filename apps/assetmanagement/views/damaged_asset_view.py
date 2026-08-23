@@ -45,7 +45,7 @@ class DamagedAssetViewSet(
     PaginateAndRespondMixin,
     LoggingMixin,
     ResponseWrapperMixin,
-    viewsets.ModelViewSet,
+    viewsets.ModelViewSet[DamagedAsset],
 ):
     # DR-3: 类属性使用 Selector(无 RBAC),实际查询由 get_queryset 覆盖
     queryset = DamagedAsset.objects.filter(is_deleted=False)

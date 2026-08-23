@@ -6,10 +6,12 @@
 所有生命周期模型（OutAsset/RecycleAsset/DamagedAsset/WasteAsset）通过 Asset FK 关联查询详情。
 """
 
+from typing import Any
+
 from django.db import models
 
 
-class AssetQuerySet(models.QuerySet):
+class AssetQuerySet(models.QuerySet[Any]):
     """
     Asset 查询集优化
 
@@ -60,7 +62,7 @@ class AssetQuerySet(models.QuerySet):
         )
 
 
-class OutAssetQuerySet(models.QuerySet):
+class OutAssetQuerySet(models.QuerySet[Any]):
     """
     OutAsset 查询集优化（方案1：通过 Asset FK 关联查询）
 
@@ -85,7 +87,7 @@ class OutAssetQuerySet(models.QuerySet):
         )
 
 
-class RecycleAssetQuerySet(models.QuerySet):
+class RecycleAssetQuerySet(models.QuerySet[Any]):
     """
     RecycleAsset 查询集优化
 
@@ -111,7 +113,7 @@ class RecycleAssetQuerySet(models.QuerySet):
         )
 
 
-class DamagedAssetQuerySet(models.QuerySet):
+class DamagedAssetQuerySet(models.QuerySet[Any]):
     """
     DamagedAsset 查询集优化
 
@@ -136,7 +138,7 @@ class DamagedAssetQuerySet(models.QuerySet):
         )
 
 
-class WasteAssetQuerySet(models.QuerySet):
+class WasteAssetQuerySet(models.QuerySet[Any]):
     """
     WasteAsset 查询集优化
 

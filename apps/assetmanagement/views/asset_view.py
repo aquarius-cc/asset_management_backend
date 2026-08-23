@@ -47,7 +47,7 @@ class AssetViewSet(
     PaginateAndRespondMixin,
     LoggingMixin,
     ResponseWrapperMixin,
-    viewsets.ModelViewSet,
+    viewsets.ModelViewSet[Asset],
 ):
     queryset = AssetSelector.get_assets_with_all_relations()
     pagination_class = CustomPageNumberPagination

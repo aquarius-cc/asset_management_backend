@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from apps.assetmanagement.state_machine.constants import AssetState, InvalidTransitionError
 
+
 if TYPE_CHECKING:
     from apps.assetmanagement.models import Asset
 

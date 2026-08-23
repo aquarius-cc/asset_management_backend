@@ -14,11 +14,12 @@
 # 查看 docs/DEPLOYMENT.md 了解生产部署最佳实践
 # =============================================================================
 
-from .base import *
-
 # 开发环境密钥（本地使用，可提交到版本控制）
 # 如需更强密钥，通过环境变量 SECRET_KEY 或 .env 文件覆盖
 import os
+
+from .base import *
+
 
 SECRET_KEY = os.environ.get(
     "SECRET_KEY",
@@ -27,6 +28,7 @@ SECRET_KEY = os.environ.get(
 
 # C-2: 验证密钥安全性 — 防止 base.py placeholder 泄漏到此环境
 from django.core.exceptions import ImproperlyConfigured
+
 
 _INSECURE_KEYS = frozenset({
     "django-insecure-placeholder-see-env-settings",

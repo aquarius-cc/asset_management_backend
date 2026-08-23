@@ -7,7 +7,8 @@
 
 from typing import TYPE_CHECKING
 
-from apps.assetmanagement.state_machine.constants import AssetState, InvalidTransitionError
+from apps.assetmanagement.state_machine.constants import AssetState
+
 
 if TYPE_CHECKING:
     from apps.assetmanagement.models import Asset

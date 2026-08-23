@@ -11,8 +11,8 @@ import pytest
 
 from apps.assetmanagement.models import Asset, AssetType, Storage
 from apps.authusermanagement.models import AuthUser
-from apps.usermanagement.models import MAX_DEPARTMENT_LEVEL, Department, Employee
-from apps.usermanagement.services import DepartmentService, EmployeeService
+from apps.usermanagement.models import Employee
+from apps.usermanagement.services import EmployeeService
 from core.exceptions import AppValidationError, BusinessLogicError
 from core.tests import TEST_PASSWORD
 

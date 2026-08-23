@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from django.http import HttpResponse
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
 
+
 if TYPE_CHECKING:
     from django.http import HttpRequest
 

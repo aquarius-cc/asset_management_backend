@@ -20,11 +20,13 @@ from datetime import timedelta
 
 from .base import *
 
+
 # 测试环境密钥（固定值，确保测试可重复执行）
 SECRET_KEY = "test-only-key-not-for-production-use-1234567890!@#$"
 
 # C-2: 验证密钥安全性
 from django.core.exceptions import ImproperlyConfigured
+
 
 _INSECURE_KEYS = frozenset({
     "django-insecure-placeholder-see-env-settings",

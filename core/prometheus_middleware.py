@@ -13,9 +13,11 @@ endpoint 归一化: 将动态路径参数(如 /api/v1/users/42/) 映射为静态
 
 import re
 import time
-from typing import TYPE_CHECKING, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from core.metrics import ACTIVE_REQUESTS, ERROR_COUNT, REQUEST_COUNT, REQUEST_LATENCY
+
 
 if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse

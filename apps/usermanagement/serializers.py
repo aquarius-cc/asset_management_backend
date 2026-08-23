@@ -26,6 +26,7 @@ from apps.usermanagement.employee_serializers import (
     EmployeeUpdateSerializer,
 )
 
+
 __all__ = [
     "DepartmentBatchCreateSerializer",
     "DepartmentBatchDeleteSerializer",

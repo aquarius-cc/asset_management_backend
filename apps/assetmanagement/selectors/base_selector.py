@@ -10,4 +10,5 @@ from apps.assetmanagement.selectors.dashboard_selector import DashboardSelector
 from apps.assetmanagement.selectors.hard_disk_sn_selector import HardDiskSNSelector
 from apps.assetmanagement.selectors.storage_selector import StorageSelector
 
+
 __all__ = ["ContractSelector", "DashboardSelector", "HardDiskSNSelector", "StorageSelector"]

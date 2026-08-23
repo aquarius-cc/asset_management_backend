@@ -9,6 +9,7 @@
 
 from apps.assetmanagement.state_machine.constants import AssetState
 
+
 # 定义允许的转换: {当前状态: {目标状态: 转换名称}}
 #
 # 【业务规则】

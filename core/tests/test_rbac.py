@@ -15,12 +15,9 @@ from django.contrib.auth import get_user_model
 from django.test import RequestFactory
 
 from apps.assetmanagement.models import Asset, AssetType, Storage
-from apps.assetmanagement.selectors.asset_selector import AssetSelector
 from apps.usermanagement.models import Department, Employee, EmployeeRole
 from core.department_scope import (
-    get_asset_linked_queryset_for_user,
     get_department_codes_for_user,
-    resolve_asset_department_codes,
 )
 from core.permissions import (
     IsAssetAdminOrAbove,

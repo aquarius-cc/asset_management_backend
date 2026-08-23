@@ -322,7 +322,7 @@ class TestDashboardSelector:
         """出库记录携带申请人FK，验证select_related正确填充"""
         from apps.assetmanagement.models import OutAsset
 
-        outasset = OutAsset.objects.create(
+        OutAsset.objects.create(
             asset_recordcode=asset,
             outasset_applicant_recordcode=user,
             outasset_date="2024-01-01",

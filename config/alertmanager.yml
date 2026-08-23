@@ -1,0 +1,36 @@
+# Alertmanager 告警路由配置
+# 注意: 本文件为 volume 挂载的静态配置, 不支持环境变量插值。
+# 接入钉钉/飞书时需部署对应 webhook 适配器(如 prometheus-webhook-dingtalk),
+# 并将下方 url 修改为适配器地址; 直接填机器人 URL 会因 payload 格式不匹配而失败。
+
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: default
+  group_by: ["alertname", "severity"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    # v0.27 已移除遗留 match 字段, 使用 matchers 语法
+    - matchers:
+        - severity="critical"
+      receiver: critical
+      repeat_interval: 1h
+    - matchers:
+        - severity="warning"
+      receiver: default
+      repeat_interval: 4h
+
+receivers:
+  - name: default
+    webhook_configs:
+      # 运维接入点: 替换为实际通知适配器地址(钉钉/飞书 webhook 需经适配器转换 payload)
+      - url: "http://host.docker.internal:9095/alert"
+        send_resolved: true
+
+  - name: critical
+    webhook_configs:
+      - url: "http://host.docker.internal:9095/alert"
+        send_resolved: true

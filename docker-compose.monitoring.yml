@@ -1,9 +1,14 @@
 # 监控基础设施: Prometheus + Grafana
 # 依据: Project_Requirements/03-安全与运维/10-监控告警SOP.md §3
+#
+# ⚠️ 运维前提: 本文件依赖主 docker-compose.yml 中的 postgres/redis 服务,
+#    必须通过 docker compose -f docker-compose.yml -f docker-compose.monitoring.yml 启动,
+#    不可独立启动(否则 postgres-exporter/redis-exporter 因 DNS 无法解析而失败)。
 services:
   prometheus:
     image: prom/prometheus:v2.53.3
-    ports: ["9090:9090"]
+    # 仅允许宿主机本地访问,由 Nginx 反向代理或 SSH 隧道转发
+    ports: ["127.0.0.1:9090:9090"]
     volumes:
       - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
       - ./config/alert_rules.yml:/etc/prometheus/alert_rules.yml
@@ -14,9 +19,15 @@ services:
 
   grafana:
     image: grafana/grafana:11.2.2
-    ports: ["3000:3000"]
+    # 仅允许宿主机本地访问
+    ports: ["127.0.0.1:3000:3000"]
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:-admin}"
+      # 强制显式设置管理员凭据,禁止使用默认 admin/admin
+      GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:?请在 .env 中设置 GRAFANA_ADMIN_USER}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:?请在 .env 中设置 GRAFANA_ADMIN_PASSWORD}"
+      # 显式固化安全默认: 禁止匿名访问 + 禁止自行注册
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - grafana-data:/var/lib/grafana
     depends_on:
@@ -25,17 +36,39 @@ services:
 
   postgres-exporter:
     image: prometheuscommunity/postgres-exporter:0.16.0
-    ports: ["9187:9187"]
+    # 仅允许宿主机本地访问
+    ports: ["127.0.0.1:9187:9187"]
     environment:
+      # sslmode=disable 为 docker 内网有意选择(docker 网络不支持 TLS)
+      # DB_HOST/DB_USER/DB_PASSWORD 必须与主 docker-compose.yml 中 postgres 服务一致
       DATA_SOURCE_NAME: "postgresql://${DB_USER:-postgres}:${DB_PASSWORD}@${DB_HOST:-db}:5432/${DB_NAME:-asset_management}?sslmode=disable"
     restart: unless-stopped
 
   redis-exporter:
     image: oliver006/redis_exporter:v1.67.0
-    ports: ["9121:9121"]
+    # 仅允许宿主机本地访问
+    ports: ["127.0.0.1:9121:9121"]
     environment:
+      # REDIS_ADDR 引用主 docker-compose.yml 中的 redis 服务
       REDIS_ADDR: "redis://redis:6379"
+    restart: unless-stopped
+
+alertmanager:
+    image: prom/alertmanager:v0.27.0
+    ports: ["127.0.0.1:9093:9093"]
+    volumes:
+      # 单一 volumes 列表(重复键会导致 YAML 解析失败)
+      - ./config/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+    # Linux 宿主机 host.docker.internal 需显式映射(默认 webhook 指向宿主机适配器)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
 volumes:
   grafana-data:
+  alertmanager-data:
+

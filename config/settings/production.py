@@ -8,9 +8,6 @@ from .base import *
 # 生产环境关闭调试
 DEBUG = False
 
-# 安全断言:生产环境 CSRF cookie 必须标记为 Secure
-assert CSRF_COOKIE_SECURE is True, "生产环境 CSRF_COOKIE_SECURE 必须为 True"
-
 # 【修复】从环境变量强制读取密钥,缺失时抛出异常
 # 统一使用 SECRET_KEY 变量名,与 base.py 保持一致
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -54,6 +51,10 @@ DATABASES = {
     }
 }
 
+# DB_PASSWORD 缺失时立即报错,与 SECRET_KEY 同等待遇
+if not DATABASES["default"]["PASSWORD"]:
+    raise ImproperlyConfigured("DB_PASSWORD environment variable is required in production")
+
 # 安全设置
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
@@ -88,8 +89,14 @@ LOGGING["loggers"]["rest_framework"]["level"] = "WARNING"
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {"hosts": [os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")]},
+        "CONFIG": {"hosts": [os.getenv("REDIS_URL")]},
     },
 }
-assert CHANNEL_LAYERS["default"]["BACKEND"] != "channels.layers.InMemoryChannelLayer", \
-    "生产环境禁止使用 InMemoryChannelLayer"
+
+# REDIS_URL 缺失时立即报错,Docker 容器内 127.0.0.1 不可达
+if not CHANNEL_LAYERS["default"]["CONFIG"]["hosts"][0]:
+    raise ImproperlyConfigured("REDIS_URL environment variable is required in production")
+
+# 【DR-1 收敛】InMemoryChannelLayer 禁止用于生产(必须使用 Redis)
+if CHANNEL_LAYERS["default"]["BACKEND"] == "channels.layers.InMemoryChannelLayer":
+    raise ImproperlyConfigured("生产环境禁止使用 InMemoryChannelLayer, 必须使用 Redis")

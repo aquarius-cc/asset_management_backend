@@ -22,6 +22,8 @@ services:
       - DB_NAME=${DB_NAME}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - APP_VERSION=${APP_VERSION:-unknown}
     deploy:
       resources:
         limits:
@@ -73,6 +75,19 @@ services:
         limits:
           cpus: '0.25'
           memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  backup:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
     logging:
       driver: json-file
       options:

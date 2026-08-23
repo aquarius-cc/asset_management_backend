@@ -255,7 +255,7 @@ CORS_ALLOW_METHODS = ["DELETE", "GET", "OPTIONS", "PATCH", "POST", "PUT"]
 # 开发环境自动使用 Report-Only 模式,生产环境强制执行
 CSP_DIRECTIVES = {
     "default-src": "'self'",
-    "script-src": "'self' 'unsafe-inline' 'unsafe-eval'",
+    "script-src": "'self' 'unsafe-eval'",
     "style-src": "'self' 'unsafe-inline'",
     "img-src": "'self' data: blob:",
     "connect-src": "'self' ws: wss:",
@@ -298,6 +298,7 @@ LOGGING = {
         "django.server": {"handlers": ["console", "file"], "level": "INFO", "propagate": False},
         "rest_framework": {"handlers": ["console", "file"], "level": "DEBUG"},
     },
+    "root": {"handlers": ["console", "file"], "level": "WARNING"},
 }
 
 # drf-spectacular settings

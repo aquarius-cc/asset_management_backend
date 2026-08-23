@@ -73,7 +73,7 @@ def health_check(request):
     # Redis 检查 (WebSocket 通道层关键依赖)
     try:
         import redis
-        redis_url = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/0")
+        redis_url = os.environ.get("REDIS_URL", "")
         with redis.Redis.from_url(redis_url, socket_timeout=3) as conn:
             conn.ping()
         checks["redis"] = "healthy"
@@ -120,7 +120,7 @@ def ready_check(request):
     # Redis 检查
     try:
         import redis
-        redis_url = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/0")
+        redis_url = os.environ.get("REDIS_URL", "")
         with redis.Redis.from_url(redis_url, socket_timeout=3) as conn:
             conn.ping()
         checks["redis"] = "connected"

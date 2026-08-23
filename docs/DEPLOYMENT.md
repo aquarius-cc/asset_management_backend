@@ -70,8 +70,21 @@ sudo nano .env
 | `DJANGO_DEBUG`                        | `False`                   |
 | `ALLOWED_HOSTS`                       | 域名，逗号分隔                   |
 | `DB_NAME` / `DB_USER` / `DB_PASSWORD` | PostgreSQL 数据库凭据            |
-| `DB_HOST`                             | 通常为 `localhost`           |
-| `DB_PORT`                             | 默认 `5432`                 |
+| `DB_HOST`                             | 通常为 `localhost`           |
+| `DB_PORT`                             | 默认 `5432`                 |
+| `REDIS_URL`                           | Redis 连接地址,Docker 环境使用 `redis://redis:6379/0` |
+
+> **启动校验**：生产环境（`DJANGO_SETTINGS_MODULE=config.settings.production`）会在启动时校验以下变量,缺失时直接报错退出：
+> - `SECRET_KEY`、`ALLOWED_HOSTS`、`DB_PASSWORD`、`REDIS_URL`
+> - CI/CD 中的 `collectstatic`、`migrate` 等管理命令也需设置这些变量
+>
+> **⚠️ init-once 语义**：以下变量**仅在数据卷首次创建时生效**,后续修改 `.env` 不会自动更新：
+> - `DB_PASSWORD` / `DB_USER` / `DB_NAME`（PostgreSQL 初始化脚本仅执行一次）
+> - `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD`（Grafana 首次启动创建管理员,后续不变）
+>
+> **存量环境凭据轮换路径**：
+> - PostgreSQL：`ALTER USER <user> PASSWORD '<new_password>';`（需数据库连接权限）
+> - Grafana：`grafana-cli admin reset-admin-password <new_password>`（容器内执行）或通过 Web UI → Configuration → Users
 
 ---
 

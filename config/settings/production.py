@@ -80,8 +80,10 @@ CORS_ALLOW_ALL_ORIGINS = False
 cors_origins = os.getenv("CORS_ALLOWED_ORIGINS", "")
 CORS_ALLOWED_ORIGINS = [origin.strip() for origin in cors_origins.split(",") if origin.strip()]
 
-# 日志级别提升
+# 日志级别提升 + 生产环境控制台使用 JSON 格式(OC-2) 并注入 trace_id(OC-1)
 LOGGING["handlers"]["console"]["level"] = "WARNING"
+LOGGING["handlers"]["console"]["formatter"] = "json"
+LOGGING["handlers"]["console"]["filters"] = ["trace_id"]
 LOGGING["loggers"]["django"]["level"] = "WARNING"
 LOGGING["loggers"]["rest_framework"]["level"] = "WARNING"
 
@@ -113,6 +115,8 @@ if SENTRY_DSN:
         dsn=SENTRY_DSN,
         integrations=[DjangoIntegration()],
         traces_sample_rate=0.1,
+        # 性能分析(依赖 traces 采样开启)
+        profiles_sample_rate=0.1,
         # send_default_pii=False: 不上报用户 IP/姓名等 PII
         send_default_pii=False,
         environment=os.getenv("DJANGO_ENVIRONMENT", "production"),

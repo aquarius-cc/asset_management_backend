@@ -7,6 +7,7 @@
 import logging
 from typing import Any
 
+from django.db import IntegrityError
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
@@ -15,6 +16,23 @@ from utils.response_utils import error_response
 
 
 logger = logging.getLogger(__name__)
+
+# IntegrityError 子类型 → 用户可读消息映射
+_INTEGRITY_ERROR_MAP: dict[str, str] = {
+    "unique": "数据已存在,请勿重复提交",
+    "foreign_key": "关联数据不存在,请检查引用",
+    "not_null": "必填字段缺失",
+    "check": "数据校验失败",
+}
+
+
+def _parse_integrity_error(exc: IntegrityError) -> str:
+    """从 IntegrityError 中提取用户可读消息"""
+    msg = str(exc).lower()
+    for keyword, user_msg in _INTEGRITY_ERROR_MAP.items():
+        if keyword in msg:
+            return user_msg
+    return "数据完整性冲突,请检查输入"
 
 
 def custom_exception_handler(exc: Any, context: Any) -> Response:
@@ -64,6 +82,11 @@ def custom_exception_handler(exc: Any, context: Any) -> Response:
     if isinstance(exc, PermissionError):
         logger.warning(f"权限错误: {exc}")
         return error_response(message="权限不足,无法执行此操作", status_code=status.HTTP_403_FORBIDDEN)
+
+    # 捕获数据库 IntegrityError(唯一约束/外键/非空),返回 400 + 用户可读消息
+    if isinstance(exc, IntegrityError):
+        logger.warning(f"数据库完整性冲突: {exc}", exc_info=True)
+        return error_response(message=_parse_integrity_error(exc), status_code=status.HTTP_400_BAD_REQUEST)
 
     # 未处理的异常
     # 【观测性修复】exc_info 常开(原 settings.DEBUG 使生产日志/Sentry 事件丢失堆栈)

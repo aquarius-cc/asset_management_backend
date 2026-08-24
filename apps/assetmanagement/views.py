@@ -149,12 +149,9 @@ class StorageViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet):
         """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        try:
-            storage = StorageService.create_storage(serializer.validated_data)
-            return success_response(data=StorageSerializer(storage).data,
-                                    message='创建成功', status_code=status.HTTP_201_CREATED)
-        except AppValidationError as e:
-            return error_response(message=str(e), status_code=400)
+        storage = StorageService.create_storage(serializer.validated_data)
+        return success_response(data=StorageSerializer(storage).data,
+                                message='创建成功', status_code=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=['get'], url_path='statistics')
     def statistics(self, request) -> Response:
@@ -209,13 +206,9 @@ class AssetTypeViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet):
         """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        print("create asset type:", serializer.validated_data)
-        try:
-            asset_type = AssetTypeService.create_asset_type(serializer.validated_data)
-            return success_response(data=AssetTypeSerializer(asset_type).data,
-                                    message='创建成功', status_code=status.HTTP_201_CREATED)
-        except AppValidationError as e:
-            return error_response(message=str(e), status_code=400)
+        asset_type = AssetTypeService.create_asset_type(serializer.validated_data)
+        return success_response(data=AssetTypeSerializer(asset_type).data,
+                                message='创建成功', status_code=status.HTTP_201_CREATED)
 
 
 class ContractViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet):
@@ -1460,10 +1453,7 @@ class HardDiskSNViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet):
         serializer.is_valid(raise_exception=True)
 
         # 【AGENTS 规范】校验通过后，调用 Service 层执行业务逻辑
-        try:
-            result = HardDiskSNService.batch_save(serializer.validated_data)
-        except AppValidationError as e:
-            return error_response(message=str(e.detail), status_code=400)
+        result = HardDiskSNService.batch_save(serializer.validated_data)
 
         return success_response(
             data=result,

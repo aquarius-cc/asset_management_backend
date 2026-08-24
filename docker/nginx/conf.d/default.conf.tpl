@@ -68,7 +68,6 @@ server {
     add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "DENY" always;
-    add_header X-XSS-Protection "1; mode=block" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     # CSP 由 Django 中间件 core.csp_middleware 统一设置(支持按路径差异化, 如排除 /admin/)
     add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
@@ -78,6 +77,12 @@ server {
         limit_req zone=api_limit burst=50 nodelay;
 
         proxy_pass http://asset_backend;
+        # 安全头防御护栏: 剥离 Django 可能返回的安全头, 由 server 级 add_header 唯一下发
+        proxy_hide_header Strict-Transport-Security;
+        proxy_hide_header X-Content-Type-Options;
+        proxy_hide_header X-Frame-Options;
+        proxy_hide_header Referrer-Policy;
+        proxy_hide_header Permissions-Policy;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -97,6 +102,12 @@ server {
         limit_req zone=login_limit burst=3 nodelay;
 
         proxy_pass http://asset_backend;
+        # 安全头防御护栏
+        proxy_hide_header Strict-Transport-Security;
+        proxy_hide_header X-Content-Type-Options;
+        proxy_hide_header X-Frame-Options;
+        proxy_hide_header Referrer-Policy;
+        proxy_hide_header Permissions-Policy;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -108,6 +119,12 @@ server {
     # --- WebSocket 代理 (通知系统) ---
     location /ws/ {
         proxy_pass http://asset_backend;
+        # 安全头防御护栏
+        proxy_hide_header Strict-Transport-Security;
+        proxy_hide_header X-Content-Type-Options;
+        proxy_hide_header X-Frame-Options;
+        proxy_hide_header Referrer-Policy;
+        proxy_hide_header Permissions-Policy;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -122,6 +139,12 @@ server {
     # --- 健康检查 (无限流, 无日志) ---
     location /health/ {
         proxy_pass http://asset_backend;
+        # 安全头防御护栏
+        proxy_hide_header Strict-Transport-Security;
+        proxy_hide_header X-Content-Type-Options;
+        proxy_hide_header X-Frame-Options;
+        proxy_hide_header Referrer-Policy;
+        proxy_hide_header Permissions-Policy;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         access_log off;
@@ -129,6 +152,12 @@ server {
 
     location /ready/ {
         proxy_pass http://asset_backend;
+        # 安全头防御护栏
+        proxy_hide_header Strict-Transport-Security;
+        proxy_hide_header X-Content-Type-Options;
+        proxy_hide_header X-Frame-Options;
+        proxy_hide_header Referrer-Policy;
+        proxy_hide_header Permissions-Policy;
         proxy_set_header Host $host;
         access_log off;
     }
@@ -142,7 +171,6 @@ server {
         add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
         add_header X-Content-Type-Options "nosniff" always;
         add_header X-Frame-Options "DENY" always;
-        add_header X-XSS-Protection "1; mode=block" always;
         add_header Referrer-Policy "strict-origin-when-cross-origin" always;
         add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
         access_log off;
@@ -157,7 +185,6 @@ server {
         add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
         add_header X-Content-Type-Options "nosniff" always;
         add_header X-Frame-Options "DENY" always;
-        add_header X-XSS-Protection "1; mode=block" always;
         add_header Referrer-Policy "strict-origin-when-cross-origin" always;
         add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
         access_log off;

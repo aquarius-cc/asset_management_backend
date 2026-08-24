@@ -60,16 +60,27 @@ CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
 # JWT 认证 Cookie (access/refresh/csrftoken) 仅通过 HTTPS 传输
 JWT_AUTH_COOKIE_SECURE = True
-# 以下3个安全头由 Nginx add_header 统一设置,避免重复头
-# SECURE_BROWSER_XSS_FILTER / SECURE_CONTENT_TYPE_NOSNIFF / X_FRAME_OPTIONS
-# 【新增】HTTPS 安全头
-SECURE_HSTS_SECONDS = 31536000  # 1年
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SECURE_HSTS_PRELOAD = True
+
+# 【安全头治理】所有安全响应头由 Nginx 边缘层唯一下发
+# 理由: /static/、/media/ 由 Nginx 直接服务(绕过 Django), 只有 Nginx 能全量覆盖
+# 关闭 Django SecurityMiddleware 的安全头发射, 避免双发:
+SECURE_HSTS_SECONDS = 0                      # HSTS 由 Nginx 唯一下发(max-age=63072000)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+SECURE_HSTS_PRELOAD = False
+SECURE_CONTENT_TYPE_NOSNIFF = False          # X-Content-Type-Options 由 Nginx 下发
+SECURE_REFERRER_POLICY = ""                  # Referrer-Policy 由 Nginx 下发
+# XFrameOptionsMiddleware 从生产 MIDDLEWARE 中移除(见下方 MIDDLEWARE 覆写)
+# X-Frame-Options 由 Nginx 下发
+
+# HTTPS 重定向 + 反向代理识别(与安全头正交, 保持不动)
 SECURE_SSL_REDIRECT = True
 # 【修复】Nginx 反向代理：Django 通过此头识别原始 HTTPS 协议
 # 缺失会导致 SECURE_SSL_REDIRECT=True 引发无限重定向循环
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# 【安全头治理】移除 XFrameOptionsMiddleware — X-Frame-Options 由 Nginx 唯一下发
+# base.py 中保留该中间件, 开发环境行为不变
+MIDDLEWARE = [m for m in MIDDLEWARE if m != "django.middleware.clickjacking.XFrameOptionsMiddleware"]
 
 # 静态文件收集(由 Nginx 代管)
 STATIC_ROOT = BASE_DIR / "staticfiles"

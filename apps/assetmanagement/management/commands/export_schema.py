@@ -7,6 +7,8 @@
     python manage.py export_schema --output api_schema.json
 """
 
+from typing import Any
+
 from django.core.management.base import BaseCommand
 from drf_spectacular.generators import SchemaGenerator
 
@@ -14,7 +16,7 @@ from drf_spectacular.generators import SchemaGenerator
 class Command(BaseCommand):
     help = "导出 OpenAPI Schema"
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: Any) -> None:
         parser.add_argument(
             "--format",
             type=str,
@@ -26,7 +28,7 @@ class Command(BaseCommand):
             "--output", type=str, default="api_schema.json", help="输出文件路径 (默认: api_schema.json)"
         )
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> None:
         generator = SchemaGenerator()
         schema = generator.get_schema()
 

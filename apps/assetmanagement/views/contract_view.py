@@ -2,6 +2,8 @@
 合同管理视图集
 """
 
+from typing import Any
+
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.openapi import OpenApiParameter  # type: ignore[attr-defined]
 from drf_spectacular.types import OpenApiTypes
@@ -58,7 +60,7 @@ class ContractViewSet(
         "approve_payment",
     ]
 
-    def get_permissions(self):
+    def get_permissions(self) -> Any:
         """RBAC: 写操作需 IsSystemAdmin+,读操作需认证"""
         if self.action in self.admin_actions:
             return [IsSystemAdmin()]
@@ -81,7 +83,7 @@ class ContractViewSet(
     export_filename = "contracts_export.xlsx"
     export_sheet_name = "合同列表"
 
-    def get_queryset(self):
+    def get_queryset(self) -> Any:
         # RBAC: Contract 为全局资源,仅按软删除过滤
         return Contract.objects.filter(is_deleted=False)
 
@@ -94,7 +96,7 @@ class ContractViewSet(
             return ContractUpdateSerializer
         return ContractDetailSerializer
 
-    def destroy(self, request, *args, **kwargs):
+    def destroy(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         contract = self.get_object()
         operator_jobcode, operator_name = resolve_operator(request.user)
         ContractService.delete_contract(
@@ -105,7 +107,7 @@ class ContractViewSet(
         return success_response(message="删除成功")
 
     @action(detail=False, methods=["post"], url_path="batch-delete")
-    def batch_delete(self, request):
+    def batch_delete(self, request: Any) -> None:
         serializer = ContractBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         operator_jobcode, operator_name = resolve_operator(request.user)
@@ -121,7 +123,7 @@ class ContractViewSet(
         )
 
     @action(detail=False, methods=["post"], url_path="batch-create")
-    def batch_create(self, request):
+    def batch_create(self, request: Any) -> None:
         serializer = ContractBatchCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         operator_jobcode, operator_name = resolve_operator(request.user)
@@ -219,7 +221,7 @@ class ContractViewSet(
         return success_response(data={"count": contracts.count(), "results": serializer.data}, message="查询成功")
 
     @action(detail=True, methods=["post"], url_path=r"payment_record/(?P<payment_id>[^/]+)/delete")
-    def delete_payment(self, request, recordcode=None, payment_id=None):
+    def delete_payment(self, request: Any, recordcode: Any = None, payment_id: Any = None) -> None:
         """删除支付记录(软删除)"""
         contract = self.get_object()
         updated = ContractService.delete_payment_record(contract.contract_code, payment_id)
@@ -227,7 +229,7 @@ class ContractViewSet(
         return success_response(data={"contract": serializer.data}, message="支付记录删除成功")
 
     @action(detail=True, methods=["post"], url_path=r"payment_record/(?P<payment_id>[^/]+)/approve")
-    def approve_payment(self, request, recordcode=None, payment_id=None):
+    def approve_payment(self, request: Any, recordcode: Any = None, payment_id: Any = None) -> None:
         """审核通过支付记录"""
         contract = self.get_object()
         updated = ContractService.approve_payment_record(contract.contract_code, payment_id)

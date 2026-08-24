@@ -9,6 +9,7 @@
 
 # from rest_framework.utils.urls import replace_query_param
 
+from typing import Any
 from rest_framework.pagination import PageNumberPagination
 
 from core.constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
@@ -57,7 +58,7 @@ class CustomPageNumberPagination(PageNumberPagination):
         # 执行分页逻辑
         return super().paginate_queryset(queryset, request, view)
 
-    def get_paginated_response(self, data):
+    def get_paginated_response(self, data: Any) -> Any:
         """
         返回统一格式的分页响应
 
@@ -89,7 +90,7 @@ class CustomPageNumberPagination(PageNumberPagination):
             message="查询成功",
         )
 
-    def get_paginated_response_schema(self, schema):
+    def get_paginated_response_schema(self, schema: Any) -> Any:
         """生成 OpenAPI 文档中的分页响应 schema"""
         return {
             "type": "object",

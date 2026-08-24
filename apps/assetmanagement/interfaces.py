@@ -8,6 +8,7 @@
     from apps.assetmanagement.interfaces import get_employee_queryset, get_employee_serializer_class
 """
 
+from typing import Any
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
@@ -43,7 +44,7 @@ class EmployeeProvider(ABC):
     """
 
     @abstractmethod
-    def get_employee_queryset(self):
+    def get_employee_queryset(self) -> Any:
         """获取员工QuerySet(用于DRF SlugRelatedField)"""
         pass
 

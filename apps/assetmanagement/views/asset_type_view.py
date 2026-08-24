@@ -2,6 +2,8 @@
 资产类型管理视图集
 """
 
+from typing import Any
+
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
@@ -46,7 +48,7 @@ class AssetTypeViewSet(
         "batch_create",
     ]
 
-    def get_permissions(self):
+    def get_permissions(self) -> Any:
         """RBAC: 写操作需 IsSystemAdmin+,读操作需认证"""
         if self.action in self.admin_actions:
             return [IsSystemAdmin()]
@@ -58,7 +60,7 @@ class AssetTypeViewSet(
     ordering_fields = ["type_code", "type_name", "sort_order"]
     ordering = ["sort_order", "type_code"]
 
-    def create(self, request, *args, **kwargs):
+    def create(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         operator_jobcode, operator_name = resolve_operator(request.user)
@@ -71,7 +73,7 @@ class AssetTypeViewSet(
             data=AssetTypeSerializer(asset_type).data, message="创建成功", status_code=status.HTTP_201_CREATED
         )
 
-    def destroy(self, request, *args, **kwargs):
+    def destroy(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         asset_type = self.get_object()
         operator_jobcode, operator_name = resolve_operator(request.user)
         AssetTypeService.delete_asset_type(
@@ -82,7 +84,7 @@ class AssetTypeViewSet(
         return success_response(message="删除成功")
 
     @action(detail=False, methods=["post"], url_path="batch-delete")
-    def batch_delete(self, request):
+    def batch_delete(self, request: Any) -> None:
         serializer = AssetTypeBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         operator_jobcode, operator_name = resolve_operator(request.user)
@@ -98,7 +100,7 @@ class AssetTypeViewSet(
         )
 
     @action(detail=False, methods=["post"], url_path="batch-create")
-    def batch_create(self, request):
+    def batch_create(self, request: Any) -> None:
         serializer = AssetTypeBatchCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         operator_jobcode, operator_name = resolve_operator(request.user)

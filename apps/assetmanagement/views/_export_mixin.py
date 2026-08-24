@@ -35,7 +35,7 @@ class ExportExcelMixin:
     export_sheet_name: str = "数据导出"
 
     @action(detail=False, methods=["get"], url_path="export", permission_classes=[IsAuthenticated])
-    def export_excel(self, request):
+    def export_excel(self, request: Any) -> None:
         """导出当前列表数据为 Excel"""
         try:
             import openpyxl
@@ -85,7 +85,7 @@ class ExportExcelMixin:
         return response
 
     @staticmethod
-    def _get_nested_value(obj, field_path: str):
+    def _get_nested_value(obj: Any, field_path: str) -> Any:
         """支持嵌套字段访问,如 asset_recordcode__asset_code"""
         parts = field_path.split("__")
         value = obj

@@ -2,6 +2,8 @@
 出库资产管理视图集
 """
 
+from typing import Any
+
 from django.db.models import Q, QuerySet
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.openapi import OpenApiParameter  # type: ignore[attr-defined]
@@ -77,7 +79,7 @@ class OutAssetViewSet(
     export_filename = "out_assets_export.xlsx"
     export_sheet_name = "出库记录"
 
-    def get_permissions(self):
+    def get_permissions(self) -> Any:
         """RBAC: 写操作需 asset_admin+,读操作需认证"""
         if self.action in self.admin_actions:
             return [IsAssetAdminOrAbove()]
@@ -129,7 +131,7 @@ class OutAssetViewSet(
         return OutAssetDetailSerializer
 
     @action(detail=False, methods=["get"], url_path="recyclable")
-    def recyclable(self, request):
+    def recyclable(self, request: Any) -> None:
         filters = {}
         keyword = request.query_params.get("search", "").strip()
         if keyword:
@@ -169,7 +171,7 @@ class OutAssetViewSet(
         serializer = self.get_serializer(queryset, many=True)
         return success_response(data=serializer.data)
 
-    def list(self, request, *args, **kwargs):
+    def list(self, request: Any, *args: Any, **kwargs: Any) -> Any:
         queryset = self.filter_queryset(self.get_queryset())
         page = self.paginate_queryset(queryset)
         if page is not None:
@@ -179,7 +181,7 @@ class OutAssetViewSet(
         serializer = self.get_serializer(queryset, many=True)
         return success_response(data={"count": queryset.count(), "results": serializer.data})
 
-    def create(self, request, *args, **kwargs):
+    def create(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         data = request.data.copy()
         data.pop("recordcode", None)
         serializer = self.get_serializer(data=data)
@@ -192,7 +194,7 @@ class OutAssetViewSet(
             data=OutAssetCreateSerializer(outasset).data, message="出库成功", status_code=status.HTTP_201_CREATED
         )
 
-    def update(self, request, *args, **kwargs):
+    def update(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         recordcode = self.kwargs.get("recordcode")
         outasset = OutAssetService.update_outasset(
             recordcode=recordcode,
@@ -200,11 +202,11 @@ class OutAssetViewSet(
         )
         return success_response(data=OutAssetDetailSerializer(outasset).data, message="更新成功")
 
-    def partial_update(self, request, *args, **kwargs):
+    def partial_update(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         return self.update(request, *args, **kwargs)
 
     @action(detail=False, methods=["post"], url_path="batch-create")
-    def batch_create(self, request):
+    def batch_create(self, request: Any) -> None:
         serializer = OutAssetBatchCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         result = OutAssetService.batch_create_outasset(
@@ -220,7 +222,7 @@ class OutAssetViewSet(
             request_items=serializer.initial_data.get("items"),
         )
 
-    def destroy(self, request, *args, **kwargs):
+    def destroy(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         outasset = self.get_object()
         result = OutAssetService.batch_delete_outasset(
             recordcodes=[outasset.recordcode],
@@ -236,7 +238,7 @@ class OutAssetViewSet(
         return success_response(message="删除成功")
 
     @action(detail=False, methods=["post"], url_path="batch-delete")
-    def batch_delete(self, request):
+    def batch_delete(self, request: Any) -> None:
         serializer = OutAssetBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         result = OutAssetService.batch_delete_outasset(
@@ -280,7 +282,7 @@ class OutAssetViewSet(
         return self._paginate_and_respond(records)
 
     @action(detail=True, methods=["post"], url_path="cancel", permission_classes=[IsAssetAdminOrAbove])
-    def cancel_outasset(self, request, recordcode=None):
+    def cancel_outasset(self, request: Any, recordcode: Any = None) -> None:
         """POST /out-assets/{recordcode}/cancel/ — 取消出库,恢复资产状态"""
         outasset = self.get_object()
         result = OutAssetService.batch_delete_outasset(

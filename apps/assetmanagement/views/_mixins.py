@@ -6,6 +6,8 @@
 - AdminWritePermissionMixin: 写操作限制为管理员
 """
 
+from typing import Any
+
 from django.http import Http404
 from rest_framework import permissions
 
@@ -19,7 +21,7 @@ class RecordcodeLookupMixin:
     子类必须设置 lookup_field = "recordcode"(或其变体如 "asset_recordcode__asset_code")。
     """
 
-    def get_object(self):
+    def get_object(self) -> Any:
         queryset = self.get_queryset()
         lookup_value = self.kwargs[self.lookup_url_kwarg or self.lookup_field]
 
@@ -56,7 +58,7 @@ class AdminWritePermissionMixin:
         "change_outasset_employee",
     ]
 
-    def get_permissions(self):
+    def get_permissions(self) -> Any:
         if self.action in self.admin_actions:
             return [IsSystemAdmin()]
         return [permissions.IsAuthenticated()]

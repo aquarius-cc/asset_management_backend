@@ -75,5 +75,5 @@ class Notification(models.Model):
             models.Index(fields=["created_at"]),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"[{self.get_notification_type_display()}] {self.title}"

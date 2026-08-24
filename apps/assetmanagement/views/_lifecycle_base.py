@@ -67,23 +67,23 @@ class AssetLifecycleViewSetBase(
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
 
     @property
-    def search_fields(self):
+    def search_fields(self) -> None:
         return ["asset_recordcode__asset_name", *getattr(self, "search_fields_extra", ())]
 
     @property
-    def ordering_fields(self):
+    def ordering_fields(self) -> None:
         return [self.ordering_field, "created_at"]
 
     @property
-    def ordering(self):
+    def ordering(self) -> None:
         return [f"-{self.ordering_field}"]
 
-    def get_permissions(self):
+    def get_permissions(self) -> Any:
         if self.action in ("create", "update", "partial_update", "destroy", "batch_delete"):
             return [IsAssetAdminOrAbove()]
         return [permissions.IsAuthenticated()]
 
-    def get_queryset(self):
+    def get_queryset(self) -> Any:
         return self.selector.get_queryset_for_user(self.request.user)
 
     def get_serializer_class(self) -> type:
@@ -96,7 +96,7 @@ class AssetLifecycleViewSetBase(
         return self.detail_serializer
 
     @action(detail=False, methods=["post"], url_path="batch-delete")
-    def batch_delete(self, request):
+    def batch_delete(self, request: Any) -> None:
         """批量删除(三视图集完全一致, 仅模型异常类与 Service 方法名不同)"""
         ids = request.data.get("ids", [])
         if not ids:
@@ -133,7 +133,7 @@ class AssetLifecycleViewSetBase(
         )
 
     @action(detail=False, methods=["get"], url_path="by-asset/(?P<asset_code>[^/.]+)")
-    def by_asset(self, request, asset_code=None):
+    def by_asset(self, request: Any, asset_code: Any = None) -> None:
         """按资产编码查询该生命周期事件(可见性校验与分页行为三视图集一致)"""
         visible = AssetSelector.get_queryset_for_user(request.user).filter(asset_code=asset_code).exists()
         if not visible:

@@ -296,7 +296,7 @@ class HardDiskSNBatchSerializer(serializers.Serializer):  # type: ignore[type-ar
     asset_recordcode = serializers.CharField(required=True)
     disks = DiskItemSerializer(many=True)
 
-    def validate(self, data):
+    def validate(self, data: Any) -> None:
         disks = data.get("disks", [])
         if not disks:
             raise serializers.ValidationError("硬盘列表不能为空")

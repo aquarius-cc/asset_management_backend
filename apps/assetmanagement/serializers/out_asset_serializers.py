@@ -10,6 +10,7 @@
 - DetailSerializer: 详情查询(嵌套对象,只读,完整)
 """
 
+from typing import Any
 from rest_framework import serializers
 
 from apps.assetmanagement.interfaces import get_employee_queryset, get_employee_serializer_class
@@ -103,11 +104,11 @@ class OutAssetCreateSerializer(serializers.ModelSerializer[OutAsset]):
             "outasset_date": {"required": True},
         }
 
-    def create(self, validated_data):
+    def create(self, validated_data: Any) -> Response:
         validated_data.pop("outasset_using_location", None)
         return super().create(validated_data)
 
-    def update(self, instance, validated_data):
+    def update(self, instance: Any, validated_data: Any) -> Response:
         validated_data.pop("outasset_using_location", None)
         return super().update(instance, validated_data)
 
@@ -222,7 +223,7 @@ class OutAssetBatchCreateSerializer(serializers.Serializer):  # type: ignore[typ
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     items = OutAssetBatchItemSerializer(many=True, required=True)
 
-    def validate_items(self, value):
+    def validate_items(self, value: Any) -> None:
         if len(value) > self.MAX_BATCH_SIZE:
             raise serializers.ValidationError(f"单次批量创建不能超过 {self.MAX_BATCH_SIZE} 条")
         # 【P0-14 修复】字段名应为 outasset_asset(非 outasset_code)
@@ -236,7 +237,7 @@ class OutAssetBatchDeleteSerializer(serializers.Serializer):  # type: ignore[typ
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     ids = serializers.ListField(child=serializers.CharField(), required=True)
 
-    def validate_ids(self, value):
+    def validate_ids(self, value: Any) -> None:
         if len(value) > self.MAX_BATCH_SIZE:
             raise serializers.ValidationError(f"单次批量删除不能超过 {self.MAX_BATCH_SIZE} 条")
         if len(value) != len(set(value)):

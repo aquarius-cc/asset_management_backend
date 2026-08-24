@@ -2,6 +2,8 @@
 用户管理Admin配置
 """
 
+from typing import Any
+
 from django.contrib import admin
 
 from apps.usermanagement.models import Department, Employee
@@ -32,7 +34,7 @@ class DepartmentAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
     ordering = ["level", "sort_order", "department_code"]
     list_editable = ["sort_order"]
 
-    def get_parent_code(self, obj):
+    def get_parent_code(self, obj: Any) -> Any:
         """显示父部门的业务编码"""
         if obj.parent:
             return obj.parent.department_code

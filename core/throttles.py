@@ -9,6 +9,8 @@
 
 import logging
 
+from typing import Any
+
 from django.core.cache import cache
 from rest_framework.throttling import AnonRateThrottle
 
@@ -54,7 +56,7 @@ class LoginRateThrottle(AnonRateThrottle):
 
     scope = "login"
 
-    def get_cache_key(self, request, view):
+    def get_cache_key(self, request: Any, view: Any) -> Any:
         """以请求体中的 auth_username 为限流键"""
         return f"throttle_login_{_extract_login_username(request, 'LoginRateThrottle')}"
 
@@ -73,14 +75,14 @@ class LoginLockoutThrottle(AnonRateThrottle):
     LOCKOUT_THRESHOLD = 5
     LOCKOUT_DURATION = 15 * 60  # 15分钟
 
-    def _get_username(self, request):
+    def _get_username(self, request: Any) -> None:
         return _extract_login_username(request, "LoginLockoutThrottle")
 
-    def get_cache_key(self, request, view):
+    def get_cache_key(self, request: Any, view: Any) -> Any:
         username = self._get_username(request)
         return f"throttle_login_{username}"
 
-    def allow_request(self, request, view):
+    def allow_request(self, request: Any, view: Any) -> None:
         username = self._get_username(request)
         fail_key = f"login_fail_{username}"
         fail_count = cache.get(fail_key, 0)
@@ -89,7 +91,7 @@ class LoginLockoutThrottle(AnonRateThrottle):
             return False
         return super().allow_request(request, view)
 
-    def record_failure(self, request, view):
+    def record_failure(self, request: Any, view: Any) -> None:
         """登录失败时调用"""
         username = self._get_username(request)
         fail_key = f"login_fail_{username}"
@@ -98,7 +100,7 @@ class LoginLockoutThrottle(AnonRateThrottle):
         if count + 1 >= self.LOCKOUT_THRESHOLD:
             logger.warning(f"登录锁定触发: {username} 连续失败 {count + 1} 次,锁定 15 分钟")
 
-    def record_success(self, request, view):
+    def record_success(self, request: Any, view: Any) -> None:
         """登录成功时调用"""
         username = self._get_username(request)
         cache.delete(f"login_fail_{username}")

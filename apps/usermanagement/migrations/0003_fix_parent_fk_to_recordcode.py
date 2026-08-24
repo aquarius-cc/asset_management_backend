@@ -11,6 +11,8 @@
 """
 
 import django.db.models.deletion
+from typing import Any
+
 from django.db import migrations, models
 
 
@@ -46,7 +48,7 @@ def fix_parent_fk_and_migrate_data(apps, schema_editor):
     # 清空所有 path 以便重新生成
     Department.objects.filter(is_deleted=False).update(path='')
 
-    def generate_path(dept):
+    def generate_path(dept: Any) -> Any:
         if dept.parent_id is None:
             return f"/{dept.department_code}"
         # parent_id 存储的是 recordcode

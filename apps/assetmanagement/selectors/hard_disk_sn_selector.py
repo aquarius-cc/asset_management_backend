@@ -4,6 +4,8 @@
 提供硬盘序列号相关的查询方法(从 base_selector.py 拆分)。
 """
 
+from typing import Any
+
 from django.db.models import QuerySet
 
 from apps.assetmanagement.models import HardDiskSN
@@ -14,7 +16,7 @@ class HardDiskSNSelector:
     """硬盘序列号查询选择器"""
 
     @staticmethod
-    def get_queryset_for_user(user):
+    def get_queryset_for_user(user: Any) -> Any:
         """RBAC 行级过滤(硬盘通过 asset_recordcode 关联到 Asset)"""
         return get_asset_linked_queryset_for_user(user, HardDiskSN.objects.filter(is_deleted=False))
 

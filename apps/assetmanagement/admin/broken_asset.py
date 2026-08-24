@@ -2,6 +2,8 @@
 BrokenAsset Admin 配置
 """
 
+from typing import Any
+
 from django.contrib import admin
 
 from apps.assetmanagement.models import BrokenAsset
@@ -9,17 +11,17 @@ from apps.assetmanagement.models import BrokenAsset
 
 @admin.register(BrokenAsset)
 class BrokenAssetAdmin(admin.ModelAdmin):
-    def asset_code_display(self, obj):
+    def asset_code_display(self, obj: Any) -> None:
         return obj.asset_recordcode.asset_code if obj.asset_recordcode else "-"
 
     asset_code_display.short_description = "资产编码"
 
-    def asset_name(self, obj):
+    def asset_name(self, obj: Any) -> None:
         return obj.asset_recordcode.asset_name if obj.asset_recordcode else "-"
 
     asset_name.short_description = "资产名称"
 
-    def operator_name(self, obj):
+    def operator_name(self, obj: Any) -> None:
         return obj.operator_employee.employee_name if obj.operator_employee else "-"
 
     operator_name.short_description = "操作人"

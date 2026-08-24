@@ -7,6 +7,8 @@
 
 from datetime import datetime as dt
 
+from typing import Any
+
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.openapi import OpenApiParameter  # type: ignore[attr-defined]
 from drf_spectacular.types import OpenApiTypes
@@ -62,7 +64,7 @@ class WasteAssetViewSet(
     export_filename = "waste_assets_export.xlsx"
     export_sheet_name = "已报废资产"
 
-    def get_permissions(self):
+    def get_permissions(self) -> Any:
         """RBAC: 写操作需 IsAssetAdminOrAbove+,读操作需认证"""
         if self.action in self.admin_actions:
             return [IsAssetAdminOrAbove()]
@@ -79,26 +81,26 @@ class WasteAssetViewSet(
             return WasteAssetListSerializer
         return WasteAssetDetailSerializer
 
-    def get_queryset(self):
+    def get_queryset(self) -> Any:
         # RBAC 行级数据隔离
         if self.action == "list":
             return WasteAssetSelector.get_queryset_for_user(self.request.user)
         # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
         return WasteAssetSelector.get_queryset_for_user(self.request.user).with_asset_details()  # type: ignore[attr-defined]
 
-    def create(self, request, *args, **kwargs):
+    def create(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         return error_response(
             message="已报废记录不允许直接创建,请通过待报废审批流程创建",
             status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
         )
 
-    def update(self, request, *args, **kwargs):
+    def update(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         return error_response(
             message="已报废记录为终态记录,不允许修改",
             status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
         )
 
-    def partial_update(self, request, *args, **kwargs):
+    def partial_update(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         return error_response(
             message="已报废记录为终态记录,不允许修改",
             status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
@@ -176,7 +178,7 @@ class WasteAssetViewSet(
         return self._paginate_and_respond(qs)
 
     @action(detail=False, methods=["post"], url_path="batch-delete")
-    def batch_delete(self, request):
+    def batch_delete(self, request: Any) -> None:
         serializer = WasteAssetBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         ids = serializer.validated_data["ids"]

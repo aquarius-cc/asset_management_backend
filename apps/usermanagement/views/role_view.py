@@ -14,6 +14,7 @@
   本模块依赖 RoleService、models(Role, UserRole)
 """
 
+from typing import Any
 from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
@@ -74,17 +75,17 @@ class RoleViewSet(ResponseWrapperMixin, viewsets.ModelViewSet):
     queryset = Role.objects.filter(is_deleted=False)
     serializer_class = RoleSerializer
 
-    def get_permissions(self):
+    def get_permissions(self) -> Any:
         if self.action in ("create", "update", "partial_update", "destroy", "role_permissions"):
             return [IsSystemAdmin()]
         return [permissions.IsAuthenticated()]
 
-    def get_serializer_class(self):
+    def get_serializer_class(self) -> Any:
         if self.action in ("create", "update", "partial_update"):
             return RoleCreateUpdateSerializer
         return RoleSerializer
 
-    def destroy(self, request, *args, **kwargs):
+    def destroy(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         """软删除角色(C1 修复:重写 destroy 而非 perform_destroy)"""
         instance = self.get_object()
         if instance.is_system:
@@ -143,7 +144,7 @@ class RoleViewSet(ResponseWrapperMixin, viewsets.ModelViewSet):
         },
     )
     @action(detail=True, methods=["get", "post"], url_path="permissions")
-    def role_permissions(self, request, pk=None):
+    def role_permissions(self, request: Any, pk: Any = None) -> None:
         """
         获取或设置角色的权限码
 
@@ -206,7 +207,7 @@ class UserRoleViewSet(ResponseWrapperMixin, viewsets.ModelViewSet):
     pagination_class = None  # 用户角色数量少,不需要分页
     http_method_names = ["get", "post", "delete", "head", "options"]  # C2 修复:禁止 update/patch
 
-    def get_queryset(self):
+    def get_queryset(self) -> Any:
         user_id = self.kwargs.get("user_id")
         if user_id:
             return UserRole.objects.filter(auth_user_id=user_id, is_deleted=False)
@@ -216,7 +217,7 @@ class UserRoleViewSet(ResponseWrapperMixin, viewsets.ModelViewSet):
             is_deleted=False,
         )
 
-    def perform_create(self, serializer):
+    def perform_create(self, serializer: Any) -> None:
         """创建用户角色关联(D1: data_scope 由 Service 继承 Employee 部门)"""
         user_id = self.kwargs.get("user_id")
         raw_role = serializer.validated_data.get("role")
@@ -224,6 +225,6 @@ class UserRoleViewSet(ResponseWrapperMixin, viewsets.ModelViewSet):
 
         RoleService.assign_role(user_id, role_id)
 
-    def perform_destroy(self, instance):
+    def perform_destroy(self, instance: Any) -> None:
         """删除用户角色关联"""
         RoleService.remove_role(instance.auth_user_id, instance.role_id)

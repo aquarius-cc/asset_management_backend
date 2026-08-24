@@ -10,6 +10,7 @@
 - DetailSerializer: 详情查询(嵌套对象,只读,完整)
 """
 
+from typing import Any
 from rest_framework import serializers
 
 from apps.assetmanagement.interfaces import get_employee_queryset
@@ -123,12 +124,12 @@ class RecycleAssetCreateSerializer(serializers.ModelSerializer):
             "lost_reason": {"required": False, "max_length": 100},
         }
 
-    def validate(self, attrs):
+    def validate(self, attrs: Any) -> None:
         if attrs.get("is_broken") and attrs.get("is_lost"):
             raise serializers.ValidationError("is_broken 和 is_lost 不能同时为 True")
         return attrs
 
-    def create(self, validated_data):
+    def create(self, validated_data: Any) -> Response:
         validated_data.pop("recycle_asset_recycle_person_jobcode", None)
         validated_data.pop("recycle_asset_storage", None)
         return super().create(validated_data)
@@ -228,7 +229,7 @@ class RecycleAssetBatchCreateSerializer(serializers.Serializer):
         slug_field="employee_jobcode", queryset=get_employee_queryset(), required=False, allow_null=True
     )
 
-    def validate_items(self, value):
+    def validate_items(self, value: Any) -> None:
         if len(value) > self.MAX_BATCH_SIZE:
             raise serializers.ValidationError(f"单次批量创建不能超过 {self.MAX_BATCH_SIZE} 条")
         outasset_codes = [item["recycle_outasset_code"].recordcode for item in value]
@@ -241,7 +242,7 @@ class RecycleAssetBatchDeleteSerializer(serializers.Serializer):
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     ids = serializers.ListField(child=serializers.CharField(), required=True)
 
-    def validate_ids(self, value):
+    def validate_ids(self, value: Any) -> None:
         if len(value) > self.MAX_BATCH_SIZE:
             raise serializers.ValidationError(f"单次批量删除不能超过 {self.MAX_BATCH_SIZE} 条")
         if len(value) != len(set(value)):

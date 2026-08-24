@@ -10,7 +10,7 @@ class AssetmanagementConfig(AppConfig):
     name = "apps.assetmanagement"
     verbose_name = "资产管理"
 
-    def ready(self):
+    def ready(self) -> None:
         # 【AGENTS 规范 - 跨应用解耦】注册员工数据提供者
         # 【注意】导入放在方法内避免循环导入
         from apps.assetmanagement.interfaces import register_employee_provider

@@ -11,6 +11,7 @@
 3. 查询逻辑委托给 AuditLogQueryService,View 仅负责参数解析和响应格式化
 """
 
+from typing import Any
 from datetime import datetime, timedelta
 
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema
@@ -29,12 +30,12 @@ from utils.response_utils import error_response, success_response
 class AuditLogSerializer:
     """审计日志序列化器"""
 
-    def __init__(self, instance, many: bool = False):
+    def __init__(self, instance: Any, many: bool = False) -> None:
         self.instance = instance
         self.many = many
 
     @property
-    def data(self):
+    def data(self) -> None:
         if self.many:
             return [self._serialize(log) for log in self.instance]
         return self._serialize(self.instance)

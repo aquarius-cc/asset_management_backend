@@ -8,6 +8,7 @@
 子类仅声明差异化类属性; batch_create 因 FoundAsset 不提供而留在各子类(方案 A)。
 """
 
+from typing import Any
 from drf_spectacular.utils import extend_schema
 from rest_framework.decorators import action
 
@@ -54,7 +55,7 @@ class BrokenAssetViewSet(AssetLifecycleViewSetBase):  # type: ignore[assignment]
     ordering_field = "broken_date"
 
     @action(detail=False, methods=["post"], url_path="batch-create")
-    def batch_create(self, request):
+    def batch_create(self, request: Any) -> None:
         serializer = BrokenAssetBatchCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         operator_jobcode, operator_name = resolve_operator(request.user)
@@ -85,7 +86,7 @@ class LostAssetViewSet(AssetLifecycleViewSetBase):  # type: ignore[assignment]
     ordering_field = "lost_date"
 
     @action(detail=False, methods=["post"], url_path="batch-create")
-    def batch_create(self, request):
+    def batch_create(self, request: Any) -> None:
         serializer = LostAssetBatchCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         operator_jobcode, operator_name = resolve_operator(request.user)

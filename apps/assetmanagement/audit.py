@@ -59,12 +59,12 @@ class AuditContext:
     # 【P2-33 修复】使用 timezone.now() 替代 datetime.now(),兼容 USE_TZ=True
     _start_time: datetime = field(default_factory=timezone.now)
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         """进入上下文"""
         logger.debug(f"审计开始: {self.operation_type} | 资产: {self.asset_code}")
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """退出上下文,记录结果"""
         # 【P2-33 修复】使用 timezone.now() 替代 datetime.now()
         duration = (timezone.now() - self._start_time).total_seconds()

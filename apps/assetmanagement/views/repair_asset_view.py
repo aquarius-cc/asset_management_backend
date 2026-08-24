@@ -10,6 +10,8 @@ Class:
   urls.py -> RepairAssetViewSet -> RepairAssetService/RepairAssetSelector/serializers
 """
 
+from typing import Any
+
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import permissions, status, viewsets
@@ -89,12 +91,12 @@ class RepairAssetViewSet(
     ordering_fields = ["repair_date", "created_at"]
     ordering = ["-repair_date"]
 
-    def get_permissions(self):
+    def get_permissions(self) -> Any:
         if self.action in ("create", "update", "partial_update", "destroy", "batch_delete"):
             return [IsAssetAdminOrAbove()]
         return [permissions.IsAuthenticated()]
 
-    def get_queryset(self):
+    def get_queryset(self) -> Any:
         return RepairAssetSelector.get_queryset_for_user(self.request.user)
 
     def get_serializer_class(self) -> type:
@@ -106,7 +108,7 @@ class RepairAssetViewSet(
             return RepairAssetUpdateSerializer
         return RepairAssetDetailSerializer
 
-    def create(self, request, *args, **kwargs):
+    def create(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         """通过 RepairAssetService 创建,确保防重复校验"""
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -129,7 +131,7 @@ class RepairAssetViewSet(
             status_code=status.HTTP_201_CREATED,
         )
 
-    def destroy(self, request, *args, **kwargs):
+    def destroy(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         """删除维修记录(进行中的记录拒绝,防止资产卡死 repairing)"""
         obj = self.get_object()
         AssetLifecycleMixin.delete_repair_asset(
@@ -169,7 +171,7 @@ class RepairAssetViewSet(
         },
     )
     @action(detail=False, methods=["post"], url_path="batch-delete")
-    def batch_delete(self, request):
+    def batch_delete(self, request: Any) -> None:
         from core.batch_mixins import BatchOperationMixin
 
         serializer = RepairAssetBatchDeleteSerializer(data=request.data)
@@ -189,7 +191,7 @@ class RepairAssetViewSet(
         )
 
     @action(detail=False, methods=["get"], url_path="by-asset/(?P<asset_code>[^/.]+)")
-    def by_asset(self, request, asset_code=None):
+    def by_asset(self, request: Any, asset_code: Any = None) -> None:
         visible = AssetSelector.get_queryset_for_user(request.user).filter(
             asset_code=asset_code
         ).exists()

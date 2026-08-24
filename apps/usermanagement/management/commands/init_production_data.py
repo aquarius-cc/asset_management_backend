@@ -10,6 +10,8 @@
 
 import os
 
+from typing import Any
+
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
@@ -97,7 +99,7 @@ ROLE_PERMISSIONS = {
 class Command(BaseCommand):
     help = "初始化生产环境基础数据（RBAC 角色/权限/关联/管理员），幂等可重复执行"
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: Any) -> None:
         parser.add_argument(
             "--skip-admin",
             action="store_true",
@@ -109,7 +111,7 @@ class Command(BaseCommand):
             help="仅打印将要执行的操作，不实际写入数据库",
         )
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> None:
         dry_run = options["dry_run"]
         skip_admin = options["skip_admin"]
 

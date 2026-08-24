@@ -2,6 +2,8 @@
 硬盘序列号管理视图集
 """
 
+from typing import Any
+
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
@@ -48,17 +50,17 @@ class HardDiskSNViewSet(
         "batch_save",
     ]
 
-    def get_queryset(self):
+    def get_queryset(self) -> Any:
         # RBAC 行级数据隔离(硬盘通过 asset_recordcode 关联到 Asset)
         return HardDiskSNSelector.get_queryset_for_user(self.request.user)
 
-    def get_permissions(self):
+    def get_permissions(self) -> Any:
         """RBAC: 写操作需 IsAssetAdminOrAbove+,读操作需认证"""
         if self.action in self.admin_actions:
             return [IsAssetAdminOrAbove()]
         return [permissions.IsAuthenticated()]
 
-    def create(self, request, *args, **kwargs):
+    def create(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         harddisk = HardDiskSNService.create(
@@ -72,7 +74,7 @@ class HardDiskSNViewSet(
             status_code=status.HTTP_201_CREATED,
         )
 
-    def update(self, request, *args, **kwargs):
+    def update(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         recordcode = self.kwargs.get("recordcode")
         serializer = self.get_serializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -84,10 +86,10 @@ class HardDiskSNViewSet(
         )
         return success_response(data=HardDiskSNSerializer(harddisk).data, message="更新成功")
 
-    def partial_update(self, request, *args, **kwargs):
+    def partial_update(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         return self.update(request, *args, **kwargs)
 
-    def destroy(self, request, *args, **kwargs):
+    def destroy(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         recordcode = self.kwargs.get("recordcode")
         HardDiskSNService.delete(
             recordcode=recordcode,

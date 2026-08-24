@@ -11,6 +11,8 @@ Content-Security-Policy 中间件
 
 import logging
 
+from typing import Any
+
 from django.conf import settings
 
 
@@ -44,13 +46,13 @@ class ContentSecurityPolicyMiddleware:
     - 通过 settings.CSP_DIRECTIVES 自定义策略
     """
 
-    def __init__(self, get_response):
+    def __init__(self, get_response: Any) -> None:
         self.get_response = get_response
         self._csp_header = "Content-Security-Policy-Report-Only" if settings.DEBUG else "Content-Security-Policy"
         directives = getattr(settings, "CSP_DIRECTIVES", _DEFAULT_CSP)
         self._csp_value = _build_csp_header(directives)
 
-    def __call__(self, request):
+    def __call__(self, request: Any) -> None:
         response = self.get_response(request)
         # 静态文件和 admin 页面不添加 CSP(由 Django 自行处理)
         path = request.path

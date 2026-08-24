@@ -5,6 +5,8 @@
 与 AssetOperationLog 结构一致,但不关联 Asset 模型。
 """
 
+from typing import Any
+
 from django.db import models
 
 
@@ -71,7 +73,7 @@ class AuditLog(models.Model):
     def __str__(self) -> str:
         return f"{self.app_label}-{self.operation_type}-{self.record_code}"
 
-    def save(self, *args, **kwargs):
+    def save(self, *args: Any, **kwargs: Any) -> None:
         if self.pk:
             raise PermissionError("审计日志是只读表,禁止修改已有记录")
         if not self.logging_id:
@@ -86,5 +88,5 @@ class AuditLog(models.Model):
             self.logging_id = f"{self.operation_type}-Log-{date_str}-{suffix}"
         super().save(*args, **kwargs)
 
-    def delete(self, *args, **kwargs):
+    def delete(self, *args: Any, **kwargs: Any) -> None:
         raise PermissionError("审计日志是只读表,禁止删除记录")

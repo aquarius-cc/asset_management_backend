@@ -19,6 +19,7 @@
             register_employee_provider(DjangoEmployeeProvider())
 """
 
+from typing import Any
 from apps.assetmanagement.interfaces import EmployeeDTO, EmployeeProvider
 from apps.usermanagement.models import Employee
 from apps.usermanagement.serializers import EmployeeSerializer
@@ -29,7 +30,7 @@ class DjangoEmployeeProvider(EmployeeProvider):
     Django ORM 实现的员工数据提供者
     """
 
-    def get_employee_queryset(self):
+    def get_employee_queryset(self) -> Any:
         """获取员工QuerySet(已过滤 employee_status='active')"""
         return Employee.objects.filter(employee_status="active")
 
@@ -46,7 +47,7 @@ class MockEmployeeProvider(EmployeeProvider):
     def __init__(self, employees: list[EmployeeDTO] | None = None):
         self._employees = employees or []
 
-    def get_employee_queryset(self):
+    def get_employee_queryset(self) -> Any:
         """获取Mock QuerySet"""
         return MockQuerySet(self._employees)
 
@@ -65,19 +66,19 @@ class MockQuerySet:
     def __init__(self, data: list[EmployeeDTO]):
         self._data = data
 
-    def __iter__(self):
+    def __iter__(self) -> None:
         return iter(self._data)
 
-    def __len__(self):
+    def __len__(self) -> None:
         return len(self._data)
 
-    def filter(self, **kwargs):
+    def filter(self, **kwargs: Any) -> None:
         """模拟filter方法"""
         # 简化实现,仅支持基本过滤
         result = self._data
         return MockQuerySet(result)
 
-    def all(self):
+    def all(self) -> None:
         """模拟all方法"""
         return MockQuerySet(self._data.copy())
 
@@ -89,12 +90,12 @@ class MockEmployeeSerializer:
     模拟 EmployeeSerializer 的基本行为,用于单元测试。
     """
 
-    def __init__(self, instance=None, data=None, **kwargs):
+    def __init__(self, instance: Any = None, data: Any = None, **kwargs: Any) -> None:
         self.instance = instance
         self._data = data
 
     @property
-    def data(self):
+    def data(self) -> None:
         """返回序列化后的数据"""
         if self.instance:
             return {

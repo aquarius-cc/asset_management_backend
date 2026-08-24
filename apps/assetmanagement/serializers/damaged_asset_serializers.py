@@ -10,6 +10,7 @@
 - DetailSerializer: 详情查询(嵌套对象,只读,完整)
 """
 
+from typing import Any
 from rest_framework import serializers
 
 from apps.assetmanagement.models import DamagedAsset
@@ -252,7 +253,7 @@ class DamagedAssetBatchDeleteSerializer(serializers.Serializer):
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     ids = serializers.ListField(child=serializers.CharField(), required=True, help_text="待报废记录编码列表")
 
-    def validate_ids(self, value):
+    def validate_ids(self, value: Any) -> None:
         if len(value) > self.MAX_BATCH_SIZE:
             raise serializers.ValidationError(f"单次批量删除不能超过 {self.MAX_BATCH_SIZE} 条")
         if len(value) != len(set(value)):

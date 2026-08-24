@@ -2,6 +2,8 @@
 仓库管理视图集
 """
 
+from typing import Any
+
 from django.db.models import Count, QuerySet
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, status, viewsets
@@ -58,7 +60,7 @@ class StorageViewSet(
             return StorageSelector.search_storages_by_keyword(keyword)
         return qs
 
-    def create(self, request, *args, **kwargs):
+    def create(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         operator_jobcode, operator_name = resolve_operator(request.user)
@@ -85,7 +87,7 @@ class StorageViewSet(
             type_stats[code] = {"name": type_dict.get(code, code), "count": item["count"]}
         return success_response(data={"total_storages": total, "by_type": type_stats})
 
-    def destroy(self, request, *args, **kwargs):
+    def destroy(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         storage = self.get_object()
         operator_jobcode, operator_name = resolve_operator(request.user)
         StorageService.delete_storage(
@@ -96,7 +98,7 @@ class StorageViewSet(
         return success_response(message="删除成功")
 
     @action(detail=False, methods=["post"], url_path="batch-delete")
-    def batch_delete(self, request):
+    def batch_delete(self, request: Any) -> None:
         serializer = StorageBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         operator_jobcode, operator_name = resolve_operator(request.user)
@@ -112,7 +114,7 @@ class StorageViewSet(
         )
 
     @action(detail=False, methods=["post"], url_path="batch-create")
-    def batch_create(self, request):
+    def batch_create(self, request: Any) -> None:
         serializer = StorageBatchCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         operator_jobcode, operator_name = resolve_operator(request.user)

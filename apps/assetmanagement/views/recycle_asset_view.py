@@ -2,6 +2,8 @@
 回收资产管理视图集
 """
 
+from typing import Any
+
 from django.db.models import QuerySet
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.openapi import OpenApiParameter  # type: ignore[attr-defined]
@@ -83,7 +85,7 @@ class RecycleAssetViewSet(
     export_filename = "recycle_assets_export.xlsx"
     export_sheet_name = "回收记录"
 
-    def get_permissions(self):
+    def get_permissions(self) -> Any:
         """RBAC: 写操作需 IsAssetAdminOrAbove+,读操作需认证"""
         if self.action in self.admin_actions:
             return [IsAssetAdminOrAbove()]
@@ -114,7 +116,7 @@ class RecycleAssetViewSet(
             qs = qs.filter(recycle_asset_date__lte=date_to)
         return qs
 
-    def create(self, request, *args, **kwargs):
+    def create(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         recycle = RecycleAssetService.create_recycle_asset(
@@ -126,7 +128,7 @@ class RecycleAssetViewSet(
             data=RecycleAssetCreateSerializer(recycle).data, message="回收成功", status_code=status.HTTP_201_CREATED
         )
 
-    def update(self, request, *args, **kwargs):
+    def update(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         recordcode = self.kwargs.get("recordcode")
         serializer = RecycleAssetUpdateSerializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -138,7 +140,7 @@ class RecycleAssetViewSet(
         )
         return success_response(data=RecycleAssetDetailSerializer(recycle).data, message="更新成功")
 
-    def partial_update(self, request, *args, **kwargs):
+    def partial_update(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         return self.update(request, *args, **kwargs)
 
     @action(detail=False, methods=["get"], url_path="by-asset/(?P<asset_recordcode_code>[^/.]+)")
@@ -168,7 +170,7 @@ class RecycleAssetViewSet(
         return success_response(data=serializer.data, message="查询成功")
 
     @action(detail=False, methods=["post"], url_path="batch-create")
-    def batch_create(self, request):
+    def batch_create(self, request: Any) -> None:
         serializer = RecycleAssetBatchCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -205,7 +207,7 @@ class RecycleAssetViewSet(
             request_items=serializer.initial_data.get("items"),
         )
 
-    def destroy(self, request, *args, **kwargs):
+    def destroy(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         asset_recordcode = self.get_object()
         result = RecycleAssetService.batch_delete_recycle_asset(
             recordcodes=[asset_recordcode.recordcode],
@@ -221,7 +223,7 @@ class RecycleAssetViewSet(
         return success_response(message="删除成功")
 
     @action(detail=False, methods=["post"], url_path="batch-delete")
-    def batch_delete(self, request):
+    def batch_delete(self, request: Any) -> None:
         serializer = RecycleAssetBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         result = RecycleAssetService.batch_delete_recycle_asset(
@@ -236,7 +238,7 @@ class RecycleAssetViewSet(
         )
 
     @action(detail=True, methods=["post"], url_path="cancel", permission_classes=[IsAssetAdminOrAbove])
-    def cancel_recycle(self, request, recordcode=None):
+    def cancel_recycle(self, request: Any, recordcode: Any = None) -> None:
         """POST /recycle-assets/{recordcode}/cancel/ — 取消回收,恢复资产到在用状态"""
         recycle = self.get_object()
         result = RecycleAssetService.batch_delete_recycle_asset(
@@ -253,7 +255,7 @@ class RecycleAssetViewSet(
         return success_response(message="取消回收成功,资产状态已恢复为在用")
 
     @action(detail=True, methods=["post"], url_path="reissue", permission_classes=[IsAssetAdminOrAbove])
-    def reissue(self, request, recordcode=None):
+    def reissue(self, request: Any, recordcode: Any = None) -> None:
         """POST /recycle-assets/{recordcode}/reissue/ — 重新发放已回收资产"""
         outasset = RecycleAssetService.reissue_recycle_asset(
             recordcode=recordcode,

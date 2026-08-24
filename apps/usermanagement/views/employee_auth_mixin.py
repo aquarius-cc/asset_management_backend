@@ -6,6 +6,7 @@
 供 EmployeeViewSet 继承复用。
 """
 
+from typing import Any
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.decorators import action
@@ -23,7 +24,7 @@ class EmployeeAuthMixin:
     """员工认证账号绑定/权限查询动作集合。"""
 
     @action(detail=False, methods=["get"], url_path="(?P<employee_jobcode>[^/.]+)/permissions")
-    def get_employee_permissions(self, request, employee_jobcode=None):
+    def get_employee_permissions(self, request: Any, employee_jobcode: Any = None) -> Any:
         """
         根据员工工号查询员工权限
 
@@ -100,7 +101,7 @@ class EmployeeAuthMixin:
         responses={200: EmployeeDetailSerializer, 400: OpenApiResponse(description="绑定冲突或参数错误")},
     )
     @action(detail=True, methods=["post"], url_path="bind-auth-user")
-    def bind_auth_user(self, request, pk=None):
+    def bind_auth_user(self, request: Any, pk: Any = None) -> None:
         """
         绑定认证账号到员工
 
@@ -131,7 +132,7 @@ class EmployeeAuthMixin:
         responses={200: EmployeeDetailSerializer, 400: OpenApiResponse(description="员工未绑定认证账号")},
     )
     @action(detail=True, methods=["post"], url_path="unbind-auth-user")
-    def unbind_auth_user(self, request, pk=None):
+    def unbind_auth_user(self, request: Any, pk: Any = None) -> None:
         """
         解绑员工的认证账号
 
@@ -165,7 +166,7 @@ class EmployeeAuthMixin:
         responses={200: EmployeeDetailSerializer, 400: OpenApiResponse(description="替换冲突或参数错误")},
     )
     @action(detail=True, methods=["post"], url_path="replace-auth-user")
-    def replace_auth_user(self, request, pk=None):
+    def replace_auth_user(self, request: Any, pk: Any = None) -> None:
         """
         替换员工的认证账号
 

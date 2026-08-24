@@ -2,6 +2,8 @@
 资产管理视图集
 """
 
+from typing import Any
+
 from django.db.models import Q, QuerySet
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.openapi import OpenApiParameter  # type: ignore[attr-defined]
@@ -88,7 +90,7 @@ class AssetViewSet(
     export_filename = "assets_export.xlsx"
     export_sheet_name = "资产列表"
 
-    def get_permissions(self):
+    def get_permissions(self) -> Any:
         """RBAC: 写操作需 asset_admin+,读操作需认证"""
         if self.action in self.admin_actions:
             return [IsAssetAdminOrAbove()]
@@ -124,7 +126,7 @@ class AssetViewSet(
         """对自定义 Action 构建的 Asset QuerySet 施加 RBAC 部门范围"""
         return AssetSelector.apply_user_scope(queryset, self.request.user)
 
-    def create(self, request, *args, **kwargs):
+    def create(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         assets = AssetService.create_asset(
@@ -137,7 +139,7 @@ class AssetViewSet(
         message = f"创建成功,共创建 {count} 条资产记录" if count > 1 else "创建成功"
         return success_response(data=response_serializer.data, message=message, status_code=status.HTTP_201_CREATED)
 
-    def update(self, request, *args, **kwargs):
+    def update(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         asset = self.get_object()
         asset_code = asset.asset_code
         asset = AssetService.update_asset(
@@ -149,10 +151,10 @@ class AssetViewSet(
         serializer = AssetDetailSerializer(asset)
         return success_response(data=serializer.data, message="更新成功")
 
-    def partial_update(self, request, *args, **kwargs):
+    def partial_update(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         return self.update(request, *args, **kwargs)
 
-    def destroy(self, request, *args, **kwargs):
+    def destroy(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         asset = self.get_object()
         asset_code = asset.asset_code
         AssetService.delete_asset(
@@ -334,7 +336,7 @@ class AssetViewSet(
         return success_response(data=serializer.data, message="查询成功")
 
     @action(detail=False, methods=["post"], url_path="batch-create")
-    def batch_create(self, request):
+    def batch_create(self, request: Any) -> None:
         serializer = AssetBatchCreateSerializer(data=request.data)
         if not serializer.is_valid():
             return error_response(message="参数验证失败", status_code=400, errors=serializer.errors)
@@ -352,7 +354,7 @@ class AssetViewSet(
         )
 
     @action(detail=False, methods=["post"], url_path="batch-delete")
-    def batch_delete(self, request):
+    def batch_delete(self, request: Any) -> None:
         serializer = AssetBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         ids = serializer.validated_data["ids"]
@@ -377,7 +379,7 @@ class AssetViewSet(
         )
 
     @action(detail=True, methods=["post"], url_path="mark-broken", permission_classes=[IsAssetAdminOrAbove])
-    def mark_broken(self, request, recordcode=None):
+    def mark_broken(self, request: Any, recordcode: Any = None) -> None:
         """POST /assets/{recordcode}/mark-broken/ — 标记资产损坏"""
         asset = self.get_object()
         asset = AssetService.mark_asset_broken(
@@ -390,7 +392,7 @@ class AssetViewSet(
         return success_response(data=AssetDetailSerializer(asset).data, message="资产已标记为损坏")
 
     @action(detail=True, methods=["post"], url_path="mark-lost", permission_classes=[IsAssetAdminOrAbove])
-    def mark_lost(self, request, recordcode=None):
+    def mark_lost(self, request: Any, recordcode: Any = None) -> None:
         """POST /assets/{recordcode}/mark-lost/ — 标记资产遗失"""
         asset = self.get_object()
         asset = AssetService.mark_asset_lost(
@@ -404,7 +406,7 @@ class AssetViewSet(
         return success_response(data=AssetDetailSerializer(asset).data, message="资产已标记为遗失")
 
     @action(detail=True, methods=["post"], url_path="found")
-    def found_and_return(self, request, recordcode=None):
+    def found_and_return(self, request: Any, recordcode: Any = None) -> None:
         asset = self.get_object()
         asset = AssetService.find_and_return_asset(
             asset_code=asset.asset_code,
@@ -416,7 +418,7 @@ class AssetViewSet(
         return success_response(data=AssetDetailSerializer(asset).data, message="遗失资产已找回并入库")
 
     @action(detail=True, methods=["post"], url_path="repair")
-    def repair(self, request, recordcode=None):
+    def repair(self, request: Any, recordcode: Any = None) -> None:
         asset = self.get_object()
         from apps.assetmanagement.serializers.repair_asset_serializers import RepairAssetDetailSerializer
 
@@ -433,7 +435,7 @@ class AssetViewSet(
         )
 
     @action(detail=True, methods=["post"], url_path="repair-done")
-    def repair_done(self, request, recordcode=None):
+    def repair_done(self, request: Any, recordcode: Any = None) -> None:
         asset = self.get_object()
         from apps.assetmanagement.serializers.repair_asset_serializers import RepairAssetDetailSerializer
 
@@ -447,7 +449,7 @@ class AssetViewSet(
         return success_response(data=RepairAssetDetailSerializer(repair_record).data, message="Repair completed")
 
     @action(detail=True, methods=["post"], url_path="repair-failed")
-    def repair_failed(self, request, recordcode=None):
+    def repair_failed(self, request: Any, recordcode: Any = None) -> None:
         asset = self.get_object()
         from apps.assetmanagement.serializers.repair_asset_serializers import RepairAssetDetailSerializer
 
@@ -464,7 +466,7 @@ class AssetViewSet(
     # =====================================================================
 
     @action(detail=True, methods=["get"], url_path="logs", permission_classes=[permissions.IsAuthenticated])
-    def status_log(self, request, recordcode=None):
+    def status_log(self, request: Any, recordcode: Any = None) -> None:
         """GET /assets/{recordcode}/logs/ — 获取资产状态变更日志"""
         asset = self.get_object()
         from apps.assetmanagement.selectors import AssetSelector
@@ -475,7 +477,7 @@ class AssetViewSet(
         return success_response(data=AssetOperationLogSerializer(logs, many=True).data)
 
     @action(detail=True, methods=["get"], url_path="qr-code-image", permission_classes=[permissions.IsAuthenticated])
-    def qr_code_image(self, request, recordcode=None):
+    def qr_code_image(self, request: Any, recordcode: Any = None) -> None:
         """GET /assets/{recordcode}/qr-code-image/ — 生成资产二维码 PNG 图片"""
         asset = self.get_object()
         try:

@@ -5,6 +5,8 @@
 
 import logging
 
+from typing import Any
+
 from django.core.management.base import BaseCommand
 
 from apps.assetmanagement.models import Asset, OutAsset, RepairAsset
@@ -16,7 +18,7 @@ logger = logging.getLogger(__name__)
 class Command(BaseCommand):
     help = "每日数据一致性检查:验证资产状态与业务记录的一致性"
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> None:
         issues = []
 
         # 检查1: broken 状态资产应有进行中维修记录

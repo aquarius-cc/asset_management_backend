@@ -305,7 +305,7 @@ class AssetCreateSerializer(serializers.ModelSerializer):
             "asset_description": {"required": False, "allow_blank": True, "allow_null": True},
         }
 
-    def validate_asset_purchase_price(self, value):
+    def validate_asset_purchase_price(self, value: Any) -> None:
         if isinstance(value, (int, float)):
             return Decimal(str(value))
         return value
@@ -405,7 +405,7 @@ class CombineSearchSerializer(serializers.Serializer):
     asset_storage = serializers.CharField(required=False, allow_blank=True)
     asset_contract = serializers.CharField(required=False, allow_blank=True)
 
-    def validate(self, attrs):
+    def validate(self, attrs: Any) -> None:
         # 去除空字符串,统一转为 None 或空值,便于后续过滤
         for key, value in attrs.items():
             if value == "":

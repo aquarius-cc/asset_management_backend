@@ -7,6 +7,7 @@ WebSocket 通知消费者 (JWT 最小认证)
 - 心跳保活
 """
 
+from typing import Any
 import json
 import logging
 
@@ -145,7 +146,7 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         )
 
     @database_sync_to_async
-    def mark_notification_read(self, notification_id):
+    def mark_notification_read(self, notification_id: Any) -> None:
         """标记通知为已读(仅限本 jobcode 的通知)"""
         from apps.notification.models import Notification
 

@@ -13,13 +13,15 @@
 注意:使用延迟导入避免循环依赖(core → usermanagement → core)。
 """
 
+from typing import Any
+
 from rest_framework import permissions
 
 
 class IsOwnerOrReadOnly(permissions.BasePermission):
     """只有资源所有者才能修改,其他用户只能读取"""
 
-    def has_object_permission(self, request, view, obj):
+    def has_object_permission(self, request: Any, view: Any, obj: Any) -> bool:
         if request.method in permissions.SAFE_METHODS:
             return True
         if hasattr(obj, "owner"):
@@ -36,14 +38,14 @@ class IsAdminUser(permissions.BasePermission):
     新代码应使用 IsSystemAdmin / IsAssetAdminOrAbove 等 RBAC 权限类。
     """
 
-    def has_permission(self, request, view):
+    def has_permission(self, request: Any, view: Any) -> bool:
         return bool(request.user and request.user.is_authenticated and request.user.is_staff)
 
 
 class IsAuthenticatedUser(permissions.BasePermission):
     """需要登录才能访问"""
 
-    def has_permission(self, request, view):
+    def has_permission(self, request: Any, view: Any) -> bool:
         return bool(request.user and request.user.is_authenticated)
 
 
@@ -85,7 +87,7 @@ class IsSystemAdmin(permissions.BasePermission):
     适用场景:系统配置(类型/仓库/合同/员工/部门/用户管理)
     """
 
-    def has_permission(self, request, view):
+    def has_permission(self, request: Any, view: Any) -> bool:
         if not (request.user and request.user.is_authenticated):
             return False
         return _get_user_role(request.user) == _ROLE_SYSTEM_ADMIN
@@ -98,7 +100,7 @@ class IsDeptManagerOrAbove(permissions.BasePermission):
     适用场景:报废审批、未登记资产处理
     """
 
-    def has_permission(self, request, view):
+    def has_permission(self, request: Any, view: Any) -> bool:
         if not (request.user and request.user.is_authenticated):
             return False
         role = _get_user_role(request.user)
@@ -112,7 +114,7 @@ class IsAssetAdminOrAbove(permissions.BasePermission):
     适用场景:资产增删改、出库/回收、损坏/遗失登记
     """
 
-    def has_permission(self, request, view):
+    def has_permission(self, request: Any, view: Any) -> bool:
         if not (request.user and request.user.is_authenticated):
             return False
         role = _get_user_role(request.user)
@@ -126,7 +128,7 @@ class IsAuditorOrAdmin(permissions.BasePermission):
     适用场景:审计日志查看(全部数据)
     """
 
-    def has_permission(self, request, view):
+    def has_permission(self, request: Any, view: Any) -> bool:
         if not (request.user and request.user.is_authenticated):
             return False
         role = _get_user_role(request.user)

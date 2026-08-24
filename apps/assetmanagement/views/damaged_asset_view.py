@@ -5,6 +5,8 @@
 业务流程:待报废审批通过后,自动流转为已报废资产。
 """
 
+from typing import Any
+
 from django.db.models import Count
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -66,7 +68,7 @@ class DamagedAssetViewSet(
     export_filename = "damaged_assets_export.xlsx"
     export_sheet_name = "待报废资产"
 
-    def get_permissions(self):
+    def get_permissions(self) -> Any:
         """RBAC: 写操作需 IsDeptManagerOrAbove+,读操作需认证"""
         if self.action in self.admin_actions:
             return [IsDeptManagerOrAbove()]
@@ -89,11 +91,11 @@ class DamagedAssetViewSet(
             return DamagedAssetApproveSerializer
         return DamagedAssetDetailSerializer
 
-    def get_queryset(self):
+    def get_queryset(self) -> Any:
         # RBAC 行级数据隔离(所有动作统一限权)
         return DamagedAssetSelector.get_queryset_for_user(self.request.user).with_asset_details()  # type: ignore[attr-defined]
 
-    def destroy(self, request, *args, **kwargs):
+    def destroy(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         obj = self.get_object()
         asset_recordcode = obj.asset_recordcode.recordcode if obj.asset_recordcode else None
         if not asset_recordcode:
@@ -105,7 +107,7 @@ class DamagedAssetViewSet(
         )
         return success_response(message="取消待报废申请成功")
 
-    def create(self, request, *args, **kwargs):
+    def create(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         damaged_data = serializer.validated_data
@@ -124,7 +126,7 @@ class DamagedAssetViewSet(
             status_code=status.HTTP_201_CREATED,
         )
 
-    def update(self, request, *args, **kwargs):
+    def update(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         """BE-H2: 通过 Service 层更新,含 select_for_update + @transaction.atomic"""
         obj = self.get_object()
         updated = DamagedAssetService.update_damaged_asset(
@@ -133,7 +135,7 @@ class DamagedAssetViewSet(
         )
         return success_response(data=DamagedAssetUpdateSerializer(updated).data, message="更新待报废记录成功")
 
-    def partial_update(self, request, *args, **kwargs):
+    def partial_update(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         """BE-H2: 通过 Service 层更新,含 select_for_update + @transaction.atomic"""
         obj = self.get_object()
         updated = DamagedAssetService.update_damaged_asset(
@@ -198,7 +200,7 @@ class DamagedAssetViewSet(
         return success_response(data={"total_damaged": total, "by_status": by_status})
 
     @action(detail=False, methods=["post"], url_path="batch-delete")
-    def batch_delete(self, request):
+    def batch_delete(self, request: Any) -> None:
         serializer = DamagedAssetBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         ids = serializer.validated_data["ids"]

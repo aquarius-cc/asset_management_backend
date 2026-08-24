@@ -15,7 +15,7 @@ class EmployeeAuditAdapter:
     """员工审计适配器"""
 
     @staticmethod
-    def log_create(employee, operator_jobcode: str | None = None, operator_name: str | None = None):
+    def log_create(employee: Any, operator_jobcode: str | None = None, operator_name: str | None = None) -> None:
         try:
             from core.audit_service import GenericAuditService
 

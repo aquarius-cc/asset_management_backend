@@ -24,7 +24,8 @@ from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
 from rest_framework.filters import OrderingFilter, SearchFilter
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import BasePermission, IsAuthenticated
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
@@ -48,7 +49,7 @@ from utils.response_utils import error_response, success_response
 from utils.user_utils import resolve_operator
 
 
-class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet[UnregisteredAsset]):
+class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet[UnregisteredAsset]):  # type: ignore[misc]
     """
     未登记资产视图集
 
@@ -83,9 +84,9 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet[
     lookup_field = "unregistered_code"
     # 【P2-05 修复】移除未使用的 filter_mappings(DRF DjangoFilterBackend 已通过 filterset_fields 处理)
 
-    def get_permissions(self):
+    def get_permissions(self) -> list[BasePermission]:
         if self.action in ["destroy", "batch_delete"]:
-            permission_classes = [IsSystemAdmin]
+            permission_classes: list[type[BasePermission]] = [IsSystemAdmin]
         elif self.action == "approve":
             permission_classes = [IsDeptManagerOrAbove]
         else:
@@ -114,7 +115,7 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet[
         }
         return serializer_map.get(action, UnregisteredAssetListSerializer)
 
-    def create(self, request) -> Response:
+    def create(self, request: Request) -> Response:
         """
         创建未登记资产申请
 
@@ -146,7 +147,7 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet[
 
         return success_response(detail_serializer.data)
 
-    def update(self, request, unregistered_code: str | None = None) -> Response:
+    def update(self, request: Request, unregistered_code: str | None = None) -> Response:
         """
         更新未登记资产信息
 
@@ -159,7 +160,7 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet[
         Returns:
             Response: 更新后的数据
         """
-        instance = UnregisteredAssetSelector.get_by_code(unregistered_code)
+        instance = UnregisteredAssetSelector.get_by_code(unregistered_code)  # type: ignore[arg-type]
         if not instance:
             raise NotFound(detail=f"未登记资产 {unregistered_code} 不存在")
 
@@ -169,7 +170,7 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet[
         operator_jobcode, operator_name = resolve_operator(request.user)
 
         updated = UnregisteredAssetService.update(
-            unregistered_code=unregistered_code,
+            unregistered_code=unregistered_code,  # type: ignore[arg-type]
             update_data=serializer.validated_data,
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
@@ -179,7 +180,7 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet[
 
         return success_response(detail_serializer.data)
 
-    def destroy(self, request, unregistered_code: str | None = None) -> Response:
+    def destroy(self, request: Request, unregistered_code: str | None = None) -> Response:
         """
         删除未登记资产(软删除)
 
@@ -189,20 +190,20 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet[
         Returns:
             Response: 删除成功响应
         """
-        instance = UnregisteredAssetSelector.get_by_code(unregistered_code)
+        instance = UnregisteredAssetSelector.get_by_code(unregistered_code)  # type: ignore[arg-type]
         if not instance:
             raise NotFound(detail=f"未登记资产 {unregistered_code} 不存在")
 
         operator_jobcode, operator_name = resolve_operator(request.user)
 
         UnregisteredAssetService.delete(
-            unregistered_code=unregistered_code, operator_jobcode=operator_jobcode, operator_name=operator_name
+            unregistered_code=unregistered_code,  # type: ignore[arg-type] operator_jobcode=operator_jobcode, operator_name=operator_name
         )
 
         return success_response(None)
 
     @action(detail=True, methods=["post"], url_path="approve")
-    def approve(self, request, unregistered_code: str | None = None) -> Response:
+    def approve(self, request: Request, unregistered_code: str | None = None) -> Response:
         """
         审批处理未登记资产
 

@@ -35,20 +35,20 @@ class LoggingMixin:
     def perform_create(self, serializer: Serializer[Any]) -> None:
         """创建操作前记录日志"""
         action = f"创建 {serializer.Meta.model.__name__ if hasattr(serializer, 'Meta') and hasattr(serializer.Meta, 'model') else '资源'}"
-        logger.info(f"[操作日志] {action} - 用户: {self.request.user}")
-        super().perform_create(serializer)
+        logger.info(f"[操作日志] {action} - 用户: {self.request.user}")  # type: ignore[attr-defined]
+        super().perform_create(serializer)  # type: ignore[misc]
 
     def perform_update(self, serializer: Serializer[Any]) -> None:
         """更新操作前记录日志"""
         action = f"更新 {serializer.Meta.model.__name__ if hasattr(serializer, 'Meta') and hasattr(serializer.Meta, 'model') else '资源'}"
-        logger.info(f"[操作日志] {action} - 用户: {self.request.user}")
-        super().perform_update(serializer)
+        logger.info(f"[操作日志] {action} - 用户: {self.request.user}")  # type: ignore[attr-defined]
+        super().perform_update(serializer)  # type: ignore[misc]
 
     def perform_destroy(self, instance: Any) -> None:
         """删除操作前记录日志"""
         action = f"删除 {instance.__class__.__name__}"
-        logger.info(f"[操作日志] {action} - 用户: {self.request.user}")
-        super().perform_destroy(instance)
+        logger.info(f"[操作日志] {action} - 用户: {self.request.user}")  # type: ignore[attr-defined]
+        super().perform_destroy(instance)  # type: ignore[misc]
 
 
 class GetSerializerClassMixin:
@@ -71,9 +71,9 @@ class GetSerializerClassMixin:
 
     def get_serializer_class(self) -> type[Serializer[Any]]:
         """根据当前动作返回对应的序列化器"""
-        if self.action in self.serializer_action_classes:
-            return self.serializer_action_classes[self.action]
-        return super().get_serializer_class()
+        if self.action in self.serializer_action_classes:  # type: ignore[attr-defined]
+            return self.serializer_action_classes[self.action]  # type: ignore[attr-defined]
+        return super().get_serializer_class()  # type: ignore[no-any-return, misc]  # type: ignore[no-any-return]
 
 
 class ResponseWrapperMixin:
@@ -98,16 +98,16 @@ class ResponseWrapperMixin:
         3. 如果无分页参数 → 手动包装 success_response
         """
         try:
-            queryset = self.filter_queryset(self.get_queryset())
+            queryset = self.filter_queryset(self.get_queryset())  # type: ignore[attr-defined]
 
             # 尝试分页
-            page = self.paginate_queryset(queryset)
+            page = self.paginate_queryset(queryset)  # type: ignore[attr-defined]
             if page is not None:
-                serializer = self.get_serializer(page, many=True)
-                return self.get_paginated_response(serializer.data)
+                serializer = self.get_serializer(page, many=True)  # type: ignore[attr-defined]
+                return self.get_paginated_response(serializer.data)  # type: ignore[attr-defined, no-any-return]
 
             # 无分页参数时,手动包装
-            serializer = self.get_serializer(queryset, many=True)
+            serializer = self.get_serializer(queryset, many=True)  # type: ignore[attr-defined]
             return success_response(data={"count": queryset.count(), "results": serializer.data}, message="查询成功")
         except APIException:
             # 【修复 S9】让 DRF APIException 正常传播,不吞掉
@@ -130,9 +130,9 @@ class ResponseWrapperMixin:
         3. 返回成功响应
         """
         try:
-            serializer = self.get_serializer(data=request.data)
+            serializer = self.get_serializer(data=request.data)  # type: ignore[attr-defined]
             serializer.is_valid(raise_exception=True)
-            self.perform_create(serializer)
+            self.perform_create(serializer)  # type: ignore[attr-defined]
 
             return success_response(data=serializer.data, message="创建成功", status_code=status.HTTP_201_CREATED)
         except APIException:
@@ -152,8 +152,8 @@ class ResponseWrapperMixin:
         3. 返回成功响应
         """
         try:
-            instance = self.get_object()
-            serializer = self.get_serializer(instance)
+            instance = self.get_object()  # type: ignore[attr-defined]
+            serializer = self.get_serializer(instance)  # type: ignore[attr-defined]
             return success_response(data=serializer.data, message="查询成功")
         except Http404:
             logger.warning("资源不存在")
@@ -177,10 +177,10 @@ class ResponseWrapperMixin:
         """
         try:
             partial = kwargs.pop("partial", False)
-            instance = self.get_object()
-            serializer = self.get_serializer(instance, data=request.data, partial=partial)
+            instance = self.get_object()  # type: ignore[attr-defined]
+            serializer = self.get_serializer(instance, data=request.data, partial=partial)  # type: ignore[attr-defined]
             serializer.is_valid(raise_exception=True)
-            self.perform_update(serializer)
+            self.perform_update(serializer)  # type: ignore[attr-defined]
 
             return success_response(data=serializer.data, message="更新成功")
         except APIException:
@@ -200,8 +200,8 @@ class ResponseWrapperMixin:
         3. 返回成功响应
         """
         try:
-            instance = self.get_object()
-            self.perform_destroy(instance)
+            instance = self.get_object()  # type: ignore[attr-defined]
+            self.perform_destroy(instance)  # type: ignore[attr-defined]
 
             return success_response(data={}, message="删除成功", status_code=status.HTTP_200_OK)
         except Http404:
@@ -228,7 +228,7 @@ class PaginateAndRespondMixin:
                 return self._paginate_and_respond(records)
     """
 
-    def _paginate_and_respond(self, queryset):
+    def _paginate_and_respond(self, queryset: Any) -> Response:
         """
         分页并返回统一响应
 
@@ -238,9 +238,9 @@ class PaginateAndRespondMixin:
         Returns:
             Response: 分页响应或全部数据响应
         """
-        page = self.paginate_queryset(queryset)
+        page = self.paginate_queryset(queryset)  # type: ignore[attr-defined]
         if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-        serializer = self.get_serializer(queryset, many=True)
+            serializer = self.get_serializer(page, many=True)  # type: ignore[attr-defined]
+            return self.get_paginated_response(serializer.data)  # type: ignore[attr-defined, no-any-return]
+        serializer = self.get_serializer(queryset, many=True)  # type: ignore[attr-defined]
         return success_response(data=serializer.data)

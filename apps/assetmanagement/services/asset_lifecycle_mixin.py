@@ -7,6 +7,8 @@
 被 AssetService 继承以保持统一 API。
 """
 
+from typing import Any
+
 from django.db import transaction
 
 from apps.assetmanagement.audit import AuditLogger
@@ -151,7 +153,7 @@ class AssetLifecycleMixin:
         recordcode: str,
         operator_jobcode: str = "",
         operator_name: str = "",
-    ) -> dict:
+    ) -> dict[str, Any]:
         """软删除维修记录(进行中的记录拒绝,防止资产卡死 repairing)"""
         from apps.assetmanagement.models import RepairAsset
 
@@ -169,9 +171,9 @@ class AssetLifecycleMixin:
         obj.save(update_fields=["is_deleted", "updated_at"])
 
         AuditLogger.log_operation(
-            asset_code=obj.asset_recordcode.asset_code,
-            asset_name=obj.asset_recordcode.asset_name,
-            asset_specification=obj.asset_recordcode.asset_specification,
+            asset_code=obj.asset_recordcode.asset_code,  # type: ignore[union-attr]
+            asset_name=obj.asset_recordcode.asset_name,  # type: ignore[union-attr]
+            asset_specification=obj.asset_recordcode.asset_specification,  # type: ignore[union-attr]
             operation_type=AssetOperationLog.OperationType.DELETE,
             description=f"维修记录删除: {recordcode}",
             operator_jobcode=operator_jobcode,
@@ -185,16 +187,16 @@ class AssetLifecycleMixin:
         recordcode: str,
         operator_jobcode: str = "",
         operator_name: str = "",
-    ) -> dict:
+    ) -> dict[str, Any]:
         """软删除损坏资产记录(事务包裹、逐条校验、审计日志)"""
         obj = BrokenAsset.objects.select_for_update().get(recordcode=recordcode, is_deleted=False)
         obj.is_deleted = True
         obj.save(update_fields=["is_deleted", "updated_at"])
 
         AuditLogger.log_operation(
-            asset_code=obj.asset_recordcode.asset_code,
-            asset_name=obj.asset_recordcode.asset_name,
-            asset_specification=obj.asset_recordcode.asset_specification,
+            asset_code=obj.asset_recordcode.asset_code,  # type: ignore[union-attr]
+            asset_name=obj.asset_recordcode.asset_name,  # type: ignore[union-attr]
+            asset_specification=obj.asset_recordcode.asset_specification,  # type: ignore[union-attr]
             operation_type=AssetOperationLog.OperationType.DELETE,
             description=f"损坏资产记录删除: {recordcode}",
             operator_jobcode=operator_jobcode,
@@ -208,16 +210,16 @@ class AssetLifecycleMixin:
         recordcode: str,
         operator_jobcode: str = "",
         operator_name: str = "",
-    ) -> dict:
+    ) -> dict[str, Any]:
         """软删除遗失资产记录(事务包裹、逐条校验、审计日志)"""
         obj = LostAsset.objects.select_for_update().get(recordcode=recordcode, is_deleted=False)
         obj.is_deleted = True
         obj.save(update_fields=["is_deleted", "updated_at"])
 
         AuditLogger.log_operation(
-            asset_code=obj.asset_recordcode.asset_code,
-            asset_name=obj.asset_recordcode.asset_name,
-            asset_specification=obj.asset_recordcode.asset_specification,
+            asset_code=obj.asset_recordcode.asset_code,  # type: ignore[union-attr]
+            asset_name=obj.asset_recordcode.asset_name,  # type: ignore[union-attr]
+            asset_specification=obj.asset_recordcode.asset_specification,  # type: ignore[union-attr]
             operation_type=AssetOperationLog.OperationType.DELETE,
             description=f"遗失资产记录删除: {recordcode}",
             operator_jobcode=operator_jobcode,
@@ -231,7 +233,7 @@ class AssetLifecycleMixin:
         recordcode: str,
         operator_jobcode: str = "",
         operator_name: str = "",
-    ) -> dict:
+    ) -> dict[str, Any]:
         """软删除找回资产记录(事务包裹、逐条校验、审计日志)"""
         obj = FoundAsset.objects.select_for_update().get(recordcode=recordcode, is_deleted=False)
         obj.is_deleted = True
@@ -250,14 +252,14 @@ class AssetLifecycleMixin:
 
     @staticmethod
     def batch_create_broken_assets(
-        items: list[dict],
+        items: list[dict[str, Any]],
         operator_jobcode: str = "",
         operator_name: str = "",
-    ) -> dict:
+    ) -> dict[str, Any]:
         """批量创建损坏资产记录"""
         from core.batch_mixins import BatchOperationMixin
 
-        def _create_one(idx: int, item: dict):
+        def _create_one(idx: int, item: dict[str, Any]) -> Asset:
             return AssetLifecycleMixin.mark_asset_broken(
                 asset_code=item["asset_recordcode"],
                 broken_reason=item["broken_reason"],
@@ -272,14 +274,14 @@ class AssetLifecycleMixin:
 
     @staticmethod
     def batch_create_lost_assets(
-        items: list[dict],
+        items: list[dict[str, Any]],
         operator_jobcode: str = "",
         operator_name: str = "",
-    ) -> dict:
+    ) -> dict[str, Any]:
         """批量创建遗失资产记录"""
         from core.batch_mixins import BatchOperationMixin
 
-        def _create_one(idx: int, item: dict):
+        def _create_one(idx: int, item: dict[str, Any]) -> Asset:
             return AssetLifecycleMixin.mark_asset_lost(
                 asset_code=item["asset_code"],
                 lost_reason=item["lost_reason"],

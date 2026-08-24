@@ -27,9 +27,10 @@ import logging
 from collections.abc import Callable
 from typing import Any, TypeVar
 
+from rest_framework import serializers
+
 from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError
-from rest_framework import serializers
 from utils.response_utils import success_response
 
 

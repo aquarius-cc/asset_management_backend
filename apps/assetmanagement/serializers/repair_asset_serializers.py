@@ -2,7 +2,6 @@
 RepairAsset serializers
 """
 
-from typing import Any
 
 from rest_framework import serializers
 

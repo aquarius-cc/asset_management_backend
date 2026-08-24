@@ -10,7 +10,6 @@
 - DetailSerializer: 详情查询(嵌套对象,只读,完整)
 """
 
-from typing import Any
 
 from rest_framework import serializers
 

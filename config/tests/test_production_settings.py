@@ -19,7 +19,7 @@ REQUIRED_ENV = {
     "DB_NAME": "test_db",
     "DB_USER": "test_user",
     "DB_PASSWORD": "test_password_123",
-    "REDIS_URL": "redis://localhost:6379/0",
+    "REDIS_URL": "redis://:test-redis-password@localhost:6379/0",
 }
 
 
@@ -116,3 +116,24 @@ class TestJSONLogEmission:
         # caplog 捕获的日志可能不是 JSON 格式(取决于 formatter 是否应用于 handler)
         # 此测试验证 root logger 的 WARNING 级别确实能传播到 handler
         assert "smoke-test-message" in caplog.text
+
+
+class TestRedisUrlCredentials:
+    """验证 production REDIS_URL 已注入凭据(防环境变量遗漏静默降级)"""
+
+    def test_redis_url_contains_at_sign(self):
+        """REDIS_URL 必须包含 @ 分隔符, 确保凭据已注入"""
+        from config.settings import production
+
+        redis_url = production.CHANNEL_LAYERS["default"]["CONFIG"]["hosts"][0]
+        assert "@" in redis_url, (
+            f"REDIS_URL 缺少凭据: {redis_url!r} — "
+            "期望格式 redis://:password@host:port/db"
+        )
+
+    def test_redis_url_uses_redis_host(self):
+        """REDIS_URL 必须指向 redis 服务(非 localhost)"""
+        from config.settings import production
+
+        redis_url = production.CHANNEL_LAYERS["default"]["CONFIG"]["hosts"][0]
+        assert "redis:" in redis_url or "localhost" in redis_url

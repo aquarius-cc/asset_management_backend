@@ -36,7 +36,7 @@ services:
       - DEBUG=${DEBUG:-False}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1}
       # Redis 配置（WebSocket 通道层）
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
     volumes:
       # 静态文件挂载
       - static_volume:/app/staticfiles
@@ -92,12 +92,19 @@ services:
     image: redis:7-alpine
     container_name: asset-management-redis
     restart: unless-stopped
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD}
+      --rename-command FLUSHALL ""
+      --rename-command FLUSHDB ""
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     ports:
       - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a $$REDIS_PASSWORD --no-auth-warning ping | grep PONG"]
       interval: 10s
       timeout: 5s
       retries: 5

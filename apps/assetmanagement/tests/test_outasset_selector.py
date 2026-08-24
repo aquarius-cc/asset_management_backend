@@ -32,42 +32,6 @@ class TestOutAssetSelector:
         queryset = OutAssetSelector.get_queryset_for_user(auth_user)
         assert queryset.count() == 1
 
-    def test_get_outassets_for_list(self, asset, user):
-        """获取列表视图的出库记录"""
-        _ = OutAsset.objects.create(
-            asset_recordcode=asset,
-            outasset_date="2024-01-01",
-        )
-        queryset = OutAssetSelector.get_outassets_for_list()
-        assert queryset.count() == 1
-
-    def test_get_outassets_with_asset_details(self, asset, user):
-        """获取包含资产详情的出库记录"""
-        _ = OutAsset.objects.create(
-            asset_recordcode=asset,
-            outasset_date="2024-01-01",
-        )
-        queryset = OutAssetSelector.get_outassets_with_asset_details()
-        assert queryset.count() == 1
-
-    def test_get_asset_recordcodes_for_list(self, asset, user):
-        """获取资产记录码列表"""
-        _ = OutAsset.objects.create(
-            asset_recordcode=asset,
-            outasset_date="2024-01-01",
-        )
-        queryset = OutAssetSelector.get_asset_recordcodes_for_list()
-        assert queryset.count() == 1
-
-    def test_get_asset_recordcodes_with_asset_details(self, asset, user):
-        """获取包含资产详情的记录码列表"""
-        _ = OutAsset.objects.create(
-            asset_recordcode=asset,
-            outasset_date="2024-01-01",
-        )
-        queryset = OutAssetSelector.get_asset_recordcodes_with_asset_details()
-        assert queryset.count() == 1
-
     def test_get_recyclable_outassets(self, asset, user):
         """获取可回收的出库记录"""
         # 设置资产状态为 in_use(出库后的状态)
@@ -140,15 +104,6 @@ class TestOutAssetSelector:
         qs_b = OutAssetSelector.get_recyclable_outassets(user=auth_user_b)
         assert qs_b.count() == 1
         assert qs_b.first().asset_recordcode == asset_b
-
-    def test_get_all_out_assets(self, asset, user):
-        """获取所有出库记录"""
-        _ = OutAsset.objects.create(
-            asset_recordcode=asset,
-            outasset_date="2024-01-01",
-        )
-        queryset = OutAssetSelector.get_all_out_assets()
-        assert queryset.count() == 1
 
     def test_get_outasset_by_record_code(self, asset, user):
         """按 recordcode 获取出库记录"""

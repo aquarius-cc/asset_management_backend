@@ -23,22 +23,6 @@ class OutAssetSelector:
         """RBAC 行级过滤"""
         return get_asset_linked_queryset_for_user(user, OutAsset.objects.for_list().filter(is_deleted=False))
 
-    @staticmethod
-    def get_outassets_for_list() -> QuerySet[OutAsset]:
-        return OutAsset.objects.for_list().filter(is_deleted=False)
-
-    @staticmethod
-    def get_outassets_with_asset_details() -> QuerySet[OutAsset]:
-        return OutAsset.objects.with_asset_details().filter(is_deleted=False)
-
-    @staticmethod
-    def get_asset_recordcodes_for_list() -> QuerySet[OutAsset]:
-        return OutAsset.objects.for_list().filter(is_deleted=False)
-
-    @staticmethod
-    def get_asset_recordcodes_with_asset_details() -> QuerySet[OutAsset]:
-        return OutAsset.objects.with_asset_details().filter(is_deleted=False)
-
     # 搜索参数配置:前端参数名 → 数据库查询字段
     # icontains: 模糊匹配, exact: 精确匹配
     RECYCLABLE_FILTER_CONFIG = {
@@ -163,11 +147,6 @@ class OutAssetSelector:
         if filters:
             base_queryset = OutAssetSelector._apply_filters(base_queryset, filters)
         return base_queryset
-
-    @staticmethod
-    def get_all_out_assets() -> QuerySet[OutAsset]:
-        # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
-        return OutAsset.objects.with_asset_details().filter(is_deleted=False)
 
     @staticmethod
     def get_outasset_by_record_code(record_code: str) -> OutAsset | None:

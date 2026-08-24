@@ -21,14 +21,6 @@ class RecycleAssetSelector:
         return get_asset_linked_queryset_for_user(user, RecycleAsset.objects.for_list().filter(is_deleted=False))
 
     @staticmethod
-    def get_asset_recordcodes_for_list() -> QuerySet[RecycleAsset]:
-        return RecycleAsset.objects.for_list().filter(is_deleted=False)
-
-    @staticmethod
-    def get_asset_recordcodes_with_asset_details() -> QuerySet[RecycleAsset]:
-        return RecycleAsset.objects.with_asset_details().filter(is_deleted=False)
-
-    @staticmethod
     def get_all_asset_recordcodes() -> QuerySet[RecycleAsset]:
         return RecycleAsset.objects.filter(is_deleted=False)
 

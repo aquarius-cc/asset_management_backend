@@ -37,34 +37,6 @@ class TestRecycleAssetSelector:
         queryset = RecycleAssetSelector.get_queryset_for_user(auth_user)
         assert queryset.count() == 1
 
-    def test_get_asset_recordcodes_for_list(self, asset, user):
-        """获取资产记录码列表"""
-        outasset = OutAsset.objects.create(
-            asset_recordcode=asset,
-            outasset_date="2024-01-01",
-        )
-        _ = RecycleAsset.objects.create(
-            asset_recordcode=asset,
-            outasset_recordcode=outasset,
-            recycle_asset_date="2024-01-02",
-        )
-        queryset = RecycleAssetSelector.get_asset_recordcodes_for_list()
-        assert queryset.count() == 1
-
-    def test_get_asset_recordcodes_with_asset_details(self, asset, user):
-        """获取包含资产详情的记录码列表"""
-        outasset = OutAsset.objects.create(
-            asset_recordcode=asset,
-            outasset_date="2024-01-01",
-        )
-        _ = RecycleAsset.objects.create(
-            asset_recordcode=asset,
-            outasset_recordcode=outasset,
-            recycle_asset_date="2024-01-02",
-        )
-        queryset = RecycleAssetSelector.get_asset_recordcodes_with_asset_details()
-        assert queryset.count() == 1
-
     def test_get_all_asset_recordcodes(self, asset, user):
         """获取所有资产记录码"""
         outasset = OutAsset.objects.create(

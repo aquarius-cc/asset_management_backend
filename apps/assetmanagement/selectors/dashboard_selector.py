@@ -55,19 +55,9 @@ class DashboardSelector:
             .values_list("asset_current_status", "count")
         )
 
-        STATUS_LABELS = {
-            "in_store": "在库",
-            "in_use": "在用",
-            "recycled_pending": "已回收待发放",
-            "broken": "已损坏",
-            "repairing": "维修中",
-            "lost": "已遗失",
-            "damaged": "待报废",
-            "scrapped": "已报废",
-        }
         status_distribution = {
             code: {"name": label, "count": status_counts.get(code, 0)}
-            for code, label in STATUS_LABELS.items()
+            for code, label in Asset.ASSET_STATUS_CHOICES
         }
 
         # 月度 / 累计操作数

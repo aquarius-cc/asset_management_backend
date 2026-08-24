@@ -91,7 +91,7 @@ class DamagedAssetViewSet(
 
     def get_queryset(self):
         # RBAC 行级数据隔离(所有动作统一限权)
-        return DamagedAssetSelector.get_queryset_for_user(self.request.user).with_asset_details()
+        return DamagedAssetSelector.get_queryset_for_user(self.request.user).with_asset_details()  # type: ignore[attr-defined]
 
     def destroy(self, request, *args, **kwargs):
         obj = self.get_object()

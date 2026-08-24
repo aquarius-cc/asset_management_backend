@@ -53,7 +53,7 @@ class AssetLifecycleViewSetBase(
     """
 
     # AI_REVIEW_NEEDED: 子类差异点以类属性注入, 新增子类时必须逐项核对以下声明
-    model = None
+    model = None  # type: ignore[assignment]
     selector = None
     list_serializer = None
     create_serializer = None

@@ -8,7 +8,7 @@ from apps.usermanagement.models import Department, Employee
 
 
 @admin.register(Department)
-class DepartmentAdmin(admin.ModelAdmin):
+class DepartmentAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
     """
     部门管理配置
 
@@ -42,7 +42,7 @@ class DepartmentAdmin(admin.ModelAdmin):
 
 
 @admin.register(Employee)
-class EmployeeAdmin(admin.ModelAdmin):
+class EmployeeAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
     """员工管理配置"""
 
     list_display = ["employee_jobcode", "employee_name", "employee_status", "employee_department", "employee_phone"]

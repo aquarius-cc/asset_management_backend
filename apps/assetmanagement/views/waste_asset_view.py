@@ -8,7 +8,7 @@
 from datetime import datetime as dt
 
 from django_filters.rest_framework import DjangoFilterBackend
-from drf_spectacular.openapi import OpenApiParameter
+from drf_spectacular.openapi import OpenApiParameter  # type: ignore[attr-defined]
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, status, viewsets
@@ -84,7 +84,7 @@ class WasteAssetViewSet(
         if self.action == "list":
             return WasteAssetSelector.get_queryset_for_user(self.request.user)
         # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
-        return WasteAssetSelector.get_queryset_for_user(self.request.user).with_asset_details()
+        return WasteAssetSelector.get_queryset_for_user(self.request.user).with_asset_details()  # type: ignore[attr-defined]
 
     def create(self, request, *args, **kwargs):
         return error_response(

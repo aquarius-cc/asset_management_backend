@@ -41,7 +41,7 @@ from ._lifecycle_base import AssetLifecycleViewSetBase
 
 
 @extend_schema(tags=["损坏资产"])
-class BrokenAssetViewSet(AssetLifecycleViewSetBase):
+class BrokenAssetViewSet(AssetLifecycleViewSetBase):  # type: ignore[assignment]
     queryset = BrokenAsset.objects.for_list().all()
     model = BrokenAsset
     selector = BrokenAssetSelector
@@ -72,7 +72,7 @@ class BrokenAssetViewSet(AssetLifecycleViewSetBase):
 
 
 @extend_schema(tags=["遗失资产"])
-class LostAssetViewSet(AssetLifecycleViewSetBase):
+class LostAssetViewSet(AssetLifecycleViewSetBase):  # type: ignore[assignment]
     queryset = LostAsset.objects.for_list().all()
     model = LostAsset
     selector = LostAssetSelector
@@ -103,7 +103,7 @@ class LostAssetViewSet(AssetLifecycleViewSetBase):
 
 
 @extend_schema(tags=["找回资产"])
-class FoundAssetViewSet(AssetLifecycleViewSetBase):
+class FoundAssetViewSet(AssetLifecycleViewSetBase):  # type: ignore[assignment]
     """FoundAsset 不提供批量创建(后端无对应 Service 方法), 其余行为与 Broken/Lost 一致"""
 
     queryset = FoundAsset.objects.for_list().all()

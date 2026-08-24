@@ -4,7 +4,7 @@
 
 from django.db.models import QuerySet
 from django_filters.rest_framework import DjangoFilterBackend
-from drf_spectacular.openapi import OpenApiParameter
+from drf_spectacular.openapi import OpenApiParameter  # type: ignore[attr-defined]
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, status, viewsets
@@ -104,7 +104,7 @@ class RecycleAssetViewSet(
             qs = RecycleAssetSelector.get_queryset_for_user(self.request.user)
         else:
             # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
-            qs = RecycleAssetSelector.get_queryset_for_user(self.request.user).with_asset_details()
+            qs = RecycleAssetSelector.get_queryset_for_user(self.request.user).with_asset_details()  # type: ignore[attr-defined]
 
         date_from = self.request.query_params.get("recycle_date_from")
         date_to = self.request.query_params.get("recycle_date_to")

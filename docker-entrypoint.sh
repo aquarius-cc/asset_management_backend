@@ -80,7 +80,7 @@ fi
 # 初始化生产环境基础数据（RBAC 角色/权限/关联）
 # =============================================================================
 echo "[额外] 初始化 RBAC 基础数据..."
-python manage.py init_production_data --skip-admin 2>&1 || true
+python manage.py init_production_data --skip-admin 2>&1 || exit 1
 
 # =============================================================================
 # 启动应用

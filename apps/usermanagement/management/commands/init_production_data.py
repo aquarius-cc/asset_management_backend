@@ -250,16 +250,15 @@ class Command(BaseCommand):
             return True
 
         # 创建 Django 用户
-        User.objects.create_superuser(username=username, email=email, password=password)  # type: ignore[attr-defined]
+        User.objects.create_superuser(auth_username=username, email=email, password=password)  # type: ignore[attr-defined]
         self.stdout.write(f"  + Django 用户 {username} — 已创建")
 
         # 创建或关联 Employee 记录
-        employee, emp_created = Employee.objects.get_or_create(
+        _employee, emp_created = Employee.objects.get_or_create(
             employee_jobcode=username,
             defaults={
                 "employee_name": username,
                 "role": EmployeeRole.SYSTEM_ADMIN,
-                "department": "系统管理",
             },
         )
         if emp_created:
@@ -268,12 +267,14 @@ class Command(BaseCommand):
         # 绑定 system_admin 角色
         system_admin_role = Role.objects.filter(role_code="system_admin", is_deleted=False).first()
         if system_admin_role:
-            _user_role, ur_created = UserRole.objects.get_or_create(
-                user=employee,
-                role=system_admin_role,
-                defaults={"data_scope": {"scope_type": "all"}},
-            )
-            if ur_created:
-                self.stdout.write(f"  + UserRole {username} ← system_admin — 已绑定")
+            auth_user = User.objects.filter(auth_username=username).first()
+            if auth_user:
+                _user_role, ur_created = UserRole.objects.get_or_create(
+                    auth_user=auth_user,
+                    role=system_admin_role,
+                    defaults={"data_scope": {"scope_type": "all"}},
+                )
+                if ur_created:
+                    self.stdout.write(f"  + UserRole {username} ← system_admin — 已绑定")
 
         return True

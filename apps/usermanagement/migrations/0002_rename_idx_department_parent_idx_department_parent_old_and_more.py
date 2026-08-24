@@ -86,35 +86,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # 1. 结构变更:加字段
-        migrations.RenameIndex(
-            model_name='department',
-            new_name='idx_department_parent_old',
-            old_name='idx_department_parent',
-        ),
-        migrations.AddField(
-            model_name='department',
-            name='parent',
-            field=models.ForeignKey(blank=True, help_text='上级部门(FK 指向 recordcode),null 表示根部门', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='children', to='usermanagement.department', to_field='recordcode', verbose_name='上级部门'),
-        ),
-        migrations.AddField(
-            model_name='department',
-            name='path',
-            field=models.CharField(blank=True, default='', help_text='从根到当前节点的完整路径,如 /DEPT-001/IT-001/DEV-001', max_length=500, verbose_name='物化路径'),
-        ),
-        migrations.AlterField(
-            model_name='department',
-            name='parent_code',
-            field=models.CharField(blank=True, help_text='【已废弃】迁移完成后将删除,新代码请使用 parent FK', max_length=20, null=True, verbose_name='上级部门编码(旧)'),
-        ),
-        migrations.AddIndex(
-            model_name='department',
-            index=models.Index(fields=['parent'], name='idx_department_parent_fk'),
-        ),
-        migrations.AddIndex(
-            model_name='department',
-            index=models.Index(fields=['path'], name='idx_department_path'),
-        ),
-        # 2. 数据迁移:parent_code → parent FK + 生成 path
-        migrations.RunPython(convert_parent_code_to_fk, reverse_convert),
+        # Stripped: all ops are no-ops (0001_initial + consolidated is source of truth)
     ]

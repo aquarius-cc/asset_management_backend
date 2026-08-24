@@ -1,19 +1,15 @@
 """
-RBAC 权限体系迁移
+RBAC 权限体系初始数据
 
-创建 4 个新表:
-- am_role(角色表)
-- am_permission(权限点表)
-- am_role_permission(角色-权限中间表)
-- am_user_role(用户-角色中间表)
+- 5 个角色 (system_admin, dept_manager, asset_admin, auditor, regular_user)
+- 79 个权限点 (20 个模块 x 对应操作)
+- 角色-权限关联 (每个角色的默认权限集)
 
-初始数据:
-- 5 个角色(system_admin, dept_manager, asset_admin, auditor, regular_user)
-- 79 个权限点(20 个模块 x 对应操作)
-- 角色-权限关联(每个角色的默认权限集)
+数据从 0005_rbac_permission_tables.py 迁移至此处, 因为 Role/Permission 表
+由 0015 创建, 本迁移须在其后执行。
 """
 
-from django.db import migrations, models
+from django.db import migrations
 
 
 def create_roles(apps, schema_editor):
@@ -34,14 +30,11 @@ def create_roles(apps, schema_editor):
             defaults=role_data,
         )
 
-    print(f"  已创建 {len(roles)} 个角色")
-
 
 def create_permissions(apps, schema_editor):
     """创建 79 个权限点"""
     Permission = apps.get_model("usermanagement", "Permission")
 
-    # 定义模块和操作
     modules_config = {
         "asset":         {"actions": ["read", "create", "update", "delete", "export"], "desc_prefix": "资产管理"},
         "outasset":      {"actions": ["read", "create", "update", "delete", "export"], "desc_prefix": "出库管理"},
@@ -74,21 +67,16 @@ def create_permissions(apps, schema_editor):
         "export": "导出",
     }
 
-    count = 0
     for module, config in modules_config.items():
         for action in config["actions"]:
             permission_code = f"{module}:{action}"
             description = f"{config['desc_prefix']}{action_desc_map.get(action, action)}"
-
             Permission.objects.get_or_create(
                 permission_code=permission_code,
                 module=module,
                 action=action,
                 defaults={"description": description},
             )
-            count += 1
-
-    print(f"  已创建 {count} 个权限点")
 
 
 def create_role_permissions(apps, schema_editor):
@@ -97,34 +85,24 @@ def create_role_permissions(apps, schema_editor):
     Permission = apps.get_model("usermanagement", "Permission")
     RolePermission = apps.get_model("usermanagement", "RolePermission")
 
-    # 构建映射
     role_map = {r.role_code: r for r in Role.objects.filter(is_deleted=False)}
     perm_map = {p.permission_code: p for p in Permission.objects.filter(is_deleted=False)}
 
-    # 定义各角色的权限集
-    # 所有模块
     all_modules = [
         "asset", "outasset", "recycle", "damaged", "waste", "broken", "lost", "found", "repair",
         "contract", "storage", "assettype", "harddisk", "employee", "department", "user",
         "unregistered", "notification", "auditlog", "dashboard",
     ]
-
-    # 导出模块(支持 export 操作的模块)
     export_modules = [
         "asset", "outasset", "recycle", "damaged", "waste", "broken", "lost", "found", "repair", "contract",
     ]
-
-    # 写操作模块(支持 create/update/delete 的模块)
     write_modules = [
         "asset", "outasset", "recycle", "waste", "broken", "lost", "found", "repair",
     ]
-
-    # 审批模块
     approve_modules = ["damaged", "unregistered"]
 
-    # 定义各角色的权限
     role_permissions = {
-        "system_admin": "all",  # 全部权限
+        "system_admin": "all",
         "dept_manager": {
             "read": all_modules,
             "write": write_modules,
@@ -146,7 +124,6 @@ def create_role_permissions(apps, schema_editor):
         },
     }
 
-    count = 0
     for role_code, perm_config in role_permissions.items():
         role = role_map.get(role_code)
         if not role:
@@ -155,57 +132,45 @@ def create_role_permissions(apps, schema_editor):
         perms_to_add = set()
 
         if perm_config == "all":
-            # system_admin: 全部权限
             perms_to_add = set(perm_map.keys())
         else:
-            # 其他角色:按规则分配
             if "read" in perm_config:
                 for module in perm_config["read"]:
                     code = f"{module}:read"
                     if code in perm_map:
                         perms_to_add.add(code)
-
             if "write" in perm_config:
                 for module in perm_config["write"]:
                     for action in ["create", "update", "delete"]:
                         code = f"{module}:{action}"
                         if code in perm_map:
                             perms_to_add.add(code)
-
             if "approve" in perm_config:
                 for module in perm_config["approve"]:
                     code = f"{module}:approve"
                     if code in perm_map:
                         perms_to_add.add(code)
-
             if "export" in perm_config:
                 for module in perm_config["export"]:
                     code = f"{module}:export"
                     if code in perm_map:
                         perms_to_add.add(code)
-
             if "read_only" in perm_config:
                 for module in perm_config["read_only"]:
                     code = f"{module}:read"
                     if code in perm_map:
                         perms_to_add.add(code)
 
-        # 创建关联
         for perm_code in perms_to_add:
             perm = perm_map.get(perm_code)
             if perm:
-                _, created = RolePermission.objects.get_or_create(
+                RolePermission.objects.get_or_create(
                     role=role,
                     permission=perm,
                 )
-                if created:
-                    count += 1
-
-    print(f"  已创建 {count} 条角色权限关联")
 
 
-def reverse_create_data(apps, schema_editor):
-    """反向迁移:删除初始数据"""
+def reverse_seed(apps, schema_editor):
     RolePermission = apps.get_model("usermanagement", "RolePermission")
     Permission = apps.get_model("usermanagement", "Permission")
     Role = apps.get_model("usermanagement", "Role")
@@ -214,16 +179,15 @@ def reverse_create_data(apps, schema_editor):
     Permission.objects.all().delete()
     Role.objects.filter(is_system=True).delete()
 
-    print("  已删除 RBAC 初始数据")
-
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("usermanagement", "0004_employee_role"),
-        ("authusermanagement", "0001_initial"),
+        ("usermanagement", "0015_permission_role_rolepermission_userrole_and_more"),
     ]
 
     operations = [
-        # Stripped: CreateModel ops moved to 0015; RunPython seed data moved to 0016
+        migrations.RunPython(create_roles, reverse_seed),
+        migrations.RunPython(create_permissions, reverse_seed),
+        migrations.RunPython(create_role_permissions, reverse_seed),
     ]

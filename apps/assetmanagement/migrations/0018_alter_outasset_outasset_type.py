@@ -10,9 +10,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name='outasset',
-            name='outasset_type',
-            field=models.CharField(blank=True, choices=[('receive', '领用'), ('borrow', '借用'), ('reissue', '重新发放')], default='receive', help_text='出库类型:领用/借用', max_length=50, null=True, verbose_name='出库类型'),
-        ),
+        # Stripped: Branch B ops are no-ops (covered by Branch A + 0020/0021)
     ]

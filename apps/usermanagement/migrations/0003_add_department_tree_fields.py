@@ -10,37 +10,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='department',
-            name='level',
-            field=models.IntegerField(default=0, help_text='部门层级：0=根部门，1=一级部门，最大 6 层', verbose_name='部门层级'),
-        ),
-        migrations.AddField(
-            model_name='department',
-            name='parent_code',
-            field=models.CharField(blank=True, help_text='上级部门编码，null 表示根部门', max_length=20, null=True, verbose_name='上级部门编码'),
-        ),
-        migrations.AlterField(
-            model_name='department',
-            name='department_code',
-            field=models.CharField(help_text='部门唯一标识编码', max_length=20, unique=True, verbose_name='部门编码'),
-        ),
-        migrations.AlterField(
-            model_name='department',
-            name='department_information',
-            field=models.CharField(help_text='部门信息负责人', max_length=20, verbose_name='部门信息员'),
-        ),
-        migrations.AlterField(
-            model_name='department',
-            name='department_name',
-            field=models.CharField(help_text='部门显示名称', max_length=100, unique=True, verbose_name='部门名称'),
-        ),
-        migrations.AddIndex(
-            model_name='department',
-            index=models.Index(fields=['parent_code'], name='idx_department_parent'),
-        ),
-        migrations.AddIndex(
-            model_name='department',
-            index=models.Index(fields=['level'], name='idx_department_level'),
-        ),
+        # Stripped: parallel-branch ops are no-ops
     ]

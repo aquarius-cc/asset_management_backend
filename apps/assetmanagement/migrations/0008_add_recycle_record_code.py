@@ -15,15 +15,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name="recycleasset",
-            name="recycle_record_code",
-            field=models.CharField(
-                max_length=30,
-                verbose_name="回收记录编码",
-                help_text="唯一回收记录编码，格式: RECYCLE-YYYYMMDD-XXXXXXXX",
-                null=True,
-                blank=True,
-            ),
-        ),
+        # Stripped: all ops are no-ops (0001_initial + consolidated is source of truth)
     ]

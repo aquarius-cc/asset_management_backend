@@ -67,34 +67,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RenameIndex(
-            model_name='assettype',
-            new_name='idx_asset_type_parent_old',
-            old_name='am_asset_ty_parent__8acf11_idx',
-        ),
-        migrations.AddField(
-            model_name='assettype',
-            name='parent',
-            field=models.ForeignKey(blank=True, help_text='父级资产类型(FK 指向 recordcode),null 表示顶级', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='children', to='assetmanagement.assettype', to_field='recordcode', verbose_name='父级类型'),
-        ),
-        migrations.AddField(
-            model_name='assettype',
-            name='path',
-            field=models.CharField(blank=True, default='', help_text='从根到当前节点的完整路径,如 /ASSETTYPE-001/IT-001/DEV-001', max_length=500, verbose_name='物化路径'),
-        ),
-        migrations.AlterField(
-            model_name='assettype',
-            name='parent_code',
-            field=models.CharField(blank=True, help_text='【已废弃】迁移完成后将删除,新代码请使用 parent FK', max_length=32, null=True, verbose_name='父级编码(旧)'),
-        ),
-        migrations.AddIndex(
-            model_name='assettype',
-            index=models.Index(fields=['parent'], name='idx_asset_type_parent_fk'),
-        ),
-        migrations.AddIndex(
-            model_name='assettype',
-            index=models.Index(fields=['path'], name='idx_asset_type_path'),
-        ),
-        # 数据迁移:parent_code → parent FK + 生成 path
-        migrations.RunPython(convert_parent_code_to_fk, reverse_convert),
+        # Stripped: Branch B ops are no-ops (covered by Branch A + 0020/0021)
     ]

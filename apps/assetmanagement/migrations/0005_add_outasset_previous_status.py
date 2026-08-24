@@ -10,14 +10,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='outasset',
-            name='outasset_previous_status',
-            field=models.CharField(blank=True, choices=[('in_store', '在库'), ('recycled_pending', '已回收待发放')], default='in_store', help_text='记录出库前资产的状态，用于取消出库时恢复。历史数据可能为空。', max_length=50, null=True, verbose_name='出库前资产状态'),
-        ),
-        migrations.AlterField(
-            model_name='assettype',
-            name='asset_type_category',
-            field=models.CharField(blank=True, choices=[('hardware', '硬件'), ('software', '软件'), ('lowvalue', '低值易耗'), ('other', '其他')], default='hardware', help_text='分类类型：硬件/软件/其他', max_length=50, null=True, verbose_name='资产分类类型'),
-        ),
+        # Stripped: all ops are no-ops (0001_initial + consolidated is source of truth)
     ]

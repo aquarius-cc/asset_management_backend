@@ -154,9 +154,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(
-            migrate_paid_record_forward,
-            migrate_paid_record_backward,
-            hints={'model_name': 'contract'}
-        ),
+        # Stripped: Branch B ops are no-ops (covered by Branch A + 0020/0021)
     ]

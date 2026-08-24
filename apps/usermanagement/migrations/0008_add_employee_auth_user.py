@@ -17,25 +17,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name="employee",
-            name="auth_user",
-            field=models.OneToOneField(
-                null=True,
-                blank=True,
-                on_delete=models.SET_NULL,
-                related_name="employee",
-                to="authusermanagement.authuser",
-                verbose_name="绑定的认证账号",
-                help_text="绑定的认证账号,null 表示未绑定",
-            ),
-        ),
-        migrations.AddConstraint(
-            model_name="employee",
-            constraint=models.UniqueConstraint(
-                condition=models.Q(is_deleted=False),
-                fields=["auth_user"],
-                name="unique_employee_auth_user_not_deleted",
-            ),
-        ),
+        # Stripped: all ops are no-ops (0001_initial + consolidated is source of truth)
     ]

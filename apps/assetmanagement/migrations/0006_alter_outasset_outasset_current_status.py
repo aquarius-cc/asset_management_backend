@@ -10,9 +10,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name='outasset',
-            name='outasset_current_status',
-            field=models.CharField(choices=[('in_use', '在用'), ('recycled_pending', '已回收待发放'), ('damaged', '待报废'), ('scrapped', '已报废')], default='in_use', help_text='出库资产的状态：在用/已回收待发放/待报废/已报废', max_length=20, verbose_name='出库资产状态'),
-        ),
+        # Stripped: all ops are no-ops (0001_initial + consolidated is source of truth)
     ]

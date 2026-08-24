@@ -10,9 +10,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name='contract',
-            name='paid_record',
-            field=models.JSONField(blank=True, help_text='支付记录(JSON格式的支付明细)', null=True, verbose_name='支付记录'),
-        ),
+        # Stripped: Branch B ops are no-ops (covered by Branch A + 0020/0021)
     ]

@@ -12,13 +12,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name='assettype',
-            name='parent',
-            field=models.ForeignKey(blank=True, help_text='父级资产类型(FK 指向 recordcode),null 表示顶级', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='children', to='assetmanagement.assettype', to_field='recordcode', verbose_name='父级类型'),
-        ),
-        migrations.AddConstraint(
-            model_name='repairasset',
-            constraint=models.UniqueConstraint(condition=models.Q(('repair_status', 'in_progress')), fields=('asset_recordcode',), name='uniq_active_repair_per_asset'),
-        ),
+        # Stripped: Branch B ops are no-ops (covered by Branch A + 0020/0021)
     ]

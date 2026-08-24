@@ -11,19 +11,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name='assetoperationlog',
-            name='operation_type',
-            field=models.CharField(choices=[('create', '创建'), ('update', '更新'), ('delete', '删除'), ('out', '出库'), ('recycle', '回收'), ('broken', '已损坏'), ('lost', '已遗失'), ('found', '找回'), ('damaged', '待报废'), ('waste', '已报废'), ('repair', '送修'), ('repair_done', '维修完成'), ('repair_failed', '维修失败'), ('approve', '审批'), ('transfer', '转移'), ('state_change', '状态变更')], db_index=True, help_text='操作类型', max_length=20, verbose_name='操作类型'),
-        ),
-        migrations.AlterField(
-            model_name='foundasset',
-            name='lost_asset_recordcode',
-            field=models.OneToOneField(help_text='关联的遗失资产记录', on_delete=django.db.models.deletion.PROTECT, related_name='found_record', to='assetmanagement.lostasset', to_field='recordcode', verbose_name='关联的遗失记录'),
-        ),
-        migrations.AlterField(
-            model_name='wasteasset',
-            name='damaged_recordcode',
-            field=models.OneToOneField(blank=True, help_text='关联的待报废记录的资产唯一标识码,用于追溯来源', null=True, on_delete=django.db.models.deletion.PROTECT, related_name='waste_asset_record', to='assetmanagement.damagedasset', to_field='recordcode', verbose_name='来源待报废记录的资产唯一标识码'),
-        ),
+        # Stripped: Branch B ops are no-ops (covered by Branch A + 0020/0021)
     ]

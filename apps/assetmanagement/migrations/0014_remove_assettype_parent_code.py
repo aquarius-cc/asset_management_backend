@@ -10,12 +10,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveIndex(
-            model_name='assettype',
-            name='idx_asset_type_parent_old',
-        ),
-        migrations.RemoveField(
-            model_name='assettype',
-            name='parent_code',
-        ),
+        # Stripped: Branch B ops are no-ops (covered by Branch A + 0020/0021)
     ]

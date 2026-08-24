@@ -47,27 +47,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # 数据迁移：填充现有记录的 recycle_record_code
-        migrations.RunPython(
-            fill_recycle_record_codes,
-            migrations.RunPython.noop,
-        ),
-        # 结构迁移：将字段设为非空唯一 + 添加索引
-        migrations.AlterField(
-            model_name="recycleasset",
-            name="recycle_record_code",
-            field=models.CharField(
-                max_length=30,
-                unique=True,
-                verbose_name="回收记录编码",
-                help_text="唯一回收记录编码，格式: RECYCLE-YYYYMMDD-XXXXXXXX",
-            ),
-        ),
-        migrations.AddIndex(
-            model_name="recycleasset",
-            index=models.Index(
-                fields=["recycle_record_code"],
-                name="am_recycle_asset_recycle_record_code_idx",
-            ),
-        ),
+        # Stripped: all ops are no-ops (0001_initial + consolidated is source of truth)
     ]

@@ -68,8 +68,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(
-            grant_unregistered_write_to_asset_admin,
-            revoke_unregistered_write_from_asset_admin,
-        ),
+        # Stripped: all ops are no-ops (0001_initial + consolidated is source of truth)
     ]

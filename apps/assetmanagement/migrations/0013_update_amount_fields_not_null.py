@@ -10,14 +10,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name='contract',
-            name='amount_paid',
-            field=models.DecimalField(decimal_places=2, default=0, help_text='已支付金额,默认为0', max_digits=12, verbose_name='已支付金额'),
-        ),
-        migrations.AlterField(
-            model_name='contract',
-            name='amount_unpaid',
-            field=models.DecimalField(decimal_places=2, default=0, help_text='未支付金额(自动计算)', max_digits=12, verbose_name='未支付金额'),
-        ),
+        # Stripped: Branch B ops are no-ops (covered by Branch A + 0020/0021)
     ]

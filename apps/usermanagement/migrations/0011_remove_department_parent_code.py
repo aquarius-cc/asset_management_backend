@@ -10,12 +10,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveIndex(
-            model_name='department',
-            name='idx_department_parent_old',
-        ),
-        migrations.RemoveField(
-            model_name='department',
-            name='parent_code',
-        ),
+        # Stripped: all ops are no-ops (0001_initial + consolidated is source of truth)
     ]

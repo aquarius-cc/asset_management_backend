@@ -10,9 +10,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name='asset',
-            name='asset_code',
-            field=models.CharField(editable=False, help_text='资产唯一编码，不可修改', max_length=64, unique=True, verbose_name='资产编码'),
-        ),
+        # Stripped: all ops are no-ops (0001_initial + consolidated is source of truth)
     ]

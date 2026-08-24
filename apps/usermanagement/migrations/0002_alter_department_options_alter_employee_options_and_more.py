@@ -10,26 +10,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterModelOptions(
-            name='department',
-            options={'ordering': ['sort_order', 'department_code'], 'verbose_name': '部门管理', 'verbose_name_plural': '部门管理'},
-        ),
-        migrations.AlterModelOptions(
-            name='employee',
-            options={'ordering': ['sort_order', 'employee_jobcode'], 'verbose_name': '员工管理', 'verbose_name_plural': '员工管理'},
-        ),
-        migrations.AddField(
-            model_name='department',
-            name='sort_order',
-            field=models.IntegerField(default=0, help_text='数字越小排序越靠前，用于控制前端显示顺序', verbose_name='排序顺序'),
-        ),
-        migrations.AddField(
-            model_name='employee',
-            name='sort_order',
-            field=models.IntegerField(default=0, help_text='数字越小排序越靠前，用于控制前端显示顺序', verbose_name='排序顺序'),
-        ),
-        migrations.AddIndex(
-            model_name='employee',
-            index=models.Index(fields=['sort_order'], name='user_databa_sort_or_131b07_idx'),
-        ),
+        # Stripped: parallel-branch ops are no-ops
     ]

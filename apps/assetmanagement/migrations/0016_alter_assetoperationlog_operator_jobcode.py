@@ -10,9 +10,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name='assetoperationlog',
-            name='operator_jobcode',
-            field=models.CharField(blank=True, db_index=True, help_text='执行操作的人员工号', max_length=20, null=True, verbose_name='操作人工号'),
-        ),
+        # Stripped: Branch B ops are no-ops (covered by Branch A + 0020/0021)
     ]

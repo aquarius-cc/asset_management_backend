@@ -10,8 +10,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterModelOptions(
-            name='authuser',
-            options={'ordering': ['auth_username'], 'verbose_name': '认证与用户管理', 'verbose_name_plural': '认证与用户管理'},
-        ),
+        # Stripped: parallel-branch ops are no-ops
     ]

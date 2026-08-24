@@ -11,4 +11,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        # Stripped: parallel-branch ops are no-ops
     ]

@@ -12,24 +12,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.CreateModel(
-            name='AssetStateLog',
-            fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('from_state', models.CharField(help_text='状态变更前的资产状态', max_length=20, verbose_name='变更前状态')),
-                ('to_state', models.CharField(help_text='状态变更后的资产状态', max_length=20, verbose_name='变更后状态')),
-                ('business_doc_no', models.CharField(blank=True, default='', help_text='关联的业务单据编号(如出库单号、回收单号)', max_length=50, verbose_name='业务单号')),
-                ('reason', models.CharField(help_text='状态变更的原因描述', max_length=200, verbose_name='变更原因')),
-                ('created_at', models.DateTimeField(auto_now_add=True, db_index=True, help_text='日志记录创建时间', verbose_name='记录时间')),
-                ('asset_recordcode', models.ForeignKey(help_text='关联的资产', on_delete=django.db.models.deletion.PROTECT, to='assetmanagement.asset', verbose_name='资产编码')),
-                ('operator_employee', models.ForeignKey(blank=True, help_text='执行状态变更的操作人', null=True, on_delete=django.db.models.deletion.SET_NULL, to='usermanagement.employee', verbose_name='操作人')),
-            ],
-            options={
-                'verbose_name': '资产状态变更日志',
-                'verbose_name_plural': '资产状态变更日志',
-                'db_table': 'am_asset_state_log',
-                'ordering': ['-created_at'],
-                'indexes': [models.Index(fields=['asset_recordcode', '-created_at'], name='am_asset_st_asset_r_20f56b_idx'), models.Index(fields=['from_state', 'to_state'], name='am_asset_st_from_st_c77ac5_idx'), models.Index(fields=['operator_employee', '-created_at'], name='am_asset_st_operato_bad1ca_idx')],
-            },
-        ),
+        # Stripped: Branch B ops are no-ops (covered by Branch A + 0020/0021)
     ]

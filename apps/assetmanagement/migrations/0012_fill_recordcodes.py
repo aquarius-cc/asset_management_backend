@@ -11,4 +11,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        # Stripped: all ops are no-ops (0001_initial + consolidated is source of truth)
     ]

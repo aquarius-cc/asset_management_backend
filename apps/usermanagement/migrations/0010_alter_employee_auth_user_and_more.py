@@ -13,14 +13,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name='employee',
-            name='auth_user',
-            field=models.OneToOneField(blank=True, help_text='绑定的认证账号 FK,null 表示未绑定。绑定操作必须通过 EmployeeService.bind_auth_user(),禁止直接写入', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='employee', to=settings.AUTH_USER_MODEL, verbose_name='绑定的认证账号'),
-        ),
-        migrations.AlterField(
-            model_name='employee',
-            name='employee_jobcode',
-            field=models.CharField(help_text='业务标识(员工工号),同时作为 API 路由主键。新代码请使用 auth_user FK 关联认证账号', max_length=20, verbose_name='员工工号'),
-        ),
+        # Stripped: all ops are no-ops (0001_initial + consolidated is source of truth)
     ]

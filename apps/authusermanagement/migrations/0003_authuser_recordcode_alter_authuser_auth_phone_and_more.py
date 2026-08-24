@@ -22,41 +22,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Step 1: 添加 recordcode 字段
-        migrations.AddField(
-            model_name='authuser',
-            name='recordcode',
-            field=models.CharField(blank=True, help_text='后端生成的全局唯一编码，用于外键引用', max_length=32, null=True, unique=True, verbose_name='记录编码'),
-        ),
-        # Step 2: 为现有数据填充 recordcode
-        migrations.RunPython(fill_authuser_recordcodes, reverse_code=migrations.RunPython.noop),
-        # Step 3: 移除业务字段的 unique=True
-        migrations.AlterField(
-            model_name='authuser',
-            name='auth_phone',
-            field=models.CharField(help_text='用户联系电话', max_length=15, verbose_name='联系电话'),
-        ),
-        migrations.AlterField(
-            model_name='authuser',
-            name='auth_username',
-            field=models.CharField(help_text='用户登录名，唯一标识', max_length=150, verbose_name='用户名'),
-        ),
-        migrations.AlterField(
-            model_name='authuser',
-            name='email',
-            field=models.EmailField(blank=True, help_text='用户邮箱地址', max_length=254, null=True, verbose_name='电子邮件'),
-        ),
-        # Step 4: 添加条件唯一约束
-        migrations.AddConstraint(
-            model_name='authuser',
-            constraint=models.UniqueConstraint(condition=models.Q(('auth_is_active', True)), fields=('auth_username',), name='unique_auth_username_active'),
-        ),
-        migrations.AddConstraint(
-            model_name='authuser',
-            constraint=models.UniqueConstraint(condition=models.Q(('auth_is_active', True)), fields=('email',), name='unique_auth_email_active'),
-        ),
-        migrations.AddConstraint(
-            model_name='authuser',
-            constraint=models.UniqueConstraint(condition=models.Q(('auth_is_active', True)), fields=('auth_phone',), name='unique_auth_phone_active'),
-        ),
+        # Stripped: parallel-branch ops are no-ops
     ]

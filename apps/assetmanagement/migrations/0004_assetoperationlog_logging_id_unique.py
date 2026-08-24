@@ -13,16 +13,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name='assetoperationlog',
-            name='logging_id',
-            field=models.CharField(
-                blank=True,
-                db_index=True,
-                help_text='系统自动生成的日志记录唯一标识，格式：操作类型-Log-日期-随机字符',
-                max_length=50,
-                unique=True,
-                verbose_name='日志记录ID',
-            ),
-        ),
+        # Stripped: all ops are no-ops (0001_initial + consolidated is source of truth)
     ]

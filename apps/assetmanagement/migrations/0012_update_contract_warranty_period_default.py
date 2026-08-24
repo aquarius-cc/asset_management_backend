@@ -10,9 +10,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name='contract',
-            name='contract_warranty_period',
-            field=models.IntegerField(blank=True, default=0, help_text='合同约定的质保期,可作为资产保修期的默认值', null=True, verbose_name='合同质保期(年)'),
-        ),
+        # Stripped: Branch B ops are no-ops (covered by Branch A + 0020/0021)
     ]

@@ -82,34 +82,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # 删除旧的 parent_id 列(bigint 类型,指向 id)
-        migrations.RemoveIndex(
-            model_name='department',
-            name='idx_department_parent_fk',
-        ),
-        migrations.RemoveField(
-            model_name='department',
-            name='parent',
-        ),
-        # 重新添加 parent FK,指向 recordcode
-        migrations.AddField(
-            model_name='department',
-            name='parent',
-            field=models.ForeignKey(
-                blank=True,
-                help_text='上级部门(FK 指向 recordcode),null 表示根部门',
-                null=True,
-                on_delete=django.db.models.deletion.SET_NULL,
-                related_name='children',
-                to='usermanagement.department',
-                to_field='recordcode',
-                verbose_name='上级部门',
-            ),
-        ),
-        migrations.AddIndex(
-            model_name='department',
-            index=models.Index(fields=['parent'], name='idx_department_parent_fk'),
-        ),
-        # 重新运行数据迁移
-        migrations.RunPython(fix_parent_fk_and_migrate_data, reverse_fix),
+        # Stripped: all ops are no-ops (0001_initial + consolidated is source of truth)
     ]

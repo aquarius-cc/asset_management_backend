@@ -54,8 +54,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(
-            add_system_config_manage_permission,
-            remove_system_config_manage_permission,
-        ),
+        # Stripped: all ops are no-ops (0001_initial + consolidated is source of truth)
     ]

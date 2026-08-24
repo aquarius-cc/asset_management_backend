@@ -10,14 +10,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name='authuser',
-            name='is_superuser',
-            field=models.BooleanField(default=False, help_text='是否为超级管理员', verbose_name='超级管理员'),
-        ),
-        migrations.AlterField(
-            model_name='authuser',
-            name='recordcode',
-            field=models.CharField(blank=True, help_text='后端生成的全局唯一编码,用于外键引用', max_length=64, null=True, unique=True, verbose_name='记录编码'),
-        ),
+        # Stripped: all ops are no-ops (0001_initial + consolidated is source of truth)
     ]

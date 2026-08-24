@@ -29,6 +29,7 @@ from typing import Any, TypeVar
 
 from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError
+from rest_framework import serializers
 from utils.response_utils import success_response
 
 
@@ -269,3 +270,23 @@ class BatchResponseHelper:
     def delete_response(result: dict[str, Any], message: str) -> Any:
         """批量删除: Service 返回 dict 原样透传(success_ids 形态)"""
         return success_response(data=result, message=message)
+
+
+class BatchDeleteValidationMixin:
+    """
+    批量删除序列化器通用 validate_ids (DR-1 收敛)
+
+    11 个 BatchDeleteSerializer 拥有完全相同的 validate_ids:
+    ① 校验列表长度 ≤ MAX_BATCH_SIZE
+    ② 校验 ids 无重复
+    本 Mixin 消除该重复, 子类只需声明 MAX_BATCH_SIZE 和 ids 字段即可。
+    """
+
+    MAX_BATCH_SIZE: int  # 子类必须声明
+
+    def validate_ids(self, value: list[str]) -> list[str]:
+        if len(value) > self.MAX_BATCH_SIZE:
+            raise serializers.ValidationError(f"单次批量删除不能超过 {self.MAX_BATCH_SIZE} 条")
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError("ids 列表中存在重复项")
+        return value

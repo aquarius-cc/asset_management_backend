@@ -7,6 +7,7 @@ from typing import Any
 from rest_framework import serializers
 
 from apps.assetmanagement.models import Asset, RepairAsset
+from core.batch_mixins import BatchDeleteValidationMixin
 from core.constants import MAX_BATCH_SIZE as DEFAULT_MAX_BATCH_SIZE
 
 
@@ -126,15 +127,8 @@ class RepairAssetDetailSerializer(serializers.ModelSerializer):  # type: ignore[
 RepairAssetSerializer = RepairAssetListSerializer
 
 
-class RepairAssetBatchDeleteSerializer(serializers.Serializer):  # type: ignore[type-arg]
+class RepairAssetBatchDeleteSerializer(BatchDeleteValidationMixin, serializers.Serializer):  # type: ignore[type-arg]
     """维修资产批量删除请求校验"""
 
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     ids = serializers.ListField(child=serializers.CharField(), required=True, help_text="维修记录编码列表")
-
-    def validate_ids(self, value: Any) -> None:
-        if len(value) > self.MAX_BATCH_SIZE:
-            raise serializers.ValidationError(f"单次批量删除不能超过 {self.MAX_BATCH_SIZE} 条")
-        if len(value) != len(set(value)):
-            raise serializers.ValidationError("ids 列表中存在重复项")
-        return value  # type: ignore[no-any-return]

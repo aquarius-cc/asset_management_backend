@@ -9,24 +9,18 @@ from typing import Any
 
 from rest_framework import serializers
 
+from core.batch_mixins import BatchDeleteValidationMixin
 from core.constants import MAX_BATCH_SIZE as DEFAULT_MAX_BATCH_SIZE
 
 
 # ========== 合同批量操作序列化器 ==========
 
 
-class ContractBatchDeleteSerializer(serializers.Serializer):  # type: ignore[type-arg]
+class ContractBatchDeleteSerializer(BatchDeleteValidationMixin, serializers.Serializer):  # type: ignore[type-arg]
     """【P3-优化】批量删除合同请求校验"""
 
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     ids = serializers.ListField(child=serializers.CharField(), required=True, help_text="合同编码列表")
-
-    def validate_ids(self, value: list[str]) -> list[str]:
-        if len(value) > self.MAX_BATCH_SIZE:
-            raise serializers.ValidationError(f"单次批量删除不能超过 {self.MAX_BATCH_SIZE} 条")
-        if len(value) != len(set(value)):
-            raise serializers.ValidationError("ids 列表中存在重复项")
-        return value
 
 
 class ContractBatchCreateItemSerializer(serializers.Serializer):  # type: ignore[type-arg]
@@ -88,18 +82,11 @@ class ContractBatchCreateSerializer(serializers.Serializer):  # type: ignore[typ
 # ========== 仓库批量操作序列化器 ==========
 
 
-class StorageBatchDeleteSerializer(serializers.Serializer):  # type: ignore[type-arg]
+class StorageBatchDeleteSerializer(BatchDeleteValidationMixin, serializers.Serializer):  # type: ignore[type-arg]
     """批量删除仓库请求校验"""
 
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     ids = serializers.ListField(child=serializers.CharField(), required=True, help_text="仓库编码列表")
-
-    def validate_ids(self, value: list[str]) -> list[str]:
-        if len(value) > self.MAX_BATCH_SIZE:
-            raise serializers.ValidationError(f"单次批量删除不能超过 {self.MAX_BATCH_SIZE} 条")
-        if len(value) != len(set(value)):
-            raise serializers.ValidationError("ids 列表中存在重复项")
-        return value
 
 
 class StorageBatchCreateItemSerializer(serializers.Serializer):  # type: ignore[type-arg]
@@ -141,18 +128,11 @@ class StorageBatchCreateSerializer(serializers.Serializer):  # type: ignore[type
 # ========== 资产类型批量操作序列化器 ==========
 
 
-class AssetTypeBatchDeleteSerializer(serializers.Serializer):  # type: ignore[type-arg]
+class AssetTypeBatchDeleteSerializer(BatchDeleteValidationMixin, serializers.Serializer):  # type: ignore[type-arg]
     """批量删除资产类型请求校验"""
 
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     ids = serializers.ListField(child=serializers.CharField(), required=True, help_text="资产类型编码列表")
-
-    def validate_ids(self, value: list[str]) -> list[str]:
-        if len(value) > self.MAX_BATCH_SIZE:
-            raise serializers.ValidationError(f"单次批量删除不能超过 {self.MAX_BATCH_SIZE} 条")
-        if len(value) != len(set(value)):
-            raise serializers.ValidationError("ids 列表中存在重复项")
-        return value
 
 
 class AssetTypeBatchCreateItemSerializer(serializers.Serializer):  # type: ignore[type-arg]

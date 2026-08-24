@@ -9,7 +9,6 @@
 """
 
 import os
-
 from typing import Any
 
 from django.contrib.auth import get_user_model
@@ -203,7 +202,7 @@ class Command(BaseCommand):
             if perm_config == "all":
                 perms_to_add = set(perm_map.keys())
             else:
-                for action_key, modules in perm_config.items():
+                for action_key, modules in perm_config.items():  # type: ignore[attr-defined]
                     if action_key == "read_only":
                         for mod in modules:
                             perms_to_add.add(f"{mod}:read")
@@ -242,7 +241,7 @@ class Command(BaseCommand):
             self.stdout.write("  ⚠ DJANGO_SUPERUSER_USERNAME/PASSWORD 未设置，跳过")
             return False
 
-        if User.objects.filter(username=username).exists():
+        if User.objects.filter(auth_username=username).exists():
             self.stdout.write(f"  ✓ {username} — 已存在")
             return False
 
@@ -251,7 +250,7 @@ class Command(BaseCommand):
             return True
 
         # 创建 Django 用户
-        User.objects.create_superuser(username=username, email=email, password=password)
+        User.objects.create_superuser(username=username, email=email, password=password)  # type: ignore[attr-defined]
         self.stdout.write(f"  + Django 用户 {username} — 已创建")
 
         # 创建或关联 Employee 记录

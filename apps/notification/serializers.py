@@ -14,7 +14,7 @@ from rest_framework import serializers
 from apps.notification.models import Notification
 
 
-class NotificationSerializer(serializers.ModelSerializer):
+class NotificationSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     通知序列化器
 

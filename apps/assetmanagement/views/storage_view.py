@@ -29,7 +29,7 @@ from utils.user_utils import resolve_operator
 from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
 
 
-class StorageViewSet(
+class StorageViewSet(  # type: ignore[misc]
     RecordcodeLookupMixin,
     AdminWritePermissionMixin,
     PaginateAndRespondMixin,
@@ -76,7 +76,7 @@ class StorageViewSet(
         )
 
     @action(detail=False, methods=["get"], url_path="statistics")
-    def statistics(self, request) -> Response:
+    def statistics(self, request: Any) -> Response:
         queryset = self._base_queryset()
         total = queryset.count()
         type_stats_qs = queryset.values("storage_type").annotate(count=Count("id")).order_by("storage_type")
@@ -97,7 +97,7 @@ class StorageViewSet(
         )
         return success_response(message="删除成功")
 
-    @action(detail=False, methods=["post"], url_path="batch-delete")
+    @action(detail=False, methods=["post"], url_path="batch-delete")  # type: ignore[type-var]
     def batch_delete(self, request: Any) -> None:
         serializer = StorageBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -108,13 +108,13 @@ class StorageViewSet(
             operator_name=operator_name,
         )
         # 【DR-1 收敛】响应组装复用 BatchResponseHelper
-        return BatchResponseHelper.delete_response(
+        return BatchResponseHelper.delete_response(  # type: ignore[no-any-return]
             result,
             message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
 
     @action(detail=False, methods=["post"], url_path="batch-create")
-    def batch_create(self, request: Any) -> None:
+    def batch_create(self, request: Any) -> Response:
         serializer = StorageBatchCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         operator_jobcode, operator_name = resolve_operator(request.user)

@@ -25,9 +25,9 @@ class IsOwnerOrReadOnly(permissions.BasePermission):
         if request.method in permissions.SAFE_METHODS:
             return True
         if hasattr(obj, "owner"):
-            return obj.owner == request.user
+            return obj.owner == request.user  # type: ignore[no-any-return]
         if hasattr(obj, "user"):
-            return obj.user == request.user
+            return obj.user == request.user  # type: ignore[no-any-return]
         return False
 
 
@@ -60,7 +60,7 @@ _ROLE_ASSET_ADMIN = "asset_admin"
 _ROLE_AUDITOR = "auditor"
 
 
-def _get_user_role(user) -> str | None:
+def _get_user_role(user: Any) -> str | None:
     """
     获取用户角色。
 

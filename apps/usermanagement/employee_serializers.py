@@ -10,7 +10,7 @@ from apps.usermanagement.models import Department, Employee
 from core.constants import MAX_BATCH_SIZE as DEFAULT_MAX_BATCH_SIZE
 
 
-class EmployeeSerializer(serializers.ModelSerializer):
+class EmployeeSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     员工序列化器(列表/查询用)
 
@@ -20,10 +20,10 @@ class EmployeeSerializer(serializers.ModelSerializer):
     - employee_department_level: 部门层级(department.level),前端用于判断部门层级
     """
 
-    employee_department_code = serializers.SlugRelatedField(
+    employee_department_code = serializers.SlugRelatedField(  # type: ignore[var-annotated]
         source="employee_department", slug_field="department_code", read_only=True
     )
-    employee_department_name = serializers.SlugRelatedField(
+    employee_department_name = serializers.SlugRelatedField(  # type: ignore[var-annotated]
         source="employee_department", slug_field="department_name", read_only=True
     )
     employee_department_level = serializers.IntegerField(source="employee_department.level", read_only=True)
@@ -48,7 +48,7 @@ class EmployeeSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class EmployeeDetailSerializer(serializers.ModelSerializer):
+class EmployeeDetailSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     员工详细信息序列化器(详情页用)
 
@@ -58,10 +58,10 @@ class EmployeeDetailSerializer(serializers.ModelSerializer):
     - employee_department_level: 部门层级(department.level),前端用于判断部门层级
     """
 
-    employee_department_code = serializers.SlugRelatedField(
+    employee_department_code = serializers.SlugRelatedField(  # type: ignore[var-annotated]
         source="employee_department", slug_field="department_code", read_only=True
     )
-    employee_department_name = serializers.SlugRelatedField(
+    employee_department_name = serializers.SlugRelatedField(  # type: ignore[var-annotated]
         source="employee_department", slug_field="department_name", read_only=True
     )
     employee_department_level = serializers.IntegerField(source="employee_department.level", read_only=True)
@@ -73,7 +73,7 @@ class EmployeeDetailSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "recordcode", "employee_jobcode", "employee_department"]
 
 
-class EmployeeCreateSerializer(serializers.ModelSerializer):
+class EmployeeCreateSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """员工创建序列化器"""
 
     employee_department_code = serializers.SlugRelatedField(
@@ -106,7 +106,7 @@ class EmployeeCreateSerializer(serializers.ModelSerializer):
         return value
 
 
-class EmployeeUpdateSerializer(serializers.ModelSerializer):
+class EmployeeUpdateSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """员工更新序列化器"""
 
     employee_department_code = serializers.SlugRelatedField(
@@ -126,7 +126,7 @@ class EmployeeUpdateSerializer(serializers.ModelSerializer):
         ]
 
 
-class EmployeeSortSerializer(serializers.Serializer):
+class EmployeeSortSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """
     员工批量排序序列化器
 
@@ -146,7 +146,7 @@ class EmployeeSortSerializer(serializers.Serializer):
     sort_order = serializers.IntegerField(min_value=0, help_text="排序顺序,数字越小越靠前")
 
 
-class EmployeeBatchSortSerializer(serializers.Serializer):
+class EmployeeBatchSortSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """
     员工批量排序请求序列化器
 
@@ -156,7 +156,7 @@ class EmployeeBatchSortSerializer(serializers.Serializer):
     items = EmployeeSortSerializer(many=True, help_text="员工排序项列表")
 
 
-class EmployeeBatchItemSerializer(serializers.Serializer):
+class EmployeeBatchItemSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """单条员工批量创建数据校验"""
 
     row_number = serializers.IntegerField(required=False, help_text="Excel 行号")
@@ -172,7 +172,7 @@ class EmployeeBatchItemSerializer(serializers.Serializer):
     sort_order = serializers.IntegerField(required=False, default=0)
 
 
-class EmployeeBatchCreateSerializer(serializers.Serializer):
+class EmployeeBatchCreateSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """批量创建员工请求校验"""
 
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
@@ -188,7 +188,7 @@ class EmployeeBatchCreateSerializer(serializers.Serializer):
         return value
 
 
-class EmployeeBatchDeleteSerializer(serializers.Serializer):
+class EmployeeBatchDeleteSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """批量删除员工请求校验"""
 
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)

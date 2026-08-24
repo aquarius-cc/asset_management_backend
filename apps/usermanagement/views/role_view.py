@@ -15,9 +15,11 @@
 """
 
 from typing import Any
+
 from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.response import Response
 
 from apps.usermanagement.models import Role, UserRole
 from apps.usermanagement.rbac_serializers import (
@@ -63,7 +65,7 @@ from utils.response_utils import error_response, success_response
         tags=["角色管理"],
     ),
 )
-class RoleViewSet(ResponseWrapperMixin, viewsets.ModelViewSet):
+class RoleViewSet(ResponseWrapperMixin, viewsets.ModelViewSet):  # type: ignore[type-arg]
     """
     角色管理 ViewSet
 
@@ -144,7 +146,7 @@ class RoleViewSet(ResponseWrapperMixin, viewsets.ModelViewSet):
         },
     )
     @action(detail=True, methods=["get", "post"], url_path="permissions")
-    def role_permissions(self, request: Any, pk: Any = None) -> None:
+    def role_permissions(self, request: Any, pk: Any = None) -> Response:
         """
         获取或设置角色的权限码
 
@@ -194,7 +196,7 @@ class RoleViewSet(ResponseWrapperMixin, viewsets.ModelViewSet):
         tags=["角色管理"],
     ),
 )
-class UserRoleViewSet(ResponseWrapperMixin, viewsets.ModelViewSet):
+class UserRoleViewSet(ResponseWrapperMixin, viewsets.ModelViewSet):  # type: ignore[type-arg]
     """
     用户-角色分配 ViewSet
 
@@ -223,7 +225,7 @@ class UserRoleViewSet(ResponseWrapperMixin, viewsets.ModelViewSet):
         raw_role = serializer.validated_data.get("role")
         role_id = raw_role.pk if hasattr(raw_role, "pk") else raw_role
 
-        RoleService.assign_role(user_id, role_id)
+        RoleService.assign_role(user_id, role_id)  # type: ignore[arg-type]
 
     def perform_destroy(self, instance: Any) -> None:
         """删除用户角色关联"""

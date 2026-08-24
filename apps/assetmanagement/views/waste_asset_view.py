@@ -6,7 +6,6 @@
 """
 
 from datetime import datetime as dt
-
 from typing import Any
 
 from django_filters.rest_framework import DjangoFilterBackend
@@ -38,7 +37,7 @@ from ._export_mixin import ExportExcelMixin
 from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
 
 
-class WasteAssetViewSet(
+class WasteAssetViewSet(  # type: ignore[misc]
     RecordcodeLookupMixin,
     AdminWritePermissionMixin,
     ExportExcelMixin,
@@ -107,7 +106,7 @@ class WasteAssetViewSet(
         )
 
     @action(detail=False, methods=["get"], url_path="by-asset/(?P<asset_recordcode>[^/.]+)")
-    def by_asset(self, request, asset_recordcode=None) -> Response:
+    def by_asset(self, request: Any, asset_recordcode: Any = None) -> Response:
         visible = AssetSelector.get_queryset_for_user(request.user).filter(asset_code=asset_recordcode).exists()
         if not visible:
             return error_response(message=f"资产 {asset_recordcode} 不存在", status_code=404)
@@ -115,7 +114,7 @@ class WasteAssetViewSet(
         return self._paginate_and_respond(records)
 
     @action(detail=False, methods=["get"])
-    def statistics(self, request) -> Response:
+    def statistics(self, request: Any) -> Response:
         from django.db.models import Count
         from django.utils import timezone
 
@@ -155,7 +154,7 @@ class WasteAssetViewSet(
         responses={200: WasteAssetListSerializer(many=True)},
     )
     @action(detail=False, methods=["get"], url_path="by-date-range")
-    def by_date_range(self, request) -> Response:
+    def by_date_range(self, request: Any) -> Response:
         start_date = None
         end_date = None
         start_date_str = request.query_params.get("start_date", "").strip()
@@ -177,7 +176,7 @@ class WasteAssetViewSet(
             qs = qs.filter(waste_asset_date__lte=end_date)
         return self._paginate_and_respond(qs)
 
-    @action(detail=False, methods=["post"], url_path="batch-delete")
+    @action(detail=False, methods=["post"], url_path="batch-delete")  # type: ignore[type-var]
     def batch_delete(self, request: Any) -> None:
         serializer = WasteAssetBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -189,7 +188,7 @@ class WasteAssetViewSet(
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
         )
-        return BatchResponseHelper.delete_response(
+        return BatchResponseHelper.delete_response(  # type: ignore[no-any-return]
             result,
             message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )

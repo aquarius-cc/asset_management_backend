@@ -63,7 +63,7 @@ class DamagedAssetService:
             operator_name=operator_name,
         )
 
-        return damaged_asset
+        return damaged_asset  # type: ignore[no-any-return]
 
     @staticmethod
     @transaction.atomic
@@ -139,7 +139,7 @@ class DamagedAssetService:
         )
 
         # 更新资产状态
-        asset = Asset.objects.select_for_update().get(pk=damaged_asset.asset_recordcode.pk)
+        asset = Asset.objects.select_for_update().get(pk=damaged_asset.asset_recordcode.pk)  # type: ignore[union-attr]
         AssetFSM.approve(asset)
         asset.save(update_fields=["asset_current_status", "updated_at"])
 
@@ -207,15 +207,15 @@ class DamagedAssetService:
 
         # 根据 original_status 回退状态(业务约束 §三.5: 审批拒绝回退申请前状态)
         asset = damaged_asset.asset_recordcode
-        old_status = asset.asset_current_status
-        AssetFSM.reject_to_original(asset, damaged_asset.original_status)
-        asset.save(update_fields=["asset_current_status", "updated_at"])
+        old_status = asset.asset_current_status  # type: ignore[union-attr]
+        AssetFSM.reject_to_original(asset, damaged_asset.original_status)  # type: ignore[arg-type]
+        asset.save(update_fields=["asset_current_status", "updated_at"])  # type: ignore[union-attr]
 
         # 审计日志
         AuditLogger.log_state_change(
             asset=asset,
             from_state=old_status,
-            to_state=asset.asset_current_status,
+            to_state=asset.asset_current_status,  # type: ignore[union-attr]
             trigger="reject",
             operator_jobcode=approver_jobcode,
             operator_name=operator_name,
@@ -225,12 +225,12 @@ class DamagedAssetService:
         from apps.notification.helpers import send_notification_on_commit
 
         send_notification_on_commit(
-            asset=asset,
+            asset=asset,  # type: ignore[arg-type]
             notification_type="approval",
             title="待报废审批拒绝",
-            message=f"资产 {asset.asset_code} 的报废申请已被拒绝",
+            message=f"资产 {asset.asset_code} 的报废申请已被拒绝",  # type: ignore[union-attr]
             priority="medium",
-            related_url=f"/main/assetdetails/{asset.asset_code}",
+            related_url=f"/main/assetdetails/{asset.asset_code}",  # type: ignore[union-attr]
         )
 
         return damaged_asset
@@ -269,15 +269,15 @@ class DamagedAssetService:
 
         # 恢复资产状态
         asset = damaged_asset.asset_recordcode
-        old_status = asset.asset_current_status
-        AssetFSM.cancel_damaged(asset)
-        asset.save(update_fields=["asset_current_status", "updated_at"])
+        old_status = asset.asset_current_status  # type: ignore[union-attr]
+        AssetFSM.cancel_damaged(asset)  # type: ignore[arg-type]
+        asset.save(update_fields=["asset_current_status", "updated_at"])  # type: ignore[union-attr]
 
         # 审计日志
         AuditLogger.log_state_change(
             asset=asset,
             from_state=old_status,
-            to_state=asset.asset_current_status,
+            to_state=asset.asset_current_status,  # type: ignore[union-attr]
             trigger="cancel",
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,

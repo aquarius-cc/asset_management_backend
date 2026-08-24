@@ -19,7 +19,9 @@
             register_employee_provider(DjangoEmployeeProvider())
 """
 
+from collections.abc import Iterator
 from typing import Any
+
 from apps.assetmanagement.interfaces import EmployeeDTO, EmployeeProvider
 from apps.usermanagement.models import Employee
 from apps.usermanagement.serializers import EmployeeSerializer
@@ -66,19 +68,19 @@ class MockQuerySet:
     def __init__(self, data: list[EmployeeDTO]):
         self._data = data
 
-    def __iter__(self) -> None:
+    def __iter__(self) -> Iterator[EmployeeDTO]:
         return iter(self._data)
 
-    def __len__(self) -> None:
+    def __len__(self) -> int:
         return len(self._data)
 
-    def filter(self, **kwargs: Any) -> None:
+    def filter(self, **kwargs: Any) -> "MockQuerySet":
         """模拟filter方法"""
         # 简化实现,仅支持基本过滤
         result = self._data
         return MockQuerySet(result)
 
-    def all(self) -> None:
+    def all(self) -> "MockQuerySet":
         """模拟all方法"""
         return MockQuerySet(self._data.copy())
 
@@ -95,7 +97,7 @@ class MockEmployeeSerializer:
         self._data = data
 
     @property
-    def data(self) -> None:
+    def data(self) -> dict[str, Any]:
         """返回序列化后的数据"""
         if self.instance:
             return {

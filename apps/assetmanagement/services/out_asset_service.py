@@ -119,7 +119,7 @@ class OutAssetService:
             operator_name=operator_name,
         )
 
-        return outasset
+        return outasset  # type: ignore[no-any-return]
 
     @staticmethod
     @transaction.atomic
@@ -187,7 +187,7 @@ class OutAssetService:
             if not outasset:
                 raise AppValidationError(detail=f"出库记录 {recordcode} 不存在", error_code="NOT_FOUND")
 
-            asset = Asset.objects.select_for_update().get(pk=outasset.asset_recordcode.pk)
+            asset = Asset.objects.select_for_update().get(pk=outasset.asset_recordcode.pk)  # type: ignore[union-attr]
             if asset.asset_current_status != Asset.AssetStatus.IN_USE:
                 raise AppValidationError(
                     detail=f"关联资产当前状态为 {asset.asset_current_status},不允许删除出库记录",

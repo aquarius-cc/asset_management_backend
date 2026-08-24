@@ -10,7 +10,6 @@ Content-Security-Policy 中间件
 
 
 import logging
-
 from typing import Any
 
 from django.conf import settings
@@ -57,6 +56,6 @@ class ContentSecurityPolicyMiddleware:
         # 静态文件和 admin 页面不添加 CSP(由 Django 自行处理)
         path = request.path
         if path.startswith("/static/") or path.startswith("/admin/"):
-            return response
+            return response  # type: ignore[no-any-return]
         response[self._csp_header] = self._csp_value
-        return response
+        return response  # type: ignore[no-any-return]

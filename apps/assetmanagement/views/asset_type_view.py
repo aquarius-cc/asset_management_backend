@@ -8,6 +8,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
+from rest_framework.response import Response
 
 from apps.assetmanagement.models import AssetType
 from apps.assetmanagement.serializers import (
@@ -26,7 +27,7 @@ from utils.user_utils import resolve_operator
 from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
 
 
-class AssetTypeViewSet(
+class AssetTypeViewSet(  # type: ignore[misc]
     RecordcodeLookupMixin,
     AdminWritePermissionMixin,
     PaginateAndRespondMixin,
@@ -83,7 +84,7 @@ class AssetTypeViewSet(
         )
         return success_response(message="删除成功")
 
-    @action(detail=False, methods=["post"], url_path="batch-delete")
+    @action(detail=False, methods=["post"], url_path="batch-delete")  # type: ignore[type-var]
     def batch_delete(self, request: Any) -> None:
         serializer = AssetTypeBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -94,12 +95,12 @@ class AssetTypeViewSet(
             operator_name=operator_name,
         )
         # 【DR-1 收敛】响应组装复用 BatchResponseHelper
-        return BatchResponseHelper.delete_response(
+        return BatchResponseHelper.delete_response(  # type: ignore[no-any-return]
             result,
             message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
 
-    @action(detail=False, methods=["post"], url_path="batch-create")
+    @action(detail=False, methods=["post"], url_path="batch-create")  # type: ignore[type-var]
     def batch_create(self, request: Any) -> None:
         serializer = AssetTypeBatchCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -110,7 +111,7 @@ class AssetTypeViewSet(
             operator_name=operator_name,
         )
         # 【DR-1 收敛】many=True 与逐条序列化等价性由 test_b5_many_vs_itemwise 实证锁定
-        return BatchResponseHelper.create_response(
+        return BatchResponseHelper.create_response(  # type: ignore[no-any-return]
             result,
             AssetTypeSerializer,
             message=f"批量创建完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",

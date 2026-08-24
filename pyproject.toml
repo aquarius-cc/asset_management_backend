@@ -90,7 +90,7 @@ target-version = "py312"
 line-length = 120
 
 # 启用规则组
-select = [
+lint.select = [
     "E",     # pycodestyle errors
     "W",     # pycodestyle warnings
     "F",     # pyflakes
@@ -100,7 +100,7 @@ select = [
     "UP",    # pyupgrade
     "RUF",   # Ruff 特有规则
 ]
-ignore = [
+lint.ignore = [
     "E501",  # 行长度（由 line-length 控制）
     "E203",  # 与 black 冲突
     "RUF012",  # mutable class attribute: 项目采用类属性常量/列表设计
@@ -113,8 +113,8 @@ ignore = [
 ]
 
 # 自动修复规则
-fixable = ["ALL"]
-unfixable = []
+lint.fixable = ["ALL"]
+lint.unfixable = []
 
 # 排除目录
 exclude = [
@@ -128,7 +128,7 @@ exclude = [
     "dist",
 ]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 # 顶层工具脚本: 顶层 import 属于脚本模式
 "check_*.py" = ["E402"]
 "fix_*.py" = ["E402"]
@@ -139,7 +139,7 @@ exclude = [
 "config/settings/*" = ["E402"]
 
 # ==================== Ruff Import 规则 ====================
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 # Import 排序配置
 force-single-line = false
 lines-after-imports = 2
@@ -162,27 +162,19 @@ ignore_missing_imports = true
 # 路径配置
 files = ["apps", "core", "config", "utils"]
 
-# 排除测试目录和非业务目录
+# 排除测试目录、migrations、根目录工具脚本和非业务目录
 exclude = [
   "(.*test.*|Understand-Anything/.*)",
+  "migrations/",
+  "run_graphify\\.py",
+  "run_graphify_full\\.py",
+  "clear_database\\.py",
 ]
 
 plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
 
 [tool.django-stubs]
 django_settings_module = "config.settings.test"
-
-# 排除根目录工具脚本（非业务代码）
-[[tool.mypy.overrides]]
-module = [
-  "run_graphify",
-  "run_graphify_full",
-  "clear_database",
-  "run_graphify.*",
-  "run_graphify_full.*",
-  "clear_database.*",
-]
-ignore_errors = true
 
 # 报告
 show_error_codes = true

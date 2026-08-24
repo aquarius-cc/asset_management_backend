@@ -40,7 +40,7 @@ class DepartmentAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
             return obj.parent.department_code
         return "—"
 
-    get_parent_code.short_description = "上级部门"
+    get_parent_code.short_description = "上级部门"  # type: ignore[attr-defined]
 
 
 @admin.register(Employee)

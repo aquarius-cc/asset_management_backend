@@ -18,6 +18,8 @@
 user_has_permission 因 G1-B 收敛已删除,查询路径统一走 get_effective_permissions_for_user。
 """
 
+from typing import Any
+
 from apps.usermanagement.models import (
     EmployeeRole,
     Permission,
@@ -36,7 +38,7 @@ class PermissionService:
     """
 
     @staticmethod
-    def get_effective_permissions_for_user(user) -> list[str]:
+    def get_effective_permissions_for_user(user: Any) -> list[str]:
         """
         获取用户有效权限码列表。
 
@@ -98,7 +100,7 @@ class PermissionService:
         )
 
     @staticmethod
-    def _fallback_role_permissions(user) -> list[str]:
+    def _fallback_role_permissions(user: Any) -> list[str]:
         """
         按 Employee.role 回退到种子角色权限(G6)。
 

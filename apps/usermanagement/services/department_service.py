@@ -107,7 +107,7 @@ class DepartmentService:
 
         department = Department.objects.create(**dept_data)
         DepartmentAuditAdapter.log_create(department, dept_data.get("operator_jobcode"), dept_data.get("operator_name"))
-        return department
+        return department  # type: ignore[no-any-return]
 
     # 【AGENTS 规范 - P2-10】get_all_departments 已删除,
     # 与 DepartmentSelector.get_all_departments 完全重复,调用方请改用 DepartmentSelector
@@ -251,7 +251,7 @@ class DepartmentService:
         if max_level is None:
             return 0
 
-        return max_level - department.level
+        return max_level - department.level  # type: ignore[no-any-return]
 
     @staticmethod
     @transaction.atomic

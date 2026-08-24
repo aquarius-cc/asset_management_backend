@@ -18,27 +18,27 @@ class AssetQuerySet(models.QuerySet[Any]):
     提供预加载关联和字段精简方法，用于列表页和详情页的不同查询需求。
     """
 
-    def with_basic_relations(self) -> None:
+    def with_basic_relations(self) -> Any:
         """预加载基础关联（类型、合同、仓库）"""
         return self.select_related(
             'asset_type_code', 'asset_contract_code', 'asset_storage_code'
         )
 
-    def with_person_relations(self) -> None:
+    def with_person_relations(self) -> Any:
         """预加载人员关联（入库人、申请人、保管人）"""
         return self.select_related(
             'asset_entry_person_jobcode', 'asset_applicant_jobcode', 'asset_manager_jobcode'
         )
 
-    def with_all_relations(self) -> None:
+    def with_all_relations(self) -> Any:
         """预加载所有常用关联"""
         return self.with_basic_relations().with_person_relations()
 
-    def with_harddisk_sns(self) -> None:
+    def with_harddisk_sns(self) -> Any:
         """预加载硬盘序列号"""
         return self.prefetch_related('harddisk_sns')
 
-    def for_list(self) -> None:
+    def for_list(self) -> Any:
         """
         列表页专用：defer() 排除大字段，减少数据传输
 
@@ -49,7 +49,7 @@ class AssetQuerySet(models.QuerySet[Any]):
             'asset_description',
         )
 
-    def for_search_list(self) -> None:
+    def for_search_list(self) -> Any:
         """
         搜索结果列表（更精简的字段）
 
@@ -69,7 +69,7 @@ class OutAssetQuerySet(models.QuerySet[Any]):
     去除冗余字段后，所有资产详情通过 outasset_code 双下划线关联查询。
     """
 
-    def with_asset_details(self) -> None:
+    def with_asset_details(self) -> Any:
         """预加载资产完整信息（双下划线链式JOIN）"""
         return self.select_related(
             'outasset_code',
@@ -80,7 +80,7 @@ class OutAssetQuerySet(models.QuerySet[Any]):
             'outasset_code__asset_manager_jobcode',
         )
 
-    def for_list(self) -> None:
+    def for_list(self) -> Any:
         """出库列表页专用：defer() 排除大字段"""
         return self.with_asset_details().defer(
             'outasset_description',
@@ -95,7 +95,7 @@ class RecycleAssetQuerySet(models.QuerySet[Any]):
     新增 operator_jobcode 记录回收操作人。
     """
 
-    def with_asset_details(self) -> None:
+    def with_asset_details(self) -> Any:
         """预加载资产完整信息"""
         return self.select_related(
             'recycle_asset_code',
@@ -106,7 +106,7 @@ class RecycleAssetQuerySet(models.QuerySet[Any]):
             'operator_jobcode',
         )
 
-    def for_list(self) -> None:
+    def for_list(self) -> Any:
         """回收列表页专用：defer() 排除大字段"""
         return self.with_asset_details().defer(
             'recycle_asset_description',
@@ -120,7 +120,7 @@ class DamagedAssetQuerySet(models.QuerySet[Any]):
     去除冗余字段后，资产详情通过 damaged_asset_code 关联查询。
     """
 
-    def with_asset_details(self) -> None:
+    def with_asset_details(self) -> Any:
         """预加载资产完整信息"""
         return self.select_related(
             'damaged_asset_code',
@@ -131,7 +131,7 @@ class DamagedAssetQuerySet(models.QuerySet[Any]):
             'approver',
         )
 
-    def for_list(self) -> None:
+    def for_list(self) -> Any:
         """待报废列表页专用：defer() 排除大字段"""
         return self.with_asset_details().defer(
             'damaged_asset_description',
@@ -145,7 +145,7 @@ class WasteAssetQuerySet(models.QuerySet[Any]):
     去除冗余字段后，资产详情通过 waste_asset_code 关联查询。
     """
 
-    def with_asset_details(self) -> None:
+    def with_asset_details(self) -> Any:
         """预加载资产完整信息"""
         return self.select_related(
             'waste_asset_code',
@@ -156,7 +156,7 @@ class WasteAssetQuerySet(models.QuerySet[Any]):
             'source_damaged_asset',
         )
 
-    def for_list(self) -> None:
+    def for_list(self) -> Any:
         """已报废列表页专用：defer() 排除大字段"""
         return self.with_asset_details().defer(
             'waste_asset_description',

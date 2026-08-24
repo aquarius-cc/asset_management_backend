@@ -21,23 +21,23 @@ class OutAssetSelector:
     @staticmethod
     def get_queryset_for_user(user: Any) -> QuerySet[OutAsset]:
         """RBAC 行级过滤"""
-        return get_asset_linked_queryset_for_user(user, OutAsset.objects.for_list().filter(is_deleted=False))  # type: ignore[attr-defined,no-any-return]
+        return get_asset_linked_queryset_for_user(user, OutAsset.objects.for_list().filter(is_deleted=False))
 
     @staticmethod
     def get_outassets_for_list() -> QuerySet[OutAsset]:
-        return OutAsset.objects.for_list().filter(is_deleted=False)  # type: ignore[attr-defined,no-any-return]
+        return OutAsset.objects.for_list().filter(is_deleted=False)
 
     @staticmethod
     def get_outassets_with_asset_details() -> QuerySet[OutAsset]:
-        return OutAsset.objects.with_asset_details().filter(is_deleted=False)  # type: ignore[attr-defined,no-any-return]
+        return OutAsset.objects.with_asset_details().filter(is_deleted=False)
 
     @staticmethod
     def get_asset_recordcodes_for_list() -> QuerySet[OutAsset]:
-        return OutAsset.objects.for_list().filter(is_deleted=False)  # type: ignore[attr-defined,no-any-return]
+        return OutAsset.objects.for_list().filter(is_deleted=False)
 
     @staticmethod
     def get_asset_recordcodes_with_asset_details() -> QuerySet[OutAsset]:
-        return OutAsset.objects.with_asset_details().filter(is_deleted=False)  # type: ignore[attr-defined,no-any-return]
+        return OutAsset.objects.with_asset_details().filter(is_deleted=False)
 
     # 搜索参数配置:前端参数名 → 数据库查询字段
     # icontains: 模糊匹配, exact: 精确匹配
@@ -146,7 +146,7 @@ class OutAssetSelector:
         # 【P0-25 修复】跨表 JOIN 过滤关联表 is_deleted=False,防止返回已删除资产的出库记录
         # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法,添加额外 FK
         base_queryset: QuerySet[OutAsset] = (
-            OutAsset.objects.filter(  # type: ignore[attr-defined]
+            OutAsset.objects.filter(
                 asset_recordcode__asset_current_status=Asset.AssetStatus.IN_USE, asset_recordcode__is_deleted=False
             )
             .exclude(recordcode__in=RecycleAsset.objects.values("outasset_recordcode"))
@@ -167,20 +167,20 @@ class OutAssetSelector:
     @staticmethod
     def get_all_out_assets() -> QuerySet[OutAsset]:
         # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
-        return OutAsset.objects.with_asset_details().filter(is_deleted=False)  # type: ignore[attr-defined,no-any-return]
+        return OutAsset.objects.with_asset_details().filter(is_deleted=False)
 
     @staticmethod
     def get_outasset_by_record_code(record_code: str) -> OutAsset | None:
         try:
             # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
-            return OutAsset.objects.with_asset_details().get(recordcode=record_code, is_deleted=False)  # type: ignore[attr-defined,no-any-return]
+            return OutAsset.objects.with_asset_details().get(recordcode=record_code, is_deleted=False)
         except OutAsset.DoesNotExist:
             return None
 
     @staticmethod
     def get_outassets_by_applicant(applicant_jobcode: str, user: Any = None) -> QuerySet[OutAsset]:
         qs: QuerySet[OutAsset] = (
-            OutAsset.objects.filter(  # type: ignore[attr-defined]
+            OutAsset.objects.filter(
                 asset_recordcode__asset_applicant_recordcode__employee_jobcode=applicant_jobcode,
                 is_deleted=False,
             )
@@ -194,7 +194,7 @@ class OutAssetSelector:
     @staticmethod
     def get_outassets_by_asset(asset_code: str, user: Any = None) -> QuerySet[OutAsset]:
         qs: QuerySet[OutAsset] = (
-            OutAsset.objects.filter(asset_recordcode__asset_code=asset_code, is_deleted=False)  # type: ignore[attr-defined]
+            OutAsset.objects.filter(asset_recordcode__asset_code=asset_code, is_deleted=False)
             .with_asset_details()
             .order_by("-outasset_date")
         )

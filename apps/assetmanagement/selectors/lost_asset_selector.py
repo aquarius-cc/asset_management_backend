@@ -18,20 +18,20 @@ class LostAssetSelector:
     @staticmethod
     def get_queryset_for_user(user: Any) -> QuerySet[LostAsset]:
         """RBAC 行级过滤"""
-        return get_asset_linked_queryset_for_user(user, LostAsset.objects.for_list().filter(is_deleted=False))  # type: ignore[attr-defined,no-any-return]
+        return get_asset_linked_queryset_for_user(user, LostAsset.objects.for_list().filter(is_deleted=False))
 
     @staticmethod
     def get_lost_assets_for_list() -> QuerySet[LostAsset]:
-        return LostAsset.objects.for_list().filter(is_deleted=False)  # type: ignore[attr-defined,no-any-return]
+        return LostAsset.objects.for_list().filter(is_deleted=False)
 
     @staticmethod
     def get_lost_assets_with_details() -> QuerySet[LostAsset]:
-        return LostAsset.objects.with_asset_details().filter(is_deleted=False)  # type: ignore[attr-defined,no-any-return]
+        return LostAsset.objects.with_asset_details().filter(is_deleted=False)
 
     @staticmethod
     def get_lost_asset_by_recordcode(recordcode: str) -> LostAsset | None:
         try:
-            return LostAsset.objects.with_asset_details().get(recordcode=recordcode, is_deleted=False)  # type: ignore[attr-defined,no-any-return]
+            return LostAsset.objects.with_asset_details().get(recordcode=recordcode, is_deleted=False)
         except LostAsset.DoesNotExist:
             return None
 
@@ -51,5 +51,5 @@ class LostAssetSelector:
             "asset_recordcode__asset_manager_recordcode",
         )
         if user:
-            qs = get_asset_linked_queryset_for_user(user, qs)
+            qs = get_asset_linked_queryset_for_user(user, qs)  # type: ignore[assignment]
         return qs

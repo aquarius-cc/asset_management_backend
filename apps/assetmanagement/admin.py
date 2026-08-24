@@ -19,7 +19,7 @@ class StorageAdmin(admin.ModelAdmin):
 class AssetTypeAdmin(admin.ModelAdmin):
     def asset_type_name(self, obj):
         return f"{obj.asset_type_primary} - {obj.asset_type_secondary}"
-    asset_type_name.short_description = "资产分类名称"
+    asset_type_name.short_description = "资产分类名称"  # type: ignore[attr-defined]
     asset_type_name.admin_order_field = 'asset_type_primary'
 
     list_display = ['asset_type_code',
@@ -66,14 +66,14 @@ class OutAssetAdmin(admin.ModelAdmin):
         if obj.outasset_applicant_jobcode:
             return obj.outasset_applicant_jobcode.employee_name
         return '-'
-    outasset_applicant_name.short_description = '申请人'
+    outasset_applicant_name.short_description = '申请人'  # type: ignore[attr-defined]
 
     def outasset_manager_name(self, obj):
         # 【AGENTS 规范 - 修复】user_name → employee_name
         if obj.outasset_manager_jobcode:
             return obj.outasset_manager_jobcode.employee_name
         return '-'
-    outasset_manager_name.short_description = '保管人'
+    outasset_manager_name.short_description = '保管人'  # type: ignore[attr-defined]
 
     list_display = [
         'id',
@@ -96,13 +96,13 @@ class RecycleAssetAdmin(admin.ModelAdmin):
         if obj.outasset_recordcode and obj.outasset_recordcode.outasset_code:
             return obj.outasset_recordcode.outasset_code.asset_code
         return '-'
-    asset_code.short_description = '资产编码'
+    asset_code.short_description = '资产编码'  # type: ignore[attr-defined]
 
     def asset_name(self, obj):
         if obj.outasset_recordcode and obj.outasset_recordcode.outasset_code:
             return obj.outasset_recordcode.outasset_code.asset_name
         return '-'
-    asset_name.short_description = '资产名称'
+    asset_name.short_description = '资产名称'  # type: ignore[attr-defined]
 
     def recycle_person_name(self, obj):
         # 【AGENTS 规范 - 去除冗余】recycle_asset_recycle_person_jobcode 删除
@@ -111,7 +111,7 @@ class RecycleAssetAdmin(admin.ModelAdmin):
         if obj.operator_jobcode:
             return obj.operator_jobcode.employee_name
         return '-'
-    recycle_person_name.short_description = '回收人'
+    recycle_person_name.short_description = '回收人'  # type: ignore[attr-defined]
 
     def storage_name(self, obj):
         # 【AGENTS 规范 - 去除冗余】recycle_asset_storage_code 删除
@@ -119,7 +119,7 @@ class RecycleAssetAdmin(admin.ModelAdmin):
         if obj.recycle_asset_code and obj.recycle_asset_code.asset_storage_code:
             return obj.recycle_asset_code.asset_storage_code.storage_name
         return '-'
-    storage_name.short_description = '存储仓库'
+    storage_name.short_description = '存储仓库'  # type: ignore[attr-defined]
 
     list_display = [
         'recycle_record_code',
@@ -153,7 +153,7 @@ class DamagedAssetAdmin(admin.ModelAdmin):
         if obj.damaged_asset_code and obj.damaged_asset_code.asset_storage_code:
             return obj.damaged_asset_code.asset_storage_code.storage_name
         return '-'
-    damaged_storage_name.short_description = '存储仓库'
+    damaged_storage_name.short_description = '存储仓库'  # type: ignore[attr-defined]
 
     list_display = ['damaged_asset_code',
                     'damaged_storage_name', 'approval_status']
@@ -170,18 +170,18 @@ class WasteAssetAdmin(admin.ModelAdmin):
 class HardDiskSNAdmin(admin.ModelAdmin):
     def asset_name(self, obj):
         return obj.asset_code.asset_name if obj.asset_code else '-'
-    asset_name.short_description = '所属资产'
+    asset_name.short_description = '所属资产'  # type: ignore[attr-defined]
 
     def asset_manager_name(self, obj):
         # 【AGENTS 规范 - 修复】user_name → employee_name
         if obj.asset_code and obj.asset_code.asset_manager_jobcode:
             return obj.asset_code.asset_manager_jobcode.employee_name
         return '-'
-    asset_manager_name.short_description = '资产保管人'
+    asset_manager_name.short_description = '资产保管人'  # type: ignore[attr-defined]
 
     def harddisk_sn_status_display(self, obj):
         return obj.get_harddisk_status_display()
-    harddisk_sn_status_display.short_description = '硬盘状态'
+    harddisk_sn_status_display.short_description = '硬盘状态'  # type: ignore[attr-defined]
 
     list_display = [
         'id',

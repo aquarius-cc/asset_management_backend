@@ -10,6 +10,7 @@
 # from rest_framework.utils.urls import replace_query_param
 
 from typing import Any
+
 from rest_framework.pagination import PageNumberPagination
 
 from core.constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
@@ -35,7 +36,7 @@ class CustomPageNumberPagination(PageNumberPagination):
     page_query_param = "page"  # 页码参数名(默认即为'page',显式声明更清晰)
     # last_page_strings = ('last',)  # 最后一页参数名(默认即为'last',显式声明更清晰)
 
-    def paginate_queryset(self, queryset, request, view=None) -> object | None:
+    def paginate_queryset(self, queryset: Any, request: Any, view: Any = None) -> object | None:  # type: ignore[override]
         """
         根据请求参数决定是否分页
 
@@ -79,10 +80,10 @@ class CustomPageNumberPagination(PageNumberPagination):
         """
         return success_response(
             data={
-                "count": self.page.paginator.count,  # 总记录数
-                "total_pages": self.page.paginator.num_pages,  # 总页数(使用 num_pages 属性)
-                "page": self.page.number,  # 当前页码
-                "page_size": self.get_page_size(self.request),  # 每页大小
+                "count": self.page.paginator.count,  # type: ignore[union-attr]
+                "total_pages": self.page.paginator.num_pages,  # type: ignore[union-attr]
+                "page": self.page.number,  # type: ignore[union-attr]
+                "page_size": self.get_page_size(self.request),  # type: ignore[arg-type]
                 "next": self.get_next_link(),
                 "previous": self.get_previous_link(),
                 "results": data,

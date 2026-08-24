@@ -24,7 +24,7 @@ class HardDiskSNSelector:
     def get_by_recordcode(recordcode: str) -> HardDiskSN | None:
         """按 recordcode 查询单条"""
         try:
-            return HardDiskSN.objects.get(recordcode=recordcode, is_deleted=False)
+            return HardDiskSN.objects.get(recordcode=recordcode, is_deleted=False)  # type: ignore[no-any-return]
         except HardDiskSN.DoesNotExist:
             return None
 
@@ -38,7 +38,7 @@ class HardDiskSNSelector:
     def get_by_pk(pk: int) -> HardDiskSN | None:
         """按主键查询"""
         try:
-            return HardDiskSN.objects.get(pk=pk, is_deleted=False)
+            return HardDiskSN.objects.get(pk=pk, is_deleted=False)  # type: ignore[no-any-return]
         except HardDiskSN.DoesNotExist:
             return None
 
@@ -46,7 +46,7 @@ class HardDiskSNSelector:
     def get_by_sn_code(sn_code: str) -> HardDiskSN | None:
         """按序列号查询"""
         try:
-            return HardDiskSN.objects.get(harddisk_sn_code=sn_code, is_deleted=False)
+            return HardDiskSN.objects.get(harddisk_sn_code=sn_code, is_deleted=False)  # type: ignore[no-any-return]
         except HardDiskSN.DoesNotExist:
             return None
 

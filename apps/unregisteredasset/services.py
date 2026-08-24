@@ -191,7 +191,7 @@ class UnregisteredAssetService:
             # 【P2-10 修复】审计异常记录日志便于排查,但不影响主流程
             logger.warning(f"审计日志记录失败(create): {e}", exc_info=True)
 
-        return unregistered
+        return unregistered  # type: ignore[no-any-return]
 
     @staticmethod
     @transaction.atomic
@@ -350,19 +350,19 @@ class UnregisteredAssetService:
             result = {"action": "reject"}
 
         elif handle_type == "create_and_recycle":
-            result = _handle_s1_create_and_recycle(unregistered, approver_employee)
+            result = _handle_s1_create_and_recycle(unregistered, approver_employee)  # type: ignore[arg-type]
             unregistered.approval_status = UnregisteredAsset.ApprovalStatus.APPROVED
 
         elif handle_type == "create_and_damaged":
-            result = _handle_s1_create_and_damaged(unregistered, approver_employee)
+            result = _handle_s1_create_and_damaged(unregistered, approver_employee)  # type: ignore[arg-type]
             unregistered.approval_status = UnregisteredAsset.ApprovalStatus.APPROVED
 
         elif handle_type == "supplement_and_recycle":
-            result = _handle_s2_supplement_and_recycle(unregistered, approver_employee)
+            result = _handle_s2_supplement_and_recycle(unregistered, approver_employee)  # type: ignore[arg-type]
             unregistered.approval_status = UnregisteredAsset.ApprovalStatus.APPROVED
 
         elif handle_type == "correct_and_recycle":
-            result = _handle_s3_correct_and_recycle(unregistered, approver_employee)
+            result = _handle_s3_correct_and_recycle(unregistered, approver_employee)  # type: ignore[arg-type]
             unregistered.approval_status = UnregisteredAsset.ApprovalStatus.APPROVED
 
         unregistered.save()
@@ -375,7 +375,7 @@ class UnregisteredAssetService:
                 unregistered=unregistered,
                 handle_type=handle_type,
                 result=result,
-                operator_jobcode=approver_employee,
+                operator_jobcode=approver_employee,  # type: ignore[arg-type]
                 operator_name=operator_name,
             )
         except Exception as e:

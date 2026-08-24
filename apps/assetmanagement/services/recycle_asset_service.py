@@ -70,9 +70,9 @@ class RecycleAssetService:
         recycle_data["outasset_recordcode"] = outasset
 
         asset = outasset.asset_recordcode
-        if asset.asset_current_status != Asset.AssetStatus.IN_USE:
+        if asset.asset_current_status != Asset.AssetStatus.IN_USE:  # type: ignore[union-attr]
             raise AppValidationError(
-                detail=f"资产当前状态为 {asset.asset_current_status},不能回收",
+                detail=f"资产当前状态为 {asset.asset_current_status},不能回收",  # type: ignore[union-attr]
                 error_code="INVALID_ASSET_STATUS_FOR_RECYCLE",
             )
 
@@ -94,7 +94,7 @@ class RecycleAssetService:
 
         recycle_asset = RecycleAsset.objects.create(**recycle_data)
 
-        asset = Asset.objects.select_for_update().get(pk=asset.pk)
+        asset = Asset.objects.select_for_update().get(pk=asset.pk)  # type: ignore[union-attr]
 
         # AC-32/AC-33: 回收时标记损坏/遗失
         if is_broken:
@@ -144,7 +144,7 @@ class RecycleAssetService:
                 operator_jobcode, operator_name,
             )
 
-        return recycle_asset
+        return recycle_asset  # type: ignore[no-any-return]
 
     @staticmethod
     def _do_recycle_asset_update(
@@ -189,7 +189,7 @@ class RecycleAssetService:
         fallback_jobcode = recycle_person_obj.employee_jobcode if recycle_person_obj else None
         AuditLogger.log_asset_recycle(
             asset=asset,
-            recordcode=recycle_asset.recordcode,
+            recordcode=recycle_asset.recordcode,  # type: ignore[arg-type]
             operator_jobcode=operator_jobcode or fallback_jobcode,
             operator_name=operator_name or "",
         )

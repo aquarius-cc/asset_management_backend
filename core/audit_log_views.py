@@ -11,10 +11,10 @@
 3. 查询逻辑委托给 AuditLogQueryService,View 仅负责参数解析和响应格式化
 """
 
-from typing import Any
 from datetime import datetime, timedelta
+from typing import Any
 
-from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema  # type: ignore[attr-defined]
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -35,19 +35,19 @@ class AuditLogSerializer:
         self.many = many
 
     @property
-    def data(self) -> None:
+    def data(self) -> list[dict[Any, Any]] | dict[Any, Any]:
         if self.many:
             return [self._serialize(log) for log in self.instance]
         return self._serialize(self.instance)
 
     @staticmethod
-    def _serialize(log: AuditLog) -> dict:
+    def _serialize(log: AuditLog) -> dict[str, Any]:
         return {
             "pk": log.pk,
             "record_code": log.record_code,
             "app_label": log.app_label,
             "operation_type": log.operation_type,
-            "operation_type_display": log.get_operation_type_display(),
+            "operation_type_display": log.get_operation_type_display(),  # type: ignore[attr-defined]
             "logging_id": log.logging_id,
             "operation_time": log.operation_time.isoformat() if log.operation_time else None,
             "operator_jobcode": log.operator_jobcode,
@@ -138,7 +138,7 @@ class AuditLogListView(ResponseWrapperMixin, APIView):
             400: {"description": "参数错误"},
         },
     )
-    def get(self, request) -> Response:
+    def get(self, request: Any) -> Response:
         """获取审计日志列表"""
         app_label = request.query_params.get("app_label")
         operation_type = request.query_params.get("operation_type")
@@ -193,7 +193,7 @@ class AuditLogListView(ResponseWrapperMixin, APIView):
 
         if page is not None:
             serializer = AuditLogSerializer(page, many=True)
-            return paginator.get_paginated_response(serializer.data)
+            return paginator.get_paginated_response(serializer.data)  # type: ignore[no-any-return]
 
         serializer = AuditLogSerializer(logs, many=True)
         return success_response(data=serializer.data)
@@ -217,7 +217,7 @@ class AuditLogDetailView(ResponseWrapperMixin, APIView):
             404: {"description": "记录不存在"},
         },
     )
-    def get(self, request, pk: int) -> Response:
+    def get(self, request: Any, pk: int) -> Response:
         """获取单条审计记录"""
         log = AuditLogQueryService.get_by_pk(pk)
 
@@ -258,7 +258,7 @@ class AuditLogByLoggingIdView(ResponseWrapperMixin, APIView):
             404: {"description": "记录不存在"},
         },
     )
-    def get(self, request, logging_id: str) -> Response:
+    def get(self, request: Any, logging_id: str) -> Response:
         """通过 logging_id 获取审计记录"""
         log = AuditLogQueryService.get_by_logging_id(logging_id)
 
@@ -299,7 +299,7 @@ class RecentAuditLogsView(ResponseWrapperMixin, APIView):
             200: {"description": "审计日志列表"},
         },
     )
-    def get(self, request) -> Response:
+    def get(self, request: Any) -> Response:
         """获取最近审计日志"""
         days = request.query_params.get("days", "7")
 
@@ -317,7 +317,7 @@ class RecentAuditLogsView(ResponseWrapperMixin, APIView):
 
         if page is not None:
             serializer = AuditLogSerializer(page, many=True)
-            return paginator.get_paginated_response(serializer.data)
+            return paginator.get_paginated_response(serializer.data)  # type: ignore[no-any-return]
 
         serializer = AuditLogSerializer(logs, many=True)
         return success_response(data=serializer.data)
@@ -350,7 +350,7 @@ class AuditLogsByAppLabelView(ResponseWrapperMixin, APIView):
             404: {"description": "该应用没有审计记录"},
         },
     )
-    def get(self, request, app_label: str) -> Response:
+    def get(self, request: Any, app_label: str) -> Response:
         """获取指定应用的审计日志"""
         logs = AuditLogQueryService.get_logs_by_app_label(app_label)
 
@@ -365,7 +365,7 @@ class AuditLogsByAppLabelView(ResponseWrapperMixin, APIView):
 
         if page is not None:
             serializer = AuditLogSerializer(page, many=True)
-            return paginator.get_paginated_response(serializer.data)
+            return paginator.get_paginated_response(serializer.data)  # type: ignore[no-any-return]
 
         serializer = AuditLogSerializer(logs, many=True)
         return success_response(data=serializer.data)
@@ -398,7 +398,7 @@ class AuditLogsByOperatorView(ResponseWrapperMixin, APIView):
             404: {"description": "该操作人没有审计记录"},
         },
     )
-    def get(self, request, operator_jobcode: str) -> Response:
+    def get(self, request: Any, operator_jobcode: str) -> Response:
         """获取指定操作人的审计日志"""
         logs = AuditLogQueryService.get_logs_by_operator(operator_jobcode)
 
@@ -413,7 +413,7 @@ class AuditLogsByOperatorView(ResponseWrapperMixin, APIView):
 
         if page is not None:
             serializer = AuditLogSerializer(page, many=True)
-            return paginator.get_paginated_response(serializer.data)
+            return paginator.get_paginated_response(serializer.data)  # type: ignore[no-any-return]
 
         serializer = AuditLogSerializer(logs, many=True)
         return success_response(data=serializer.data)

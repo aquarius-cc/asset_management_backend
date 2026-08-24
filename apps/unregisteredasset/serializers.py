@@ -17,12 +17,14 @@
 - UnregisteredAssetDetailSerializer: 详情响应(完整字段)
 """
 
+from typing import Any
+
 from rest_framework import serializers
 
 from apps.unregisteredasset.models import UnregisteredAsset
 
 
-class UnregisteredAssetCreateSerializer(serializers.ModelSerializer):
+class UnregisteredAssetCreateSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     未登记资产创建序列化器
 
@@ -70,7 +72,7 @@ class UnregisteredAssetCreateSerializer(serializers.ModelSerializer):
             "attachments": {"required": False, "help_text": "附件列表(可选,JSON数组格式)"},
         }
 
-    def validate(self, data: dict) -> dict:
+    def validate(self, data: dict[str, Any]) -> dict[str, Any]:
         """
         跨字段校验
 
@@ -91,7 +93,7 @@ class UnregisteredAssetCreateSerializer(serializers.ModelSerializer):
         return data
 
 
-class UnregisteredAssetUpdateSerializer(serializers.ModelSerializer):
+class UnregisteredAssetUpdateSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     未登记资产更新序列化器
 
@@ -115,7 +117,7 @@ class UnregisteredAssetUpdateSerializer(serializers.ModelSerializer):
         extra_kwargs = {field: {"required": False} for field in fields}
 
 
-class UnregisteredAssetApproveSerializer(serializers.Serializer):
+class UnregisteredAssetApproveSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """
     未登记资产审批序列化器
 
@@ -137,7 +139,7 @@ class UnregisteredAssetApproveSerializer(serializers.Serializer):
     approval_remark = serializers.CharField(required=False, allow_blank=True, help_text="审批备注")
 
 
-class UnregisteredAssetListSerializer(serializers.ModelSerializer):
+class UnregisteredAssetListSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     未登记资产列表序列化器
 
@@ -171,7 +173,7 @@ class UnregisteredAssetListSerializer(serializers.ModelSerializer):
         ]
 
 
-class UnregisteredAssetDetailSerializer(serializers.ModelSerializer):
+class UnregisteredAssetDetailSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     未登记资产详情序列化器
 
@@ -219,7 +221,7 @@ class UnregisteredAssetDetailSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
-    def get_discovery_person(self, obj: UnregisteredAsset) -> dict:
+    def get_discovery_person(self, obj: UnregisteredAsset) -> dict[str, Any] | None:
         """获取发现人信息"""
         if obj.discovery_person:
             return {
@@ -228,7 +230,7 @@ class UnregisteredAssetDetailSerializer(serializers.ModelSerializer):
             }
         return None
 
-    def get_approver(self, obj: UnregisteredAsset) -> dict:
+    def get_approver(self, obj: UnregisteredAsset) -> dict[str, Any] | None:
         """获取审批人信息"""
         if obj.approver:
             return {
@@ -237,7 +239,7 @@ class UnregisteredAssetDetailSerializer(serializers.ModelSerializer):
             }
         return None
 
-    def get_related_asset(self, obj: UnregisteredAsset) -> dict:
+    def get_related_asset(self, obj: UnregisteredAsset) -> dict[str, Any] | None:
         """获取关联资产信息"""
         if obj.related_asset:
             return {
@@ -246,7 +248,7 @@ class UnregisteredAssetDetailSerializer(serializers.ModelSerializer):
             }
         return None
 
-    def get_result_asset(self, obj: UnregisteredAsset) -> dict:
+    def get_result_asset(self, obj: UnregisteredAsset) -> dict[str, Any] | None:
         """获取结果资产信息"""
         if obj.result_asset:
             return {

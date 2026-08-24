@@ -59,7 +59,7 @@ class WasteAssetService:
                 operator_name=operator_name,
             )
 
-        return waste_asset
+        return waste_asset  # type: ignore[no-any-return]
 
     @staticmethod
     @transaction.atomic
@@ -104,7 +104,7 @@ class WasteAssetService:
                 operator_name=operator_name,
             )
 
-        return waste_asset
+        return waste_asset  # type: ignore[no-any-return]
 
     @staticmethod
     @transaction.atomic

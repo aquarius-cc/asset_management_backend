@@ -25,7 +25,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import wraps
-from typing import Any
+from typing import Any, Literal
 
 from django.utils import timezone
 
@@ -59,12 +59,12 @@ class AuditContext:
     # 【P2-33 修复】使用 timezone.now() 替代 datetime.now(),兼容 USE_TZ=True
     _start_time: datetime = field(default_factory=timezone.now)
 
-    def __enter__(self) -> None:
+    def __enter__(self) -> "AuditContext":
         """进入上下文"""
         logger.debug(f"审计开始: {self.operation_type} | 资产: {self.asset_code}")
         return self
 
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> Literal[False]:
         """退出上下文,记录结果"""
         # 【P2-33 修复】使用 timezone.now() 替代 datetime.now()
         duration = (timezone.now() - self._start_time).total_seconds()
@@ -90,7 +90,7 @@ class AuditLogger:
     """
 
     @staticmethod
-    def _safe_log(log_func: Callable, *args, **kwargs) -> bool:
+    def _safe_log(log_func: Callable[..., Any], *args: Any, **kwargs: Any) -> bool:
         """
         安全执行日志记录
 
@@ -105,7 +105,7 @@ class AuditLogger:
 
     @staticmethod
     def log_asset_create(
-        asset,
+        asset: Any,
         operator_jobcode: str | None = None,
         operator_name: str | None = None,
         ip_address: str | None = None,
@@ -123,7 +123,7 @@ class AuditLogger:
 
     @staticmethod
     def log_asset_update(
-        asset,
+        asset: Any,
         before_data: dict[str, Any],
         after_data: dict[str, Any],
         operator_jobcode: str | None = None,
@@ -145,7 +145,7 @@ class AuditLogger:
     def log_asset_delete(
         asset_code: str,
         asset_name: str,
-        asset=None,
+        asset: Any = None,
         operator_jobcode: str | None = None,
         operator_name: str | None = None,
         ip_address: str | None = None,
@@ -163,7 +163,7 @@ class AuditLogger:
 
     @staticmethod
     def log_state_change(
-        asset,
+        asset: Any,
         from_state: str,
         to_state: str,
         trigger: str,
@@ -188,7 +188,7 @@ class AuditLogger:
 
     @staticmethod
     def log_asset_out(
-        asset,
+        asset: Any,
         outrecordcode: str,
         operator_jobcode: str | None = None,
         operator_name: str | None = None,
@@ -206,7 +206,7 @@ class AuditLogger:
 
     @staticmethod
     def log_asset_recycle(
-        asset,
+        asset: Any,
         recordcode: str,
         operator_jobcode: str | None = None,
         operator_name: str | None = None,
@@ -224,7 +224,7 @@ class AuditLogger:
 
     @staticmethod
     def log_asset_damaged(
-        asset,
+        asset: Any,
         damaged_record_code: str,
         operator_jobcode: str | None = None,
         operator_name: str | None = None,
@@ -242,7 +242,7 @@ class AuditLogger:
 
     @staticmethod
     def log_asset_waste(
-        asset,
+        asset: Any,
         waste_record_code: str,
         operator_jobcode: str | None = None,
         operator_name: str | None = None,
@@ -281,7 +281,7 @@ class AuditLogger:
         )
 
 
-def audit_operation(operation_type: str):
+def audit_operation(operation_type: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
     操作审计装饰器(简化版)
 
@@ -295,9 +295,9 @@ def audit_operation(operation_type: str):
             return Asset.objects.create(**asset_data)
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             # 提取操作人信息
             operator_jobcode = kwargs.get("operator_jobcode")
             operator_name = kwargs.get("operator_name")

@@ -12,7 +12,7 @@ Core module - 公共模型、基础组件
 以避免 Django 应用加载顺序问题。
 """
 
-from .exceptions import (
+from .exceptions import (  # type: ignore[attr-defined]
     APIException,
     BusinessLogicError,
     NotFoundError,

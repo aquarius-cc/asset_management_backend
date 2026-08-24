@@ -31,7 +31,7 @@ from core.mixins import ResponseWrapperMixin
         tags=["权限管理"],
     ),
 )
-class PermissionViewSet(ResponseWrapperMixin, ListModelMixin, RetrieveModelMixin, GenericViewSet):
+class PermissionViewSet(ResponseWrapperMixin, ListModelMixin, RetrieveModelMixin, GenericViewSet):  # type: ignore[type-arg]
     """
     权限点 ViewSet(只读)
 

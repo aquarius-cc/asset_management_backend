@@ -82,7 +82,7 @@ class UnregisteredAssetSelector:
         from apps.unregisteredasset.models import UnregisteredAsset
 
         try:
-            return UnregisteredAsset.objects.get(unregistered_code=unregistered_code, is_deleted=False)
+            return UnregisteredAsset.objects.get(unregistered_code=unregistered_code, is_deleted=False)  # type: ignore[no-any-return]
         except UnregisteredAsset.DoesNotExist:
             return None
 
@@ -125,7 +125,7 @@ class UnregisteredAssetSelector:
         from apps.unregisteredasset.models import UnregisteredAsset
 
         try:
-            return UnregisteredAsset.objects.get(id=asset_id, is_deleted=False)
+            return UnregisteredAsset.objects.get(id=asset_id, is_deleted=False)  # type: ignore[no-any-return]
         except UnregisteredAsset.DoesNotExist:
             return None
 

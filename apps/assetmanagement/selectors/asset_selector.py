@@ -219,7 +219,7 @@ class AssetSelector:
         return Asset.objects.filter(asset_storage_recordcode__storage_code=storage_code, is_deleted=False)
 
     @staticmethod
-    def combine_search(field_filters: dict[str, str], exact_filters: dict[str, str]) -> None:
+    def combine_search(field_filters: dict[str, str], exact_filters: dict[str, str]) -> QuerySet[Asset]:
         """
         多字段 AND 模糊搜索
 
@@ -274,7 +274,7 @@ class AssetSelector:
 
                 if asset_type:
                     # 【修复】使用正确的字段名 asset_type_recordcode
-                    exact_filters["asset_type_recordcode"] = asset_type.recordcode
+                    exact_filters["asset_type_recordcode"] = asset_type.recordcode  # type: ignore[assignment]
                 else:
                     # 找不到对应类型,返回空集
                     return queryset.none()
@@ -287,7 +287,7 @@ class AssetSelector:
                     "recordcode", flat=True
                 )
                 if type_recordcodes:
-                    exact_filters["asset_type_recordcode__in"] = list(type_recordcodes)
+                    exact_filters["asset_type_recordcode__in"] = list(type_recordcodes)  # type: ignore[assignment]
                 else:
                     return queryset.none()
 
@@ -327,7 +327,7 @@ class AssetTypeSelector:
     def get_asset_type_by_code(type_code: str) -> AssetType | None:
         """按类型代码查询"""
         try:
-            return AssetType.objects.get(type_code=type_code, is_deleted=False)
+            return AssetType.objects.get(type_code=type_code, is_deleted=False)  # type: ignore[no-any-return]
         except AssetType.DoesNotExist:
             return None
 
@@ -335,7 +335,7 @@ class AssetTypeSelector:
     def get_asset_type_by_recordcode(recordcode: str) -> AssetType | None:
         """按 recordcode 查询"""
         try:
-            return AssetType.objects.get(recordcode=recordcode, is_deleted=False)
+            return AssetType.objects.get(recordcode=recordcode, is_deleted=False)  # type: ignore[no-any-return]
         except AssetType.DoesNotExist:
             return None
 

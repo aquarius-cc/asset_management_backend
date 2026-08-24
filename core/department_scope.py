@@ -10,19 +10,21 @@ get_queryset_for_user() 统一调用此模块。
 - resolve_asset_department_codes(asset): 动态解析资产归属部门
 """
 
-from django.db.models import Q
+from typing import Any
+
+from django.db.models import Q, QuerySet
 
 from apps.usermanagement.models import Employee, EmployeeRole
 
 
-def get_employee_for_user(user) -> Employee | None:
+def get_employee_for_user(user: Any) -> Employee | None:
     """
     获取用户对应的 Employee 记录(带请求级缓存)。
 
     关联方式:AuthUser.auth_username = Employee.employee_jobcode(隐式,无 FK)
     """
     if hasattr(user, "_rbac_employee"):
-        return user._rbac_employee
+        return user._rbac_employee  # type: ignore[no-any-return]
 
     employee = (
         Employee.objects.select_related("employee_department").filter(employee_jobcode=user.auth_username).first()
@@ -31,7 +33,7 @@ def get_employee_for_user(user) -> Employee | None:
     return employee
 
 
-def get_department_codes_for_user(user) -> list[str] | None:
+def get_department_codes_for_user(user: Any) -> list[str] | None:
     """
     返回用户可访问的部门编码列表。
 
@@ -71,7 +73,7 @@ def get_department_codes_for_user(user) -> list[str] | None:
     return [department.department_code]
 
 
-def get_effective_data_scope_for_user(user) -> dict:
+def get_effective_data_scope_for_user(user: Any) -> dict[str, Any]:
     """
     计算用户的有效数据范围(G1-B flavor a:直接派生自 Employee,零漂移)。
 
@@ -106,7 +108,7 @@ def get_effective_data_scope_for_user(user) -> dict:
     }
 
 
-def is_no_department_dept_scoped(user) -> bool:
+def is_no_department_dept_scoped(user: Any) -> bool:
     """
     部门级角色但无部门(最严兜底判定)。
 
@@ -123,7 +125,7 @@ def is_no_department_dept_scoped(user) -> bool:
     return employee.role not in (EmployeeRole.SYSTEM_ADMIN, EmployeeRole.AUDITOR)
 
 
-def resolve_asset_department_codes(asset) -> list[str] | None:
+def resolve_asset_department_codes(asset: Any) -> list[str] | None:
     """
     动态解析资产当前归属部门编码(无冗余字段,运行时计算)。
 
@@ -156,7 +158,9 @@ def resolve_asset_department_codes(asset) -> list[str] | None:
     return None
 
 
-def filter_queryset_by_department(queryset, dept_codes: list[str] | None, department_field: str = "department"):
+def filter_queryset_by_department(
+    queryset: QuerySet[Any, Any], dept_codes: list[str] | None, department_field: str = "department"
+) -> QuerySet[Any, Any]:
     """
     通用行级过滤:根据部门编码列表过滤 QuerySet。
 
@@ -222,7 +226,7 @@ def build_asset_owned_department_q(dept_codes: list[str]) -> Q:
     return _build_department_scope_q(dept_codes, "")
 
 
-def get_asset_linked_queryset_for_user(user, queryset):
+def get_asset_linked_queryset_for_user(user: Any, queryset: QuerySet[Any, Any]) -> QuerySet[Any, Any]:
     """
     通用行级过滤:对通过 asset_recordcode 关联到 Asset 的模型 QuerySet 进行过滤。
 

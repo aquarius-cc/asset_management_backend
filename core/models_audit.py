@@ -88,5 +88,5 @@ class AuditLog(models.Model):
             self.logging_id = f"{self.operation_type}-Log-{date_str}-{suffix}"
         super().save(*args, **kwargs)
 
-    def delete(self, *args: Any, **kwargs: Any) -> None:
+    def delete(self, *args: Any, **kwargs: Any) -> None:  # type: ignore[override]
         raise PermissionError("审计日志是只读表,禁止删除记录")

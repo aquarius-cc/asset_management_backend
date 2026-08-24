@@ -38,7 +38,7 @@ class EmployeeSelector:
         return cast("Employee | None", employee)
 
     @staticmethod
-    def get_employees_by_department(department_code: str) -> QuerySet:
+    def get_employees_by_department(department_code: str) -> QuerySet[Employee]:
         """
         获取部门下的所有员工
 
@@ -54,7 +54,7 @@ class EmployeeSelector:
         )
 
     @staticmethod
-    def search_employees(keyword: str | None = None) -> QuerySet:
+    def search_employees(keyword: str | None = None) -> QuerySet[Employee]:
         """
         搜索员工(支持文本字段模糊匹配 + 状态别名映射)
 
@@ -104,7 +104,7 @@ class EmployeeSelector:
     # 【AGENTS 规范 - P1-10/P1-11】以下方法为视图层直接 ORM 调用重构而添加
 
     @staticmethod
-    def get_queryset_with_bind_status() -> QuerySet:
+    def get_queryset_with_bind_status() -> QuerySet[Employee]:
         """
         获取带认证账号绑定状态的员工查询集
 
@@ -117,7 +117,7 @@ class EmployeeSelector:
         return Employee.objects.select_related("employee_department", "auth_user")
 
     @staticmethod
-    def get_employees_by_department_instance(department: Department) -> QuerySet:
+    def get_employees_by_department_instance(department: Department) -> QuerySet[Employee]:
         """
         根据部门实例获取该部门下的所有员工
 
@@ -133,7 +133,7 @@ class EmployeeSelector:
         return Employee.objects.filter(employee_department=department)
 
     @staticmethod
-    def get_active_employees() -> QuerySet:
+    def get_active_employees() -> QuerySet[Employee]:
         """
         获取所有在职员工
 
@@ -197,7 +197,7 @@ class EmployeeSelector:
         }
 
     @staticmethod
-    def batch_update_sort(sort_data_list: list[dict[str, Any]]) -> QuerySet:
+    def batch_update_sort(sort_data_list: list[dict[str, Any]]) -> QuerySet[Employee]:
         """
         批量更新员工排序字段
 
@@ -260,7 +260,7 @@ class DepartmentSelector:
             部门实例或None
         """
         try:
-            return Department.objects.get(department_code=code)
+            return Department.objects.get(department_code=code)  # type: ignore[no-any-return]
         except Department.DoesNotExist:
             return None
 
@@ -275,7 +275,7 @@ class DepartmentSelector:
         return list(Department.objects.all())
 
     @staticmethod
-    def get_departments_ordered() -> QuerySet:
+    def get_departments_ordered() -> QuerySet[Department]:
         """
         获取按排序字段排序的部门列表
 
@@ -287,7 +287,7 @@ class DepartmentSelector:
         return Department.objects.order_by("sort_order", "department_code")
 
     @staticmethod
-    def get_root_departments() -> QuerySet:
+    def get_root_departments() -> QuerySet[Department]:
         """
         获取所有根部门(parent FK 为 null 的部门)
 
@@ -297,7 +297,7 @@ class DepartmentSelector:
         return Department.objects.filter(parent__isnull=True).order_by("sort_order", "department_code")
 
     @staticmethod
-    def get_children(department_code: str) -> QuerySet:
+    def get_children(department_code: str) -> QuerySet[Department]:
         """
         获取指定部门的直接子部门
 
@@ -313,7 +313,7 @@ class DepartmentSelector:
         return Department.objects.filter(parent=parent).order_by("sort_order", "department_code")
 
     @staticmethod
-    def get_departments_by_level(level: int) -> QuerySet:
+    def get_departments_by_level(level: int) -> QuerySet[Department]:
         """
         获取指定层级的所有部门
 

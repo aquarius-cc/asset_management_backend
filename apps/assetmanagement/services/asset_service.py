@@ -60,7 +60,7 @@ class AssetCodeGenerator:
         return uuid.uuid4().hex[:8].upper()
 
     @classmethod
-    def _get_type_path(cls, asset_type) -> str:
+    def _get_type_path(cls, asset_type: Any) -> str:
         """获取资产类型的层级路径,如 'IT-COMPUTER-NOTEBOOK'"""
         if not asset_type:
             return "UNKNOWN"
@@ -78,7 +78,7 @@ class AssetCodeGenerator:
         return "-".join(path_parts)
 
     @classmethod
-    def generate(cls, asset_type, purchase_number: int = 1) -> list[str]:
+    def generate(cls, asset_type: Any, purchase_number: int = 1) -> list[str]:
         if purchase_number < 1:
             raise ValueError("purchase_number 必须 >= 1")
         type_path = cls._get_type_path(asset_type)
@@ -93,7 +93,7 @@ class AssetCodeGenerator:
         return codes
 
     @classmethod
-    def generate_with_unique_check(cls, asset_type, purchase_number: int = 1) -> list[str]:
+    def generate_with_unique_check(cls, asset_type: Any, purchase_number: int = 1) -> list[str]:
         for _ in range(cls.MAX_RETRY):
             codes = cls.generate(asset_type, purchase_number)
             existing = Asset.objects.filter(asset_code__in=codes).values_list("asset_code", flat=True)
@@ -212,7 +212,7 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
     def batch_create_asset(
         asset_data_list: list[dict[str, Any]], operator_jobcode: str | None = None, operator_name: str | None = None
     ) -> dict[str, Any]:
-        def _create_item(idx: int, asset_data: dict[str, Any]) -> Asset:
+        def _create_item(idx: int, asset_data: dict[str, Any]) -> Asset | None:
             import copy
 
             result = AssetService.create_asset(
@@ -339,8 +339,8 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
         asset = Asset.objects.select_for_update().get(pk=asset.pk)
         old_applicant = asset.asset_applicant_recordcode
         old_manager = asset.asset_manager_recordcode
-        asset.asset_applicant_recordcode = applicant_jobcode
-        asset.asset_manager_recordcode = manager_jobcode
+        asset.asset_applicant_recordcode = applicant_jobcode  # type: ignore[assignment]
+        asset.asset_manager_recordcode = manager_jobcode  # type: ignore[assignment]
         AuditLogger.log_asset_update(
             asset=asset,
             before_data={"asset_applicant": str(old_applicant), "asset_manager": str(old_manager)},
@@ -378,7 +378,7 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
         return AssetSelector.get_asset_statistics(user=user)
 
     @staticmethod
-    def generate_qr_code_image(asset, base_url: str) -> bytes:
+    def generate_qr_code_image(asset: Any, base_url: str) -> bytes:
         """
         生成资产二维码 PNG 图片
 

@@ -15,6 +15,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
+from rest_framework.response import Response
 
 from apps.assetmanagement.selectors.asset_selector import AssetSelector
 from apps.assetmanagement.services.asset_lifecycle_mixin import AssetLifecycleMixin
@@ -28,7 +29,7 @@ from ._export_mixin import ExportExcelMixin
 from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
 
 
-class AssetLifecycleViewSetBase(
+class AssetLifecycleViewSetBase(  # type: ignore[misc]
     RecordcodeLookupMixin,
     AdminWritePermissionMixin,
     ExportExcelMixin,
@@ -53,7 +54,7 @@ class AssetLifecycleViewSetBase(
     """
 
     # AI_REVIEW_NEEDED: 子类差异点以类属性注入, 新增子类时必须逐项核对以下声明
-    model = None  # type: ignore[assignment]
+    model = None
     selector = None
     list_serializer = None
     create_serializer = None
@@ -67,16 +68,16 @@ class AssetLifecycleViewSetBase(
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
 
     @property
-    def search_fields(self) -> None:
+    def search_fields(self) -> list[str]:
         return ["asset_recordcode__asset_name", *getattr(self, "search_fields_extra", ())]
 
     @property
-    def ordering_fields(self) -> None:
-        return [self.ordering_field, "created_at"]
+    def ordering_fields(self) -> list[str]:
+        return [self.ordering_field, "created_at"]  # type: ignore[attr-defined]
 
     @property
-    def ordering(self) -> None:
-        return [f"-{self.ordering_field}"]
+    def ordering(self) -> list[str]:
+        return [f"-{self.ordering_field}"]  # type: ignore[attr-defined]
 
     def get_permissions(self) -> Any:
         if self.action in ("create", "update", "partial_update", "destroy", "batch_delete"):
@@ -84,9 +85,9 @@ class AssetLifecycleViewSetBase(
         return [permissions.IsAuthenticated()]
 
     def get_queryset(self) -> Any:
-        return self.selector.get_queryset_for_user(self.request.user)
+        return self.selector.get_queryset_for_user(self.request.user)  # type: ignore[attr-defined]
 
-    def get_serializer_class(self) -> type:
+    def get_serializer_class(self) -> Any:
         if self.action == "list":
             return self.list_serializer
         elif self.action == "create":
@@ -96,7 +97,7 @@ class AssetLifecycleViewSetBase(
         return self.detail_serializer
 
     @action(detail=False, methods=["post"], url_path="batch-delete")
-    def batch_delete(self, request: Any) -> None:
+    def batch_delete(self, request: Any) -> Response:
         """批量删除(三视图集完全一致, 仅模型异常类与 Service 方法名不同)"""
         ids = request.data.get("ids", [])
         if not ids:
@@ -113,7 +114,7 @@ class AssetLifecycleViewSetBase(
                     operator_name=operator_name,
                 )
                 success_ids.append(recordcode)
-            except self.model.DoesNotExist:
+            except self.model.DoesNotExist:  # type: ignore[attr-defined]
                 fail_items.append(
                     {"id": recordcode, "error_code": "NOT_FOUND", "error_message": "Record not found"}
                 )
@@ -133,12 +134,12 @@ class AssetLifecycleViewSetBase(
         )
 
     @action(detail=False, methods=["get"], url_path="by-asset/(?P<asset_code>[^/.]+)")
-    def by_asset(self, request: Any, asset_code: Any = None) -> None:
+    def by_asset(self, request: Any, asset_code: Any = None) -> Response:
         """按资产编码查询该生命周期事件(可见性校验与分页行为三视图集一致)"""
         visible = AssetSelector.get_queryset_for_user(request.user).filter(asset_code=asset_code).exists()
         if not visible:
             return error_response(message=f"资产 {asset_code} 不存在", status_code=404)
-        records = self.selector.get_by_asset_code(asset_code, user=request.user)
+        records = self.selector.get_by_asset_code(asset_code, user=request.user)  # type: ignore[attr-defined]
         page = self.paginate_queryset(records)
         if page is not None:
             serializer = self.get_serializer(page, many=True)

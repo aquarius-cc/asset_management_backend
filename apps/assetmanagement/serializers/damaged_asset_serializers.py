@@ -11,6 +11,7 @@
 """
 
 from typing import Any
+
 from rest_framework import serializers
 
 from apps.assetmanagement.models import DamagedAsset
@@ -20,7 +21,7 @@ from core.constants import MAX_BATCH_SIZE as DEFAULT_MAX_BATCH_SIZE
 # ==================== DamagedAsset 序列化器 ====================
 
 
-class DamagedAssetCreateSerializer(serializers.ModelSerializer):
+class DamagedAssetCreateSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     待报废资产创建序列化器
     用途:create action
@@ -62,7 +63,7 @@ class DamagedAssetCreateSerializer(serializers.ModelSerializer):
         ]
 
 
-class DamagedAssetUpdateSerializer(serializers.ModelSerializer):
+class DamagedAssetUpdateSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     待报废资产更新序列化器
     用途:update, partial_update action
@@ -108,7 +109,7 @@ class DamagedAssetUpdateSerializer(serializers.ModelSerializer):
         }
 
 
-class DamagedAssetApproveSerializer(serializers.ModelSerializer):
+class DamagedAssetApproveSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     待报废资产审批序列化器
     用途:approve, reject action
@@ -152,7 +153,7 @@ class DamagedAssetApproveSerializer(serializers.ModelSerializer):
         ]
 
 
-class DamagedAssetListSerializer(serializers.ModelSerializer):
+class DamagedAssetListSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     待报废资产列表序列化器
     用途:list action
@@ -195,7 +196,7 @@ class DamagedAssetListSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class DamagedAssetDetailSerializer(serializers.ModelSerializer):
+class DamagedAssetDetailSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     待报废资产详情序列化器
     用途:retrieve action
@@ -247,7 +248,7 @@ DamagedAssetSerializer = DamagedAssetListSerializer
 
 
 # 【P1-10 修复】为 DamagedAsset 批量删除添加序列化器验证
-class DamagedAssetBatchDeleteSerializer(serializers.Serializer):
+class DamagedAssetBatchDeleteSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """待报废资产批量删除请求校验"""
 
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
@@ -258,4 +259,4 @@ class DamagedAssetBatchDeleteSerializer(serializers.Serializer):
             raise serializers.ValidationError(f"单次批量删除不能超过 {self.MAX_BATCH_SIZE} 条")
         if len(value) != len(set(value)):
             raise serializers.ValidationError("ids 列表中存在重复项")
-        return value
+        return value  # type: ignore[no-any-return]

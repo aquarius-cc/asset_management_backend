@@ -9,7 +9,7 @@ from typing import Any
 from django.conf import settings
 from django.contrib.auth import authenticate
 from django.db import transaction
-from rest_framework_simplejwt.tokens import RefreshToken, TokenError
+from rest_framework_simplejwt.tokens import RefreshToken, TokenError  # type: ignore[attr-defined]
 
 from apps.authusermanagement.models import AuthUser
 from apps.authusermanagement.selectors import AuthUserSelector
@@ -62,7 +62,7 @@ class AuthService:
             raise AppValidationError("手机号已被使用")
 
         # 【修复 S8】强制创建为普通用户,忽略客户端传入的 auth_is_staff
-        user = AuthUser.objects.create_user(
+        user = AuthUser.objects.create_user(  # type: ignore[attr-defined]
             auth_username=auth_username,
             password=user_data["password"],
             email=email or "",
@@ -75,7 +75,7 @@ class AuthService:
 
         AuthAuditAdapter.log_register(user)
 
-        return user
+        return user  # type: ignore[no-any-return]
 
     @staticmethod
     def authenticate_user(auth_username: str, password: str) -> AuthUser | None:
@@ -122,7 +122,7 @@ class AuthService:
 
         try:
             # 解析 refresh_token,验证签名和有效期
-            token = RefreshToken(refresh_token)
+            token = RefreshToken(refresh_token)  # type: ignore[arg-type]
 
             # 将 token 加入黑名单(写入 BlacklistedToken 表)
             # SimpleJWT 的 token_blacklist 应用会自动处理:
@@ -192,7 +192,7 @@ class AuthService:
             TokenError: token 无效/过期/已被作废
             AuthUser.DoesNotExist: token 对应用户不存在
         """
-        refresh = RefreshToken(refresh_token)
+        refresh = RefreshToken(refresh_token)  # type: ignore[arg-type]
         refresh.check_blacklist()
         user_id = refresh.get("user_id")
         if not user_id:

@@ -17,6 +17,7 @@ from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
+from rest_framework.response import Response
 
 from apps.assetmanagement.models import RepairAsset
 from apps.assetmanagement.selectors import RepairAssetSelector
@@ -72,7 +73,7 @@ from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
         tags=["维修记录"],
     ),
 )
-class RepairAssetViewSet(
+class RepairAssetViewSet(  # type: ignore[misc]
     RecordcodeLookupMixin,
     AdminWritePermissionMixin,
     ExportExcelMixin,
@@ -171,7 +172,7 @@ class RepairAssetViewSet(
         },
     )
     @action(detail=False, methods=["post"], url_path="batch-delete")
-    def batch_delete(self, request: Any) -> None:
+    def batch_delete(self, request: Any) -> Response:
         from core.batch_mixins import BatchOperationMixin
 
         serializer = RepairAssetBatchDeleteSerializer(data=request.data)
@@ -191,7 +192,7 @@ class RepairAssetViewSet(
         )
 
     @action(detail=False, methods=["get"], url_path="by-asset/(?P<asset_code>[^/.]+)")
-    def by_asset(self, request: Any, asset_code: Any = None) -> None:
+    def by_asset(self, request: Any, asset_code: Any = None) -> Response:
         visible = AssetSelector.get_queryset_for_user(request.user).filter(
             asset_code=asset_code
         ).exists()

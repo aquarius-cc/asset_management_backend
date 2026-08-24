@@ -21,7 +21,7 @@ class ContractSelector:
     @staticmethod
     def get_contract_by_code(contract_code: str) -> Contract | None:
         try:
-            return Contract.objects.get(contract_code=contract_code, is_deleted=False)
+            return Contract.objects.get(contract_code=contract_code, is_deleted=False)  # type: ignore[no-any-return]
         except Contract.DoesNotExist:
             return None
 

@@ -19,7 +19,7 @@ class StorageSelector:
     @staticmethod
     def get_storage_by_code(storage_code: str) -> Storage | None:
         try:
-            return Storage.objects.get(storage_code=storage_code, is_deleted=False)
+            return Storage.objects.get(storage_code=storage_code, is_deleted=False)  # type: ignore[no-any-return]
         except Storage.DoesNotExist:
             return None
 

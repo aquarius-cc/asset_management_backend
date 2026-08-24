@@ -23,6 +23,7 @@ from django.utils import timezone
 from apps.assetmanagement.audit import AuditLogger
 from apps.assetmanagement.models import Asset, AssetOperationLog, DamagedAsset, RepairAsset
 from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
+from apps.usermanagement.models import Employee
 from apps.usermanagement.selectors import EmployeeSelector
 from core.exceptions import AppValidationError
 
@@ -42,7 +43,7 @@ class RepairAssetService:
     def _lock_asset_for_repair(
         asset_code: str,
         operator_jobcode: str,
-    ) -> tuple:
+    ) -> tuple[Asset, Employee | None]:
         """锁定资产 + 幂等校验 + 获取操作人"""
         # AC-65: 捕获锁超时,返回 409 Conflict
         from django.db import OperationalError
@@ -158,7 +159,7 @@ class RepairAssetService:
             repair_reason,
         )
 
-        return repair_record
+        return repair_record  # type: ignore[no-any-return]
 
     @staticmethod
     @transaction.atomic

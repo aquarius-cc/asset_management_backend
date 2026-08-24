@@ -13,7 +13,7 @@ from typing import Any
 
 from django.db import transaction
 
-from apps.assetmanagement.models import MAX_ASSET_TYPE_LEVEL, Asset, AssetType
+from apps.assetmanagement.models import MAX_ASSET_TYPE_LEVEL, Asset, AssetType  # type: ignore[attr-defined]
 from apps.assetmanagement.selectors import AssetTypeSelector
 from core.audit_service import GenericAuditService
 from core.batch_mixins import BatchOperationMixin
@@ -56,7 +56,7 @@ class AssetTypeService:
         """
         type_code = asset_type_data.get("type_code")
 
-        if AssetTypeSelector.exists_by_code(type_code):
+        if AssetTypeSelector.exists_by_code(type_code):  # type: ignore[arg-type]
             raise AppValidationError(detail=f"资产类型编码 {type_code} 已存在", error_code="DUPLICATE_ASSET_TYPE_CODE")
 
         # 解析父类型:支持 parent_type_code(业务编码)或 parent(recordcode)
@@ -108,7 +108,7 @@ class AssetTypeService:
             operator_name=operator_name,
         )
 
-        return asset_type
+        return asset_type  # type: ignore[no-any-return]
 
     @staticmethod
     @transaction.atomic
@@ -136,7 +136,7 @@ class AssetTypeService:
             raise AppValidationError(detail="资产类型下存在关联资产,不允许删除", error_code="HAS_RELATED_ASSETS")
 
         GenericAuditService.log_delete(
-            record_code=asset_type.recordcode,
+            record_code=asset_type.recordcode,  # type: ignore[arg-type]
             app_label="asset_type",
             description=f"删除资产类型: {asset_type.type_name}",
             before_data={

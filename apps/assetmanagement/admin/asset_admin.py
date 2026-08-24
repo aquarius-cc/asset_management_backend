@@ -381,8 +381,7 @@ class AssetOperationLogAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
     search_fields = ["asset_code", "asset_name", "operator_name"]
     list_filter = ["operation_type", "operation_time"]
     date_hierarchy = "operation_time"
-    readonly_fields = [f.name for f in AssetOperationLog._meta.get_fields()]
-
+    readonly_fields = [f.name for f in AssetOperationLog._meta.get_fields()]  # type: ignore[union-attr,unused-ignore]
 
 @admin.register(AssetStateLog)
 class AssetStateLogAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
@@ -395,4 +394,4 @@ class AssetStateLogAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
     search_fields = ["asset_recordcode__asset_code"]
     list_filter = ["from_state", "to_state", "created_at"]
     date_hierarchy = "created_at"
-    readonly_fields = [f.name for f in AssetStateLog._meta.get_fields()]
+    readonly_fields = [f.name for f in AssetStateLog._meta.get_fields()]  # type: ignore[union-attr,unused-ignore]

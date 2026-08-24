@@ -18,20 +18,20 @@ class BrokenAssetSelector:
     @staticmethod
     def get_queryset_for_user(user: Any) -> QuerySet[BrokenAsset]:
         """RBAC 行级过滤"""
-        return get_asset_linked_queryset_for_user(user, BrokenAsset.objects.for_list().filter(is_deleted=False))  # type: ignore[attr-defined,no-any-return]
+        return get_asset_linked_queryset_for_user(user, BrokenAsset.objects.for_list().filter(is_deleted=False))
 
     @staticmethod
     def get_broken_assets_for_list() -> QuerySet[BrokenAsset]:
-        return BrokenAsset.objects.for_list().filter(is_deleted=False)  # type: ignore[attr-defined,no-any-return]
+        return BrokenAsset.objects.for_list().filter(is_deleted=False)
 
     @staticmethod
     def get_broken_assets_with_details() -> QuerySet[BrokenAsset]:
-        return BrokenAsset.objects.with_asset_details().filter(is_deleted=False)  # type: ignore[attr-defined,no-any-return]
+        return BrokenAsset.objects.with_asset_details().filter(is_deleted=False)
 
     @staticmethod
     def get_broken_asset_by_recordcode(recordcode: str) -> BrokenAsset | None:
         try:
-            return BrokenAsset.objects.with_asset_details().get(recordcode=recordcode, is_deleted=False)  # type: ignore[attr-defined,no-any-return]
+            return BrokenAsset.objects.with_asset_details().get(recordcode=recordcode, is_deleted=False)
         except BrokenAsset.DoesNotExist:
             return None
 
@@ -51,5 +51,5 @@ class BrokenAssetSelector:
             "asset_recordcode__asset_manager_recordcode",
         )
         if user:
-            qs = get_asset_linked_queryset_for_user(user, qs)
+            qs = get_asset_linked_queryset_for_user(user, qs)  # type: ignore[assignment]
         return qs

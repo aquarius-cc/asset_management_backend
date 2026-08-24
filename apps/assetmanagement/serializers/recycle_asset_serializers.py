@@ -11,6 +11,7 @@
 """
 
 from typing import Any
+
 from rest_framework import serializers
 
 from apps.assetmanagement.interfaces import get_employee_queryset
@@ -22,7 +23,7 @@ from core.constants import MAX_BATCH_SIZE as DEFAULT_MAX_BATCH_SIZE
 # ==================== RecycleAsset 序列化器 ====================
 
 
-class RecycleAssetListSerializer(serializers.ModelSerializer):
+class RecycleAssetListSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     回收资产列表序列化器
     用途:list action
@@ -81,7 +82,7 @@ class RecycleAssetListSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class RecycleAssetCreateSerializer(serializers.ModelSerializer):
+class RecycleAssetCreateSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     回收资产创建序列化器
     用途:create, update, partial_update action
@@ -127,15 +128,15 @@ class RecycleAssetCreateSerializer(serializers.ModelSerializer):
     def validate(self, attrs: Any) -> None:
         if attrs.get("is_broken") and attrs.get("is_lost"):
             raise serializers.ValidationError("is_broken 和 is_lost 不能同时为 True")
-        return attrs
+        return attrs  # type: ignore[no-any-return]
 
-    def create(self, validated_data: Any) -> Response:
+    def create(self, validated_data: Any) -> RecycleAsset:
         validated_data.pop("recycle_asset_recycle_person_jobcode", None)
         validated_data.pop("recycle_asset_storage", None)
-        return super().create(validated_data)
+        return super().create(validated_data)  # type: ignore[no-any-return]
 
 
-class RecycleAssetDetailSerializer(serializers.ModelSerializer):
+class RecycleAssetDetailSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     回收资产详情序列化器
     用途:retrieve action
@@ -172,7 +173,7 @@ class RecycleAssetDetailSerializer(serializers.ModelSerializer):
         ]
 
 
-class RecycleAssetUpdateSerializer(serializers.ModelSerializer):
+class RecycleAssetUpdateSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     回收资产更新序列化器
     用途:update, partial_update action
@@ -209,7 +210,7 @@ RecycleAssetSerializer = RecycleAssetCreateSerializer
 # ========== 批量操作序列化器(RecycleAsset) ==========
 
 
-class RecycleAssetBatchItemSerializer(serializers.Serializer):
+class RecycleAssetBatchItemSerializer(serializers.Serializer):  # type: ignore[type-arg]
     row_number = serializers.IntegerField(required=False)
     recycle_outasset_code = serializers.SlugRelatedField(
         slug_field="recordcode", queryset=OutAsset.objects.filter(is_deleted=False), required=True
@@ -219,13 +220,13 @@ class RecycleAssetBatchItemSerializer(serializers.Serializer):
     recycle_description = serializers.CharField(required=False, allow_blank=True)
 
 
-class RecycleAssetBatchCreateSerializer(serializers.Serializer):
+class RecycleAssetBatchCreateSerializer(serializers.Serializer):  # type: ignore[type-arg]
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     items = RecycleAssetBatchItemSerializer(many=True, required=True)
     recycle_asset_storage = serializers.SlugRelatedField(
         slug_field="storage_code", queryset=Storage.objects.all(), required=False, allow_null=True
     )
-    recycle_asset_recycle_person_jobcode = serializers.SlugRelatedField(
+    recycle_asset_recycle_person_jobcode = serializers.SlugRelatedField(  # type: ignore[var-annotated]
         slug_field="employee_jobcode", queryset=get_employee_queryset(), required=False, allow_null=True
     )
 
@@ -235,10 +236,10 @@ class RecycleAssetBatchCreateSerializer(serializers.Serializer):
         outasset_codes = [item["recycle_outasset_code"].recordcode for item in value]
         if len(outasset_codes) != len(set(outasset_codes)):
             raise serializers.ValidationError("提交记录中存在重复的出库记录编码")
-        return value
+        return value  # type: ignore[no-any-return]
 
 
-class RecycleAssetBatchDeleteSerializer(serializers.Serializer):
+class RecycleAssetBatchDeleteSerializer(serializers.Serializer):  # type: ignore[type-arg]
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     ids = serializers.ListField(child=serializers.CharField(), required=True)
 
@@ -247,4 +248,4 @@ class RecycleAssetBatchDeleteSerializer(serializers.Serializer):
             raise serializers.ValidationError(f"单次批量删除不能超过 {self.MAX_BATCH_SIZE} 条")
         if len(value) != len(set(value)):
             raise serializers.ValidationError("ids 列表中存在重复项")
-        return value
+        return value  # type: ignore[no-any-return]

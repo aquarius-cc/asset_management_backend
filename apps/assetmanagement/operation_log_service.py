@@ -141,7 +141,7 @@ class OperationLogService:
             "asset_code": asset.asset_code,
             "asset_name": asset.asset_name,
             "asset_current_status": asset.asset_current_status,
-            "asset_storage_code": str(asset.asset_storage_code) if asset.asset_storage_code else None,
+            "asset_storage_code": str(asset.asset_storage_code) if asset.asset_storage_code else None,  # type: ignore[attr-defined]
         }
 
         return cls.log_operation(

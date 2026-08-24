@@ -62,7 +62,7 @@ class HardDiskSNService:
             operator_name=operator_name,
         )
 
-        return harddisk
+        return harddisk  # type: ignore[no-any-return]
 
     @staticmethod
     @transaction.atomic
@@ -123,8 +123,8 @@ class HardDiskSNService:
             raise AppValidationError(detail="硬盘记录不存在", error_code="HARD_DISK_NOT_FOUND")
 
         AuditLogger.log_asset_delete(
-            asset_code=harddisk.asset_recordcode.asset_code if harddisk.asset_recordcode else None,
-            asset_name=harddisk.asset_recordcode.asset_name if harddisk.asset_recordcode else None,
+            asset_code=harddisk.asset_recordcode.asset_code if harddisk.asset_recordcode else None,  # type: ignore[arg-type]
+            asset_name=harddisk.asset_recordcode.asset_name if harddisk.asset_recordcode else None,  # type: ignore[arg-type]
             asset=harddisk.asset_recordcode,
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,

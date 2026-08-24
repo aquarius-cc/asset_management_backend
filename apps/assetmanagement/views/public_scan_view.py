@@ -50,7 +50,7 @@ def public_scan_view(request: Request, recordcode: str) -> Response:
             asset.asset_manager_recordcode.employee_name if asset.asset_manager_recordcode else None
         ),
         "asset_manager_phone": mask_phone_number(
-            getattr(asset.asset_manager_recordcode, "employee_phone", None)
+            getattr(asset.asset_manager_recordcode, "employee_phone", None)  # type: ignore[arg-type]
             if asset.asset_manager_recordcode
             else None
         ),

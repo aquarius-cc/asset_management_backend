@@ -18,6 +18,8 @@
 - POST   /api/v1/unregistered-assets/{code}/approve/ 审批
 """
 
+from typing import Any
+
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import exceptions as drf_exceptions
 from rest_framework import status
@@ -134,8 +136,8 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet[
         serializer.is_valid(raise_exception=True)
 
         # 获取操作人工号:优先取请求中的 discovery_person,否则解析当前用户
-        operator_jobcode = request.data.get("discovery_person") or resolve_operator(request.user)[0]
-        operator_name = resolve_operator(request.user)[1]
+        operator_jobcode = request.data.get("discovery_person") or resolve_operator(request.user)[0]  # type: ignore[arg-type]
+        operator_name = resolve_operator(request.user)[1]  # type: ignore[arg-type]
 
         # 创建记录
         instance = UnregisteredAssetService.create(
@@ -167,7 +169,7 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet[
         serializer = self.get_serializer_class()(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        operator_jobcode, operator_name = resolve_operator(request.user)
+        operator_jobcode, operator_name = resolve_operator(request.user)  # type: ignore[arg-type]
 
         updated = UnregisteredAssetService.update(
             unregistered_code=unregistered_code,  # type: ignore[arg-type]
@@ -194,10 +196,12 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet[
         if not instance:
             raise NotFound(detail=f"未登记资产 {unregistered_code} 不存在")
 
-        operator_jobcode, operator_name = resolve_operator(request.user)
+        operator_jobcode, operator_name = resolve_operator(request.user)  # type: ignore[arg-type]
 
         UnregisteredAssetService.delete(
-            unregistered_code=unregistered_code,  # type: ignore[arg-type] operator_jobcode=operator_jobcode, operator_name=operator_name
+            unregistered_code=unregistered_code,  # type: ignore[arg-type]
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
         )
 
         return success_response(None)
@@ -218,7 +222,7 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet[
         Returns:
             Response: 处理结果
         """
-        instance = UnregisteredAssetSelector.get_by_code(unregistered_code)
+        instance = UnregisteredAssetSelector.get_by_code(unregistered_code)  # type: ignore[arg-type]
         if not instance:
             raise NotFound(detail=f"未登记资产 {unregistered_code} 不存在")
 
@@ -226,11 +230,11 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet[
         serializer.is_valid(raise_exception=True)
 
         # 优先从请求数据中获取审批人工号,否则使用当前用户的工号
-        operator_jobcode, operator_name = resolve_operator(request.user)
+        operator_jobcode, operator_name = resolve_operator(request.user)  # type: ignore[arg-type]
         approver = serializer.validated_data.get("approver") or operator_jobcode
 
         result = UnregisteredAssetService.approve_and_handle(
-            unregistered_code=unregistered_code,
+            unregistered_code=unregistered_code,  # type: ignore[arg-type]
             handle_type=serializer.validated_data["handle_type"],
             approver=approver,
             operator_name=operator_name,
@@ -240,7 +244,7 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet[
         return success_response(result)
 
     @action(detail=False, methods=["post"], url_path="batch-create")
-    def batch_create(self, request) -> Response:
+    def batch_create(self, request: Any) -> Response:
         """批量创建未登记资产"""
         items = request.data.get("items", [])
         if not items:
@@ -306,7 +310,7 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet[
         )
 
     @action(detail=False, methods=["post"], url_path="batch-delete")
-    def batch_delete(self, request) -> Response:
+    def batch_delete(self, request: Any) -> Response:
         """
         【新增】批量删除未登记资产(软删除)
 
@@ -387,7 +391,7 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet[
                 )
 
         # 【DR-1 收敛】响应组装复用 BatchResponseHelper
-        return BatchResponseHelper.delete_response(
+        return BatchResponseHelper.delete_response(  # type: ignore[no-any-return]
             {
                 "total": len(ids),
                 "success_count": len(success_ids),

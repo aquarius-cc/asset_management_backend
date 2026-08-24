@@ -4,7 +4,6 @@
 """
 
 import logging
-
 from typing import Any
 
 from django.core.management.base import BaseCommand
@@ -49,7 +48,7 @@ class Command(BaseCommand):
         for asset in in_store_assets:
             if OutAsset.objects.filter(
                 asset_recordcode=asset,
-                out_status=OutAsset.OutStatus.PENDING,
+                out_status=OutAsset.OutStatus.PENDING,  # type: ignore[attr-defined]
             ).exists():
                 msg = f"资产 {asset.asset_code} 状态为 in_store 但有待处理出库记录"
                 issues.append(msg)

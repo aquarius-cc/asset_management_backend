@@ -10,7 +10,7 @@ from apps.usermanagement.models import MAX_DEPARTMENT_LEVEL, Department
 from core.constants import MAX_BATCH_SIZE as DEFAULT_MAX_BATCH_SIZE
 
 
-class DepartmentSerializer(serializers.ModelSerializer):
+class DepartmentSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     部门基础序列化器
 
@@ -45,7 +45,7 @@ class DepartmentSerializer(serializers.ModelSerializer):
         ]
 
 
-class DepartmentTreeSerializer(serializers.ModelSerializer):
+class DepartmentTreeSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     部门树形结构序列化器
 
@@ -81,7 +81,7 @@ class DepartmentTreeSerializer(serializers.ModelSerializer):
             "employee_count",
         ]
 
-    def get_children(self, obj: Department) -> list[dict[str, Any]]:
+    def get_children(self, obj: Department) -> Any:
         """
         获取子部门列表(使用 parent FK 查询)
 
@@ -110,7 +110,7 @@ class DepartmentTreeSerializer(serializers.ModelSerializer):
         return obj.get_employee_count()
 
 
-class DepartmentMoveSerializer(serializers.Serializer):
+class DepartmentMoveSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """
     部门移动序列化器
 
@@ -184,7 +184,7 @@ class DepartmentMoveSerializer(serializers.Serializer):
         descendant_codes = current_department.get_all_descendants()
         if descendant_codes:
             descendants = Department.objects.filter(
-                department_code__in=[d.department_code for d in descendant_codes]
+                department_code__in=[d.department_code for d in descendant_codes]  # type: ignore[attr-defined]
             ).values_list("department_code", flat=True)
             if target_parent_code in descendants:
                 raise serializers.ValidationError(
@@ -232,10 +232,10 @@ class DepartmentMoveSerializer(serializers.Serializer):
         if max_level is None:
             return 0
 
-        return max_level - department.level
+        return max_level - department.level  # type: ignore[no-any-return]
 
 
-class DepartmentSortSerializer(serializers.Serializer):
+class DepartmentSortSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """
     部门批量排序序列化器
 
@@ -255,7 +255,7 @@ class DepartmentSortSerializer(serializers.Serializer):
     sort_order = serializers.IntegerField(min_value=0, help_text="排序顺序,数字越小越靠前")
 
 
-class DepartmentBatchSortSerializer(serializers.Serializer):
+class DepartmentBatchSortSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """
     部门批量排序请求序列化器
 
@@ -298,7 +298,7 @@ class DepartmentBatchSortSerializer(serializers.Serializer):
         return value
 
 
-class DepartmentBatchItemSerializer(serializers.Serializer):
+class DepartmentBatchItemSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """单条部门批量创建数据校验"""
 
     row_number = serializers.IntegerField(required=False, help_text="Excel 行号")
@@ -311,7 +311,7 @@ class DepartmentBatchItemSerializer(serializers.Serializer):
     sort_order = serializers.IntegerField(required=False, default=0)
 
 
-class DepartmentBatchCreateSerializer(serializers.Serializer):
+class DepartmentBatchCreateSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """批量创建部门请求校验"""
 
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
@@ -327,7 +327,7 @@ class DepartmentBatchCreateSerializer(serializers.Serializer):
         return value
 
 
-class DepartmentBatchDeleteSerializer(serializers.Serializer):
+class DepartmentBatchDeleteSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """批量删除部门请求校验"""
 
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)

@@ -11,6 +11,7 @@
 """
 
 from typing import Any
+
 from rest_framework import serializers
 
 from apps.assetmanagement.models import WasteAsset
@@ -20,7 +21,7 @@ from core.constants import MAX_BATCH_SIZE as DEFAULT_MAX_BATCH_SIZE
 # ==================== WasteAsset 序列化器 ====================
 
 
-class WasteAssetCreateSerializer(serializers.ModelSerializer):
+class WasteAssetCreateSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     已报废资产创建序列化器
     用途:create action(通常由审批流程自动创建)
@@ -53,7 +54,7 @@ class WasteAssetCreateSerializer(serializers.ModelSerializer):
         ]
 
 
-class WasteAssetListSerializer(serializers.ModelSerializer):
+class WasteAssetListSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     已报废资产列表序列化器
     用途:list action
@@ -88,7 +89,7 @@ class WasteAssetListSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class WasteAssetDetailSerializer(serializers.ModelSerializer):
+class WasteAssetDetailSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     已报废资产详情序列化器
     用途:retrieve action
@@ -132,7 +133,7 @@ WasteAssetSerializer = WasteAssetListSerializer
 # ========== 批量操作序列化器(WasteAsset) ==========
 
 
-class WasteAssetBatchDeleteSerializer(serializers.Serializer):
+class WasteAssetBatchDeleteSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """已报废资产批量删除请求校验"""
 
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
@@ -143,4 +144,4 @@ class WasteAssetBatchDeleteSerializer(serializers.Serializer):
             raise serializers.ValidationError(f"单次批量删除不能超过 {self.MAX_BATCH_SIZE} 条")
         if len(value) != len(set(value)):
             raise serializers.ValidationError("ids 列表中存在重复项")
-        return value
+        return value  # type: ignore[no-any-return]

@@ -18,15 +18,15 @@ class RecycleAssetSelector:
     @staticmethod
     def get_queryset_for_user(user: Any) -> QuerySet[RecycleAsset]:
         """RBAC 行级过滤"""
-        return get_asset_linked_queryset_for_user(user, RecycleAsset.objects.for_list().filter(is_deleted=False))  # type: ignore[attr-defined,no-any-return]
+        return get_asset_linked_queryset_for_user(user, RecycleAsset.objects.for_list().filter(is_deleted=False))
 
     @staticmethod
     def get_asset_recordcodes_for_list() -> QuerySet[RecycleAsset]:
-        return RecycleAsset.objects.for_list().filter(is_deleted=False)  # type: ignore[attr-defined,no-any-return]
+        return RecycleAsset.objects.for_list().filter(is_deleted=False)
 
     @staticmethod
     def get_asset_recordcodes_with_asset_details() -> QuerySet[RecycleAsset]:
-        return RecycleAsset.objects.with_asset_details().filter(is_deleted=False)  # type: ignore[attr-defined,no-any-return]
+        return RecycleAsset.objects.with_asset_details().filter(is_deleted=False)
 
     @staticmethod
     def get_all_asset_recordcodes() -> QuerySet[RecycleAsset]:
@@ -36,7 +36,7 @@ class RecycleAssetSelector:
     def get_asset_recordcode_by_record_code(record_code: str) -> RecycleAsset | None:
         try:
             # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
-            return RecycleAsset.objects.with_asset_details().get(recordcode=record_code, is_deleted=False)  # type: ignore[attr-defined,no-any-return]
+            return RecycleAsset.objects.with_asset_details().get(recordcode=record_code, is_deleted=False)
         except RecycleAsset.DoesNotExist:
             return None
 
@@ -47,7 +47,7 @@ class RecycleAssetSelector:
     @staticmethod
     def get_by_asset_code(asset_code: str, user: Any = None) -> QuerySet[RecycleAsset]:
         # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
-        qs: QuerySet[RecycleAsset] = RecycleAsset.objects.filter(  # type: ignore[attr-defined]
+        qs: QuerySet[RecycleAsset] = RecycleAsset.objects.filter(
             asset_recordcode__asset_code=asset_code, is_deleted=False
         ).with_asset_details()
         if user:
@@ -58,7 +58,7 @@ class RecycleAssetSelector:
     def get_by_outasset_recordcode(outasset_recordcode: str, user: Any = None) -> RecycleAsset | None:
         """按出库记录编码查询回收记录"""
         # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
-        qs: QuerySet[RecycleAsset] = RecycleAsset.objects.filter(  # type: ignore[attr-defined]
+        qs: QuerySet[RecycleAsset] = RecycleAsset.objects.filter(
             outasset_recordcode__recordcode=outasset_recordcode, is_deleted=False
         ).with_asset_details()
         if user:

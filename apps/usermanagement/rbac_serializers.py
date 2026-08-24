@@ -21,7 +21,7 @@ from rest_framework.validators import UniqueValidator
 from apps.usermanagement.models import Permission, Role, UserRole
 
 
-class RoleSerializer(serializers.ModelSerializer):
+class RoleSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     角色基础序列化器(只读输出)
 
@@ -45,7 +45,7 @@ class RoleSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class RoleCreateUpdateSerializer(serializers.ModelSerializer):
+class RoleCreateUpdateSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     角色创建/更新序列化器
 
@@ -83,7 +83,7 @@ class RoleCreateUpdateSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "recordcode", "is_system", "created_at", "updated_at"]
 
 
-class UserRoleSerializer(serializers.ModelSerializer):
+class UserRoleSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     用户-角色关联序列化器
 
@@ -121,7 +121,7 @@ class UserRoleSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "auth_user", "role", "created_at"]
 
 
-class PermissionSerializer(serializers.ModelSerializer):
+class PermissionSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     权限点序列化器(只读)
 

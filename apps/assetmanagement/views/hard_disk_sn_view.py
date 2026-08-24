@@ -25,7 +25,7 @@ from utils.user_utils import resolve_operator
 from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
 
 
-class HardDiskSNViewSet(
+class HardDiskSNViewSet(  # type: ignore[misc]
     RecordcodeLookupMixin,
     AdminWritePermissionMixin,
     PaginateAndRespondMixin,
@@ -79,7 +79,7 @@ class HardDiskSNViewSet(
         serializer = self.get_serializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         harddisk = HardDiskSNService.update(
-            recordcode=recordcode,
+            recordcode=recordcode,  # type: ignore[arg-type]
             update_data=serializer.validated_data,
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
@@ -92,14 +92,14 @@ class HardDiskSNViewSet(
     def destroy(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         recordcode = self.kwargs.get("recordcode")
         HardDiskSNService.delete(
-            recordcode=recordcode,
+            recordcode=recordcode,  # type: ignore[arg-type]
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
         )
         return success_response(message="删除成功")
 
     @action(detail=False, methods=["post"])
-    def search_by_serial_number(self, request) -> Response:
+    def search_by_serial_number(self, request: Any) -> Response:
         serial = request.data.get("harddisk_sn_code")
         if not serial:
             return error_response(message="请提供硬盘序列号", status_code=400)
@@ -110,7 +110,7 @@ class HardDiskSNViewSet(
         return success_response(data=serializer.data)
 
     @action(detail=False, methods=["get"], url_path="by-asset/(?P<asset_code>[^/.]+)")
-    def by_asset(self, request, asset_code=None) -> Response:
+    def by_asset(self, request: Any, asset_code: Any = None) -> Response:
         visible_asset = AssetSelector.get_queryset_for_user(request.user).filter(asset_code=asset_code).exists()
         if not visible_asset:
             return error_response(message=f"资产 {asset_code} 不存在", status_code=404)
@@ -123,7 +123,7 @@ class HardDiskSNViewSet(
         return success_response(data=serializer.data)
 
     @action(detail=False, methods=["post"], url_path="batch-save")
-    def batch_save(self, request) -> Response:
+    def batch_save(self, request: Any) -> Response:
         serializer = HardDiskSNBatchSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         result = HardDiskSNService.batch_save(

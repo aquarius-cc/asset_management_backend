@@ -38,7 +38,7 @@ class AuditLogQueryService:
             Optional[AuditLog]: 审计记录实例或 None
         """
         try:
-            return AuditLog.objects.get(pk=pk)
+            return AuditLog.objects.get(pk=pk)  # type: ignore[no-any-return,attr-defined]
         except AuditLog.DoesNotExist:
             return None
 
@@ -54,7 +54,7 @@ class AuditLogQueryService:
             Optional[AuditLog]: 审计记录实例或 None
         """
         try:
-            return AuditLog.objects.get(logging_id=logging_id)
+            return AuditLog.objects.get(logging_id=logging_id)  # type: ignore[no-any-return,attr-defined]
         except AuditLog.DoesNotExist:
             return None
 
@@ -81,7 +81,7 @@ class AuditLogQueryService:
         Returns:
             List[AuditLog]: 按时间倒序排列的审计记录
         """
-        queryset = AuditLog.objects.all()
+        queryset = AuditLog.objects.all()  # type: ignore[attr-defined]
 
         if app_label:
             queryset = queryset.filter(app_label=app_label)
@@ -115,7 +115,7 @@ class AuditLogQueryService:
             List[AuditLog]: 最近的审计记录
         """
         start_time = timezone.now() - timedelta(days=days)
-        return list(AuditLog.objects.filter(operation_time__gte=start_time).order_by("-operation_time"))
+        return list(AuditLog.objects.filter(operation_time__gte=start_time).order_by("-operation_time"))  # type: ignore[attr-defined]
 
     @staticmethod
     def get_logs_by_app_label(app_label: str) -> list[AuditLog]:
@@ -128,7 +128,7 @@ class AuditLogQueryService:
         Returns:
             List[AuditLog]: 指定应用的审计记录
         """
-        return list(AuditLog.objects.filter(app_label=app_label).order_by("-operation_time"))
+        return list(AuditLog.objects.filter(app_label=app_label).order_by("-operation_time"))  # type: ignore[attr-defined]
 
     @staticmethod
     def get_logs_by_operator(operator_jobcode: str) -> list[AuditLog]:
@@ -141,4 +141,4 @@ class AuditLogQueryService:
         Returns:
             List[AuditLog]: 该操作人的审计记录
         """
-        return list(AuditLog.objects.filter(operator_jobcode=operator_jobcode).order_by("-operation_time"))
+        return list(AuditLog.objects.filter(operator_jobcode=operator_jobcode).order_by("-operation_time"))  # type: ignore[attr-defined]

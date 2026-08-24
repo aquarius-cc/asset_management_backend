@@ -44,9 +44,9 @@ def enforce_csrf(request: Any) -> None:
     # Django test Client 默认置 request._dont_enforce_csrf_checks=True 跳过校验,
     # 此处显式复位, 保证测试与生产行为一致(生产环境该属性从未被设置)。
     request._dont_enforce_csrf_checks = False
-    check = CSRFCheck(lambda request: None)
+    check = CSRFCheck(lambda request: None)  # type: ignore[arg-type]
     check.process_request(request)
-    reason = check.process_view(request, None, (), {})
+    reason = check.process_view(request, None, (), {})  # type: ignore[arg-type]
     if reason:
         raise PermissionDenied(f"CSRF Failed: {reason}")
 

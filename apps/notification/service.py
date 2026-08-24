@@ -111,19 +111,19 @@ async def send_notification(
     except Exception as e:
         logger.warning(f"WebSocket 推送失败(通知已持久化): {e}")
 
-    return notification
+    return notification  # type: ignore[no-any-return]
 
 
 @database_sync_to_async
 def database_create_notification(
-    recipient_jobcode,
-    notification_type,
-    title,
-    message,
-    priority,
-    related_asset_code,
-    related_url,
-):
+    recipient_jobcode: str,
+    notification_type: str,
+    title: str,
+    message: str,
+    priority: str,
+    related_asset_code: str | None,
+    related_url: str | None,
+) -> Notification:
     """持久化通知到数据库"""
     return Notification.objects.create(
         recipient_jobcode=recipient_jobcode,

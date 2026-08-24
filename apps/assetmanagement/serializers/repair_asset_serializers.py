@@ -3,13 +3,14 @@ RepairAsset serializers
 """
 
 from typing import Any
+
 from rest_framework import serializers
 
 from apps.assetmanagement.models import Asset, RepairAsset
 from core.constants import MAX_BATCH_SIZE as DEFAULT_MAX_BATCH_SIZE
 
 
-class RepairAssetListSerializer(serializers.ModelSerializer):
+class RepairAssetListSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """Repair record list serializer - list action"""
 
     asset_code = serializers.CharField(source="asset_recordcode.asset_code", read_only=True)
@@ -32,7 +33,7 @@ class RepairAssetListSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class RepairAssetCreateSerializer(serializers.ModelSerializer):
+class RepairAssetCreateSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """Repair record create serializer - create action"""
 
     recordcode = serializers.CharField(read_only=True)
@@ -58,7 +59,7 @@ class RepairAssetCreateSerializer(serializers.ModelSerializer):
         }
 
 
-class RepairAssetUpdateSerializer(serializers.ModelSerializer):
+class RepairAssetUpdateSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """Repair record update serializer - update/partial_update action"""
 
     recordcode = serializers.CharField(read_only=True)
@@ -82,7 +83,7 @@ class RepairAssetUpdateSerializer(serializers.ModelSerializer):
         extra_kwargs = {"repair_reason": {"required": False}}
 
 
-class RepairAssetDetailSerializer(serializers.ModelSerializer):
+class RepairAssetDetailSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """Repair record detail serializer - retrieve action"""
 
     asset_code = serializers.CharField(source="asset_recordcode.asset_code", read_only=True)
@@ -125,7 +126,7 @@ class RepairAssetDetailSerializer(serializers.ModelSerializer):
 RepairAssetSerializer = RepairAssetListSerializer
 
 
-class RepairAssetBatchDeleteSerializer(serializers.Serializer):
+class RepairAssetBatchDeleteSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """维修资产批量删除请求校验"""
 
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
@@ -136,4 +137,4 @@ class RepairAssetBatchDeleteSerializer(serializers.Serializer):
             raise serializers.ValidationError(f"单次批量删除不能超过 {self.MAX_BATCH_SIZE} 条")
         if len(value) != len(set(value)):
             raise serializers.ValidationError("ids 列表中存在重复项")
-        return value
+        return value  # type: ignore[no-any-return]

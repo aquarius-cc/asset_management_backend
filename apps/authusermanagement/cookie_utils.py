@@ -11,11 +11,13 @@ JWT Cookie 读写工具(B-1/B-2/B-3 共用)
   本模块依赖 config.settings(JWT_AUTH_COOKIE_* 配置)
 """
 
+from typing import Any
+
 from django.conf import settings
 from django.middleware.csrf import get_token
 
 
-def _cookie_base_attrs() -> dict:
+def _cookie_base_attrs() -> dict[str, Any]:
     """Cookie 公共属性(B-5:Secure/SameSite 走 env)"""
     return {
         "httponly": True,
@@ -25,7 +27,7 @@ def _cookie_base_attrs() -> dict:
     }
 
 
-def set_auth_cookies(request, response, access_token: str, refresh_token: str | None = None) -> None:
+def set_auth_cookies(request: Any, response: Any, access_token: str, refresh_token: str | None = None) -> None:
     """
     双写认证 Cookie + 刷新 CSRF token Cookie(B-2/B-3 共用)
 
@@ -58,17 +60,17 @@ def set_auth_cookies(request, response, access_token: str, refresh_token: str | 
     )
 
 
-def delete_auth_cookies(response) -> None:
+def delete_auth_cookies(response: Any) -> None:
     """删除 access/refresh Cookie"""
     response.delete_cookie(settings.JWT_AUTH_COOKIE_ACCESS, path="/")
     response.delete_cookie(settings.JWT_AUTH_COOKIE_REFRESH, path="/")
 
 
-def get_access_token(request) -> str | None:
+def get_access_token(request: Any) -> str | None:
     """从 Cookie 读取 access token"""
-    return request.COOKIES.get(settings.JWT_AUTH_COOKIE_ACCESS)
+    return request.COOKIES.get(settings.JWT_AUTH_COOKIE_ACCESS)  # type: ignore[no-any-return]
 
 
-def get_refresh_token(request) -> str | None:
+def get_refresh_token(request: Any) -> str | None:
     """从 Cookie 读取 refresh token"""
-    return request.COOKIES.get(settings.JWT_AUTH_COOKIE_REFRESH)
+    return request.COOKIES.get(settings.JWT_AUTH_COOKIE_REFRESH)  # type: ignore[no-any-return]

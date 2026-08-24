@@ -21,7 +21,7 @@ from utils.response_utils import error_response, success_response
 @permission_classes([permissions.IsAuthenticated])
 def notification_list(request: Request) -> Response:
     """获取当前用户的通知列表"""
-    jobcode = request.user.auth_username
+    jobcode = request.user.auth_username  # type: ignore[union-attr]
     is_read = request.query_params.get("is_read")
     limit = int(request.query_params.get("limit", 20))
 
@@ -54,7 +54,7 @@ def notification_list(request: Request) -> Response:
 @permission_classes([permissions.IsAuthenticated])
 def unread_count(request: Request) -> Response:
     """获取当前用户未读通知数量"""
-    jobcode = request.user.auth_username
+    jobcode = request.user.auth_username  # type: ignore[union-attr]
     count = Notification.objects.filter(recipient_jobcode=jobcode, is_read=False).count()
     return success_response(data={"count": count})
 
@@ -63,7 +63,7 @@ def unread_count(request: Request) -> Response:
 @permission_classes([permissions.IsAuthenticated])
 def mark_read(request: Request, notification_id: int) -> Response:
     """标记单条通知为已读"""
-    jobcode = request.user.auth_username
+    jobcode = request.user.auth_username  # type: ignore[union-attr]
     try:
         notification = Notification.objects.get(id=notification_id, recipient_jobcode=jobcode)
         notification.is_read = True
@@ -77,6 +77,6 @@ def mark_read(request: Request, notification_id: int) -> Response:
 @permission_classes([permissions.IsAuthenticated])
 def mark_all_read(request: Request) -> Response:
     """将当前用户所有未读通知标记为已读"""
-    jobcode = request.user.auth_username
+    jobcode = request.user.auth_username  # type: ignore[union-attr]
     count = Notification.objects.filter(recipient_jobcode=jobcode, is_read=False).update(is_read=True)
     return success_response(data={"marked_count": count})

@@ -11,6 +11,7 @@
 """
 
 from typing import Any
+
 from rest_framework import serializers
 
 from apps.assetmanagement.interfaces import get_employee_queryset, get_employee_serializer_class
@@ -104,11 +105,11 @@ class OutAssetCreateSerializer(serializers.ModelSerializer[OutAsset]):
             "outasset_date": {"required": True},
         }
 
-    def create(self, validated_data: Any) -> Response:
+    def create(self, validated_data: Any) -> OutAsset:
         validated_data.pop("outasset_using_location", None)
         return super().create(validated_data)
 
-    def update(self, instance: Any, validated_data: Any) -> Response:
+    def update(self, instance: Any, validated_data: Any) -> OutAsset:
         validated_data.pop("outasset_using_location", None)
         return super().update(instance, validated_data)
 
@@ -210,10 +211,10 @@ class OutAssetBatchItemSerializer(serializers.Serializer):  # type: ignore[type-
     outasset_type = serializers.CharField(required=True)
     outasset_description = serializers.CharField(required=False, allow_blank=True)
     return_date = serializers.DateField(required=False, allow_null=True)
-    outasset_applicant = serializers.SlugRelatedField(
+    outasset_applicant = serializers.SlugRelatedField(  # type: ignore[var-annotated]
         slug_field="employee_jobcode", queryset=get_employee_queryset(), required=True, write_only=True
     )
-    outasset_manager = serializers.SlugRelatedField(
+    outasset_manager = serializers.SlugRelatedField(  # type: ignore[var-annotated]
         slug_field="employee_jobcode", queryset=get_employee_queryset(), required=True, write_only=True
     )
     outasset_using_location = serializers.CharField(required=True, write_only=True)
@@ -230,7 +231,7 @@ class OutAssetBatchCreateSerializer(serializers.Serializer):  # type: ignore[typ
         asset_codes = [item["outasset_asset"].asset_code for item in value]
         if len(asset_codes) != len(set(asset_codes)):
             raise serializers.ValidationError("提交记录中存在重复的资产编码")
-        return value
+        return value  # type: ignore[no-any-return]
 
 
 class OutAssetBatchDeleteSerializer(serializers.Serializer):  # type: ignore[type-arg]
@@ -242,4 +243,4 @@ class OutAssetBatchDeleteSerializer(serializers.Serializer):  # type: ignore[typ
             raise serializers.ValidationError(f"单次批量删除不能超过 {self.MAX_BATCH_SIZE} 条")
         if len(value) != len(set(value)):
             raise serializers.ValidationError("ids 列表中存在重复项")
-        return value
+        return value  # type: ignore[no-any-return]

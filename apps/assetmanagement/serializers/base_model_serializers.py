@@ -303,7 +303,7 @@ class HardDiskSNBatchSerializer(serializers.Serializer):  # type: ignore[type-ar
         sn_codes = [d["harddisk_sn_code"].strip() for d in disks]
         if len(sn_codes) != len(set(sn_codes)):
             raise serializers.ValidationError("硬盘序列号不能重复")
-        return data
+        return data  # type: ignore[no-any-return]
 
 
 class CodeField(serializers.Field):  # type: ignore[type-arg]
@@ -320,7 +320,7 @@ class CodeField(serializers.Field):  # type: ignore[type-arg]
 
     def to_representation(self, value: Any) -> str | None:
         if hasattr(value, self.code_key):
-            return getattr(value, self.code_key)
+            return getattr(value, self.code_key)  # type: ignore[no-any-return]
         elif isinstance(value, dict) and self.code_key in value:
             return value.get(self.code_key)
         return None

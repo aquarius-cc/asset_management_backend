@@ -32,7 +32,7 @@ class RoleAuditAdapter:
         data_scope: dict[str, Any],
         operator_jobcode: str | None = None,
         operator_name: str | None = None,
-    ):
+    ) -> None:
         """
         记录角色分配日志
 
@@ -71,7 +71,7 @@ class RoleAuditAdapter:
         role_name: str,
         operator_jobcode: str | None = None,
         operator_name: str | None = None,
-    ):
+    ) -> None:
         """
         记录角色撤销日志
 
@@ -108,7 +108,7 @@ class RoleAuditAdapter:
         perm_codes: list[str],
         operator_jobcode: str | None = None,
         operator_name: str | None = None,
-    ):
+    ) -> None:
         """
         记录权限同步日志
 

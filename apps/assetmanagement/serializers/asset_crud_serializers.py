@@ -24,7 +24,7 @@ from apps.assetmanagement.serializers.base_model_serializers import (
 )
 
 
-class AssetListSerializer(serializers.ModelSerializer):
+class AssetListSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """资产列表序列化器(精简版)"""
 
     type_category = serializers.CharField(source="asset_type_recordcode.type_code", read_only=True)
@@ -87,7 +87,7 @@ class AssetListSerializer(serializers.ModelSerializer):
 AssetSerializer = AssetListSerializer
 
 
-class AssetDetailSerializer(serializers.ModelSerializer):
+class AssetDetailSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     # 使用 source 参数映射后端字段名到前端字段名(读取时)
     asset_type = AssetTypeSerializer(source="asset_type_recordcode", read_only=True)
     asset_contract = ContractSerializer(source="asset_contract_recordcode", read_only=True)
@@ -126,7 +126,7 @@ class AssetDetailSerializer(serializers.ModelSerializer):
         ]
 
 
-class AssetUpdateSerializer(serializers.ModelSerializer):
+class AssetUpdateSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """资产更新序列化器
 
     排除 recordcode 和 asset_code(后端自动生成,不可修改)。
@@ -155,21 +155,21 @@ class AssetUpdateSerializer(serializers.ModelSerializer):
         allow_null=True,
         required=False,
     )
-    asset_entry_person = serializers.SlugRelatedField(
+    asset_entry_person = serializers.SlugRelatedField(  # type: ignore[var-annotated]
         slug_field="employee_jobcode",
         queryset=get_employee_queryset(),
         source="asset_entry_person_recordcode",
         allow_null=True,
         required=False,
     )
-    asset_applicant = serializers.SlugRelatedField(
+    asset_applicant = serializers.SlugRelatedField(  # type: ignore[var-annotated]
         slug_field="employee_jobcode",
         queryset=get_employee_queryset(),
         source="asset_applicant_recordcode",
         allow_null=True,
         required=False,
     )
-    asset_manager = serializers.SlugRelatedField(
+    asset_manager = serializers.SlugRelatedField(  # type: ignore[var-annotated]
         slug_field="employee_jobcode",
         queryset=get_employee_queryset(),
         source="asset_manager_recordcode",
@@ -207,7 +207,7 @@ class AssetUpdateSerializer(serializers.ModelSerializer):
         }
 
 
-class AssetCreateSerializer(serializers.ModelSerializer):
+class AssetCreateSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """资产创建序列化器
 
     前端传入业务编码(asset_type_code/contract_code/storage_code/employee_jobcode),
@@ -245,21 +245,21 @@ class AssetCreateSerializer(serializers.ModelSerializer):
         allow_null=True,
         required=False,
     )
-    asset_entry_person = serializers.SlugRelatedField(
+    asset_entry_person = serializers.SlugRelatedField(  # type: ignore[var-annotated]
         slug_field="employee_jobcode",
         queryset=get_employee_queryset(),
         source="asset_entry_person_recordcode",
         allow_null=True,
         required=False,
     )
-    asset_applicant = serializers.SlugRelatedField(
+    asset_applicant = serializers.SlugRelatedField(  # type: ignore[var-annotated]
         slug_field="employee_jobcode",
         queryset=get_employee_queryset(),
         source="asset_applicant_recordcode",
         allow_null=True,
         required=False,
     )
-    asset_manager = serializers.SlugRelatedField(
+    asset_manager = serializers.SlugRelatedField(  # type: ignore[var-annotated]
         slug_field="employee_jobcode",
         queryset=get_employee_queryset(),
         source="asset_manager_recordcode",
@@ -305,13 +305,13 @@ class AssetCreateSerializer(serializers.ModelSerializer):
             "asset_description": {"required": False, "allow_blank": True, "allow_null": True},
         }
 
-    def validate_asset_purchase_price(self, value: Any) -> None:
+    def validate_asset_purchase_price(self, value: Any) -> Any:
         if isinstance(value, (int, float)):
             return Decimal(str(value))
         return value
 
 
-class CombinedAssetSerializer(serializers.Serializer):
+class CombinedAssetSerializer(serializers.Serializer):  # type: ignore[type-arg]
     contract_code = serializers.CharField()
     asset_code = serializers.CharField()
     asset_name = serializers.CharField()
@@ -353,7 +353,7 @@ class CombinedAssetSerializer(serializers.Serializer):
         return AssetDetailSerializer(database_asset).data
 
 
-class AssetOperationLogSerializer(serializers.ModelSerializer):
+class AssetOperationLogSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     资产操作记录序列化器
 
@@ -386,7 +386,7 @@ class AssetOperationLogSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class CombineSearchSerializer(serializers.Serializer):
+class CombineSearchSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """
     资产组合搜索序列化器
 
@@ -410,4 +410,4 @@ class CombineSearchSerializer(serializers.Serializer):
         for key, value in attrs.items():
             if value == "":
                 attrs[key] = None
-        return attrs
+        return attrs  # type: ignore[no-any-return]

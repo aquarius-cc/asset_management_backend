@@ -22,23 +22,23 @@ class RecordcodeLookupMixin:
     """
 
     def get_object(self) -> Any:
-        queryset = self.get_queryset()
-        lookup_value = self.kwargs[self.lookup_url_kwarg or self.lookup_field]
+        queryset = self.get_queryset()  # type: ignore[attr-defined]
+        lookup_value = self.kwargs[self.lookup_url_kwarg or self.lookup_field]  # type: ignore[attr-defined]
 
         if lookup_value.isdigit():
             try:
                 obj = queryset.get(pk=lookup_value)
-                self.check_object_permissions(self.request, obj)
+                self.check_object_permissions(self.request, obj)  # type: ignore[attr-defined]
                 return obj
-            except self.queryset.model.DoesNotExist:
+            except self.queryset.model.DoesNotExist:  # type: ignore[attr-defined]
                 pass
 
         try:
-            obj = queryset.get(**{self.lookup_field: lookup_value})
-        except self.queryset.model.DoesNotExist:
-            raise Http404(f"{self.queryset.model.__name__} '{lookup_value}' not found.")
+            obj = queryset.get(**{self.lookup_field: lookup_value})  # type: ignore[attr-defined]
+        except self.queryset.model.DoesNotExist:  # type: ignore[attr-defined]
+            raise Http404(f"{self.queryset.model.__name__} '{lookup_value}' not found.")  # type: ignore[attr-defined]
 
-        self.check_object_permissions(self.request, obj)
+        self.check_object_permissions(self.request, obj)  # type: ignore[attr-defined]
         return obj
 
 
@@ -59,7 +59,7 @@ class AdminWritePermissionMixin:
     ]
 
     def get_permissions(self) -> Any:
-        if self.action in self.admin_actions:
+        if self.action in self.admin_actions:  # type: ignore[attr-defined]
             return [IsSystemAdmin()]
         return [permissions.IsAuthenticated()]
 
@@ -74,5 +74,5 @@ class OperatorContextMixin:
 
     def get_operator_context(self) -> dict[str, str]:
         """返回操作人工号与姓名上下文(默认使用 auth_username)"""
-        username = getattr(self.request.user, "auth_username", None) or str(self.request.user)
+        username = getattr(self.request.user, "auth_username", None) or str(self.request.user)  # type: ignore[attr-defined]
         return {"operator_jobcode": username, "operator_name": username}

@@ -4,6 +4,8 @@
 提供维修资产记录的查询方法。
 """
 
+from typing import Any
+
 from django.db.models import QuerySet
 
 from apps.assetmanagement.models import RepairAsset
@@ -14,7 +16,7 @@ class RepairAssetSelector:
     """维修记录查询选择器"""
 
     @staticmethod
-    def get_queryset_for_user(user) -> QuerySet[RepairAsset]:
+    def get_queryset_for_user(user: Any) -> QuerySet[RepairAsset]:
         """RBAC 行级过滤"""
         return get_asset_linked_queryset_for_user(user, RepairAsset.objects.filter(is_deleted=False))
 
@@ -36,7 +38,7 @@ class RepairAssetSelector:
         return RepairAsset.objects.filter(asset_recordcode__asset_code=asset_code, is_deleted=False).exists()
 
     @staticmethod
-    def get_by_asset_code(asset_code: str, user=None) -> QuerySet[RepairAsset]:
+    def get_by_asset_code(asset_code: str, user: Any = None) -> QuerySet[RepairAsset]:
         qs = RepairAsset.objects.filter(
             asset_recordcode__asset_code=asset_code, is_deleted=False
         ).select_related(
@@ -47,5 +49,5 @@ class RepairAssetSelector:
             "asset_recordcode__asset_manager_recordcode",
         )
         if user:
-            qs = get_asset_linked_queryset_for_user(user, qs)
+            qs = get_asset_linked_queryset_for_user(user, qs)  # type: ignore[assignment]
         return qs

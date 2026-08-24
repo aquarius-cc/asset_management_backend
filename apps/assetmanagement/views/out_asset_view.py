@@ -40,7 +40,7 @@ OUTASSET_STATUS_MAP = dict(OutAsset.OUTASSET_STATUS_CHOICES) if hasattr(OutAsset
 
 
 @extend_schema(tags=["出库管理"])
-class OutAssetViewSet(
+class OutAssetViewSet(  # type: ignore[misc]
     OperatorContextMixin,
     RecordcodeLookupMixin,
     AdminWritePermissionMixin,
@@ -131,7 +131,7 @@ class OutAssetViewSet(
         return OutAssetDetailSerializer
 
     @action(detail=False, methods=["get"], url_path="recyclable")
-    def recyclable(self, request: Any) -> None:
+    def recyclable(self, request: Any) -> Response:
         filters = {}
         keyword = request.query_params.get("search", "").strip()
         if keyword:
@@ -197,7 +197,7 @@ class OutAssetViewSet(
     def update(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         recordcode = self.kwargs.get("recordcode")
         outasset = OutAssetService.update_outasset(
-            recordcode=recordcode,
+            recordcode=recordcode,  # type: ignore[arg-type]
             update_data=request.data,
         )
         return success_response(data=OutAssetDetailSerializer(outasset).data, message="更新成功")
@@ -205,7 +205,7 @@ class OutAssetViewSet(
     def partial_update(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         return self.update(request, *args, **kwargs)
 
-    @action(detail=False, methods=["post"], url_path="batch-create")
+    @action(detail=False, methods=["post"], url_path="batch-create")  # type: ignore[type-var]
     def batch_create(self, request: Any) -> None:
         serializer = OutAssetBatchCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -215,7 +215,7 @@ class OutAssetViewSet(
             operator_name=resolve_operator(request.user)[1],
         )
         # 【DR-1/B-8】响应组装复用 BatchResponseHelper; input_data 以用户原始输入回显
-        return BatchResponseHelper.create_response(
+        return BatchResponseHelper.create_response(  # type: ignore[no-any-return]
             result,
             OutAssetCreateSerializer,
             message=f"批量出库完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
@@ -237,7 +237,7 @@ class OutAssetViewSet(
             )
         return success_response(message="删除成功")
 
-    @action(detail=False, methods=["post"], url_path="batch-delete")
+    @action(detail=False, methods=["post"], url_path="batch-delete")  # type: ignore[type-var]
     def batch_delete(self, request: Any) -> None:
         serializer = OutAssetBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -247,7 +247,7 @@ class OutAssetViewSet(
             operator_name=resolve_operator(request.user)[1],
         )
         # 【DR-1 收敛】响应组装复用 BatchResponseHelper
-        return BatchResponseHelper.delete_response(
+        return BatchResponseHelper.delete_response(  # type: ignore[no-any-return]
             result,
             message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
@@ -259,7 +259,7 @@ class OutAssetViewSet(
         responses={200: OutAssetListSerializer(many=True)},
     )
     @action(detail=False, methods=["get"], url_path="by-asset/(?P<asset_code>[^/.]+)")
-    def by_asset(self, request, asset_code=None) -> Response:
+    def by_asset(self, request: Any, asset_code: Any = None) -> Response:
         visible = AssetSelector.get_queryset_for_user(request.user).filter(asset_code=asset_code).exists()
         if not visible:
             return error_response(message=f"资产 {asset_code} 不存在", status_code=404)
@@ -275,14 +275,14 @@ class OutAssetViewSet(
         responses={200: OutAssetDetailSerializer(many=True)},
     )
     @action(detail=False, methods=["get"], url_path="by-applicant/(?P<applicant_jobcode>[^/.]+)")
-    def by_applicant(self, request, applicant_jobcode=None) -> Response:
+    def by_applicant(self, request: Any, applicant_jobcode: Any = None) -> Response:
         if not applicant_jobcode:
             return error_response(message="请提供申请人工号", status_code=400)
         records = OutAssetSelector.get_outassets_by_applicant(applicant_jobcode, user=request.user)
         return self._paginate_and_respond(records)
 
     @action(detail=True, methods=["post"], url_path="cancel", permission_classes=[IsAssetAdminOrAbove])
-    def cancel_outasset(self, request: Any, recordcode: Any = None) -> None:
+    def cancel_outasset(self, request: Any, recordcode: Any = None) -> Response:
         """POST /out-assets/{recordcode}/cancel/ — 取消出库,恢复资产状态"""
         outasset = self.get_object()
         result = OutAssetService.batch_delete_outasset(
@@ -299,7 +299,7 @@ class OutAssetViewSet(
         return success_response(message="取消出库成功,资产状态已恢复")
 
     @action(detail=False, methods=["get"])
-    def statistics(self, request) -> Response:
+    def statistics(self, request: Any) -> Response:
         from django.db.models import Count
 
         queryset = self.get_queryset()

@@ -105,7 +105,7 @@ class EmployeeService:
 
         EmployeeAuditAdapter.log_bind_auth_user(employee, auth_username, operator_jobcode, operator_name)
 
-        return employee
+        return employee  # type: ignore[no-any-return]
 
     @staticmethod
     @transaction.atomic
@@ -151,7 +151,7 @@ class EmployeeService:
 
         EmployeeAuditAdapter.log_unbind_auth_user(employee, old_auth_username, operator_jobcode, operator_name)
 
-        return employee
+        return employee  # type: ignore[no-any-return]
 
     @staticmethod
     @transaction.atomic
@@ -224,10 +224,10 @@ class EmployeeService:
         employee.save(update_fields=["auth_user", "updated_at"])
 
         EmployeeAuditAdapter.log_replace_auth_user(
-            employee, old_auth_username, new_auth_username, operator_jobcode, operator_name
+            employee, old_auth_username, new_auth_username, operator_jobcode, operator_name  # type: ignore[arg-type]
         )
 
-        return employee
+        return employee  # type: ignore[no-any-return]
 
     @staticmethod
     @transaction.atomic
@@ -250,7 +250,7 @@ class EmployeeService:
         EmployeeAuditAdapter.log_create(
             employee, employee_data.get("operator_jobcode"), employee_data.get("operator_name")
         )
-        return employee
+        return employee  # type: ignore[no-any-return]
 
     # 【AGENTS 规范 - P2-09】get_employee_by_jobcode 已删除,
     # 与 EmployeeSelector.get_employee_by_jobcode 完全重复,调用方请改用 EmployeeSelector
@@ -339,7 +339,7 @@ class EmployeeService:
 
         # 批量预检查:一次查询所有关联资产的员工
         # 【修复】FK to_field="recordcode",需提取 recordcode 而非模型实例
-        employees_with_assets = set()
+        employees_with_assets = set()  # type: ignore[var-annotated]
         if existing_employees:
             # 提取所有员工的 recordcode(FK 存储的是 recordcode 字符串)
             recordcodes = [emp.recordcode for emp in existing_employees.values() if emp.recordcode]

@@ -11,8 +11,9 @@
 """
 
 from datetime import datetime, timedelta
+from typing import Any
 
-from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema  # type: ignore[attr-defined]
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -97,7 +98,7 @@ class AssetOperationLogListView(ResponseWrapperMixin, APIView):
             400: {"description": "参数错误"},
         },
     )
-    def get(self, request) -> Response:
+    def get(self, request: Any) -> Response:
         """获取操作记录列表"""
         # 【AGENTS 规范 - P1-09】View 仅负责参数解析(含校验)和响应格式化,
         # 查询逻辑全部委托给 OperationLogQueryService。
@@ -156,7 +157,7 @@ class AssetOperationLogListView(ResponseWrapperMixin, APIView):
 
         if page is not None:
             serializer = AssetOperationLogSerializer(page, many=True)
-            return paginator.get_paginated_response(serializer.data)
+            return paginator.get_paginated_response(serializer.data)  # type: ignore[no-any-return]
 
         serializer = AssetOperationLogSerializer(logs, many=True)
         return success_response(data=serializer.data)
@@ -180,7 +181,7 @@ class AssetOperationLogDetailView(ResponseWrapperMixin, APIView):
             404: {"description": "记录不存在"},
         },
     )
-    def get(self, request, pk: int) -> Response:
+    def get(self, request: Any, pk: int) -> Response:
         """获取单条操作记录"""
         # 【AGENTS 规范 - P1-09】调用 Service 层查询,View 不直接操作 ORM
         log = OperationLogQueryService.get_operation_log_by_pk(pk)
@@ -219,7 +220,7 @@ class AssetHistoryView(ResponseWrapperMixin, APIView):
             404: {"description": "资产不存在或没有操作记录"},
         },
     )
-    def get(self, request, asset_code: str) -> Response:
+    def get(self, request: Any, asset_code: str) -> Response:
         """获取资产操作历史"""
 
         # 使用服务层查询
@@ -234,7 +235,7 @@ class AssetHistoryView(ResponseWrapperMixin, APIView):
 
         if page is not None:
             serializer = AssetOperationLogSerializer(page, many=True)
-            return paginator.get_paginated_response(serializer.data)
+            return paginator.get_paginated_response(serializer.data)  # type: ignore[no-any-return]
 
         serializer = AssetOperationLogSerializer(logs, many=True)
         return success_response(data=serializer.data)
@@ -267,7 +268,7 @@ class AssetOperationLogByLoggingIdView(ResponseWrapperMixin, APIView):
             404: {"description": "记录不存在"},
         },
     )
-    def get(self, request, logging_id: str) -> Response:
+    def get(self, request: Any, logging_id: str) -> Response:
         """通过 LoggingId 获取操作记录"""
         log = OperationLogQueryService.get_operation_log_by_logging_id(logging_id)
 
@@ -305,7 +306,7 @@ class AssetStatusTimelineView(ResponseWrapperMixin, APIView):
             404: {"description": "资产不存在或没有状态变更记录"},
         },
     )
-    def get(self, request, asset_code: str) -> Response:
+    def get(self, request: Any, asset_code: str) -> Response:
         """获取资产状态变更时间线"""
 
         timeline = OperationLogQueryService.get_asset_status_timeline(asset_code)
@@ -343,7 +344,7 @@ class RecentOperationsView(ResponseWrapperMixin, APIView):
             200: AssetOperationLogSerializer(many=True),
         },
     )
-    def get(self, request) -> Response:
+    def get(self, request: Any) -> Response:
         """获取最近操作记录"""
 
         days = request.query_params.get("days", "7")
@@ -364,7 +365,7 @@ class RecentOperationsView(ResponseWrapperMixin, APIView):
 
         if page is not None:
             serializer = AssetOperationLogSerializer(page, many=True)
-            return paginator.get_paginated_response(serializer.data)
+            return paginator.get_paginated_response(serializer.data)  # type: ignore[no-any-return]
 
         serializer = AssetOperationLogSerializer(logs, many=True)
         return success_response(data=serializer.data)
@@ -397,7 +398,7 @@ class UserOperationsView(ResponseWrapperMixin, APIView):
             404: {"description": "该用户没有操作记录"},
         },
     )
-    def get(self, request, operator_jobcode: str) -> Response:
+    def get(self, request: Any, operator_jobcode: str) -> Response:
         """获取用户操作记录"""
 
         # 使用服务层查询
@@ -414,7 +415,7 @@ class UserOperationsView(ResponseWrapperMixin, APIView):
 
         if page is not None:
             serializer = AssetOperationLogSerializer(page, many=True)
-            return paginator.get_paginated_response(serializer.data)
+            return paginator.get_paginated_response(serializer.data)  # type: ignore[no-any-return]
 
         serializer = AssetOperationLogSerializer(logs, many=True)
         return success_response(data=serializer.data)

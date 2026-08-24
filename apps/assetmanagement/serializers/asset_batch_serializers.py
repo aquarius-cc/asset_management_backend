@@ -4,6 +4,8 @@
 包含 AssetBatchItem、AssetBatchCreate、AssetBatchDelete 序列化器。
 """
 
+from typing import Any
+
 from rest_framework import serializers
 
 from apps.assetmanagement.models import AssetType, Contract, Storage
@@ -11,7 +13,7 @@ from apps.usermanagement.models import Employee
 from core.constants import MAX_BATCH_SIZE as DEFAULT_MAX_BATCH_SIZE
 
 
-class AssetBatchItemSerializer(serializers.Serializer):
+class AssetBatchItemSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """批量创建资产序列化器
 
     前端传入业务编码(asset_type_code/storage_code/contract_code/employee_jobcode),
@@ -91,11 +93,11 @@ class AssetBatchItemSerializer(serializers.Serializer):
     )
 
 
-class AssetBatchCreateSerializer(serializers.Serializer):
+class AssetBatchCreateSerializer(serializers.Serializer):  # type: ignore[type-arg]
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     items = AssetBatchItemSerializer(many=True, required=True)
 
-    def validate_items(self, value: list[dict]) -> list[dict]:
+    def validate_items(self, value: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if not value:
             raise serializers.ValidationError("批量创建至少需要 1 条记录")
         if len(value) > self.MAX_BATCH_SIZE:
@@ -105,11 +107,11 @@ class AssetBatchCreateSerializer(serializers.Serializer):
         names = [item.get("asset_name") for item in value if item.get("asset_name")]
         duplicates = [name for name, count in Counter(names).items() if count > 1]
         if duplicates:
-            raise serializers.ValidationError(f"提交记录中存在重复资产名称: {', '.join(duplicates)}")
+            raise serializers.ValidationError(f"提交记录中存在重复资产名称: {', '.join(duplicates)}")  # type: ignore[arg-type]
         return value
 
 
-class AssetBatchDeleteSerializer(serializers.Serializer):
+class AssetBatchDeleteSerializer(serializers.Serializer):  # type: ignore[type-arg]
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     ids = serializers.ListField(child=serializers.CharField(), required=True)
 

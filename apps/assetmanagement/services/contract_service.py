@@ -22,7 +22,7 @@ from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError
 
 
-def _parse_paid_record(raw: str | None) -> dict:
+def _parse_paid_record(raw: str | None) -> dict[str, Any]:
     """解析 paid_record,兼容纯文本旧格式"""
     if not raw:
         return {"payments": []}
@@ -30,7 +30,7 @@ def _parse_paid_record(raw: str | None) -> dict:
         data = json.loads(raw)
         if "payments" not in data:
             data["payments"] = []
-        return data
+        return data  # type: ignore[no-any-return]
     except (json.JSONDecodeError, TypeError):
         return {"payments": []}
 
@@ -65,7 +65,7 @@ class ContractService:
         """
         contract_code = contract_data.get("contract_code")
 
-        if ContractSelector.exists_by_code(contract_code):
+        if ContractSelector.exists_by_code(contract_code):  # type: ignore[arg-type]
             raise AppValidationError(detail=f"合同编码 {contract_code} 已存在", error_code="DUPLICATE_CONTRACT_CODE")
 
         contract = Contract.objects.create(**contract_data)
@@ -83,7 +83,7 @@ class ContractService:
             operator_name=operator_name,
         )
 
-        return contract
+        return contract  # type: ignore[no-any-return]
 
     @staticmethod
     @transaction.atomic

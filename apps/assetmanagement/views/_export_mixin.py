@@ -10,6 +10,7 @@ from typing import Any
 from django.http import HttpResponse
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
 from utils.response_utils import error_response
 
@@ -35,7 +36,7 @@ class ExportExcelMixin:
     export_sheet_name: str = "数据导出"
 
     @action(detail=False, methods=["get"], url_path="export", permission_classes=[IsAuthenticated])
-    def export_excel(self, request: Any) -> None:
+    def export_excel(self, request: Any) -> HttpResponse | Response:
         """导出当前列表数据为 Excel"""
         try:
             import openpyxl
@@ -47,7 +48,7 @@ class ExportExcelMixin:
             return error_response(message="未配置导出列", status_code=500)
 
         # 获取行级过滤后的 queryset
-        queryset = self.get_queryset()
+        queryset = self.get_queryset()  # type: ignore[attr-defined]
 
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -76,8 +77,8 @@ class ExportExcelMixin:
 
         # 自动调整列宽
         for col in ws.columns:
-            max_length = max(len(str(cell.value or "")) for cell in col)
-            ws.column_dimensions[col[0].column_letter].width = min(max_length + 4, 40)
+            max_length = max(len(str(cell.value or "")) for cell in col)  # type: ignore[attr-defined]
+            ws.column_dimensions[col[0].column_letter].width = min(max_length + 4, 40)  # type: ignore[index]
 
         response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         response["Content-Disposition"] = f'attachment; filename="{self.export_filename}"'

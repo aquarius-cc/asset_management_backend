@@ -7,9 +7,11 @@
 """
 
 from typing import Any
+
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.decorators import action
+from rest_framework.response import Response
 
 from apps.authusermanagement.models import AuthUser
 from apps.usermanagement.selectors import EmployeeSelector
@@ -101,7 +103,7 @@ class EmployeeAuthMixin:
         responses={200: EmployeeDetailSerializer, 400: OpenApiResponse(description="绑定冲突或参数错误")},
     )
     @action(detail=True, methods=["post"], url_path="bind-auth-user")
-    def bind_auth_user(self, request: Any, pk: Any = None) -> None:
+    def bind_auth_user(self, request: Any, pk: Any = None) -> Response:
         """
         绑定认证账号到员工
 
@@ -132,7 +134,7 @@ class EmployeeAuthMixin:
         responses={200: EmployeeDetailSerializer, 400: OpenApiResponse(description="员工未绑定认证账号")},
     )
     @action(detail=True, methods=["post"], url_path="unbind-auth-user")
-    def unbind_auth_user(self, request: Any, pk: Any = None) -> None:
+    def unbind_auth_user(self, request: Any, pk: Any = None) -> Response:
         """
         解绑员工的认证账号
 
@@ -166,7 +168,7 @@ class EmployeeAuthMixin:
         responses={200: EmployeeDetailSerializer, 400: OpenApiResponse(description="替换冲突或参数错误")},
     )
     @action(detail=True, methods=["post"], url_path="replace-auth-user")
-    def replace_auth_user(self, request: Any, pk: Any = None) -> None:
+    def replace_auth_user(self, request: Any, pk: Any = None) -> Response:
         """
         替换员工的认证账号
 

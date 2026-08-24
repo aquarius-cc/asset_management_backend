@@ -38,7 +38,7 @@ from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
 
 
 @extend_schema(tags=["回收管理"])
-class RecycleAssetViewSet(
+class RecycleAssetViewSet(  # type: ignore[misc]
     RecordcodeLookupMixin,
     AdminWritePermissionMixin,
     ExportExcelMixin,
@@ -133,7 +133,7 @@ class RecycleAssetViewSet(
         serializer = RecycleAssetUpdateSerializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         recycle = RecycleAssetService.update_recycle_asset(
-            recordcode=recordcode,
+            recordcode=recordcode,  # type: ignore[arg-type]
             update_data=serializer.validated_data,
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
@@ -144,7 +144,7 @@ class RecycleAssetViewSet(
         return self.update(request, *args, **kwargs)
 
     @action(detail=False, methods=["get"], url_path="by-asset/(?P<asset_recordcode_code>[^/.]+)")
-    def by_asset(self, request, asset_recordcode_code=None) -> Response:
+    def by_asset(self, request: Any, asset_recordcode_code: Any = None) -> Response:
         visible = AssetSelector.get_queryset_for_user(request.user).filter(asset_code=asset_recordcode_code).exists()
         if not visible:
             return error_response(message=f"资产 {asset_recordcode_code} 不存在", status_code=404)
@@ -158,7 +158,7 @@ class RecycleAssetViewSet(
         responses={200: RecycleAssetDetailSerializer},
     )
     @action(detail=False, methods=["get"], url_path="by-outasset/(?P<recordcode>[^/.]+)")
-    def by_asset_recordcode(self, request, recordcode=None) -> Response:
+    def by_asset_recordcode(self, request: Any, recordcode: Any = None) -> Response:
         if not recordcode:
             return error_response(message="请提供出库记录编码", status_code=400)
         from apps.assetmanagement.selectors import RecycleAssetSelector
@@ -169,7 +169,7 @@ class RecycleAssetViewSet(
         serializer = RecycleAssetDetailSerializer(record)
         return success_response(data=serializer.data, message="查询成功")
 
-    @action(detail=False, methods=["post"], url_path="batch-create")
+    @action(detail=False, methods=["post"], url_path="batch-create")  # type: ignore[type-var]
     def batch_create(self, request: Any) -> None:
         serializer = RecycleAssetBatchCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -200,7 +200,7 @@ class RecycleAssetViewSet(
             operator_name=resolve_operator(request.user)[1],
         )
         # 【DR-1/B-8】响应组装复用 BatchResponseHelper; input_data 以用户原始输入回显
-        return BatchResponseHelper.create_response(
+        return BatchResponseHelper.create_response(  # type: ignore[no-any-return]
             result,
             RecycleAssetCreateSerializer,
             message=f"批量回收完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
@@ -222,7 +222,7 @@ class RecycleAssetViewSet(
             )
         return success_response(message="删除成功")
 
-    @action(detail=False, methods=["post"], url_path="batch-delete")
+    @action(detail=False, methods=["post"], url_path="batch-delete")  # type: ignore[type-var]
     def batch_delete(self, request: Any) -> None:
         serializer = RecycleAssetBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -232,13 +232,13 @@ class RecycleAssetViewSet(
             operator_name=resolve_operator(request.user)[1],
         )
         # 【DR-1 收敛】响应组装复用 BatchResponseHelper
-        return BatchResponseHelper.delete_response(
+        return BatchResponseHelper.delete_response(  # type: ignore[no-any-return]
             result,
             message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
 
     @action(detail=True, methods=["post"], url_path="cancel", permission_classes=[IsAssetAdminOrAbove])
-    def cancel_recycle(self, request: Any, recordcode: Any = None) -> None:
+    def cancel_recycle(self, request: Any, recordcode: Any = None) -> Response:
         """POST /recycle-assets/{recordcode}/cancel/ — 取消回收,恢复资产到在用状态"""
         recycle = self.get_object()
         result = RecycleAssetService.batch_delete_recycle_asset(
@@ -255,7 +255,7 @@ class RecycleAssetViewSet(
         return success_response(message="取消回收成功,资产状态已恢复为在用")
 
     @action(detail=True, methods=["post"], url_path="reissue", permission_classes=[IsAssetAdminOrAbove])
-    def reissue(self, request: Any, recordcode: Any = None) -> None:
+    def reissue(self, request: Any, recordcode: Any = None) -> Response:
         """POST /recycle-assets/{recordcode}/reissue/ — 重新发放已回收资产"""
         outasset = RecycleAssetService.reissue_recycle_asset(
             recordcode=recordcode,

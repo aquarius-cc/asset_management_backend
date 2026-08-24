@@ -19,6 +19,7 @@
 """
 
 import logging
+from typing import Any
 
 from django.db import transaction
 
@@ -113,7 +114,7 @@ class RoleService:
             operator_name=op_name,
         )
 
-        return user_role
+        return user_role  # type: ignore[no-any-return]
 
     @staticmethod
     @transaction.atomic
@@ -211,7 +212,7 @@ class RoleService:
             RolePermission.objects.bulk_create(role_perms, ignore_conflicts=True)
 
     @staticmethod
-    def _recompute_employee_role(auth_user, exclude_role_code: str | None = None) -> None:
+    def _recompute_employee_role(auth_user: Any, exclude_role_code: str | None = None) -> None:
         """
         D2:重新计算 Employee.role。
 

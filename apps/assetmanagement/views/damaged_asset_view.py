@@ -40,7 +40,7 @@ from ._export_mixin import ExportExcelMixin
 from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
 
 
-class DamagedAssetViewSet(
+class DamagedAssetViewSet(  # type: ignore[misc]
     RecordcodeLookupMixin,
     AdminWritePermissionMixin,
     ExportExcelMixin,
@@ -145,7 +145,7 @@ class DamagedAssetViewSet(
         return success_response(data=DamagedAssetUpdateSerializer(updated).data, message="更新待报废记录成功")
 
     @action(detail=True, methods=["post"], url_path="approve")
-    def approve(self, request, recordcode=None, **kwargs) -> Response:
+    def approve(self, request: Any, recordcode: Any = None, **kwargs: Any) -> Response:
         obj = self.get_object()
         asset_recordcode = obj.asset_recordcode.recordcode if obj.asset_recordcode else None
         if not asset_recordcode:
@@ -164,7 +164,7 @@ class DamagedAssetViewSet(
         )
 
     @action(detail=True, methods=["post"], url_path="reject")
-    def reject(self, request, recordcode=None, **kwargs) -> Response:
+    def reject(self, request: Any, recordcode: Any = None, **kwargs: Any) -> Response:
         obj = self.get_object()
         asset_recordcode = obj.asset_recordcode.recordcode if obj.asset_recordcode else None
         if not asset_recordcode:
@@ -177,7 +177,7 @@ class DamagedAssetViewSet(
         return success_response(data=DamagedAssetDetailSerializer(result).data, message="审批拒绝成功")
 
     @action(detail=False, methods=["get"], url_path="by-asset/(?P<asset_recordcode>[^/.]+)")
-    def by_asset(self, request, asset_recordcode=None) -> Response:
+    def by_asset(self, request: Any, asset_recordcode: Any = None) -> Response:
         visible = AssetSelector.get_queryset_for_user(request.user).filter(asset_code=asset_recordcode).exists()
         if not visible:
             return error_response(message=f"资产 {asset_recordcode} 不存在", status_code=404)
@@ -185,7 +185,7 @@ class DamagedAssetViewSet(
         return self._paginate_and_respond(records)
 
     @action(detail=False, methods=["get"])
-    def statistics(self, request) -> Response:
+    def statistics(self, request: Any) -> Response:
         queryset = self.get_queryset()
         total = queryset.count()
         status_stats = queryset.values("approval_status").annotate(count=Count("id")).order_by("approval_status")
@@ -199,7 +199,7 @@ class DamagedAssetViewSet(
         }
         return success_response(data={"total_damaged": total, "by_status": by_status})
 
-    @action(detail=False, methods=["post"], url_path="batch-delete")
+    @action(detail=False, methods=["post"], url_path="batch-delete")  # type: ignore[type-var]
     def batch_delete(self, request: Any) -> None:
         serializer = DamagedAssetBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -211,7 +211,7 @@ class DamagedAssetViewSet(
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
         )
-        return BatchResponseHelper.delete_response(
+        return BatchResponseHelper.delete_response(  # type: ignore[no-any-return]
             result,
             message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )

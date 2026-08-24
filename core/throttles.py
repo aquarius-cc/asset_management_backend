@@ -8,7 +8,6 @@
 """
 
 import logging
-
 from typing import Any
 
 from django.core.cache import cache
@@ -18,7 +17,7 @@ from rest_framework.throttling import AnonRateThrottle
 logger = logging.getLogger(__name__)
 
 
-def _extract_login_username(request, owner: str) -> str:
+def _extract_login_username(request: Any, owner: str) -> str:
     """从登录请求中提取 auth_username(读取失败时回退 'anonymous')
 
     【DR-1 收敛】原 LoginRateThrottle.get_cache_key 与
@@ -75,14 +74,14 @@ class LoginLockoutThrottle(AnonRateThrottle):
     LOCKOUT_THRESHOLD = 5
     LOCKOUT_DURATION = 15 * 60  # 15分钟
 
-    def _get_username(self, request: Any) -> None:
+    def _get_username(self, request: Any) -> str:
         return _extract_login_username(request, "LoginLockoutThrottle")
 
     def get_cache_key(self, request: Any, view: Any) -> Any:
         username = self._get_username(request)
         return f"throttle_login_{username}"
 
-    def allow_request(self, request: Any, view: Any) -> None:
+    def allow_request(self, request: Any, view: Any) -> bool:
         username = self._get_username(request)
         fail_key = f"login_fail_{username}"
         fail_count = cache.get(fail_key, 0)

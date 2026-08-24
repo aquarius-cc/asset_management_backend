@@ -88,7 +88,7 @@ class ContractBatchCreateSerializer(serializers.Serializer):  # type: ignore[typ
 # ========== 仓库批量操作序列化器 ==========
 
 
-class StorageBatchDeleteSerializer(serializers.Serializer):
+class StorageBatchDeleteSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """批量删除仓库请求校验"""
 
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
@@ -102,7 +102,7 @@ class StorageBatchDeleteSerializer(serializers.Serializer):
         return value
 
 
-class StorageBatchCreateItemSerializer(serializers.Serializer):
+class StorageBatchCreateItemSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """【新增】单条仓库批量创建数据校验"""
 
     row_number = serializers.IntegerField(required=False, help_text="Excel 行号")
@@ -118,7 +118,7 @@ class StorageBatchCreateItemSerializer(serializers.Serializer):
     storage_description = serializers.CharField(required=False, allow_blank=True, default="", help_text="仓库描述")
 
 
-class StorageBatchCreateSerializer(serializers.Serializer):
+class StorageBatchCreateSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """【新增】批量创建仓库请求校验"""
 
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
@@ -141,7 +141,7 @@ class StorageBatchCreateSerializer(serializers.Serializer):
 # ========== 资产类型批量操作序列化器 ==========
 
 
-class AssetTypeBatchDeleteSerializer(serializers.Serializer):
+class AssetTypeBatchDeleteSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """批量删除资产类型请求校验"""
 
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
@@ -155,7 +155,7 @@ class AssetTypeBatchDeleteSerializer(serializers.Serializer):
         return value
 
 
-class AssetTypeBatchCreateItemSerializer(serializers.Serializer):
+class AssetTypeBatchCreateItemSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """单条资产类型批量创建数据校验"""
 
     row_number = serializers.IntegerField(required=False, help_text="Excel 行号(前端传入,用于错误定位)")
@@ -171,7 +171,7 @@ class AssetTypeBatchCreateItemSerializer(serializers.Serializer):
     sort_order = serializers.IntegerField(required=False, default=0, help_text="排序")
 
 
-class AssetTypeBatchCreateSerializer(serializers.Serializer):
+class AssetTypeBatchCreateSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """【新增】批量创建资产类型请求校验"""
 
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
@@ -190,7 +190,7 @@ class AssetTypeBatchCreateSerializer(serializers.Serializer):
 # ========== 损坏资产批量操作序列化器 ==========
 
 
-class BrokenAssetBatchCreateItemSerializer(serializers.Serializer):
+class BrokenAssetBatchCreateItemSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """单条损坏资产批量创建数据校验"""
 
     row_number = serializers.IntegerField(required=False, help_text="Excel 行号")
@@ -200,7 +200,7 @@ class BrokenAssetBatchCreateItemSerializer(serializers.Serializer):
     broken_description = serializers.CharField(required=False, allow_blank=True, default="", help_text="损坏描述")
 
 
-class BrokenAssetBatchCreateSerializer(serializers.Serializer):
+class BrokenAssetBatchCreateSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """批量创建损坏资产请求校验"""
 
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
@@ -215,7 +215,7 @@ class BrokenAssetBatchCreateSerializer(serializers.Serializer):
 # ========== 遗失资产批量操作序列化器 ==========
 
 
-class LostAssetBatchCreateItemSerializer(serializers.Serializer):
+class LostAssetBatchCreateItemSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """单条遗失资产批量创建数据校验"""
 
     row_number = serializers.IntegerField(required=False, help_text="Excel 行号")
@@ -225,7 +225,7 @@ class LostAssetBatchCreateItemSerializer(serializers.Serializer):
     lost_description = serializers.CharField(required=False, allow_blank=True, default="", help_text="遗失描述")
 
 
-class LostAssetBatchCreateSerializer(serializers.Serializer):
+class LostAssetBatchCreateSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """批量创建遗失资产请求校验"""
 
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)

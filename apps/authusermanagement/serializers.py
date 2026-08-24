@@ -13,7 +13,7 @@ from apps.authusermanagement.models import AuthUser
 from apps.authusermanagement.services import AuthService
 
 
-class AuthUserSerializer(serializers.ModelSerializer):
+class AuthUserSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     认证用户序列化器
 
@@ -45,7 +45,7 @@ class AuthUserSerializer(serializers.ModelSerializer):
         )
 
 
-class UserProfileUpdateSerializer(serializers.ModelSerializer):
+class UserProfileUpdateSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     用户个人信息更新序列化器
 
@@ -81,7 +81,7 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
         return instance
 
 
-class RegisterSerializer(serializers.ModelSerializer):
+class RegisterSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     用户注册序列化器
 
@@ -122,7 +122,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         validated_data.pop("auth_is_active", None)
         validated_data.pop("is_superuser", None)
 
-        user: AuthUser = AuthUser.objects.create_user(
+        user: AuthUser = AuthUser.objects.create_user(  # type: ignore[attr-defined]
             auth_username=validated_data["auth_username"],
             password=validated_data["password"],
             email=validated_data.get("email", ""),
@@ -134,7 +134,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         return user
 
 
-class LoginSerializer(serializers.Serializer):
+class LoginSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """
     用户登录序列化器
 
@@ -153,7 +153,7 @@ class LoginSerializer(serializers.Serializer):
         return attrs
 
 
-class LogoutSerializer(serializers.Serializer):
+class LogoutSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """
     用户退出登录序列化器
 
@@ -192,7 +192,7 @@ class ProfileSerializer(AuthUserSerializer):
     """
 
     class Meta(AuthUserSerializer.Meta):
-        fields = (*AuthUserSerializer.Meta.fields, "role", "department_code", "is_superuser")
+        fields = (*AuthUserSerializer.Meta.fields, "role", "department_code", "is_superuser")  # type: ignore[assignment]
 
     role = serializers.CharField(read_only=True)
     department_code = serializers.CharField(read_only=True, allow_null=True)

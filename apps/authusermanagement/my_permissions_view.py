@@ -7,6 +7,8 @@
 数据范围来源:core.department_scope.get_effective_data_scope_for_user(G1-B flavor a)
 """
 
+from typing import Any
+
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import permissions
 from rest_framework.response import Response
@@ -33,7 +35,7 @@ class MyPermissionsAPIView(APIView):
         responses={200: OpenApiResponse(description="权限列表与数据范围")},
         tags=["认证管理"],
     )
-    def get(self, request) -> Response:
+    def get(self, request: Any) -> Response:
         user = request.user
         data = {
             "permissions": PermissionService.get_effective_permissions_for_user(user),

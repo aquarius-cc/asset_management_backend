@@ -15,6 +15,8 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
+from typing import Any
+
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
@@ -29,7 +31,7 @@ from drf_spectacular.views import (
 from core.metrics import metrics_view
 
 
-def api_root(request):
+def api_root(request: Any) -> JsonResponse:
     """
     API 根路径视图
 
@@ -49,7 +51,7 @@ def api_root(request):
     )
 
 
-def health_check(request):
+def health_check(request: Any) -> JsonResponse:
     """
     健康检查接口(OC-6 落地)
 
@@ -92,7 +94,7 @@ def health_check(request):
     )
 
 
-def ready_check(request):
+def ready_check(request: Any) -> JsonResponse:
     """
     就绪检查接口(OC-6 落地)
 

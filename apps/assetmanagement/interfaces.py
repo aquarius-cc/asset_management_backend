@@ -8,9 +8,9 @@
     from apps.assetmanagement.interfaces import get_employee_queryset, get_employee_serializer_class
 """
 
-from typing import Any
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -106,7 +106,7 @@ def get_employee_provider() -> EmployeeProvider:
     return _employee_provider
 
 
-def get_employee_queryset():
+def get_employee_queryset() -> Any:
     """
     获取员工QuerySet的快捷方法
 
@@ -127,7 +127,7 @@ def get_employee_queryset():
     return get_employee_provider().get_employee_queryset()
 
 
-def get_employee_serializer_class():
+def get_employee_serializer_class() -> type:
     """
     获取员工序列化器类的快捷方法
 

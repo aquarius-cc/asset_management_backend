@@ -24,11 +24,12 @@ JSON格式示例:
 import json
 import re
 import uuid
+from typing import Any
 
 from django.db import migrations
 
 
-def parse_text_payment_record(text_record: str) -> dict:
+def parse_text_payment_record(text_record: str) -> dict[str, Any]:
     """
     解析文本格式的支付记录
     

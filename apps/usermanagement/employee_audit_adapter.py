@@ -36,12 +36,12 @@ class EmployeeAuditAdapter:
 
     @staticmethod
     def log_update(
-        employee,
+        employee: Any,
         before_data: dict[str, Any],
         after_data: dict[str, Any],
         operator_jobcode: str | None = None,
         operator_name: str | None = None,
-    ):
+    ) -> None:
         try:
             from core.audit_service import GenericAuditService
 
@@ -60,7 +60,7 @@ class EmployeeAuditAdapter:
     @staticmethod
     def log_delete(
         employee_jobcode: str, employee_name: str, operator_jobcode: str | None = None, operator_name: str | None = None
-    ):
+    ) -> None:
         try:
             from core.audit_service import GenericAuditService
 
@@ -77,12 +77,12 @@ class EmployeeAuditAdapter:
 
     @staticmethod
     def log_state_change(
-        employee,
+        employee: Any,
         from_status: str,
         to_status: str,
         operator_jobcode: str | None = None,
         operator_name: str | None = None,
-    ):
+    ) -> None:
         try:
             from core.audit_service import GenericAuditService
 
@@ -99,11 +99,11 @@ class EmployeeAuditAdapter:
 
     @staticmethod
     def log_bind_auth_user(
-        employee,
+        employee: Any,
         auth_username: str,
         operator_jobcode: str | None = None,
         operator_name: str | None = None,
-    ):
+    ) -> None:
         try:
             from core.audit_service import GenericAuditService
 
@@ -121,11 +121,11 @@ class EmployeeAuditAdapter:
 
     @staticmethod
     def log_unbind_auth_user(
-        employee,
+        employee: Any,
         old_auth_username: str,
         operator_jobcode: str | None = None,
         operator_name: str | None = None,
-    ):
+    ) -> None:
         try:
             from core.audit_service import GenericAuditService
 
@@ -143,12 +143,12 @@ class EmployeeAuditAdapter:
 
     @staticmethod
     def log_replace_auth_user(
-        employee,
+        employee: Any,
         old_auth_username: str,
         new_auth_username: str,
         operator_jobcode: str | None = None,
         operator_name: str | None = None,
-    ):
+    ) -> None:
         try:
             from core.audit_service import GenericAuditService
 

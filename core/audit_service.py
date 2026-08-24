@@ -37,7 +37,7 @@ class GenericAuditService:
         记录通用审计日志
         """
         try:
-            log = AuditLog.objects.create(
+            log = AuditLog.objects.create(  # type: ignore[attr-defined]
                 record_code=record_code,
                 app_label=app_label,
                 operation_type=operation_type,
@@ -48,7 +48,7 @@ class GenericAuditService:
                 after_data=after_data,
                 ip_address=ip_address or get_current_ip(),
             )
-            return log
+            return log  # type: ignore[no-any-return]
         except Exception as e:
             logger.error(f"通用审计日志记录失败: {e}", exc_info=True)
             return None

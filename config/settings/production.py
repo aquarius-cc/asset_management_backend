@@ -81,22 +81,22 @@ cors_origins = os.getenv("CORS_ALLOWED_ORIGINS", "")
 CORS_ALLOWED_ORIGINS = [origin.strip() for origin in cors_origins.split(",") if origin.strip()]
 
 # 日志级别提升 + 生产环境控制台使用 JSON 格式(OC-2) 并注入 trace_id(OC-1)
-LOGGING["handlers"]["console"]["level"] = "WARNING"
-LOGGING["handlers"]["console"]["formatter"] = "json"
-LOGGING["handlers"]["console"]["filters"] = ["trace_id"]
-LOGGING["loggers"]["django"]["level"] = "WARNING"
-LOGGING["loggers"]["rest_framework"]["level"] = "WARNING"
+LOGGING["handlers"]["console"]["level"] = "WARNING"  # type: ignore[index]
+LOGGING["handlers"]["console"]["formatter"] = "json"  # type: ignore[index]
+LOGGING["handlers"]["console"]["filters"] = ["trace_id"]  # type: ignore[index]
+LOGGING["loggers"]["django"]["level"] = "WARNING"  # type: ignore[index]
+LOGGING["loggers"]["rest_framework"]["level"] = "WARNING"  # type: ignore[index]
 
 # WebSocket 通道层:生产环境必须使用 Redis
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {"hosts": [os.getenv("REDIS_URL")]},
+        "CONFIG": {"hosts": [os.getenv("REDIS_URL")]},  # type: ignore[dict-item]
     },
 }
 
 # REDIS_URL 缺失时立即报错,Docker 容器内 127.0.0.1 不可达
-if not CHANNEL_LAYERS["default"]["CONFIG"]["hosts"][0]:
+if not CHANNEL_LAYERS["default"]["CONFIG"]["hosts"][0]:  # type: ignore[index]
     raise ImproperlyConfigured("REDIS_URL environment variable is required in production")
 
 # 【DR-1 收敛】InMemoryChannelLayer 禁止用于生产(必须使用 Redis)

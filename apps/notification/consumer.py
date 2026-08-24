@@ -7,9 +7,9 @@ WebSocket 通知消费者 (JWT 最小认证)
 - 心跳保活
 """
 
-from typing import Any
 import json
 import logging
+from typing import Any, cast
 
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
@@ -29,7 +29,7 @@ def _validate_token(raw_token: str) -> AuthUser:
     """用 SimpleJWT 校验 access token 并解析用户(复用 HTTP 认证链路, DR-1)"""
     auth = JWTAuthentication()
     validated = auth.get_validated_token(raw_token.encode("utf-8"))
-    return auth.get_user(validated)
+    return cast(AuthUser, auth.get_user(validated))
 
 
 class NotificationConsumer(AsyncWebsocketConsumer):
@@ -45,7 +45,7 @@ class NotificationConsumer(AsyncWebsocketConsumer):
     心跳格式: {"type": "ping"} / {"type": "pong"}
     """
 
-    async def connect(self):
+    async def connect(self) -> None:
         """建立连接(先认证, 通过后加入用户专属通知组)"""
         self.jobcode = self.scope["url_route"]["kwargs"]["jobcode"]
         self.group_name = f"notifications_{self.jobcode}"
@@ -80,7 +80,7 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             logger.warning("WS rejected: missing token", extra={"ws_jobcode": self.jobcode})
             return None
         try:
-            return await database_sync_to_async(_validate_token)(raw_token)
+            return await database_sync_to_async(_validate_token)(raw_token)  # type: ignore[no-any-return]
         except (TokenError, AuthenticationFailed):
             logger.warning("WS rejected: invalid token", extra={"ws_jobcode": self.jobcode})
             return None
@@ -94,14 +94,14 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         protocols = [p.strip().decode("utf-8") for p in protocol_raw.split(b",") if p.strip()]
         for p in protocols:
             if p.count(".") == 2 and len(p) > 20:
-                return p
+                return p  # type: ignore[no-any-return]
         return None
 
-    async def disconnect(self, close_code):
+    async def disconnect(self, close_code: int) -> None:
         """断开连接"""
         await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
-    async def receive(self, text_data):
+    async def receive(self, text_data: str) -> None:
         """接收客户端消息"""
         try:
             data = json.loads(text_data)
@@ -117,7 +117,7 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             if notification_id:
                 await self.mark_notification_read(notification_id)
 
-    async def notification(self, event):
+    async def notification(self, event: dict[str, Any]) -> None:
         """
         处理通知组消息(由 channel_layer.group_send 触发)
 

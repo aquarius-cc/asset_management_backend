@@ -36,7 +36,7 @@ def resolve_operator(user: "AbstractBaseUser") -> tuple[str, str]:
     from apps.usermanagement.selectors import EmployeeSelector
 
     try:
-        employee = user.employee
+        employee = user.employee  # type: ignore[attr-defined]
         return employee.employee_jobcode, employee.employee_name
     except Employee.DoesNotExist:
         pass
@@ -45,4 +45,4 @@ def resolve_operator(user: "AbstractBaseUser") -> tuple[str, str]:
     if employee is not None:
         return employee.employee_jobcode, employee.employee_name
 
-    return user.auth_username, user.auth_username
+    return user.auth_username, user.auth_username  # type: ignore[attr-defined]

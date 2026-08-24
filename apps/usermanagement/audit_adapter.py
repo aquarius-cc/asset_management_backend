@@ -36,12 +36,12 @@ class DepartmentAuditAdapter:
 
     @staticmethod
     def log_update(
-        department,
+        department: Any,
         before_data: dict[str, Any],
         after_data: dict[str, Any],
         operator_jobcode: str | None = None,
         operator_name: str | None = None,
-    ):
+    ) -> None:
         try:
             from core.audit_service import GenericAuditService
 
@@ -63,7 +63,7 @@ class DepartmentAuditAdapter:
         department_name: str,
         operator_jobcode: str | None = None,
         operator_name: str | None = None,
-    ):
+    ) -> None:
         try:
             from core.audit_service import GenericAuditService
 

@@ -20,7 +20,7 @@ import os
 import sys
 
 
-def main():
+def main() -> None:
     """
     执行 Django 管理命令
 

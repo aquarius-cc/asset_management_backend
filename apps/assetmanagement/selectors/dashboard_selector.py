@@ -279,7 +279,7 @@ class DashboardSelector:
         """
         from datetime import date
 
-        from dateutil.relativedelta import relativedelta
+        from dateutil.relativedelta import relativedelta  # type: ignore[import-untyped]
 
         expiring_assets = (
             Asset.objects.filter(is_deleted=False, asset_warranty_period__gt=0, asset_purchase_date__isnull=False)
@@ -288,7 +288,7 @@ class DashboardSelector:
 
         result = []
         for asset in expiring_assets:
-            warranty_end = asset.asset_purchase_date + relativedelta(months=asset.asset_warranty_period * 12)
+            warranty_end = asset.asset_purchase_date + relativedelta(months=asset.asset_warranty_period * 12)  # type: ignore[operator]
             days_remaining = (warranty_end - date.today()).days
 
             if 0 <= days_remaining <= days:

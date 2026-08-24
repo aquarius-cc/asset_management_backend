@@ -203,7 +203,7 @@ class EmployeeViewSet(  # type: ignore[misc]
         result = EmployeeService.batch_create_employee(serializer.validated_data["items"])
 
         # 【DR-1 收敛】响应组装复用 BatchResponseHelper(message 显式传入, 契约不变)
-        return BatchResponseHelper.create_response(
+        return BatchResponseHelper.create_response(  # type: ignore[no-any-return]
             result,
             EmployeeDetailSerializer,
             message=f"批量创建完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
@@ -218,7 +218,7 @@ class EmployeeViewSet(  # type: ignore[misc]
 
         result = EmployeeService.batch_delete_employee(serializer.validated_data["ids"])
 
-        return BatchResponseHelper.delete_response(
+        return BatchResponseHelper.delete_response(  # type: ignore[no-any-return]
             result,
             message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )

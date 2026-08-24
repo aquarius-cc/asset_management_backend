@@ -9,6 +9,7 @@ from typing import Any, cast
 from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
@@ -37,7 +38,7 @@ from utils.response_utils import error_response, success_response
 from utils.user_utils import resolve_operator
 
 
-class AuthUserViewSet(viewsets.ModelViewSet):
+class AuthUserViewSet(viewsets.ModelViewSet):  # type: ignore[type-arg]
     """
     用户管理视图集
 
@@ -49,7 +50,7 @@ class AuthUserViewSet(viewsets.ModelViewSet):
     serializer_class = AuthUserSerializer
     lookup_field = "auth_id"
 
-    def get_permissions(self) -> list:
+    def get_permissions(self) -> list[BasePermission]:
         """
         自定义权限:
         - 创建用户:任何人可注册
@@ -59,9 +60,9 @@ class AuthUserViewSet(viewsets.ModelViewSet):
         if self.action == "create":
             permission_classes = [permissions.AllowAny]
         elif self.action in ["update", "partial_update", "destroy"]:
-            permission_classes = [permissions.IsAuthenticated]
+            permission_classes = [permissions.IsAuthenticated]  # type: ignore[list-item]
         else:
-            permission_classes = [IsSystemAdmin]
+            permission_classes = [IsSystemAdmin]  # type: ignore[list-item]
         return [permission() for permission in permission_classes]
 
     def get_serializer_class(self) -> type[AuthUserSerializer] | type[RegisterSerializer]:
@@ -90,7 +91,7 @@ class AuthUserViewSet(viewsets.ModelViewSet):
             user = serializer.save()
             data = {"user": AuthUserSerializer(user).data, **AuthService.issue_tokens(user)}
             response = success_response(data=data, message="注册成功", status_code=status.HTTP_201_CREATED)
-            set_auth_cookies(request, response, data["access"], data["refresh"])
+            set_auth_cookies(request, response, data["access"], data["refresh"])  # type: ignore[arg-type]
             return response
         return error_response(message="注册失败", errors=serializer.errors, status_code=status.HTTP_400_BAD_REQUEST)
 
@@ -205,7 +206,7 @@ class RegisterAPIView(APIView):
             user = serializer.save()
             data = {"user": AuthUserSerializer(user).data, **AuthService.issue_tokens(user)}
             response = success_response(data=data, message="注册成功", status_code=status.HTTP_201_CREATED)
-            set_auth_cookies(request, response, data["access"], data["refresh"])
+            set_auth_cookies(request, response, data["access"], data["refresh"])  # type: ignore[arg-type]
             return response
         return error_response(message="注册失败", errors=serializer.errors, status_code=status.HTTP_400_BAD_REQUEST)
 
@@ -283,7 +284,7 @@ class LoginAPIView(APIView):
                 lockout_throttle.record_success(request, self)
             data = {"user": AuthUserSerializer(user).data, **AuthService.issue_tokens(user)}
             response = success_response(data=data, message="登录成功")
-            set_auth_cookies(request, response, data["access"], data["refresh"])
+            set_auth_cookies(request, response, data["access"], data["refresh"])  # type: ignore[arg-type]
             return response
 
         if lockout_throttle:

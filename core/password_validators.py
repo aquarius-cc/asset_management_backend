@@ -7,6 +7,7 @@
 """
 
 import re
+from typing import Any
 
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _
@@ -18,7 +19,7 @@ class ComplexPasswordValidator:
     要求密码至少包含大写、小写、数字、特殊字符中的 3 种。
     """
 
-    def validate(self, password: str, user=None) -> None:
+    def validate(self, password: str, user: Any = None) -> None:
         categories = 0
         if re.search(r"[A-Z]", password):
             categories += 1

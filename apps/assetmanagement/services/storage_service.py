@@ -48,10 +48,10 @@ class StorageService:
         storage_code = storage_data.get("storage_code")
         storage_name = storage_data.get("storage_name")
 
-        if StorageSelector.exists_by_code(storage_code):
+        if StorageSelector.exists_by_code(storage_code):  # type: ignore[arg-type]
             raise AppValidationError(detail=f"仓库编码 {storage_code} 已存在", error_code="DUPLICATE_STORAGE_CODE")
 
-        if StorageSelector.exists_by_name(storage_name):
+        if StorageSelector.exists_by_name(storage_name):  # type: ignore[arg-type]
             raise AppValidationError(detail=f"仓库名称 {storage_name} 已存在", error_code="DUPLICATE_STORAGE_NAME")
 
         storage = Storage.objects.create(**storage_data)
@@ -69,7 +69,7 @@ class StorageService:
             operator_name=operator_name,
         )
 
-        return storage
+        return storage  # type: ignore[no-any-return]
 
     @staticmethod
     @transaction.atomic

@@ -35,7 +35,7 @@ from ._export_mixin import ExportExcelMixin
 from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
 
 
-class ContractViewSet(
+class ContractViewSet(  # type: ignore[misc]
     RecordcodeLookupMixin,
     AdminWritePermissionMixin,
     ExportExcelMixin,
@@ -106,7 +106,7 @@ class ContractViewSet(
         )
         return success_response(message="删除成功")
 
-    @action(detail=False, methods=["post"], url_path="batch-delete")
+    @action(detail=False, methods=["post"], url_path="batch-delete")  # type: ignore[type-var]
     def batch_delete(self, request: Any) -> None:
         serializer = ContractBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -117,13 +117,13 @@ class ContractViewSet(
             operator_name=operator_name,
         )
         # 【DR-1 收敛】响应组装复用 BatchResponseHelper
-        return BatchResponseHelper.delete_response(
+        return BatchResponseHelper.delete_response(  # type: ignore[no-any-return]
             result,
             message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
 
     @action(detail=False, methods=["post"], url_path="batch-create")
-    def batch_create(self, request: Any) -> None:
+    def batch_create(self, request: Any) -> Response:
         serializer = ContractBatchCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         operator_jobcode, operator_name = resolve_operator(request.user)
@@ -150,7 +150,7 @@ class ContractViewSet(
         responses={200: ContractDetailSerializer(many=True)},
     )
     @action(detail=False, methods=["get"], url_path="getcontractByname/(?P<name>[^/.]+)")
-    def getcontractByname(self, request, name=None) -> Response:
+    def getcontractByname(self, request: Any, name: Any = None) -> Response:
         name = name.strip() if name else ""
         if not name:
             return error_response(message="合同名称参数不能为空", status_code=400)
@@ -163,12 +163,12 @@ class ContractViewSet(
         return success_response(data={"count": contracts.count(), "results": serializer.data}, message="查询成功")
 
     @action(detail=False, methods=["get"], url_path="statistics")
-    def statistics(self, request) -> Response:
+    def statistics(self, request: Any) -> Response:
         stats = ContractService.get_contract_statistics()
         return success_response(data=stats, message="查询成功")
 
     @action(detail=True, methods=["post"], url_path="update_settlement_status")
-    def update_settlement_status(self, request, recordcode=None) -> Response:
+    def update_settlement_status(self, request: Any, recordcode: Any = None) -> Response:
         new_status = request.data.get("status")
         if not new_status:
             return error_response(message="请提供结算状态(pending/settled)", status_code=400)
@@ -184,7 +184,7 @@ class ContractViewSet(
         return success_response(data={"contract": serializer.data}, message="结算状态更新成功")
 
     @action(detail=True, methods=["post"], url_path="payment_record")
-    def payment_record(self, request, recordcode=None) -> Response:
+    def payment_record(self, request: Any, recordcode: Any = None) -> Response:
         amount = request.data.get("amount")
         description = request.data.get("description", "")
         if not amount:
@@ -208,7 +208,7 @@ class ContractViewSet(
         responses={200: ContractDetailSerializer(many=True)},
     )
     @action(detail=False, methods=["get"], url_path="search")
-    def global_search(self, request) -> Response:
+    def global_search(self, request: Any) -> Response:
         keyword = request.query_params.get("keyword", "").strip()
         if not keyword:
             return error_response(message="请提供搜索关键词", status_code=400)
@@ -221,7 +221,7 @@ class ContractViewSet(
         return success_response(data={"count": contracts.count(), "results": serializer.data}, message="查询成功")
 
     @action(detail=True, methods=["post"], url_path=r"payment_record/(?P<payment_id>[^/]+)/delete")
-    def delete_payment(self, request: Any, recordcode: Any = None, payment_id: Any = None) -> None:
+    def delete_payment(self, request: Any, recordcode: Any = None, payment_id: Any = None) -> Response:
         """删除支付记录(软删除)"""
         contract = self.get_object()
         updated = ContractService.delete_payment_record(contract.contract_code, payment_id)
@@ -229,7 +229,7 @@ class ContractViewSet(
         return success_response(data={"contract": serializer.data}, message="支付记录删除成功")
 
     @action(detail=True, methods=["post"], url_path=r"payment_record/(?P<payment_id>[^/]+)/approve")
-    def approve_payment(self, request: Any, recordcode: Any = None, payment_id: Any = None) -> None:
+    def approve_payment(self, request: Any, recordcode: Any = None, payment_id: Any = None) -> Response:
         """审核通过支付记录"""
         contract = self.get_object()
         updated = ContractService.approve_payment_record(contract.contract_code, payment_id)

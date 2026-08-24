@@ -5,12 +5,13 @@
 from typing import Any
 
 from django_filters.rest_framework import DjangoFilterBackend
-from drf_spectacular.openapi import OpenApiParameter
+from drf_spectacular.openapi import OpenApiParameter  # type: ignore[attr-defined]
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
+from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
 
 from apps.usermanagement.models import Department
@@ -31,7 +32,7 @@ from core.permissions import IsSystemAdmin
 from utils.response_utils import error_response, success_response
 
 
-class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSet):
+class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSet):  # type: ignore[misc,type-arg]
     """
     部门管理视图集
 
@@ -46,14 +47,14 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
     serializer_class = DepartmentSerializer
     pagination_class = CustomPageNumberPagination
 
-    def get_permissions(self) -> list:
+    def get_permissions(self) -> list[BasePermission]:
         """
         自定义权限:管理员可管理部门,普通用户只能查看
         """
         if self.action in ["create", "update", "partial_update", "destroy", "batch_create", "batch_delete", "sort"]:
             permission_classes = [IsSystemAdmin]
         else:
-            permission_classes = [permissions.IsAuthenticated]
+            permission_classes = [permissions.IsAuthenticated]  # type: ignore[list-item]
         return [permission() for permission in permission_classes]
 
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -82,7 +83,7 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
         tags=["部门管理"],
     )
     @action(detail=True, methods=["get"], url_path="employees")
-    def employees(self, request, department_code: str | None = None) -> Response:
+    def employees(self, request: Any, department_code: str | None = None) -> Response:
         """
         获取指定部门下的所有员工(支持状态筛选)
 
@@ -122,7 +123,7 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
         tags=["部门管理"],
     )
     @action(detail=False, methods=["get"])
-    def tree(self, request: Any) -> None:
+    def tree(self, request: Any) -> Response:
         """获取部门树形结构"""
         tree = DepartmentSelector.build_department_tree()
         return success_response(data=tree)
@@ -135,7 +136,7 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
         tags=["部门管理"],
     )
     @action(detail=True, methods=["get"])
-    def children(self, request: Any, department_code: Any = None) -> None:
+    def children(self, request: Any, department_code: Any = None) -> Response:
         """获取指定部门的直接子部门"""
         department = self.get_object()
         children = DepartmentSelector.get_children(department_code)
@@ -168,7 +169,7 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
         tags=["部门管理"],
     )
     @action(detail=True, methods=["get"])
-    def path(self, request: Any, department_code: Any = None) -> None:
+    def path(self, request: Any, department_code: Any = None) -> Response:
         """获取部门路径(面包屑导航)"""
         department = self.get_object()
         path_departments = DepartmentSelector.get_department_path(department_code)
@@ -202,7 +203,7 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
         tags=["部门管理"],
     )
     @action(detail=True, methods=["get"])
-    def descendants(self, request: Any, department_code: Any = None) -> None:
+    def descendants(self, request: Any, department_code: Any = None) -> Response:
         """获取所有后代部门"""
         department = self.get_object()
         descendant_departments = DepartmentSelector.get_all_descendants(department_code)
@@ -232,7 +233,7 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
         )
 
     @action(detail=True, methods=["get"])
-    def parent(self, request: Any, department_code: Any = None) -> None:
+    def parent(self, request: Any, department_code: Any = None) -> Response:
         """获取父部门信息"""
         department = self.get_object()
 
@@ -266,7 +267,7 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
         tags=["部门管理"],
     )
     @action(detail=True, methods=["put"])
-    def move(self, request: Any, department_code: Any = None) -> None:
+    def move(self, request: Any, department_code: Any = None) -> Response:
         """移动部门到新的父部门下(支持拖拽排序)"""
         department = self.get_object()
         serializer = DepartmentMoveSerializer(data=request.data, context={"department": department})
@@ -290,7 +291,7 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
         tags=["部门管理"],
     )
     @action(detail=False, methods=["put"])
-    def sort(self, request: Any) -> None:
+    def sort(self, request: Any) -> Response:
         """批量更新部门排序"""
         serializer = DepartmentBatchSortSerializer(data=request.data)
 
@@ -302,7 +303,7 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
 
         return success_response(data={"updated_count": updated_count}, message="排序更新成功")
 
-    @action(detail=False, methods=["post"], url_path="batch-create")
+    @action(detail=False, methods=["post"], url_path="batch-create")  # type: ignore[type-var]
     def batch_create(self, request: Any) -> None:
         """批量创建部门"""
         serializer = DepartmentBatchCreateSerializer(data=request.data)
@@ -310,13 +311,13 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
 
         result = DepartmentService.batch_create_department(serializer.validated_data["items"])
 
-        return BatchResponseHelper.create_response(
+        return BatchResponseHelper.create_response(  # type: ignore[no-any-return]
             result,
             DepartmentSerializer,
             message=f"批量创建完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
 
-    @action(detail=False, methods=["post"], url_path="batch-delete")
+    @action(detail=False, methods=["post"], url_path="batch-delete")  # type: ignore[type-var]
     def batch_delete(self, request: Any) -> None:
         """批量删除部门"""
         serializer = DepartmentBatchDeleteSerializer(data=request.data)
@@ -324,7 +325,7 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
 
         result = DepartmentService.batch_delete_department(serializer.validated_data["ids"])
 
-        return BatchResponseHelper.delete_response(
+        return BatchResponseHelper.delete_response(  # type: ignore[no-any-return]
             result,
             message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )

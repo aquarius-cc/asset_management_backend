@@ -8,7 +8,7 @@ from apps.authusermanagement.models import AuthUser
 
 
 @admin.register(AuthUser)
-class AuthUserAdmin(admin.ModelAdmin):
+class AuthUserAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
     """
     自定义用户管理配置
     """

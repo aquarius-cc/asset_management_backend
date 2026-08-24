@@ -243,45 +243,18 @@ class ContractService:
                 detail=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条", error_code="BATCH_SIZE_EXCEEDED"
             )
 
-        success_items: list[Contract] = []
-        fail_items: list[dict[str, Any]] = []
+        def _create_item(idx: int, contract_data: Any) -> Contract:
+            return ContractService.create_contract(
+                copy.deepcopy(contract_data),
+                operator_jobcode=operator_jobcode,
+                operator_name=operator_name,
+            )
 
-        for idx, contract_data in enumerate(contract_data_list):
-            try:
-                result = ContractService.create_contract(
-                    copy.deepcopy(contract_data),
-                    operator_jobcode=operator_jobcode,
-                    operator_name=operator_name,
-                )
-                success_items.append(result)
-            except AppValidationError as e:
-                fail_items.append(
-                    {
-                        "index": idx,
-                        "row_number": contract_data.get("row_number"),
-                        "input_data": contract_data,
-                        "error_code": e.error_code or "VALIDATION_ERROR",
-                        "error_message": str(e.detail),
-                    }
-                )
-            except Exception:
-                fail_items.append(
-                    {
-                        "index": idx,
-                        "row_number": contract_data.get("row_number"),
-                        "input_data": contract_data,
-                        "error_code": "INTERNAL_ERROR",
-                        "error_message": "服务器内部错误,请稍后重试",
-                    }
-                )
-
-        return {
-            "total": len(contract_data_list),
-            "success_count": len(success_items),
-            "fail_count": len(fail_items),
-            "success_items": success_items,
-            "fail_items": fail_items,
-        }
+        return BatchOperationMixin.batch_execute(
+            items=contract_data_list,
+            process_fn=_create_item,
+            max_batch_size=MAX_BATCH_SIZE,
+        )
 
     @staticmethod
     def batch_delete_contract(

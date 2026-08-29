@@ -14,6 +14,7 @@ services:
     volumes:
       - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
       - ./config/alert_rules.yml:/etc/prometheus/alert_rules.yml
+      - blackbox_rendered:/etc/prometheus/sd:ro
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.retention.time=30d"
@@ -109,9 +110,35 @@ services:
       retries: 3
     restart: unless-stopped
 
+  # N-3 TLS 证书探针: blackbox + 域名渲染边车
+  blackbox-config-renderer:
+    build:
+      context: ..
+      dockerfile: asset_management_backend/docker/blackbox/Dockerfile
+    image: blackbox-config-renderer:local
+    environment:
+      - DOMAIN=${DOMAIN:-}
+    volumes:
+      - blackbox_rendered:/rendered
+    depends_on:
+      - blackbox
+    restart: unless-stopped
+
+  blackbox:
+    image: prom/blackbox-exporter:v0.26.0
+    ports: ["127.0.0.1:9115:9115"]
+    networks:
+      - asset-network
+    volumes:
+      - blackbox_rendered:/config:ro
+    command: ["--config.file=/config/blackbox.yml"]
+    restart: unless-stopped
+
 volumes:
   grafana-data:
   alertmanager-data:
+  blackbox_rendered:
+    driver: local
 
 networks:
   asset-network:

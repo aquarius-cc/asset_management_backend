@@ -196,7 +196,37 @@ groups:
           description: "证书剩余有效期 {{ $value | humanizeDuration }} < 7 天"
 
 # M-5 执行顺序 (修订版 A→B→C→D)
-# A 阶段: 本文件新增规则 (资产_mgmt_infrastructure_alerts 组, 零容器依赖)
-# B 阶段: docker-compose.monitoring.yml 新增 node_exporter (主机资源数据源就绪)
-# C 阶段: 备份脚本输出到 textfile 共享卷 (备份可观测数据源就绪)
-# D 阶段: blackbox_exporter 部署 (证书探针数据源就绪)
+# A 阶段: 纯规则增量 (已实施)
+# B 阶段: node_exporter 已部署 (已实施)
+# C 阶段: backup_status.sh + textfile collector (N-2, 已实施)
+# D 阶段: blackbox_exporter 部署 (N-3, 本次部署后启用)
+
+# N-3 数据源自活守卫: 探针/采集链路自身故障时报警, 防止"规则静默休眠"复发
+- name: asset_mgmt_probe_health_alerts
+  rules:
+    - alert: BlackboxTargetDown
+      expr: probe_success == 0
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: "TLS 健康探针探测失败"
+        description: "{{ $labels.instance }}/health/ 探测非 2xx 或超时超过 10 分钟"
+
+    - alert: BlackboxExporterDown
+      expr: up{job="blackbox"} == 0
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: "blackbox_exporter 不可用"
+        description: "TLS 证书监控数据源中断"
+
+    - alert: TlsCertMetricMissing
+      expr: absent(probe_ssl_earliest_cert_expiry)
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        summary: "证书到期指标缺失（探针链路未生效）"
+        description: "30 分钟内未采集到任何 probe_ssl_earliest_cert_expiry 样本，证书告警处于静默休眠"

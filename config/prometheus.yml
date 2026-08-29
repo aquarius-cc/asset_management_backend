@@ -30,3 +30,21 @@ scrape_configs:
   - job_name: "node"
     static_configs:
       - targets: ["node-exporter:9100"]
+
+  # N-3 TLS 证书探针 (blackbox file_sd 热加载)
+  # targets 由 blackbox-config-renderer 渲染到共享卷
+  - job_name: "blackbox"
+    metrics_path: /probe
+    file_sd_configs:
+      - files:
+          - "/etc/prometheus/sd/probes.yml"
+        refresh_interval: 30s
+    params:
+      module: [https_health_2xx]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115

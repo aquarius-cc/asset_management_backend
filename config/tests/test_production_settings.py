@@ -73,8 +73,8 @@ class TestConsoleLogFormat:
     def test_console_has_trace_id_filter(self):
         assert "trace_id" in self.logging_cfg["handlers"]["console"]["filters"]
 
-    def test_console_level_is_warning(self):
-        assert self.logging_cfg["handlers"]["console"]["level"] == "WARNING"
+    def test_console_level_is_info(self):  # 修复 N-1：与 production.py:95 INFO 级别一致
+        assert self.logging_cfg["handlers"]["console"]["level"] == "INFO"
 
     def test_file_handler_unchanged(self):
         assert self.logging_cfg["handlers"]["file"]["formatter"] == "json"

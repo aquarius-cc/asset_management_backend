@@ -46,6 +46,8 @@ wheels/
 # =============================================================================
 # Django 运行时生成的文件
 *.log
+*.log.*
+django.log*
 local_settings.py
 db.sqlite3
 *.pot

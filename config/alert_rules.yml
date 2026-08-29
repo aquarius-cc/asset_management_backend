@@ -58,3 +58,63 @@ groups:
         annotations:
           summary: "请求堆积严重"
           description: "过去 3 分钟平均活跃请求数为 {{ $value }}"
+
+  # M-5A 阶段: 无需新增容器,复用现有 exporter
+  - name: asset_mgmt_infrastructure_alerts
+    rules:
+      # Postgres 不可用
+      - alert: PostgresDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL 不可用"
+          description: "PostgreSQL 服务已不可达超过 1 分钟"
+
+      # Redis 不可用
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis 不可用"
+          description: "Redis 服务已不可达超过 1 分钟"
+
+      # PostgreSQL 连接数 > 80% 上限持续 5 分钟 → 告警
+      # 数据源: postgres_exporter (已部署)
+      - alert: PgConnectionsHigh
+        expr: |
+          pg_stat_activity_count / pg_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL 连接数接近上限"
+          description: "当前连接数使用率 {{ $value | humanizePercentage }}，建议扩容"
+          # 阈值按 M-4 压测基线校准
+
+      # PostgreSQL 数据库大小 > 50GB 持续 10 分钟 → 告警
+      - alert: PgDatabaseSizeLarge
+        expr: |
+          pg_database_size_bytes{dbname=~"asset.*"} > 50 * 1024 * 1024 * 1024
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "数据库体积过大"
+          description: "数据库 {{ $labels.dbname }} 当前 {{ $value | humanize }}，超过 50GB 阈值"
+          # 阈值按实际容量调整(50GB 为参考值)
+
+      # Redis 客户端连接数 > 100 持续 5 分钟 → 告警
+      # 数据源: redis_exporter (已部署)
+      - alert: RedisClientsHigh
+        expr: redis_connected_clients > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis 客户端连接数过高"
+          description: "当前连接数 {{ $value }}，超过 100 阈值"
+          # 阈值按 M-4 压测基线校准

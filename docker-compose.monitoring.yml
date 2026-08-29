@@ -58,6 +58,22 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
     restart: unless-stopped
 
+  # M-5B 主机资源采集(node_exporter): 提供 CPU/内存/磁盘数据源供资源告警
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    ports: ["127.0.0.1:9100:9100"]
+    networks:
+      - asset-network
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--path.rootfs=/rootfs"
+    restart: unless-stopped
+
   alertmanager:
     image: prom/alertmanager:v0.27.0
     ports: ["127.0.0.1:9093:9093"]

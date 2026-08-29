@@ -24,3 +24,9 @@ scrape_configs:
   - job_name: "redis"
     static_configs:
       - targets: ["redis-exporter:9121"]
+
+  # M-5B 主机资源采集 (node_exporter)
+  # 数据源: node_exporter 容器，仅监听内网，不暴露公网
+  - job_name: "node"
+    static_configs:
+      - targets: ["node-exporter:9100"]

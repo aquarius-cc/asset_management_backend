@@ -30,6 +30,10 @@ services:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - SENTRY_DSN=${SENTRY_DSN:-}
       - APP_VERSION=${APP_VERSION:-unknown}
+      # M-2 超管依赖透传：未设置时为空串（entrypoint 条件无变化），设定时自动创建
+      - DJANGO_SUPERUSER_USERNAME=${DJANGO_SUPERUSER_USERNAME:-}
+      - DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD:-}
+      - DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL:-}
     deploy:
       resources:
         limits:

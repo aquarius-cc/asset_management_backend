@@ -98,6 +98,28 @@ server {
     }
 
     # --- 登录接口加强限流 (5 req/min + burst 3) ---
+    # [M-1 修订] 现限流实际只保护 token/refresh/ 与 token/verify/
+    # 登录爆破接口 /api/v1/auth/login/ 之前由 30r/s 通用限流保护
+    # 现新增独立 login_brute 限流区(5r/m + burst 3),与 token 隔离预算
+    # Nginx 位置匹配优先级:最长前缀优先,/api/v1/auth/login/ 精确匹配
+    location /api/v1/auth/login/ {
+        limit_req zone=login_brute burst=3 nodelay;
+
+        proxy_pass http://asset_backend;
+        # 安全头防御护栏
+        proxy_hide_header Strict-Transport-Security;
+        proxy_hide_header X-Content-Type-Options;
+        proxy_hide_header X-Frame-Options;
+        proxy_hide_header Referrer-Policy;
+        proxy_hide_header Permissions-Policy;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+    }
+
     location /api/v1/auth/token/ {
         limit_req zone=login_limit burst=3 nodelay;
 

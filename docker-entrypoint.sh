@@ -74,6 +74,8 @@ echo "[4/4] 检查超级管理员..."
 if [ -n "$DJANGO_SUPERUSER_USERNAME" ] && [ -n "$DJANGO_SUPERUSER_PASSWORD" ]; then
     echo "创建超级管理员..."
     python manage.py createsuperuser --noinput || true
+else
+    echo "! [警告] 未设置 DJANGO_SUPERUSER_USERNAME/PASSWORD，跳过超管创建——请部署后手动创建（或设置环境变量后重启容器）"
 fi
 
 # =============================================================================

@@ -118,3 +118,85 @@ groups:
           summary: "Redis 客户端连接数过高"
           description: "当前连接数 {{ $value }}，超过 100 阈值"
           # 阈值按 M-4 压测基线校准
+
+  # M-5B 主机资源告警: 依赖 node_exporter 容器 (已新增到 compose.monitoring.yml)
+  # 数据源: node_exporter (host 网络采集, 127.0.0.1:9100)
+  - name: asset_mgmt_host_alerts
+    rules:
+      - alert: HostCpuUsageHigh
+        expr: |
+          (100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "主机 CPU 使用率过高"
+          description: "实例 {{ $labels.instance }} CPU 使用率 {{ $value }}% > 80%"
+
+      - alert: HostMemoryLow
+        expr: |
+          (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) < 0.15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "可用内存过低"
+          description: "实例 {{ $labels.instance }} 可用内存比例 {{ $value | humanizePercentage }} < 15%"
+
+      - alert: HostDiskLow
+        expr: |
+          (node_filesystem_avail_bytes{fstype="ext4",mountpoint=~"/|/data|/app"} / node_filesystem_size_bytes{fstype="ext4",mountpoint=~"/|/data|/app"}) < 0.10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "关键分区磁盘空间不足"
+          description: "挂载点 {{ $labels.mountpoint }} 可用比例 {{ $value | humanizePercentage }} < 10%"
+
+  # M-5C 备份可观测规则: 依赖备份脚本写入共享卷 textfile 指标 (M-5B 完成 textfile 后启用)
+  - name: asset_mgmt_backup_alerts
+    rules:
+      - alert: BackupOverdue
+        expr: time() - backup_last_success_timestamp > 90000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "备份已逾期"
+          description: "距离上次成功备份已超过 25 小时 (基线每日 02:00 + 4h 宽限)"
+
+      - alert: BackupFailed
+        expr: increase(backup_failures_total[1h]) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "备份执行失败"
+          description: "过去 1 小时内备份脚本返回非零退出码"
+
+  # M-5D 证书到期告警: 依赖 blackbox_exporter (M-5B 完成后部署)
+  - name: asset_mgmt_tls_alerts
+    rules:
+      - alert: TlsCertExpiringSoon
+        expr: probe_ssl_earliest_cert_expiry - time() < 14 * 86400
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "TLS 证书即将到期"
+          description: "证书剩余有效期 {{ $value | humanizeDuration }} < 14 天"
+
+      - alert: TlsCertExpiringCritical
+        expr: probe_ssl_earliest_cert_expiry - time() < 7 * 86400
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "TLS 证书即将过期（危险）"
+          description: "证书剩余有效期 {{ $value | humanizeDuration }} < 7 天"
+
+# M-5 执行顺序 (修订版 A→B→C→D)
+# A 阶段: 本文件新增规则 (资产_mgmt_infrastructure_alerts 组, 零容器依赖)
+# B 阶段: docker-compose.monitoring.yml 新增 node_exporter (主机资源数据源就绪)
+# C 阶段: 备份脚本输出到 textfile 共享卷 (备份可观测数据源就绪)
+# D 阶段: blackbox_exporter 部署 (证书探针数据源就绪)

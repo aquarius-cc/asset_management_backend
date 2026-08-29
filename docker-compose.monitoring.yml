@@ -68,10 +68,12 @@ services:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /:/rootfs:ro
+      - backup_status_data:/textfile:ro  # N-2 备份状态指标共享
     command:
       - "--path.procfs=/host/proc"
       - "--path.sysfs=/host/sys"
       - "--path.rootfs=/rootfs"
+      - "--collector.textfile.directory=/textfile"  # N-2 启用 textfile 采集
     restart: unless-stopped
 
   alertmanager:

@@ -3,6 +3,17 @@
 # 依据: 08-数据备份恢复方案.md; 补齐"数据库之外媒体文件无备份"缺口(BF-003 终审新增)
 set -euo pipefail
 
+# N-2 备份可观测：source 备份状态管道（EXIT trap 中调用）
+[ -f /backup_status.sh ] && . /backup_status.sh || true
+
+# 退出处理：无论成功/失败/跳过，写入状态（跳过由 _BACKUP_SKIP 标记）
+_backup_exit_handler () {
+  local _rc=$?
+  if [ -n "${_BACKUP_SKIP:-}" ]; then return 0; fi
+  backup_status_write "$_rc"
+}
+trap _backup_exit_handler EXIT
+
 BACKUP_DIR="${BACKUP_DIR_MEDIA:-/data/backups/media}"
 DATE=$(date +%Y%m%d)
 RETENTION_DAYS="${RETENTION_DAYS:-30}"
@@ -18,6 +29,7 @@ if command -v flock >/dev/null 2>&1; then
   exec 9>/tmp/media_backup.lock
   if ! flock -n 9; then
     echo "[$(date)] ⚠️ 上一次媒体备份仍在执行, 本次跳过"
+    _BACKUP_SKIP=1   # N-2: 跳过分支不计入成功/失败指标
     exit 0
   fi
 fi

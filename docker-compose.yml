@@ -183,6 +183,8 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       # S3 异地备份(可选: 未配置 S3_BUCKET 时仅本地保留, 不强制要求凭据)
       - S3_BUCKET=${S3_BUCKET:-}
+      # N-2 备份可观测状态卷
+      - BACKUP_STATUS_DIR=/data/backup_status
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
       - AWS_DEFAULT_REGION=${S3_REGION:-ap-east-1}
@@ -193,6 +195,7 @@ services:
       - restore_report_data:/tmp/restore_test_results
       # 媒体源目录: 只读挂载, 备份容器无写权限(最小权限原则)
       - media_volume:/data/media:ro
+      - backup_status_data:/data/backup_status
     depends_on:
       postgres:
         condition: service_healthy
@@ -224,6 +227,8 @@ volumes:
   media_backup_data:
     driver: local
   restore_report_data:
+    driver: local
+  backup_status_data:
     driver: local
 
 # =============================================================================

@@ -1,0 +1,6064 @@
+openapi: 3.0.3
+info:
+  title: 资产管理系统 API
+  version: 1.0.0
+  description: 资产管理系统接口文档（支持 JWT 认证、资产/合同/仓库等模块）
+paths:
+  /api/assets/asset-classifications/:
+    get:
+      operationId: assets_asset_classifications_list
+      description: 资产分类管理视图集
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAssetClassificationList'
+          description: ''
+    post:
+      operationId: assets_asset_classifications_create
+      description: 资产分类管理视图集
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetClassificationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AssetClassificationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AssetClassificationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetClassification'
+          description: ''
+  /api/assets/asset-classifications/{id}/:
+    get:
+      operationId: assets_asset_classifications_retrieve
+      description: 资产分类管理视图集
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this 资产分类管理.
+        required: true
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetClassification'
+          description: ''
+    put:
+      operationId: assets_asset_classifications_update
+      description: 资产分类管理视图集
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this 资产分类管理.
+        required: true
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetClassificationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AssetClassificationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AssetClassificationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetClassification'
+          description: ''
+    patch:
+      operationId: assets_asset_classifications_partial_update
+      description: 资产分类管理视图集
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this 资产分类管理.
+        required: true
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAssetClassificationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAssetClassificationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAssetClassificationRequest'
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetClassification'
+          description: ''
+    delete:
+      operationId: assets_asset_classifications_destroy
+      description: 资产分类管理视图集
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this 资产分类管理.
+        required: true
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/assets/asset-types/:
+    get:
+      operationId: assets_asset_types_list
+      description: 资产类型管理视图集
+      parameters:
+      - in: query
+        name: asset_type_category
+        schema:
+          type: string
+          nullable: true
+          title: 资产分类类型分类
+          enum:
+          - hardware
+          - other
+          - software
+        description: |-
+          * `hardware` - 硬件
+          * `software` - 软件
+          * `other` - 其他
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAssetTypeList'
+          description: ''
+    post:
+      operationId: assets_asset_types_create
+      description: 资产类型管理视图集
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetTypeRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AssetTypeRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AssetTypeRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetType'
+          description: ''
+  /api/assets/asset-types/{asset_type_code}/:
+    get:
+      operationId: assets_asset_types_retrieve
+      description: 资产类型管理视图集
+      parameters:
+      - in: path
+        name: asset_type_code
+        schema:
+          type: string
+          title: 资产类型编码
+        required: true
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetType'
+          description: ''
+    put:
+      operationId: assets_asset_types_update
+      description: 资产类型管理视图集
+      parameters:
+      - in: path
+        name: asset_type_code
+        schema:
+          type: string
+          title: 资产类型编码
+        required: true
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetTypeRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AssetTypeRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AssetTypeRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetType'
+          description: ''
+    patch:
+      operationId: assets_asset_types_partial_update
+      description: 资产类型管理视图集
+      parameters:
+      - in: path
+        name: asset_type_code
+        schema:
+          type: string
+          title: 资产类型编码
+        required: true
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAssetTypeRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAssetTypeRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAssetTypeRequest'
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetType'
+          description: ''
+    delete:
+      operationId: assets_asset_types_destroy
+      description: 资产类型管理视图集
+      parameters:
+      - in: path
+        name: asset_type_code
+        schema:
+          type: string
+          title: 资产类型编码
+        required: true
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/assets/assets/:
+    get:
+      operationId: assets_assets_list
+      description: 资产管理视图集
+      parameters:
+      - in: query
+        name: asset_status
+        schema:
+          type: string
+          nullable: true
+          title: 资产状态
+          enum:
+          - damaged
+          - newly
+          - used
+          - waste
+        description: |-
+          * `newly` - 新增资产
+          * `used` - 已用资产
+          * `damaged` - 待报废资产
+          * `waste` - 已报废资产
+      - in: query
+        name: asset_storage_code
+        schema:
+          type: string
+          title: 仓库编码
+      - in: query
+        name: asset_type
+        schema:
+          type: string
+          title: 资产类型编码
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAssetDetailList'
+          description: ''
+    post:
+      operationId: assets_assets_create
+      description: 资产管理视图集
+      summary: 创建资产
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AssetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AssetRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Asset'
+          description: 创建成功
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: 参数错误（必填字段缺失或格式错误）
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: 未授权（Token 缺失或无效）
+  /api/assets/assets/{asset_code}/:
+    get:
+      operationId: assets_assets_retrieve
+      description: 资产管理视图集
+      parameters:
+      - in: path
+        name: asset_code
+        schema:
+          type: string
+          title: 资产编码
+        required: true
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetDetail'
+          description: ''
+    put:
+      operationId: assets_assets_update
+      description: 资产管理视图集
+      parameters:
+      - in: path
+        name: asset_code
+        schema:
+          type: string
+          title: 资产编码
+        required: true
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AssetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AssetRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Asset'
+          description: ''
+    patch:
+      operationId: assets_assets_partial_update
+      description: 资产管理视图集
+      parameters:
+      - in: path
+        name: asset_code
+        schema:
+          type: string
+          title: 资产编码
+        required: true
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAssetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAssetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAssetRequest'
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Asset'
+          description: ''
+    delete:
+      operationId: assets_assets_destroy
+      description: 资产管理视图集
+      parameters:
+      - in: path
+        name: asset_code
+        schema:
+          type: string
+          title: 资产编码
+        required: true
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/assets/assets/{asset_code}/change_status/:
+    post:
+      operationId: assets_assets_change_status_create
+      description: 更改资产状态
+      parameters:
+      - in: path
+        name: asset_code
+        schema:
+          type: string
+          title: 资产编码
+        required: true
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AssetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AssetRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Asset'
+          description: ''
+  /api/assets/assets/combined_details/:
+    get:
+      operationId: assets_assets_combined_details_retrieve
+      description: 获取组合资产详情
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Asset'
+          description: ''
+  /api/assets/assets/search_available/:
+    get:
+      operationId: assets_assets_search_available_retrieve
+      description: 搜索可出库的资产
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Asset'
+          description: ''
+  /api/assets/assets/search_by_name/{name}/:
+    get:
+      operationId: assets_assets_search_by_name_list
+      description: 资产管理视图集
+      parameters:
+      - in: query
+        name: asset_status
+        schema:
+          type: string
+          nullable: true
+          title: 资产状态
+          enum:
+          - damaged
+          - newly
+          - used
+          - waste
+        description: |-
+          * `newly` - 新增资产
+          * `used` - 已用资产
+          * `damaged` - 待报废资产
+          * `waste` - 已报废资产
+      - in: query
+        name: asset_storage_code
+        schema:
+          type: string
+          title: 仓库编码
+      - in: query
+        name: asset_type
+        schema:
+          type: string
+          title: 资产类型编码
+      - in: path
+        name: name
+        schema:
+          type: string
+        description: 资产名称（用于模糊搜索）
+        required: true
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAssetDetailList'
+          description: ''
+  /api/assets/assets/statistics/:
+    get:
+      operationId: assets_assets_statistics_retrieve
+      description: 获取资产统计信息
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Asset'
+          description: ''
+  /api/assets/contracts/:
+    get:
+      operationId: assets_contracts_list
+      description: 重写list方法，返回合同列表时，只返回合同编号、合同名称、合同金额、合同状态、合同类型、合同开始日期、合同结束日期、合同供应商、合同附件
+      parameters:
+      - in: query
+        name: contract_settlment_status
+        schema:
+          type: string
+          title: 结算状态
+          enum:
+          - pending
+          - settled
+        description: |-
+          * `pending` - 待结算
+          * `settled` - 已结算
+      - in: query
+        name: contract_type
+        schema:
+          type: string
+          nullable: true
+          title: 合同类型
+          enum:
+          - direct_procurement
+          - information_construction
+          - purchase
+          - service
+        description: |-
+          * `purchase` - 采购合同
+          * `service` - 服务合同
+          * `information_construction` - 信息化建设合同
+          * `direct_procurement` - 直接采购合同
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedContractDetailList'
+          description: ''
+    post:
+      operationId: assets_contracts_create
+      description: 合同管理视图集
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContractRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ContractRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ContractRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contract'
+          description: ''
+  /api/assets/contracts/{contract_code}/:
+    get:
+      operationId: assets_contracts_retrieve
+      description: 合同管理视图集
+      parameters:
+      - in: path
+        name: contract_code
+        schema:
+          type: string
+          pattern: ^.*?$
+        required: true
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContractDetail'
+          description: ''
+    put:
+      operationId: assets_contracts_update
+      description: 合同管理视图集
+      parameters:
+      - in: path
+        name: contract_code
+        schema:
+          type: string
+          pattern: ^.*?$
+        required: true
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContractRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ContractRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ContractRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contract'
+          description: ''
+    patch:
+      operationId: assets_contracts_partial_update
+      description: 合同管理视图集
+      parameters:
+      - in: path
+        name: contract_code
+        schema:
+          type: string
+          pattern: ^.*?$
+        required: true
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedContractRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedContractRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedContractRequest'
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contract'
+          description: ''
+    delete:
+      operationId: assets_contracts_destroy
+      description: 合同管理视图集
+      parameters:
+      - in: path
+        name: contract_code
+        schema:
+          type: string
+          pattern: ^.*?$
+        required: true
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/assets/contracts/{contract_code}/payment_record/:
+    post:
+      operationId: assets_contracts_payment_record_create
+      description: 添加付款记录
+      parameters:
+      - in: path
+        name: contract_code
+        schema:
+          type: string
+          pattern: ^.*?$
+        required: true
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContractRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ContractRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ContractRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contract'
+          description: ''
+  /api/assets/contracts/getcontractByname/{name}/:
+    get:
+      operationId: assets_contracts_getcontractByname_list
+      description: |-
+        根据合同名称模糊查询合同
+        接口地址：GET /api/contracts/getcontractByname/{name}
+      parameters:
+      - in: query
+        name: contract_settlment_status
+        schema:
+          type: string
+          title: 结算状态
+          enum:
+          - pending
+          - settled
+        description: |-
+          * `pending` - 待结算
+          * `settled` - 已结算
+      - in: query
+        name: contract_type
+        schema:
+          type: string
+          nullable: true
+          title: 合同类型
+          enum:
+          - direct_procurement
+          - information_construction
+          - purchase
+          - service
+        description: |-
+          * `purchase` - 采购合同
+          * `service` - 服务合同
+          * `information_construction` - 信息化建设合同
+          * `direct_procurement` - 直接采购合同
+      - in: path
+        name: name
+        schema:
+          type: string
+        description: 合同名称（用于模糊查询）
+        required: true
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedContractDetailList'
+          description: ''
+  /api/assets/contracts/statistics/:
+    get:
+      operationId: assets_contracts_statistics_retrieve
+      description: 获取合同统计信息
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contract'
+          description: ''
+  /api/assets/damaged-assets/:
+    get:
+      operationId: assets_damaged_assets_list
+      description: 待报废资产管理视图集
+      parameters:
+      - in: query
+        name: damaged_asset_storage
+        schema:
+          type: string
+          title: 仓库编码
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDamagedAssetList'
+          description: ''
+    post:
+      operationId: assets_damaged_assets_create
+      description: 待报废资产管理视图集
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DamagedAssetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DamagedAssetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DamagedAssetRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DamagedAsset'
+          description: ''
+  /api/assets/damaged-assets/{damaged_asset_code}/:
+    get:
+      operationId: assets_damaged_assets_retrieve
+      description: 待报废资产管理视图集
+      parameters:
+      - in: path
+        name: damaged_asset_code
+        schema:
+          type: string
+          title: 待报废资产编码
+        required: true
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DamagedAsset'
+          description: ''
+    put:
+      operationId: assets_damaged_assets_update
+      description: 待报废资产管理视图集
+      parameters:
+      - in: path
+        name: damaged_asset_code
+        schema:
+          type: string
+          title: 待报废资产编码
+        required: true
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DamagedAssetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DamagedAssetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DamagedAssetRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DamagedAsset'
+          description: ''
+    patch:
+      operationId: assets_damaged_assets_partial_update
+      description: 待报废资产管理视图集
+      parameters:
+      - in: path
+        name: damaged_asset_code
+        schema:
+          type: string
+          title: 待报废资产编码
+        required: true
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedDamagedAssetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedDamagedAssetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedDamagedAssetRequest'
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DamagedAsset'
+          description: ''
+    delete:
+      operationId: assets_damaged_assets_destroy
+      description: 待报废资产管理视图集
+      parameters:
+      - in: path
+        name: damaged_asset_code
+        schema:
+          type: string
+          title: 待报废资产编码
+        required: true
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/assets/dashboard/:
+    get:
+      operationId: assets_dashboard_list
+      description: 仪表盘统计视图
+      summary: 仪表盘统计数据
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDashboardStatList'
+          description: 仪表盘核心统计指标
+    post:
+      operationId: assets_dashboard_create
+      description: 仪表盘统计视图
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardStatRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DashboardStatRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DashboardStatRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStat'
+          description: ''
+  /api/assets/dashboard/{id}/:
+    get:
+      operationId: assets_dashboard_retrieve
+      description: 仪表盘统计视图
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this 资产管理.
+        required: true
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStat'
+          description: ''
+    put:
+      operationId: assets_dashboard_update
+      description: 仪表盘统计视图
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this 资产管理.
+        required: true
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardStatRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DashboardStatRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DashboardStatRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStat'
+          description: ''
+    patch:
+      operationId: assets_dashboard_partial_update
+      description: 仪表盘统计视图
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this 资产管理.
+        required: true
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedDashboardStatRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedDashboardStatRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedDashboardStatRequest'
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStat'
+          description: ''
+    delete:
+      operationId: assets_dashboard_destroy
+      description: 仪表盘统计视图
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this 资产管理.
+        required: true
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/assets/dashboard/stats/:
+    get:
+      operationId: assets_dashboard_stats_retrieve
+      description: 获取系统整体统计信息
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStat'
+          description: ''
+  /api/assets/harddisk-sn/:
+    get:
+      operationId: assets_harddisk_sn_list
+      description: 硬盘序列号管理视图集
+      parameters:
+      - in: query
+        name: harddisk_sn_asset_status
+        schema:
+          type: string
+          title: 硬盘序列号资产状态
+          enum:
+          - 丢失
+          - 报废
+          - 损坏
+          - 正常
+          - 维修
+        description: |-
+          * `正常` - active
+          * `维修` - repair
+          * `报废` - scrap
+          * `丢失` - lost
+          * `损坏` - damaged
+      - in: query
+        name: harddisk_user_jobcode
+        schema:
+          type: string
+          title: 员工工号
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedHardDiskSNList'
+          description: ''
+    post:
+      operationId: assets_harddisk_sn_create
+      description: 创建硬盘序列号记录
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HardDiskSNRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/HardDiskSNRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/HardDiskSNRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HardDiskSN'
+          description: ''
+  /api/assets/harddisk-sn/{harddisk_sn_asset_code}/:
+    get:
+      operationId: assets_harddisk_sn_retrieve
+      description: 硬盘序列号管理视图集
+      parameters:
+      - in: path
+        name: harddisk_sn_asset_code
+        schema:
+          type: string
+          title: 硬盘序列号资产编码
+        required: true
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HardDiskSN'
+          description: ''
+    put:
+      operationId: assets_harddisk_sn_update
+      description: 硬盘序列号管理视图集
+      parameters:
+      - in: path
+        name: harddisk_sn_asset_code
+        schema:
+          type: string
+          title: 硬盘序列号资产编码
+        required: true
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HardDiskSNRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/HardDiskSNRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/HardDiskSNRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HardDiskSN'
+          description: ''
+    patch:
+      operationId: assets_harddisk_sn_partial_update
+      description: 硬盘序列号管理视图集
+      parameters:
+      - in: path
+        name: harddisk_sn_asset_code
+        schema:
+          type: string
+          title: 硬盘序列号资产编码
+        required: true
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedHardDiskSNRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedHardDiskSNRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedHardDiskSNRequest'
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HardDiskSN'
+          description: ''
+    delete:
+      operationId: assets_harddisk_sn_destroy
+      description: 硬盘序列号管理视图集
+      parameters:
+      - in: path
+        name: harddisk_sn_asset_code
+        schema:
+          type: string
+          title: 硬盘序列号资产编码
+        required: true
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/assets/harddisk-sn/search_by_serial_number/:
+    post:
+      operationId: assets_harddisk_sn_search_by_serial_number_create
+      description: 根据序列号搜索硬盘记录
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HardDiskSNRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/HardDiskSNRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/HardDiskSNRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HardDiskSN'
+          description: ''
+  /api/assets/harddisk-sn/statistics/:
+    get:
+      operationId: assets_harddisk_sn_statistics_retrieve
+      description: 获取硬盘序列号统计信息
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HardDiskSN'
+          description: ''
+  /api/assets/out-assets/:
+    get:
+      operationId: assets_out_assets_list
+      description: 出库资产管理视图集
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - in: query
+        name: outasset_applicant_code
+        schema:
+          type: string
+          title: 员工工号
+      - in: query
+        name: outasset_manager_code
+        schema:
+          type: string
+          title: 员工工号
+      - in: query
+        name: outasset_type
+        schema:
+          type: string
+          nullable: true
+          title: 出库类型
+          enum:
+          - borrow
+          - receive
+        description: |-
+          * `receive` - 领用
+          * `borrow` - 借用
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedOutAssetList'
+          description: ''
+    post:
+      operationId: assets_out_assets_create
+      description: 重写create方法，添加资产状态检查逻辑
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OutAssetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OutAssetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OutAssetRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OutAsset'
+          description: ''
+  /api/assets/out-assets/{outassetrecordcode}/:
+    get:
+      operationId: assets_out_assets_retrieve
+      description: 出库资产管理视图集
+      parameters:
+      - in: path
+        name: outassetrecordcode
+        schema:
+          type: string
+          title: 出库记录唯一标识
+          description: 格式如下：OUT-20201223-XXXXXXXX
+        required: true
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OutAsset'
+          description: ''
+    put:
+      operationId: assets_out_assets_update
+      description: 出库资产管理视图集
+      parameters:
+      - in: path
+        name: outassetrecordcode
+        schema:
+          type: string
+          title: 出库记录唯一标识
+          description: 格式如下：OUT-20201223-XXXXXXXX
+        required: true
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OutAssetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OutAssetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OutAssetRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OutAsset'
+          description: ''
+    patch:
+      operationId: assets_out_assets_partial_update
+      description: 出库资产管理视图集
+      parameters:
+      - in: path
+        name: outassetrecordcode
+        schema:
+          type: string
+          title: 出库记录唯一标识
+          description: 格式如下：OUT-20201223-XXXXXXXX
+        required: true
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedOutAssetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedOutAssetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedOutAssetRequest'
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OutAsset'
+          description: ''
+    delete:
+      operationId: assets_out_assets_destroy
+      description: 出库资产管理视图集
+      parameters:
+      - in: path
+        name: outassetrecordcode
+        schema:
+          type: string
+          title: 出库记录唯一标识
+          description: 格式如下：OUT-20201223-XXXXXXXX
+        required: true
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/assets/out-assets/statistics/:
+    get:
+      operationId: assets_out_assets_statistics_retrieve
+      description: 获取出库统计信息
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OutAsset'
+          description: ''
+  /api/assets/recycle-assets/:
+    get:
+      operationId: assets_recycle_assets_list
+      description: 回收资产管理视图集
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: recycle_asset_recycle_person_jobcode
+        schema:
+          type: string
+          title: 员工工号
+      - in: query
+        name: recycle_asset_storage
+        schema:
+          type: string
+          title: 仓库编码
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedRecycleAssetList'
+          description: ''
+    post:
+      operationId: assets_recycle_assets_create
+      description: 回收资产管理视图集
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecycleAssetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RecycleAssetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RecycleAssetRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecycleAsset'
+          description: ''
+  /api/assets/recycle-assets/{outasset_record}/:
+    get:
+      operationId: assets_recycle_assets_retrieve
+      description: 回收资产管理视图集
+      parameters:
+      - in: path
+        name: outasset_record
+        schema:
+          type: string
+          title: 对应的出库记录编码
+          description: 格式如下：OUT-20201223-XXXXXXXX
+        required: true
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecycleAsset'
+          description: ''
+    put:
+      operationId: assets_recycle_assets_update
+      description: 回收资产管理视图集
+      parameters:
+      - in: path
+        name: outasset_record
+        schema:
+          type: string
+          title: 对应的出库记录编码
+          description: 格式如下：OUT-20201223-XXXXXXXX
+        required: true
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecycleAssetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RecycleAssetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RecycleAssetRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecycleAsset'
+          description: ''
+    patch:
+      operationId: assets_recycle_assets_partial_update
+      description: 回收资产管理视图集
+      parameters:
+      - in: path
+        name: outasset_record
+        schema:
+          type: string
+          title: 对应的出库记录编码
+          description: 格式如下：OUT-20201223-XXXXXXXX
+        required: true
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedRecycleAssetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedRecycleAssetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedRecycleAssetRequest'
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecycleAsset'
+          description: ''
+    delete:
+      operationId: assets_recycle_assets_destroy
+      description: 回收资产管理视图集
+      parameters:
+      - in: path
+        name: outasset_record
+        schema:
+          type: string
+          title: 对应的出库记录编码
+          description: 格式如下：OUT-20201223-XXXXXXXX
+        required: true
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/assets/storages/:
+    get:
+      operationId: assets_storages_list
+      description: 仓库管理视图集
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: storage_type
+        schema:
+          type: string
+          nullable: true
+          title: 仓库类型
+          enum:
+          - damaged
+          - newasset
+          - recycle
+        description: |-
+          * `newasset` - 新货仓库
+          * `recycle` - 回收仓库
+          * `damaged` - 待报废仓库
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedStorageList'
+          description: ''
+    post:
+      operationId: assets_storages_create
+      description: 仓库管理视图集
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorageRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StorageRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StorageRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Storage'
+          description: ''
+  /api/assets/storages/{storage_code}/:
+    get:
+      operationId: assets_storages_retrieve
+      description: 仓库管理视图集
+      parameters:
+      - in: path
+        name: storage_code
+        schema:
+          type: string
+          title: 仓库编码
+        required: true
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Storage'
+          description: ''
+    put:
+      operationId: assets_storages_update
+      description: 仓库管理视图集
+      parameters:
+      - in: path
+        name: storage_code
+        schema:
+          type: string
+          title: 仓库编码
+        required: true
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorageRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StorageRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StorageRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Storage'
+          description: ''
+    patch:
+      operationId: assets_storages_partial_update
+      description: 仓库管理视图集
+      parameters:
+      - in: path
+        name: storage_code
+        schema:
+          type: string
+          title: 仓库编码
+        required: true
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedStorageRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedStorageRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedStorageRequest'
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Storage'
+          description: ''
+    delete:
+      operationId: assets_storages_destroy
+      description: 仓库管理视图集
+      parameters:
+      - in: path
+        name: storage_code
+        schema:
+          type: string
+          title: 仓库编码
+        required: true
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/assets/storages/statistics/:
+    get:
+      operationId: assets_storages_statistics_retrieve
+      description: 获取仓库统计信息
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Storage'
+          description: ''
+  /api/assets/waste-assets/:
+    get:
+      operationId: assets_waste_assets_list
+      description: 已报废资产管理视图集
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedWasteAssetList'
+          description: ''
+    post:
+      operationId: assets_waste_assets_create
+      description: 已报废资产管理视图集
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WasteAssetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/WasteAssetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/WasteAssetRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WasteAsset'
+          description: ''
+  /api/assets/waste-assets/{waste_asset_code}/:
+    get:
+      operationId: assets_waste_assets_retrieve
+      description: 已报废资产管理视图集
+      parameters:
+      - in: path
+        name: waste_asset_code
+        schema:
+          type: string
+          title: 已报废资产编码
+        required: true
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WasteAsset'
+          description: ''
+    put:
+      operationId: assets_waste_assets_update
+      description: 已报废资产管理视图集
+      parameters:
+      - in: path
+        name: waste_asset_code
+        schema:
+          type: string
+          title: 已报废资产编码
+        required: true
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WasteAssetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/WasteAssetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/WasteAssetRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WasteAsset'
+          description: ''
+    patch:
+      operationId: assets_waste_assets_partial_update
+      description: 已报废资产管理视图集
+      parameters:
+      - in: path
+        name: waste_asset_code
+        schema:
+          type: string
+          title: 已报废资产编码
+        required: true
+      tags:
+      - assets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedWasteAssetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedWasteAssetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedWasteAssetRequest'
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WasteAsset'
+          description: ''
+    delete:
+      operationId: assets_waste_assets_destroy
+      description: 已报废资产管理视图集
+      parameters:
+      - in: path
+        name: waste_asset_code
+        schema:
+          type: string
+          title: 已报废资产编码
+        required: true
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/assets/waste-assets/statistics/:
+    get:
+      operationId: assets_waste_assets_statistics_retrieve
+      description: 获取报废统计信息
+      tags:
+      - assets
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WasteAsset'
+          description: ''
+  /api/auth/login/:
+    post:
+      operationId: auth_login_create
+      description: 用户登录
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Login'
+          description: ''
+  /api/auth/profile/:
+    get:
+      operationId: auth_profile_retrieve
+      description: 获取当前用户信息
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          description: No response body
+    put:
+      operationId: auth_profile_update
+      description: 用户信息视图
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/auth/register/:
+    post:
+      operationId: auth_register_create
+      description: 用户注册
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/auth/token/:
+    post:
+      operationId: auth_token_create
+      description: |-
+        Takes a set of user credentials and returns an access and refresh JSON web
+        token pair to prove the authentication of those credentials.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPairRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPairRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPairRequest'
+        required: true
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenObtainPair'
+          description: ''
+  /api/auth/token/refresh/:
+    post:
+      operationId: auth_token_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+        required: true
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/auth/token/verify/:
+    post:
+      operationId: auth_token_verify_create
+      description: |-
+        Takes a token and indicates if it is valid.  This view provides no
+        information about a token's fitness for a particular use.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenVerifyRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenVerifyRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenVerifyRequest'
+        required: true
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/dashboard/:
+    get:
+      operationId: dashboard_list
+      description: 仪表盘统计视图
+      summary: 仪表盘统计数据
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - dashboard
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDashboardStatList'
+          description: 仪表盘核心统计指标
+    post:
+      operationId: dashboard_create
+      description: 仪表盘统计视图
+      tags:
+      - dashboard
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardStatRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DashboardStatRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DashboardStatRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStat'
+          description: ''
+  /api/dashboard/{id}/:
+    get:
+      operationId: dashboard_retrieve
+      description: 仪表盘统计视图
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this 资产管理.
+        required: true
+      tags:
+      - dashboard
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStat'
+          description: ''
+    put:
+      operationId: dashboard_update
+      description: 仪表盘统计视图
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this 资产管理.
+        required: true
+      tags:
+      - dashboard
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardStatRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DashboardStatRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DashboardStatRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStat'
+          description: ''
+    patch:
+      operationId: dashboard_partial_update
+      description: 仪表盘统计视图
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this 资产管理.
+        required: true
+      tags:
+      - dashboard
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedDashboardStatRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedDashboardStatRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedDashboardStatRequest'
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStat'
+          description: ''
+    delete:
+      operationId: dashboard_destroy
+      description: 仪表盘统计视图
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this 资产管理.
+        required: true
+      tags:
+      - dashboard
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/dashboard/stats/:
+    get:
+      operationId: dashboard_stats_retrieve
+      description: 获取系统整体统计信息
+      tags:
+      - dashboard
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStat'
+          description: ''
+  /api/users/departments/:
+    get:
+      operationId: users_departments_list
+      description: 部门管理视图集
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - users
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDepartmentList'
+          description: ''
+    post:
+      operationId: users_departments_create
+      description: 部门管理视图集
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepartmentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DepartmentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DepartmentRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+          description: ''
+  /api/users/departments/{id}/:
+    get:
+      operationId: users_departments_retrieve
+      description: 部门管理视图集
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this 部门管理.
+        required: true
+      tags:
+      - users
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+          description: ''
+    put:
+      operationId: users_departments_update
+      description: 部门管理视图集
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this 部门管理.
+        required: true
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepartmentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DepartmentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DepartmentRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+          description: ''
+    patch:
+      operationId: users_departments_partial_update
+      description: 部门管理视图集
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this 部门管理.
+        required: true
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedDepartmentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedDepartmentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedDepartmentRequest'
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+          description: ''
+    delete:
+      operationId: users_departments_destroy
+      description: 部门管理视图集
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this 部门管理.
+        required: true
+      tags:
+      - users
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/users/departments/{id}/users/:
+    get:
+      operationId: users_departments_users_retrieve
+      description: 获取指定部门下的所有用户
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this 部门管理.
+        required: true
+      tags:
+      - users
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+          description: ''
+  /api/users/users/:
+    get:
+      operationId: users_users_list
+      description: 用户管理视图集
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: user_department_code__department_code
+        schema:
+          type: string
+      - in: query
+        name: user_status
+        schema:
+          type: string
+          title: 员工状态
+          enum:
+          - active
+          - left
+          - retirement
+        description: |-
+          * `active` - 在职员工
+          * `left` - 离职员工
+          * `retirement` - 退休员工
+      tags:
+      - users
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUserList'
+          description: ''
+    post:
+      operationId: users_users_create
+      description: 用户管理视图集
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserCreateRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserCreate'
+          description: ''
+  /api/users/users/{id}/:
+    get:
+      operationId: users_users_retrieve
+      description: 用户管理视图集
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this 员工管理.
+        required: true
+      tags:
+      - users
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetail'
+          description: ''
+    put:
+      operationId: users_users_update
+      description: 用户管理视图集
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this 员工管理.
+        required: true
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserUpdateRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserUpdate'
+          description: ''
+    patch:
+      operationId: users_users_partial_update
+      description: 用户管理视图集
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this 员工管理.
+        required: true
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUserUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUserUpdateRequest'
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserUpdate'
+          description: ''
+    delete:
+      operationId: users_users_destroy
+      description: 用户管理视图集
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this 员工管理.
+        required: true
+      tags:
+      - users
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/users/users/{id}/change_status/:
+    post:
+      operationId: users_users_change_status_create
+      description: 更改用户状态
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this 员工管理.
+        required: true
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/users/users/active_users/:
+    get:
+      operationId: users_users_active_users_retrieve
+      description: 获取所有在职用户列表
+      tags:
+      - users
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/users/users/search_by_name/{name}/:
+    get:
+      operationId: users_users_search_by_name_list
+      description: 根据姓名搜索匹配的资产数据
+      parameters:
+      - in: path
+        name: name
+        schema:
+          type: string
+        description: 员工名称（用于模糊搜索）
+        required: true
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: user_department_code__department_code
+        schema:
+          type: string
+      - in: query
+        name: user_status
+        schema:
+          type: string
+          title: 员工状态
+          enum:
+          - active
+          - left
+          - retirement
+        description: |-
+          * `active` - 在职员工
+          * `left` - 离职员工
+          * `retirement` - 退休员工
+      tags:
+      - users
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUserDetailList'
+          description: ''
+  /api/users/users/statistics/:
+    get:
+      operationId: users_users_statistics_retrieve
+      description: 获取用户统计信息
+      tags:
+      - users
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/users/users/users/{user_jobcode}/:
+    get:
+      operationId: users_users_users_retrieve
+      description: |-
+        根据员工工号（user_jobcode）查询用户详情
+        接口地址：GET /api/users/users/{user_jobcode}
+        示例：GET /api/users/users/EMP001
+      parameters:
+      - in: path
+        name: user_jobcode
+        schema:
+          type: string
+          title: 员工工号
+        required: true
+      tags:
+      - users
+      security:
+      - jwtAuth: []
+      - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+components:
+  schemas:
+    ApprovalStatusEnum:
+      enum:
+      - pending
+      - approved
+      - rejected
+      type: string
+      description: |-
+        * `pending` - 待审批
+        * `approved` - 已批准
+        * `rejected` - 已拒绝
+    Asset:
+      type: object
+      description: 资产序列化器
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        asset_type_name:
+          type: string
+          readOnly: true
+        asset_classification_name:
+          type: string
+          readOnly: true
+        storage_name:
+          type: string
+          readOnly: true
+        contract_name:
+          type: string
+          readOnly: true
+        contract_supplier:
+          type: string
+          readOnly: true
+        entry_person_name:
+          type: string
+          readOnly: true
+        manager_name:
+          type: string
+          readOnly: true
+        asset_code:
+          type: string
+          title: 资产编码
+          maxLength: 20
+        asset_name:
+          type: string
+          title: 资产名称
+          maxLength: 100
+        asset_purchase_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: 资产购买价格
+        asset_purchase_number:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 资产购买数量
+        asset_unit:
+          type: string
+          nullable: true
+          title: 资产单位
+          maxLength: 50
+        asset_brand:
+          type: string
+          nullable: true
+          title: 资产品牌
+          maxLength: 100
+        asset_specification:
+          type: string
+          nullable: true
+          title: 资产规格
+          maxLength: 100
+        asset_purchase_date:
+          type: string
+          format: date
+          title: 资产购买日期
+        asset_warranty_period:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+          title: 保修期（年）
+        asset_entry_date:
+          type: string
+          format: date
+          title: 入库日期
+        asset_using_location:
+          type: string
+          nullable: true
+          title: 资产使用地点
+          maxLength: 100
+        asset_status:
+          nullable: true
+          title: 资产状态
+          oneOf:
+          - $ref: '#/components/schemas/AssetStatusEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        asset_using_status:
+          nullable: true
+          title: 资产使用状态
+          oneOf:
+          - $ref: '#/components/schemas/AssetUsingStatusEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        current_state:
+          allOf:
+          - $ref: '#/components/schemas/CurrentStateEnum'
+          title: 资产当前状态
+          description: |-
+            用于跟踪资产当前所处的流程阶段
+
+            * `in_store` - 在库资产
+            * `in_use` - 在用资产
+            * `in_canceled` - 销账资产
+        using_record:
+          type: string
+          nullable: true
+          title: 使用记录
+        asset_description:
+          type: string
+          nullable: true
+          title: 资产描述
+        asset_type:
+          type: string
+          title: 资产类型
+        asset_classification_code:
+          type: string
+          title: 资产分类
+        asset_contract_code:
+          type: string
+          title: 资产合同
+          nullable: true
+        asset_storage_code:
+          type: string
+          title: 存储仓库
+          nullable: true
+        asset_entry_person:
+          type: string
+          title: 资产入库人工号
+          nullable: true
+        asset_applicant_code:
+          type: string
+          title: 资产申请人工号
+          nullable: true
+        asset_manager_code:
+          type: string
+          title: 资产保管人
+          nullable: true
+      required:
+      - asset_classification_code
+      - asset_classification_name
+      - asset_code
+      - asset_entry_date
+      - asset_name
+      - asset_purchase_date
+      - asset_purchase_price
+      - asset_type
+      - asset_type_name
+      - contract_name
+      - contract_supplier
+      - entry_person_name
+      - id
+      - manager_name
+      - storage_name
+    AssetClassification:
+      type: object
+      description: 资产分类序列化器
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        asset_classification_code:
+          type: string
+          title: 资产分类编码
+          maxLength: 20
+        asset_classification_name:
+          type: string
+          title: 资产分类名称
+          maxLength: 100
+        asset_classification_description:
+          type: string
+          nullable: true
+          title: 资产分类描述
+      required:
+      - asset_classification_code
+      - asset_classification_name
+      - id
+    AssetClassificationRequest:
+      type: object
+      description: 资产分类序列化器
+      properties:
+        asset_classification_code:
+          type: string
+          minLength: 1
+          title: 资产分类编码
+          maxLength: 20
+        asset_classification_name:
+          type: string
+          minLength: 1
+          title: 资产分类名称
+          maxLength: 100
+        asset_classification_description:
+          type: string
+          nullable: true
+          title: 资产分类描述
+      required:
+      - asset_classification_code
+      - asset_classification_name
+    AssetDetail:
+      type: object
+      description: 资产详细信息序列化器
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        asset_type:
+          allOf:
+          - $ref: '#/components/schemas/AssetType'
+          readOnly: true
+        asset_classification_code:
+          allOf:
+          - $ref: '#/components/schemas/AssetClassification'
+          readOnly: true
+        asset_storage_code:
+          allOf:
+          - $ref: '#/components/schemas/Storage'
+          readOnly: true
+        asset_contract_code:
+          allOf:
+          - $ref: '#/components/schemas/Contract'
+          readOnly: true
+        asset_entry_person:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        asset_manager_code:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        asset_applicant_code:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          readOnly: true
+        asset_code:
+          type: string
+          title: 资产编码
+          maxLength: 20
+        asset_name:
+          type: string
+          title: 资产名称
+          maxLength: 100
+        asset_purchase_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: 资产购买价格
+        asset_purchase_number:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 资产购买数量
+        asset_unit:
+          type: string
+          nullable: true
+          title: 资产单位
+          maxLength: 50
+        asset_brand:
+          type: string
+          nullable: true
+          title: 资产品牌
+          maxLength: 100
+        asset_specification:
+          type: string
+          nullable: true
+          title: 资产规格
+          maxLength: 100
+        asset_purchase_date:
+          type: string
+          format: date
+          title: 资产购买日期
+        asset_warranty_period:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+          title: 保修期（年）
+        asset_entry_date:
+          type: string
+          format: date
+          title: 入库日期
+        asset_using_location:
+          type: string
+          nullable: true
+          title: 资产使用地点
+          maxLength: 100
+        asset_status:
+          nullable: true
+          title: 资产状态
+          oneOf:
+          - $ref: '#/components/schemas/AssetStatusEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        asset_using_status:
+          nullable: true
+          title: 资产使用状态
+          oneOf:
+          - $ref: '#/components/schemas/AssetUsingStatusEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        current_state:
+          allOf:
+          - $ref: '#/components/schemas/CurrentStateEnum'
+          title: 资产当前状态
+          description: |-
+            用于跟踪资产当前所处的流程阶段
+
+            * `in_store` - 在库资产
+            * `in_use` - 在用资产
+            * `in_canceled` - 销账资产
+        using_record:
+          type: string
+          nullable: true
+          title: 使用记录
+        asset_description:
+          type: string
+          nullable: true
+          title: 资产描述
+      required:
+      - asset_applicant_code
+      - asset_classification_code
+      - asset_code
+      - asset_contract_code
+      - asset_entry_date
+      - asset_entry_person
+      - asset_manager_code
+      - asset_name
+      - asset_purchase_date
+      - asset_purchase_price
+      - asset_storage_code
+      - asset_type
+      - id
+    AssetRequest:
+      type: object
+      description: 资产序列化器
+      properties:
+        asset_code:
+          type: string
+          minLength: 1
+          title: 资产编码
+          maxLength: 20
+        asset_name:
+          type: string
+          minLength: 1
+          title: 资产名称
+          maxLength: 100
+        asset_purchase_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: 资产购买价格
+        asset_purchase_number:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 资产购买数量
+        asset_unit:
+          type: string
+          nullable: true
+          title: 资产单位
+          maxLength: 50
+        asset_brand:
+          type: string
+          nullable: true
+          title: 资产品牌
+          maxLength: 100
+        asset_specification:
+          type: string
+          nullable: true
+          title: 资产规格
+          maxLength: 100
+        asset_purchase_date:
+          type: string
+          format: date
+          title: 资产购买日期
+        asset_warranty_period:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+          title: 保修期（年）
+        asset_entry_date:
+          type: string
+          format: date
+          title: 入库日期
+        asset_using_location:
+          type: string
+          nullable: true
+          title: 资产使用地点
+          maxLength: 100
+        asset_status:
+          nullable: true
+          title: 资产状态
+          oneOf:
+          - $ref: '#/components/schemas/AssetStatusEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        asset_using_status:
+          nullable: true
+          title: 资产使用状态
+          oneOf:
+          - $ref: '#/components/schemas/AssetUsingStatusEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        current_state:
+          allOf:
+          - $ref: '#/components/schemas/CurrentStateEnum'
+          title: 资产当前状态
+          description: |-
+            用于跟踪资产当前所处的流程阶段
+
+            * `in_store` - 在库资产
+            * `in_use` - 在用资产
+            * `in_canceled` - 销账资产
+        using_record:
+          type: string
+          nullable: true
+          title: 使用记录
+        asset_description:
+          type: string
+          nullable: true
+          title: 资产描述
+        asset_type:
+          type: string
+          minLength: 1
+          title: 资产类型
+        asset_classification_code:
+          type: string
+          minLength: 1
+          title: 资产分类
+        asset_contract_code:
+          type: string
+          minLength: 1
+          title: 资产合同
+          nullable: true
+        asset_storage_code:
+          type: string
+          minLength: 1
+          title: 存储仓库
+          nullable: true
+        asset_entry_person:
+          type: string
+          minLength: 1
+          title: 资产入库人工号
+          nullable: true
+        asset_applicant_code:
+          type: string
+          minLength: 1
+          title: 资产申请人工号
+          nullable: true
+        asset_manager_code:
+          type: string
+          minLength: 1
+          title: 资产保管人
+          nullable: true
+      required:
+      - asset_classification_code
+      - asset_code
+      - asset_entry_date
+      - asset_name
+      - asset_purchase_date
+      - asset_purchase_price
+      - asset_type
+    AssetStatusEnum:
+      enum:
+      - newly
+      - used
+      - damaged
+      - waste
+      type: string
+      description: |-
+        * `newly` - 新增资产
+        * `used` - 已用资产
+        * `damaged` - 待报废资产
+        * `waste` - 已报废资产
+    AssetType:
+      type: object
+      description: 资产类型序列化器
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        asset_type_code:
+          type: string
+          title: 资产类型编码
+          maxLength: 20
+        asset_type_name:
+          type: string
+          title: 资产类型名称
+          maxLength: 100
+        asset_type_category:
+          nullable: true
+          title: 资产分类类型分类
+          oneOf:
+          - $ref: '#/components/schemas/AssetTypeCategoryEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        asset_type_description:
+          type: string
+          nullable: true
+          title: 资产分类类型描述
+      required:
+      - asset_type_code
+      - asset_type_name
+      - id
+    AssetTypeCategoryEnum:
+      enum:
+      - hardware
+      - software
+      - other
+      type: string
+      description: |-
+        * `hardware` - 硬件
+        * `software` - 软件
+        * `other` - 其他
+    AssetTypeRequest:
+      type: object
+      description: 资产类型序列化器
+      properties:
+        asset_type_code:
+          type: string
+          minLength: 1
+          title: 资产类型编码
+          maxLength: 20
+        asset_type_name:
+          type: string
+          minLength: 1
+          title: 资产类型名称
+          maxLength: 100
+        asset_type_category:
+          nullable: true
+          title: 资产分类类型分类
+          oneOf:
+          - $ref: '#/components/schemas/AssetTypeCategoryEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        asset_type_description:
+          type: string
+          nullable: true
+          title: 资产分类类型描述
+      required:
+      - asset_type_code
+      - asset_type_name
+    AssetUsingStatusEnum:
+      enum:
+      - in_store
+      - in_use
+      - in_canceled
+      type: string
+      description: |-
+        * `in_store` - 在库资产
+        * `in_use` - 在用资产
+        * `in_canceled` - 销账资产
+    BlankEnum:
+      enum:
+      - ''
+    Contract:
+      type: object
+      description: 合同序列化器
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        contract_code:
+          type: string
+          title: 合同编码
+          maxLength: 20
+        contract_name:
+          type: string
+          title: 合同名称
+          maxLength: 100
+        contract_type:
+          nullable: true
+          title: 合同类型
+          oneOf:
+          - $ref: '#/components/schemas/ContractTypeEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        contract_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: 合同金额
+        contract_supplier:
+          type: string
+          title: 合同供应商
+          maxLength: 100
+        contract_signing_date:
+          type: string
+          format: date
+          title: 合同签订日期
+        contract_warranty_period:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 保修期（年）
+        contract_preliminary_acceptance_date:
+          type: string
+          format: date
+          nullable: true
+          title: 初验日期
+        contract_final_acceptance_date:
+          type: string
+          format: date
+          nullable: true
+          title: 终验日期
+        contract_settlment_status:
+          allOf:
+          - $ref: '#/components/schemas/ContractSettlmentStatusEnum'
+          title: 结算状态
+        contract_settlment_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+          title: 结算金额
+        contract_paid_count_number:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 已付次数
+        contract_paid_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+          title: 已付金额
+        contract_paid_record:
+          type: string
+          nullable: true
+          title: 付款记录
+      required:
+      - contract_code
+      - contract_name
+      - contract_price
+      - contract_signing_date
+      - contract_supplier
+      - id
+    ContractDetail:
+      type: object
+      description: 合同详细信息序列化器
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        contract_code:
+          type: string
+          title: 合同编码
+          maxLength: 20
+        contract_name:
+          type: string
+          title: 合同名称
+          maxLength: 100
+        contract_type:
+          nullable: true
+          title: 合同类型
+          oneOf:
+          - $ref: '#/components/schemas/ContractTypeEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        contract_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: 合同金额
+        contract_supplier:
+          type: string
+          title: 合同供应商
+          maxLength: 100
+        contract_signing_date:
+          type: string
+          format: date
+          title: 合同签订日期
+        contract_warranty_period:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 保修期（年）
+        contract_preliminary_acceptance_date:
+          type: string
+          format: date
+          nullable: true
+          title: 初验日期
+        contract_final_acceptance_date:
+          type: string
+          format: date
+          nullable: true
+          title: 终验日期
+        contract_settlment_status:
+          allOf:
+          - $ref: '#/components/schemas/ContractSettlmentStatusEnum'
+          title: 结算状态
+        contract_settlment_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+          title: 结算金额
+        contract_paid_count_number:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 已付次数
+        contract_paid_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+          title: 已付金额
+        contract_paid_record:
+          type: string
+          nullable: true
+          title: 付款记录
+      required:
+      - contract_code
+      - contract_name
+      - contract_price
+      - contract_signing_date
+      - contract_supplier
+      - id
+    ContractRequest:
+      type: object
+      description: 合同序列化器
+      properties:
+        contract_code:
+          type: string
+          minLength: 1
+          title: 合同编码
+          maxLength: 20
+        contract_name:
+          type: string
+          minLength: 1
+          title: 合同名称
+          maxLength: 100
+        contract_type:
+          nullable: true
+          title: 合同类型
+          oneOf:
+          - $ref: '#/components/schemas/ContractTypeEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        contract_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: 合同金额
+        contract_supplier:
+          type: string
+          minLength: 1
+          title: 合同供应商
+          maxLength: 100
+        contract_signing_date:
+          type: string
+          format: date
+          title: 合同签订日期
+        contract_warranty_period:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 保修期（年）
+        contract_preliminary_acceptance_date:
+          type: string
+          format: date
+          nullable: true
+          title: 初验日期
+        contract_final_acceptance_date:
+          type: string
+          format: date
+          nullable: true
+          title: 终验日期
+        contract_settlment_status:
+          allOf:
+          - $ref: '#/components/schemas/ContractSettlmentStatusEnum'
+          title: 结算状态
+        contract_settlment_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+          title: 结算金额
+        contract_paid_count_number:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 已付次数
+        contract_paid_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+          title: 已付金额
+        contract_paid_record:
+          type: string
+          nullable: true
+          title: 付款记录
+      required:
+      - contract_code
+      - contract_name
+      - contract_price
+      - contract_signing_date
+      - contract_supplier
+    ContractSettlmentStatusEnum:
+      enum:
+      - pending
+      - settled
+      type: string
+      description: |-
+        * `pending` - 待结算
+        * `settled` - 已结算
+    ContractTypeEnum:
+      enum:
+      - purchase
+      - service
+      - information_construction
+      - direct_procurement
+      type: string
+      description: |-
+        * `purchase` - 采购合同
+        * `service` - 服务合同
+        * `information_construction` - 信息化建设合同
+        * `direct_procurement` - 直接采购合同
+    CurrentStateEnum:
+      enum:
+      - in_store
+      - in_use
+      - in_canceled
+      type: string
+      description: |-
+        * `in_store` - 在库资产
+        * `in_use` - 在用资产
+        * `in_canceled` - 销账资产
+    DamagedAsset:
+      type: object
+      description: 待报废资产序列化器
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        asset_code:
+          type: string
+          readOnly: true
+        asset_name:
+          type: string
+          readOnly: true
+        contract_name:
+          type: string
+          readOnly: true
+        storage_name:
+          type: string
+          readOnly: true
+        damaged_asset_number:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 待报废数量
+        approval_status:
+          allOf:
+          - $ref: '#/components/schemas/ApprovalStatusEnum'
+          title: 报废审批状态
+        damaged_asset_description:
+          type: string
+          nullable: true
+          title: 待报废资产描述
+        damaged_asset_code:
+          type: string
+          title: 待报废资产编码
+          nullable: true
+        damaged_asset_contract_code:
+          type: string
+          title: 待报废资产合同编码
+          nullable: true
+        damaged_asset_storage:
+          type: string
+          title: 待报废资产存储仓库
+        approver:
+          type: string
+          title: 审批人
+          nullable: true
+      required:
+      - asset_code
+      - asset_name
+      - contract_name
+      - damaged_asset_storage
+      - id
+      - storage_name
+    DamagedAssetRequest:
+      type: object
+      description: 待报废资产序列化器
+      properties:
+        damaged_asset_number:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 待报废数量
+        approval_status:
+          allOf:
+          - $ref: '#/components/schemas/ApprovalStatusEnum'
+          title: 报废审批状态
+        damaged_asset_description:
+          type: string
+          nullable: true
+          title: 待报废资产描述
+        damaged_asset_code:
+          type: string
+          minLength: 1
+          title: 待报废资产编码
+          nullable: true
+        damaged_asset_contract_code:
+          type: string
+          minLength: 1
+          title: 待报废资产合同编码
+          nullable: true
+        damaged_asset_storage:
+          type: string
+          minLength: 1
+          title: 待报废资产存储仓库
+        approver:
+          type: string
+          minLength: 1
+          title: 审批人
+          nullable: true
+      required:
+      - damaged_asset_storage
+    DashboardStat:
+      type: object
+      properties:
+        total_assets:
+          type: integer
+          description: 资产总数
+        total_contracts:
+          type: integer
+          description: 合同总数
+        active_assets:
+          type: integer
+          description: 在用资产数
+      required:
+      - active_assets
+      - total_assets
+      - total_contracts
+    DashboardStatRequest:
+      type: object
+      properties:
+        total_assets:
+          type: integer
+          description: 资产总数
+        total_contracts:
+          type: integer
+          description: 合同总数
+        active_assets:
+          type: integer
+          description: 在用资产数
+      required:
+      - active_assets
+      - total_assets
+      - total_contracts
+    Department:
+      type: object
+      description: 部门序列化器
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        department_code:
+          type: string
+          title: 部门编码
+          maxLength: 20
+        department_name:
+          type: string
+          title: 部门名称
+          maxLength: 100
+        department_information:
+          type: string
+          title: 部门信息员
+          maxLength: 20
+      required:
+      - department_code
+      - department_information
+      - department_name
+      - id
+    DepartmentRequest:
+      type: object
+      description: 部门序列化器
+      properties:
+        department_code:
+          type: string
+          minLength: 1
+          title: 部门编码
+          maxLength: 20
+        department_name:
+          type: string
+          minLength: 1
+          title: 部门名称
+          maxLength: 100
+        department_information:
+          type: string
+          minLength: 1
+          title: 部门信息员
+          maxLength: 20
+      required:
+      - department_code
+      - department_information
+      - department_name
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          default: false
+          description: 请求是否成功
+        error:
+          type: string
+          description: 错误描述
+        debug_info:
+          type: object
+          additionalProperties: {}
+          nullable: true
+          description: 调试信息（可选）
+      required:
+      - error
+    HardDiskSN:
+      type: object
+      description: 硬盘序列号序列化器
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        user_name:
+          type: string
+          readOnly: true
+        user_department:
+          type: string
+          readOnly: true
+        asset_name:
+          type: string
+          readOnly: true
+        asset_type:
+          type: string
+          readOnly: true
+        harddisk_sn_count:
+          type: integer
+          description: 硬盘 SN 关联数量
+          readOnly: true
+        harddisk_number:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 硬盘数量
+        harddisk_sn:
+          title: 硬盘序列号列表
+        harddisk_sn_id:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 硬盘序列号ID
+        harddisk_sn_description:
+          type: string
+          nullable: true
+          title: 硬盘序列号描述
+        harddisk_sn_asset_status:
+          allOf:
+          - $ref: '#/components/schemas/HarddiskSnAssetStatusEnum'
+          title: 硬盘序列号资产状态
+        harddisk_user_jobcode:
+          type: string
+          title: 硬盘使用人工号
+        harddisk_sn_asset_code:
+          type: string
+          title: 硬盘序列号资产编码
+      required:
+      - asset_name
+      - asset_type
+      - harddisk_number
+      - harddisk_sn_asset_code
+      - harddisk_sn_count
+      - harddisk_sn_id
+      - harddisk_user_jobcode
+      - id
+      - user_department
+      - user_name
+    HardDiskSNRequest:
+      type: object
+      description: 硬盘序列号序列化器
+      properties:
+        harddisk_number:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 硬盘数量
+        harddisk_sn:
+          title: 硬盘序列号列表
+        harddisk_sn_id:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 硬盘序列号ID
+        harddisk_sn_description:
+          type: string
+          nullable: true
+          title: 硬盘序列号描述
+        harddisk_sn_asset_status:
+          allOf:
+          - $ref: '#/components/schemas/HarddiskSnAssetStatusEnum'
+          title: 硬盘序列号资产状态
+        harddisk_user_jobcode:
+          type: string
+          minLength: 1
+          title: 硬盘使用人工号
+        harddisk_sn_asset_code:
+          type: string
+          minLength: 1
+          title: 硬盘序列号资产编码
+      required:
+      - harddisk_number
+      - harddisk_sn_asset_code
+      - harddisk_sn_id
+      - harddisk_user_jobcode
+    HarddiskSnAssetStatusEnum:
+      enum:
+      - 正常
+      - 维修
+      - 报废
+      - 丢失
+      - 损坏
+      type: string
+      description: |-
+        * `正常` - active
+        * `维修` - repair
+        * `报废` - scrap
+        * `丢失` - lost
+        * `损坏` - damaged
+    Login:
+      type: object
+      description: 认证与用户管理登录序列化器
+      properties:
+        auth_username:
+          type: string
+      required:
+      - auth_username
+    LoginRequest:
+      type: object
+      description: 认证与用户管理登录序列化器
+      properties:
+        auth_username:
+          type: string
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - auth_username
+      - password
+    NullEnum:
+      enum:
+      - null
+    OutAsset:
+      type: object
+      description: 出库资产序列化器
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        outasset_code:
+          type: string
+          title: 资产编码
+          description: 传资产编码字符串，如 'Printer000001'
+        outasset_applicant_code:
+          type: string
+          title: 员工工号
+          nullable: true
+        outasset_manager_code:
+          type: string
+          title: 员工工号
+        outasset_name:
+          type: string
+          readOnly: true
+        outasset_specification:
+          type: string
+          readOnly: true
+        outasset_applicant_name:
+          type: string
+          readOnly: true
+        outasset_manager_name:
+          type: string
+          readOnly: true
+        return_date:
+          type: string
+          format: date
+          nullable: true
+          description: 归还日期，格式 YYYY-MM-DD，可为空
+        outassetrecordcode:
+          type: string
+          title: 出库记录唯一标识
+          description: 格式如下：OUT-20201223-XXXXXXXX
+          maxLength: 36
+        outasset_number:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 出库数量
+        outasset_status:
+          allOf:
+          - $ref: '#/components/schemas/OutassetStatusEnum'
+          title: 出库资产状态
+        outasset_using_location:
+          type: string
+          title: 出库资产使用地点
+          maxLength: 200
+        outasset_date:
+          type: string
+          format: date
+          title: 出库日期
+        outasset_type:
+          nullable: true
+          title: 出库类型
+          oneOf:
+          - $ref: '#/components/schemas/OutassetTypeEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        outasset_description:
+          type: string
+          nullable: true
+          title: 出库资产描述
+      required:
+      - id
+      - outasset_applicant_name
+      - outasset_code
+      - outasset_manager_code
+      - outasset_manager_name
+      - outasset_name
+      - outasset_specification
+      - outasset_using_location
+    OutAssetRequest:
+      type: object
+      description: 出库资产序列化器
+      properties:
+        outasset_code:
+          type: string
+          minLength: 1
+          title: 资产编码
+          description: 传资产编码字符串，如 'Printer000001'
+        outasset_applicant_code:
+          type: string
+          minLength: 1
+          title: 员工工号
+          nullable: true
+        outasset_manager_code:
+          type: string
+          minLength: 1
+          title: 员工工号
+        return_date:
+          type: string
+          format: date
+          nullable: true
+          description: 归还日期，格式 YYYY-MM-DD，可为空
+        outassetrecordcode:
+          type: string
+          minLength: 1
+          title: 出库记录唯一标识
+          description: 格式如下：OUT-20201223-XXXXXXXX
+          maxLength: 36
+        outasset_number:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 出库数量
+        outasset_status:
+          allOf:
+          - $ref: '#/components/schemas/OutassetStatusEnum'
+          title: 出库资产状态
+        outasset_using_location:
+          type: string
+          minLength: 1
+          title: 出库资产使用地点
+          maxLength: 200
+        outasset_date:
+          type: string
+          format: date
+          title: 出库日期
+        outasset_type:
+          nullable: true
+          title: 出库类型
+          oneOf:
+          - $ref: '#/components/schemas/OutassetTypeEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        outasset_description:
+          type: string
+          nullable: true
+          title: 出库资产描述
+      required:
+      - outasset_code
+      - outasset_manager_code
+      - outasset_using_location
+    OutassetStatusEnum:
+      enum:
+      - in_use
+      - recycle
+      - damaged
+      - waste
+      type: string
+      description: |-
+        * `in_use` - 在用资产
+        * `recycle` - 已回收资产
+        * `damaged` - 待报废资产
+        * `waste` - 已报废资产
+    OutassetTypeEnum:
+      enum:
+      - receive
+      - borrow
+      type: string
+      description: |-
+        * `receive` - 领用
+        * `borrow` - 借用
+    PaginatedAssetClassificationList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssetClassification'
+    PaginatedAssetDetailList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssetDetail'
+    PaginatedAssetTypeList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssetType'
+    PaginatedContractDetailList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContractDetail'
+    PaginatedDamagedAssetList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/DamagedAsset'
+    PaginatedDashboardStatList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardStat'
+    PaginatedDepartmentList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Department'
+    PaginatedHardDiskSNList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/HardDiskSN'
+    PaginatedOutAssetList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/OutAsset'
+    PaginatedRecycleAssetList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecycleAsset'
+    PaginatedStorageList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Storage'
+    PaginatedUserDetailList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserDetail'
+    PaginatedUserList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+    PaginatedWasteAssetList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/WasteAsset'
+    PatchedAssetClassificationRequest:
+      type: object
+      description: 资产分类序列化器
+      properties:
+        asset_classification_code:
+          type: string
+          minLength: 1
+          title: 资产分类编码
+          maxLength: 20
+        asset_classification_name:
+          type: string
+          minLength: 1
+          title: 资产分类名称
+          maxLength: 100
+        asset_classification_description:
+          type: string
+          nullable: true
+          title: 资产分类描述
+    PatchedAssetRequest:
+      type: object
+      description: 资产序列化器
+      properties:
+        asset_code:
+          type: string
+          minLength: 1
+          title: 资产编码
+          maxLength: 20
+        asset_name:
+          type: string
+          minLength: 1
+          title: 资产名称
+          maxLength: 100
+        asset_purchase_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: 资产购买价格
+        asset_purchase_number:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 资产购买数量
+        asset_unit:
+          type: string
+          nullable: true
+          title: 资产单位
+          maxLength: 50
+        asset_brand:
+          type: string
+          nullable: true
+          title: 资产品牌
+          maxLength: 100
+        asset_specification:
+          type: string
+          nullable: true
+          title: 资产规格
+          maxLength: 100
+        asset_purchase_date:
+          type: string
+          format: date
+          title: 资产购买日期
+        asset_warranty_period:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+          title: 保修期（年）
+        asset_entry_date:
+          type: string
+          format: date
+          title: 入库日期
+        asset_using_location:
+          type: string
+          nullable: true
+          title: 资产使用地点
+          maxLength: 100
+        asset_status:
+          nullable: true
+          title: 资产状态
+          oneOf:
+          - $ref: '#/components/schemas/AssetStatusEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        asset_using_status:
+          nullable: true
+          title: 资产使用状态
+          oneOf:
+          - $ref: '#/components/schemas/AssetUsingStatusEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        current_state:
+          allOf:
+          - $ref: '#/components/schemas/CurrentStateEnum'
+          title: 资产当前状态
+          description: |-
+            用于跟踪资产当前所处的流程阶段
+
+            * `in_store` - 在库资产
+            * `in_use` - 在用资产
+            * `in_canceled` - 销账资产
+        using_record:
+          type: string
+          nullable: true
+          title: 使用记录
+        asset_description:
+          type: string
+          nullable: true
+          title: 资产描述
+        asset_type:
+          type: string
+          minLength: 1
+          title: 资产类型
+        asset_classification_code:
+          type: string
+          minLength: 1
+          title: 资产分类
+        asset_contract_code:
+          type: string
+          minLength: 1
+          title: 资产合同
+          nullable: true
+        asset_storage_code:
+          type: string
+          minLength: 1
+          title: 存储仓库
+          nullable: true
+        asset_entry_person:
+          type: string
+          minLength: 1
+          title: 资产入库人工号
+          nullable: true
+        asset_applicant_code:
+          type: string
+          minLength: 1
+          title: 资产申请人工号
+          nullable: true
+        asset_manager_code:
+          type: string
+          minLength: 1
+          title: 资产保管人
+          nullable: true
+    PatchedAssetTypeRequest:
+      type: object
+      description: 资产类型序列化器
+      properties:
+        asset_type_code:
+          type: string
+          minLength: 1
+          title: 资产类型编码
+          maxLength: 20
+        asset_type_name:
+          type: string
+          minLength: 1
+          title: 资产类型名称
+          maxLength: 100
+        asset_type_category:
+          nullable: true
+          title: 资产分类类型分类
+          oneOf:
+          - $ref: '#/components/schemas/AssetTypeCategoryEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        asset_type_description:
+          type: string
+          nullable: true
+          title: 资产分类类型描述
+    PatchedContractRequest:
+      type: object
+      description: 合同序列化器
+      properties:
+        contract_code:
+          type: string
+          minLength: 1
+          title: 合同编码
+          maxLength: 20
+        contract_name:
+          type: string
+          minLength: 1
+          title: 合同名称
+          maxLength: 100
+        contract_type:
+          nullable: true
+          title: 合同类型
+          oneOf:
+          - $ref: '#/components/schemas/ContractTypeEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        contract_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: 合同金额
+        contract_supplier:
+          type: string
+          minLength: 1
+          title: 合同供应商
+          maxLength: 100
+        contract_signing_date:
+          type: string
+          format: date
+          title: 合同签订日期
+        contract_warranty_period:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 保修期（年）
+        contract_preliminary_acceptance_date:
+          type: string
+          format: date
+          nullable: true
+          title: 初验日期
+        contract_final_acceptance_date:
+          type: string
+          format: date
+          nullable: true
+          title: 终验日期
+        contract_settlment_status:
+          allOf:
+          - $ref: '#/components/schemas/ContractSettlmentStatusEnum'
+          title: 结算状态
+        contract_settlment_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+          title: 结算金额
+        contract_paid_count_number:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 已付次数
+        contract_paid_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+          title: 已付金额
+        contract_paid_record:
+          type: string
+          nullable: true
+          title: 付款记录
+    PatchedDamagedAssetRequest:
+      type: object
+      description: 待报废资产序列化器
+      properties:
+        damaged_asset_number:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 待报废数量
+        approval_status:
+          allOf:
+          - $ref: '#/components/schemas/ApprovalStatusEnum'
+          title: 报废审批状态
+        damaged_asset_description:
+          type: string
+          nullable: true
+          title: 待报废资产描述
+        damaged_asset_code:
+          type: string
+          minLength: 1
+          title: 待报废资产编码
+          nullable: true
+        damaged_asset_contract_code:
+          type: string
+          minLength: 1
+          title: 待报废资产合同编码
+          nullable: true
+        damaged_asset_storage:
+          type: string
+          minLength: 1
+          title: 待报废资产存储仓库
+        approver:
+          type: string
+          minLength: 1
+          title: 审批人
+          nullable: true
+    PatchedDashboardStatRequest:
+      type: object
+      properties:
+        total_assets:
+          type: integer
+          description: 资产总数
+        total_contracts:
+          type: integer
+          description: 合同总数
+        active_assets:
+          type: integer
+          description: 在用资产数
+    PatchedDepartmentRequest:
+      type: object
+      description: 部门序列化器
+      properties:
+        department_code:
+          type: string
+          minLength: 1
+          title: 部门编码
+          maxLength: 20
+        department_name:
+          type: string
+          minLength: 1
+          title: 部门名称
+          maxLength: 100
+        department_information:
+          type: string
+          minLength: 1
+          title: 部门信息员
+          maxLength: 20
+    PatchedHardDiskSNRequest:
+      type: object
+      description: 硬盘序列号序列化器
+      properties:
+        harddisk_number:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 硬盘数量
+        harddisk_sn:
+          title: 硬盘序列号列表
+        harddisk_sn_id:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 硬盘序列号ID
+        harddisk_sn_description:
+          type: string
+          nullable: true
+          title: 硬盘序列号描述
+        harddisk_sn_asset_status:
+          allOf:
+          - $ref: '#/components/schemas/HarddiskSnAssetStatusEnum'
+          title: 硬盘序列号资产状态
+        harddisk_user_jobcode:
+          type: string
+          minLength: 1
+          title: 硬盘使用人工号
+        harddisk_sn_asset_code:
+          type: string
+          minLength: 1
+          title: 硬盘序列号资产编码
+    PatchedOutAssetRequest:
+      type: object
+      description: 出库资产序列化器
+      properties:
+        outasset_code:
+          type: string
+          minLength: 1
+          title: 资产编码
+          description: 传资产编码字符串，如 'Printer000001'
+        outasset_applicant_code:
+          type: string
+          minLength: 1
+          title: 员工工号
+          nullable: true
+        outasset_manager_code:
+          type: string
+          minLength: 1
+          title: 员工工号
+        return_date:
+          type: string
+          format: date
+          nullable: true
+          description: 归还日期，格式 YYYY-MM-DD，可为空
+        outassetrecordcode:
+          type: string
+          minLength: 1
+          title: 出库记录唯一标识
+          description: 格式如下：OUT-20201223-XXXXXXXX
+          maxLength: 36
+        outasset_number:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 出库数量
+        outasset_status:
+          allOf:
+          - $ref: '#/components/schemas/OutassetStatusEnum'
+          title: 出库资产状态
+        outasset_using_location:
+          type: string
+          minLength: 1
+          title: 出库资产使用地点
+          maxLength: 200
+        outasset_date:
+          type: string
+          format: date
+          title: 出库日期
+        outasset_type:
+          nullable: true
+          title: 出库类型
+          oneOf:
+          - $ref: '#/components/schemas/OutassetTypeEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        outasset_description:
+          type: string
+          nullable: true
+          title: 出库资产描述
+    PatchedRecycleAssetRequest:
+      type: object
+      description: 回收资产序列化器
+      properties:
+        outasset_record:
+          type: string
+          minLength: 1
+          title: 出库记录唯一标识
+          description: 传唯一出库记录编码（如 OUT-20251223-XXXXXX）
+        recycle_asset_number:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 回收数量
+        recycle_status:
+          allOf:
+          - $ref: '#/components/schemas/RecycleStatusEnum'
+          title: 回收处理状态
+        recycle_asset_date:
+          type: string
+          format: date
+          title: 回收日期
+        recycle_asset_description:
+          type: string
+          nullable: true
+          title: 回收资产描述
+        recycle_asset_storage:
+          type: string
+          minLength: 1
+          title: 回收资产存储仓库
+        recycle_asset_using_person_jobcode:
+          type: string
+          minLength: 1
+          title: 回收资产使用人工号
+        recycle_asset_recycle_person_jobcode:
+          type: string
+          minLength: 1
+          title: 回收资产回收人工号
+    PatchedStorageRequest:
+      type: object
+      description: 仓库序列化器
+      properties:
+        storage_code:
+          type: string
+          minLength: 1
+          title: 仓库编码
+          maxLength: 20
+        storage_name:
+          type: string
+          minLength: 1
+          title: 仓库名称
+          maxLength: 100
+        storage_address:
+          type: string
+          minLength: 1
+          title: 仓库地址
+          maxLength: 200
+        storage_type:
+          nullable: true
+          title: 仓库类型
+          oneOf:
+          - $ref: '#/components/schemas/StorageTypeEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        storage_description:
+          type: string
+          nullable: true
+          title: 仓库描述
+    PatchedUserUpdateRequest:
+      type: object
+      description: 用户更新序列化器
+      properties:
+        user_name:
+          type: string
+          minLength: 1
+          title: 员工名称
+          maxLength: 100
+        user_status:
+          allOf:
+          - $ref: '#/components/schemas/UserStatusEnum'
+          title: 员工状态
+        user_department_code:
+          type: string
+          minLength: 1
+          title: 所属部门
+          nullable: true
+        user_phone:
+          type: string
+          minLength: 1
+          title: 员工电话
+          maxLength: 15
+        user_location:
+          type: string
+          minLength: 1
+          title: 员工位置
+          maxLength: 100
+        user_description:
+          type: string
+          nullable: true
+          title: 员工描述
+    PatchedWasteAssetRequest:
+      type: object
+      description: 已报废资产序列化器
+      properties:
+        waste_asset_number:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 已报废数量
+        waste_asset_date:
+          type: string
+          format: date
+          title: 报废日期
+        waste_asset_description:
+          type: string
+          nullable: true
+          title: 报废资产描述
+        waste_asset_code:
+          type: string
+          minLength: 1
+          title: 已报废资产编码
+        waste_asset_contract_code:
+          type: string
+          minLength: 1
+          title: 已报废资产合同编码
+    RecycleAsset:
+      type: object
+      description: 回收资产序列化器
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        recycle_asset_name:
+          type: string
+          readOnly: true
+        recycle_asset_recycle_person_name:
+          type: string
+          readOnly: true
+        recycle_asset_using_person_name:
+          type: string
+          readOnly: true
+        recycle_asset_storage_name:
+          type: string
+          readOnly: true
+        outasset_record:
+          type: string
+          title: 出库记录唯一标识
+          description: 传唯一出库记录编码（如 OUT-20251223-XXXXXX）
+        recycle_asset_number:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 回收数量
+        recycle_status:
+          allOf:
+          - $ref: '#/components/schemas/RecycleStatusEnum'
+          title: 回收处理状态
+        recycle_asset_date:
+          type: string
+          format: date
+          title: 回收日期
+        recycle_asset_description:
+          type: string
+          nullable: true
+          title: 回收资产描述
+        recycle_asset_storage:
+          type: string
+          title: 回收资产存储仓库
+        recycle_asset_using_person_jobcode:
+          type: string
+          title: 回收资产使用人工号
+        recycle_asset_recycle_person_jobcode:
+          type: string
+          title: 回收资产回收人工号
+      required:
+      - id
+      - outasset_record
+      - recycle_asset_date
+      - recycle_asset_name
+      - recycle_asset_recycle_person_jobcode
+      - recycle_asset_recycle_person_name
+      - recycle_asset_storage
+      - recycle_asset_storage_name
+      - recycle_asset_using_person_name
+    RecycleAssetRequest:
+      type: object
+      description: 回收资产序列化器
+      properties:
+        outasset_record:
+          type: string
+          minLength: 1
+          title: 出库记录唯一标识
+          description: 传唯一出库记录编码（如 OUT-20251223-XXXXXX）
+        recycle_asset_number:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 回收数量
+        recycle_status:
+          allOf:
+          - $ref: '#/components/schemas/RecycleStatusEnum'
+          title: 回收处理状态
+        recycle_asset_date:
+          type: string
+          format: date
+          title: 回收日期
+        recycle_asset_description:
+          type: string
+          nullable: true
+          title: 回收资产描述
+        recycle_asset_storage:
+          type: string
+          minLength: 1
+          title: 回收资产存储仓库
+        recycle_asset_using_person_jobcode:
+          type: string
+          minLength: 1
+          title: 回收资产使用人工号
+        recycle_asset_recycle_person_jobcode:
+          type: string
+          minLength: 1
+          title: 回收资产回收人工号
+      required:
+      - outasset_record
+      - recycle_asset_date
+      - recycle_asset_recycle_person_jobcode
+      - recycle_asset_storage
+    RecycleStatusEnum:
+      enum:
+      - recycle
+      - damaged
+      - waste
+      type: string
+      description: |-
+        * `recycle` - 已回收
+        * `damaged` - 待报废
+        * `waste` - 已报废
+    Storage:
+      type: object
+      description: 仓库序列化器
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        storage_code:
+          type: string
+          title: 仓库编码
+          maxLength: 20
+        storage_name:
+          type: string
+          title: 仓库名称
+          maxLength: 100
+        storage_address:
+          type: string
+          title: 仓库地址
+          maxLength: 200
+        storage_type:
+          nullable: true
+          title: 仓库类型
+          oneOf:
+          - $ref: '#/components/schemas/StorageTypeEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        storage_description:
+          type: string
+          nullable: true
+          title: 仓库描述
+      required:
+      - id
+      - storage_address
+      - storage_code
+      - storage_name
+    StorageRequest:
+      type: object
+      description: 仓库序列化器
+      properties:
+        storage_code:
+          type: string
+          minLength: 1
+          title: 仓库编码
+          maxLength: 20
+        storage_name:
+          type: string
+          minLength: 1
+          title: 仓库名称
+          maxLength: 100
+        storage_address:
+          type: string
+          minLength: 1
+          title: 仓库地址
+          maxLength: 200
+        storage_type:
+          nullable: true
+          title: 仓库类型
+          oneOf:
+          - $ref: '#/components/schemas/StorageTypeEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        storage_description:
+          type: string
+          nullable: true
+          title: 仓库描述
+      required:
+      - storage_address
+      - storage_code
+      - storage_name
+    StorageTypeEnum:
+      enum:
+      - newasset
+      - recycle
+      - damaged
+      type: string
+      description: |-
+        * `newasset` - 新货仓库
+        * `recycle` - 回收仓库
+        * `damaged` - 待报废仓库
+    TokenObtainPair:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+          readOnly: true
+      required:
+      - access
+      - refresh
+    TokenObtainPairRequest:
+      type: object
+      properties:
+        auth_username:
+          type: string
+          writeOnly: true
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - auth_username
+      - password
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+      required:
+      - access
+    TokenRefreshRequest:
+      type: object
+      properties:
+        refresh:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - refresh
+    TokenVerifyRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - token
+    User:
+      type: object
+      description: 员工序列化器
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        user_department:
+          allOf:
+          - $ref: '#/components/schemas/Department'
+          readOnly: true
+        user_jobcode:
+          type: string
+          title: 员工工号
+          maxLength: 20
+        user_name:
+          type: string
+          title: 员工名称
+          maxLength: 100
+        user_status:
+          allOf:
+          - $ref: '#/components/schemas/UserStatusEnum'
+          title: 员工状态
+        user_phone:
+          type: string
+          title: 员工电话
+          maxLength: 15
+        user_location:
+          type: string
+          title: 员工位置
+          maxLength: 100
+        user_description:
+          type: string
+          nullable: true
+          title: 员工描述
+        user_department_code:
+          type: string
+          title: 所属部门
+          nullable: true
+      required:
+      - id
+      - user_department
+      - user_jobcode
+      - user_location
+      - user_name
+      - user_phone
+    UserCreate:
+      type: object
+      description: 用户创建序列化器
+      properties:
+        user_jobcode:
+          type: string
+          title: 员工工号
+          maxLength: 20
+        user_name:
+          type: string
+          title: 员工名称
+          maxLength: 100
+        user_status:
+          allOf:
+          - $ref: '#/components/schemas/UserStatusEnum'
+          title: 员工状态
+        user_department_code:
+          type: string
+          title: 所属部门
+          nullable: true
+        user_phone:
+          type: string
+          title: 员工电话
+          maxLength: 15
+        user_location:
+          type: string
+          title: 员工位置
+          maxLength: 100
+        user_description:
+          type: string
+          nullable: true
+          title: 员工描述
+      required:
+      - user_jobcode
+      - user_location
+      - user_name
+      - user_phone
+    UserCreateRequest:
+      type: object
+      description: 用户创建序列化器
+      properties:
+        user_jobcode:
+          type: string
+          minLength: 1
+          title: 员工工号
+          maxLength: 20
+        user_name:
+          type: string
+          minLength: 1
+          title: 员工名称
+          maxLength: 100
+        user_status:
+          allOf:
+          - $ref: '#/components/schemas/UserStatusEnum'
+          title: 员工状态
+        user_department_code:
+          type: string
+          minLength: 1
+          title: 所属部门
+          nullable: true
+        user_phone:
+          type: string
+          minLength: 1
+          title: 员工电话
+          maxLength: 15
+        user_location:
+          type: string
+          minLength: 1
+          title: 员工位置
+          maxLength: 100
+        user_description:
+          type: string
+          nullable: true
+          title: 员工描述
+      required:
+      - user_jobcode
+      - user_location
+      - user_name
+      - user_phone
+    UserDetail:
+      type: object
+      description: 员工详细信息序列化器
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        user_department:
+          allOf:
+          - $ref: '#/components/schemas/Department'
+          readOnly: true
+        user_jobcode:
+          type: string
+          title: 员工工号
+          maxLength: 20
+        user_name:
+          type: string
+          title: 员工名称
+          maxLength: 100
+        user_status:
+          allOf:
+          - $ref: '#/components/schemas/UserStatusEnum'
+          title: 员工状态
+        user_phone:
+          type: string
+          title: 员工电话
+          maxLength: 15
+        user_location:
+          type: string
+          title: 员工位置
+          maxLength: 100
+        user_description:
+          type: string
+          nullable: true
+          title: 员工描述
+        user_department_code:
+          type: string
+          title: 所属部门
+          nullable: true
+      required:
+      - id
+      - user_department
+      - user_jobcode
+      - user_location
+      - user_name
+      - user_phone
+    UserRequest:
+      type: object
+      description: 员工序列化器
+      properties:
+        user_jobcode:
+          type: string
+          minLength: 1
+          title: 员工工号
+          maxLength: 20
+        user_name:
+          type: string
+          minLength: 1
+          title: 员工名称
+          maxLength: 100
+        user_status:
+          allOf:
+          - $ref: '#/components/schemas/UserStatusEnum'
+          title: 员工状态
+        user_phone:
+          type: string
+          minLength: 1
+          title: 员工电话
+          maxLength: 15
+        user_location:
+          type: string
+          minLength: 1
+          title: 员工位置
+          maxLength: 100
+        user_description:
+          type: string
+          nullable: true
+          title: 员工描述
+        user_department_code:
+          type: string
+          minLength: 1
+          title: 所属部门
+          nullable: true
+      required:
+      - user_jobcode
+      - user_location
+      - user_name
+      - user_phone
+    UserStatusEnum:
+      enum:
+      - active
+      - left
+      - retirement
+      type: string
+      description: |-
+        * `active` - 在职员工
+        * `left` - 离职员工
+        * `retirement` - 退休员工
+    UserUpdate:
+      type: object
+      description: 用户更新序列化器
+      properties:
+        user_name:
+          type: string
+          title: 员工名称
+          maxLength: 100
+        user_status:
+          allOf:
+          - $ref: '#/components/schemas/UserStatusEnum'
+          title: 员工状态
+        user_department_code:
+          type: string
+          title: 所属部门
+          nullable: true
+        user_phone:
+          type: string
+          title: 员工电话
+          maxLength: 15
+        user_location:
+          type: string
+          title: 员工位置
+          maxLength: 100
+        user_description:
+          type: string
+          nullable: true
+          title: 员工描述
+      required:
+      - user_location
+      - user_name
+      - user_phone
+    UserUpdateRequest:
+      type: object
+      description: 用户更新序列化器
+      properties:
+        user_name:
+          type: string
+          minLength: 1
+          title: 员工名称
+          maxLength: 100
+        user_status:
+          allOf:
+          - $ref: '#/components/schemas/UserStatusEnum'
+          title: 员工状态
+        user_department_code:
+          type: string
+          minLength: 1
+          title: 所属部门
+          nullable: true
+        user_phone:
+          type: string
+          minLength: 1
+          title: 员工电话
+          maxLength: 15
+        user_location:
+          type: string
+          minLength: 1
+          title: 员工位置
+          maxLength: 100
+        user_description:
+          type: string
+          nullable: true
+          title: 员工描述
+      required:
+      - user_location
+      - user_name
+      - user_phone
+    WasteAsset:
+      type: object
+      description: 已报废资产序列化器
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        asset_code:
+          type: string
+          readOnly: true
+        asset_name:
+          type: string
+          readOnly: true
+        contract_name:
+          type: string
+          readOnly: true
+        waste_asset_number:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 已报废数量
+        waste_asset_date:
+          type: string
+          format: date
+          title: 报废日期
+        waste_asset_description:
+          type: string
+          nullable: true
+          title: 报废资产描述
+        waste_asset_code:
+          type: string
+          title: 已报废资产编码
+        waste_asset_contract_code:
+          type: string
+          title: 已报废资产合同编码
+      required:
+      - asset_code
+      - asset_name
+      - contract_name
+      - id
+      - waste_asset_code
+      - waste_asset_contract_code
+      - waste_asset_date
+    WasteAssetRequest:
+      type: object
+      description: 已报废资产序列化器
+      properties:
+        waste_asset_number:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: 已报废数量
+        waste_asset_date:
+          type: string
+          format: date
+          title: 报废日期
+        waste_asset_description:
+          type: string
+          nullable: true
+          title: 报废资产描述
+        waste_asset_code:
+          type: string
+          minLength: 1
+          title: 已报废资产编码
+        waste_asset_contract_code:
+          type: string
+          minLength: 1
+          title: 已报废资产合同编码
+      required:
+      - waste_asset_code
+      - waste_asset_contract_code
+      - waste_asset_date
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

@@ -12,6 +12,11 @@ services:
   web:
     image: asset-management-backend:${IMAGE_TAG:-latest}
     restart: always
+    # 【优雅停机】docker-entrypoint.sh 以 exec "$@" 启动，Daphne 即为 PID 1，
+    # 可直接接收 Docker 下发的 SIGTERM 并优雅退出（停止接新连接、等待在途请求）。
+    # 默认宽限期仅 10s，不足以让长请求与活跃 WebSocket 排空，故显式延长至 45s。
+    stop_grace_period: 45s
+    stop_signal: SIGTERM
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings.production
       - SECRET_KEY=${SECRET_KEY}
@@ -41,6 +46,8 @@ services:
 
   postgres:
     restart: always
+    # Postgres 收到 SIGTERM 进入 smart shutdown 前的缓冲，避免被 SIGKILL 造成 WAL 恢复
+    stop_grace_period: 60s
     environment:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}

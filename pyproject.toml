@@ -23,7 +23,7 @@ keywords = ["django", "rest-api", "asset-management", "drf"]
 # 分类
 classifiers = [
     "Development Status :: 4 - Beta",
-    "Framework :: Django :: 6.0",
+    "Framework :: Django :: 5.2",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
@@ -35,22 +35,9 @@ classifiers = [
 # 最小 Python 版本
 requires-python = ">=3.12"
 
-# 依赖（可与 requirements.txt 保持同步）
-dependencies = [
-    "Django==6.0.5",
-    "djangorestframework==3.16.0",
-    "django-cors-headers==4.7.0",
-    "django-filter==25.1",
-    "psycopg[binary]==3.3.4",
-    "pillow==11.3.0",
-    "qrcode[pil]==8.2",
-    "requests==2.32.5",
-    "python-decouple==3.8",
-    "djangorestframework-simplejwt==5.5.1",
-    "PyJWT==2.10.1",
-    "drf-spectacular==0.28.0",
-    "drf-spectacular-sidecar==2025.1.24",
-]
+# 运行时依赖唯一事实源为 requirements/base.txt（DR-1）。
+# 此处不声明 dependencies 版本锁定：防止 pip install -e . 装出与 base.txt 不一致的旧版漏洞依赖（H-1 整改）。
+# 如需安装运行时依赖，请执行：pip install -r requirements/base.txt
 
 # 开发依赖
 [project.optional-dependencies]

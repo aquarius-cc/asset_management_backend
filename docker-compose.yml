@@ -174,11 +174,29 @@ services:
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:?请在 .env 中设置 DB_PASSWORD}
       - BACKUP_DIR=/data/backups/postgres
+      - BACKUP_DIR_REDIS=/data/backups/redis
+      - BACKUP_DIR_MEDIA=/data/backups/media
       - RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-30}
+      - MEDIA_SRC=/data/media
+      - REDIS_HOST=redis
+      # Redis 认证(与生产 compose 的 REDIS_PASSWORD 同源; 未设置时脚本降级为无认证访问)
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      # S3 异地备份(可选: 未配置 S3_BUCKET 时仅本地保留, 不强制要求凭据)
+      - S3_BUCKET=${S3_BUCKET:-}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_DEFAULT_REGION=${S3_REGION:-ap-east-1}
     volumes:
       - backup_data:/data/backups/postgres
+      - redis_backup_data:/data/backups/redis
+      - media_backup_data:/data/backups/media
+      - restore_report_data:/tmp/restore_test_results
+      # 媒体源目录: 只读挂载, 备份容器无写权限(最小权限原则)
+      - media_volume:/data/media:ro
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - asset-network
@@ -200,6 +218,12 @@ volumes:
   certbot-webroot:
     driver: local
   backup_data:
+    driver: local
+  redis_backup_data:
+    driver: local
+  media_backup_data:
+    driver: local
+  restore_report_data:
     driver: local
 
 # =============================================================================

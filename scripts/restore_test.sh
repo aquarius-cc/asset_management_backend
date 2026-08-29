@@ -22,6 +22,9 @@ DURATION=0
 
 mkdir -p "$RESULT_DIR"
 
+# --- 步骤 0: 预清理(防上次演练被 kill 残留测试库导致本次失败) ---
+PGPASSWORD="$DB_PASSWORD" dropdb -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" --if-exists "$TEST_DB" 2>/dev/null || true
+
 echo "# 恢复演练报告" > "$RESULT_FILE"
 echo "" >> "$RESULT_FILE"
 echo "- **时间**: $(date '+%Y-%m-%d %H:%M:%S')" >> "$RESULT_FILE"

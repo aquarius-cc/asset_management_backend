@@ -1,7 +1,9 @@
 # Alertmanager 告警路由配置
 # 注意: 本文件为 volume 挂载的静态配置, 不支持环境变量插值。
-# 接入钉钉/飞书时需部署对应 webhook 适配器(如 prometheus-webhook-dingtalk),
-# 并将下方 url 修改为适配器地址; 直接填机器人 URL 会因 payload 格式不匹配而失败。
+# 告警经内网 feishu-adapter 容器转换为飞书卡片(H-3, 2026-08-26);
+# 飞书机器人 webhook URL 与加签密钥存于 .env(SC-1), 由适配器容器读取,
+# 严禁将真实凭据写入本文件。修改本文件后需重启 alertmanager 生效:
+#   docker compose -f docker-compose.yml -f docker-compose.monitoring.yml restart alertmanager
 
 global:
   resolve_timeout: 5m
@@ -26,11 +28,10 @@ route:
 receivers:
   - name: default
     webhook_configs:
-      # 运维接入点: 替换为实际通知适配器地址(钉钉/飞书 webhook 需经适配器转换 payload)
-      - url: "http://host.docker.internal:9095/alert"
+      - url: "http://feishu-adapter:9095/alertmanager"
         send_resolved: true
 
   - name: critical
     webhook_configs:
-      - url: "http://host.docker.internal:9095/alert"
+      - url: "http://feishu-adapter:9095/alertmanager"
         send_resolved: true

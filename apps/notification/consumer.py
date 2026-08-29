@@ -61,7 +61,10 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         self.user = user
 
         await self.channel_layer.group_add(self.group_name, self.channel_name)
-        await self.accept()
+        # 【BF-002 修复】前端以 subprotocol 方式传入 JWT(useNotification.ts), RFC 6455
+        # 要求服务器握手响应必须回显所选子协议, 否则浏览器直接掐断连接。
+        # 此处回显认证通过的 token 本身; 未通过认证的连接已在上方 close() 返回。
+        await self.accept(subprotocol=self._extract_token())
 
         await self.send(
             text_data=json.dumps(

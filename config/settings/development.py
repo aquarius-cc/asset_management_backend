@@ -61,6 +61,15 @@ ALLOWED_HOSTS = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "localhost,127.0.
 # CSRF: 开发环境 HTTP 不需要 Secure 标志
 CSRF_COOKIE_SECURE = False
 
+# 【Bug修复 2026-XX】Vite 代理(5173→8000)导致请求 Origin 与 Host 不一致,
+# Django ≥4.0 的 Origin 校验拒绝跨源 POST, 使 cookie 通道的 token/refresh 端点
+# 返回 403(CSRF Failed: Origin checking failed), 前端误判会话失效并跳转登录页。
+# 仅将已知开发前端源加入白名单; X-CSRFToken/cookie 对比检查不受影响, 生产配置不变。
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
 # =============================================================================
 # 【邮件配置 - 开发专用】
 # =============================================================================

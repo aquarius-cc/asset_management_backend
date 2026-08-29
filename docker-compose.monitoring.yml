@@ -69,8 +69,26 @@ services:
     command:
       - "--config.file=/etc/alertmanager/alertmanager.yml"
       - "--storage.path=/alertmanager"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    depends_on:
+      - feishu-adapter
+    restart: unless-stopped
+
+  # 飞书告警适配器(H-3): Alertmanager webhook payload → 飞书交互卡片
+  # 密钥经 .env 注入(SC-1), 仅需出站 HTTPS, 无入站端口暴露
+  # 注意: FEISHU_WEBHOOK_URL 未设置时本服务拒绝启动(compose 必填校验)
+  feishu-adapter:
+    build: ./docker/feishu-webhook
+    networks:
+      - asset-network
+    environment:
+      FEISHU_WEBHOOK_URL: "${FEISHU_WEBHOOK_URL:?请在 .env 中设置 FEISHU_WEBHOOK_URL}"
+      FEISHU_SECRET: "${FEISHU_SECRET:-}"
+      ADAPTER_PORT: "9095"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9095/healthz', timeout=3)"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
     restart: unless-stopped
 
 volumes:

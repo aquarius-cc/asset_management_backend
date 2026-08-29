@@ -44,5 +44,7 @@ class Migration(migrations.Migration):
             name='created_at',
             field=models.DateTimeField(auto_now_add=True, help_text='记录创建时间', verbose_name='创建时间'),
         ),
+        # ROLLBACK_NOOP_REASON: recordcode 为生成型数据(NTF 前缀), 反向置 NULL 无业务意义
+        # 且可能破坏下游引用; 回滚下界 = 本迁移之后(详见 docs/RollbackSOP.md)
         migrations.RunPython(populate_recordcodes, migrations.RunPython.noop),
     ]

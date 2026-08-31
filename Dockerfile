@@ -38,7 +38,7 @@ WORKDIR /app
 COPY . /app/
 
 # 静态文件和媒体目录 + 权限设置
-RUN mkdir -p /app/staticfiles /app/media \
+RUN mkdir -p /app/staticfiles /app/media /app/logs \
     && chown -R appuser:appuser /app
 
 # 【安全】切换到非 root 用户

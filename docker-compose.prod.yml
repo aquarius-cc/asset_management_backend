@@ -17,6 +17,10 @@ services:
     # 默认宽限期仅 10s，不足以让长请求与活跃 WebSocket 排空，故显式延长至 45s。
     stop_grace_period: 45s
     stop_signal: SIGTERM
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+      - logs_data:/app/logs
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings.production
       - SECRET_KEY=${SECRET_KEY}
@@ -105,3 +109,10 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+# =============================================================================
+# 数据卷配置（与 base 合并，新增 logs_data）
+# =============================================================================
+volumes:
+  logs_data:
+    driver: local

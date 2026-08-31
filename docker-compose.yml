@@ -216,6 +216,8 @@ volumes:
     driver: local
   media_volume:
     driver: local
+  logs_data:
+    driver: local
   letsencrypt-certs:
     driver: local
   certbot-webroot:

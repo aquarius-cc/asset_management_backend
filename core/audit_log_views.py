@@ -11,9 +11,10 @@
 3. 查询逻辑委托给 AuditLogQueryService,View 仅负责参数解析和响应格式化
 """
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any
 
+from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema  # type: ignore[attr-defined]
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -161,7 +162,7 @@ class AuditLogListView(ResponseWrapperMixin, APIView):
         if days:
             try:
                 days_int = int(days)
-                start_time = datetime.now() - timedelta(days=days_int)
+                start_time = timezone.now() - timedelta(days=days_int)
             except ValueError:
                 return error_response(message="days 参数必须是整数")
         else:

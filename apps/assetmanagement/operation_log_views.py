@@ -10,9 +10,10 @@
 3. 统一响应格式(使用 CustomPageNumberPagination + success_response/error_response)
 """
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any
 
+from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema  # type: ignore[attr-defined]
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -124,7 +125,7 @@ class AssetOperationLogListView(ResponseWrapperMixin, APIView):
         if days:
             try:
                 days_int = int(days)
-                start_time = datetime.now() - timedelta(days=days_int)
+                start_time = timezone.now() - timedelta(days=days_int)
             except ValueError:
                 return error_response(message="days 参数必须是整数")
         else:

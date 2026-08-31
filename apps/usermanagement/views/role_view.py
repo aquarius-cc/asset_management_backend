@@ -132,7 +132,7 @@ class RoleViewSet(ResponseWrapperMixin, viewsets.ModelViewSet):  # type: ignore[
                         value={
                             "code": 0,
                             "message": "",
-                            "data": {"role_code": "admin", "permissions": ["asset:view", "asset:create"]},
+                            "data": {"role_code": "admin", "permissions": ["asset:read", "asset:create"]},
                         },
                     ),
                     OpenApiExample(

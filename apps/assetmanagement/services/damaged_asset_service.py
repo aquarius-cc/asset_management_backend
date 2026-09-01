@@ -206,10 +206,10 @@ class DamagedAssetService:
         damaged_asset.save()
 
         # 根据 original_status 回退状态(业务约束 §三.5: 审批拒绝回退申请前状态)
-        asset = damaged_asset.asset_recordcode
-        old_status = asset.asset_current_status  # type: ignore[union-attr]
-        AssetFSM.reject_to_original(asset, damaged_asset.original_status)  # type: ignore[arg-type]
-        asset.save(update_fields=["asset_current_status", "updated_at"])  # type: ignore[union-attr]
+        asset = Asset.objects.select_for_update().get(pk=damaged_asset.asset_recordcode.pk)  # type: ignore[union-attr]
+        old_status = asset.asset_current_status
+        AssetFSM.reject_to_original(asset, damaged_asset.original_status)
+        asset.save(update_fields=["asset_current_status", "updated_at"])
 
         # 审计日志
         AuditLogger.log_state_change(
@@ -268,10 +268,10 @@ class DamagedAssetService:
         damaged_asset.delete()
 
         # 恢复资产状态
-        asset = damaged_asset.asset_recordcode
-        old_status = asset.asset_current_status  # type: ignore[union-attr]
-        AssetFSM.cancel_damaged(asset)  # type: ignore[arg-type]
-        asset.save(update_fields=["asset_current_status", "updated_at"])  # type: ignore[union-attr]
+        asset = Asset.objects.select_for_update().get(pk=damaged_asset.asset_recordcode.pk)  # type: ignore[union-attr]
+        old_status = asset.asset_current_status
+        AssetFSM.cancel_damaged(asset)
+        asset.save(update_fields=["asset_current_status", "updated_at"])
 
         # 审计日志
         AuditLogger.log_state_change(

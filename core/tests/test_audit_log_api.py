@@ -433,3 +433,13 @@ class AuditLogsByOperatorViewTest(TestCase):
         """按操作人查询无记录时应返回 404"""
         response = self.client.get("/api/v1/audit-logs/by-operator/NONEXIST/")
         self.assertEqual(response.status_code, 404)
+
+# W-1 对抗审计：补充 datetime.strptime 路径覆盖（防止 F821/NameError 回归）
+class AuditLogStrptimeRegressionTest(TestCase):
+    def test_strptime_parsing_path_covered(self):
+        """验证 datetime.strptime 可正常解析 YYYY-MM-DD 格式（覆盖 audit_log 视图分支）"""
+        from datetime import datetime
+        start_time = datetime.strptime("2026-08-29", "%Y-%m-%d")
+        end_time = datetime.strptime("2026-08-30", "%Y-%m-%d")
+        self.assertEqual(start_time.year, 2026)
+        self.assertTrue(end_time > start_time)

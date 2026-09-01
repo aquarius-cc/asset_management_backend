@@ -11,6 +11,10 @@ from decouple import config
 # 项目根目录(asset_management_backend/)
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
+# W-2 修复: 确保日志目录存在（本地开发/CI/裸运行场景必需）
+LOGS_DIR = BASE_DIR / "logs"
+LOGS_DIR.mkdir(parents=True, exist_ok=True)
+
 # SECURITY WARNING: keep the secret key used in production secret!
 # 安全: 不设弱默认值,各环境文件负责提供密钥
 # - production.py: 从环境变量读取,缺失或弱密钥则抛异常

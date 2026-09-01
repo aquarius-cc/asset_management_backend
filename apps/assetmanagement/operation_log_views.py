@@ -131,13 +131,13 @@ class AssetOperationLogListView(ResponseWrapperMixin, APIView):
         else:
             if start_date:
                 try:
-                    start_time = datetime.strptime(start_date, "%Y-%m-%d")
+                    start_time = timezone.make_aware(datetime.strptime(start_date, "%Y-%m-%d"))
                 except ValueError:
                     return error_response(message="start_date 格式错误,应为 YYYY-MM-DD")
 
             if end_date:
                 try:
-                    end_time = datetime.strptime(end_date, "%Y-%m-%d")
+                    end_time = timezone.make_aware(datetime.strptime(end_date, "%Y-%m-%d"))
                     # 设置为当天的最后一秒
                     end_time = end_time.replace(hour=23, minute=59, second=59)
                 except ValueError:

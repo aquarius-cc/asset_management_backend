@@ -124,6 +124,26 @@ class TestUnregisteredAssetAPI:
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
+    def test_batch_create_drf_validation_error_routed(self, authenticated_client):
+        """
+        【D-1 回归】批量创建: 条目级 DRF 校验失败必须路由为 VALIDATION_ERROR
+        fail_item(此前落 Exception 分支被吞为 INTERNAL_ERROR), 且契约结构与
+        手写版一致(无 row_number 键)——新 Service 内部 pop 剔除。
+        """
+        url = reverse("unregisteredasset:unregisteredasset-batch-create")
+        response = authenticated_client.post(
+            url, {"items": [{"asset_name": "缺字段条目"}]}, format="json"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.data["data"]
+        assert data["success_count"] == 0
+        assert data["fail_count"] == 1
+        fail = data["fail_items"][0]
+        assert set(fail.keys()) == {"index", "error_code", "error_message", "input_data"}
+        assert fail["error_code"] == "VALIDATION_ERROR"
+        assert fail["input_data"] == {"asset_name": "缺字段条目"}
+
     def test_update_unregistered_asset(self, authenticated_client, unregistered_asset_s1):
         """
         测试更新未登记资产

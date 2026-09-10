@@ -49,6 +49,37 @@ class TestUnregisteredAssetService:
         assert asset.approval_status == "pending"
         assert asset.unregistered_code.startswith("UNR-")
 
+    def test_batch_create_success(self, employee):
+        """
+        【D-1 回归】批量创建成功路径: 条目级序列化校验通过后全量落库,
+        返回 batch_execute 统一计数(契约结构含 fail_items, 无 row_number 键)。
+        """
+        items = [
+            {
+                "scenario_type": "s1_no_record",
+                "discovery_date": "2024-06-01",
+                "discovery_location": "会议室A",
+                "asset_name": "未登记笔记本",
+            },
+            {
+                "scenario_type": "s1_no_record",
+                "discovery_date": "2024-06-02",
+                "discovery_location": "会议室B",
+                "asset_name": "未登记显示器",
+            },
+        ]
+
+        result = UnregisteredAssetService.batch_create_unregistered(
+            data_list=items,
+            operator_jobcode=employee.employee_jobcode,
+        )
+
+        assert result["total"] == 2
+        assert result["success_count"] == 2
+        assert result["fail_count"] == 0
+        assert len(result["success_items"]) == 2
+        assert UnregisteredAsset.objects.filter(asset_name__in=["未登记笔记本", "未登记显示器"]).count() == 2
+
     def test_create_s2_without_related_asset_fails(self, employee, storage):
         """
         测试 S2 场景不关联资产应该失败

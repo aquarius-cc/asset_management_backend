@@ -28,6 +28,7 @@ from collections.abc import Callable
 from typing import Any, TypeVar
 
 from rest_framework import serializers
+from rest_framework.response import Response
 
 from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError
@@ -111,6 +112,20 @@ class BatchOperationMixin:
                     "error_message": str(e.detail),
                 }
                 # 如果 item 是字典,始终记录 row_number 和 input_data(保持与原有行为一致)
+                if isinstance(item, dict):
+                    fail_item["row_number"] = item.get("row_number")
+                    # 【B-8 防御层】validated_data 中 SlugRelatedField 字段是模型实例, 归一化后方可 JSON 序列化
+                    fail_item["input_data"] = cls._normalize_input_data(item)
+                fail_items.append(fail_item)
+            except serializers.ValidationError as e:
+                # 【D-1 收敛】process_fn 内执行 serializer.is_valid(raise_exception=True) 时抛出
+                # 的 DRF ValidationError, 此前落入 Exception 分支被吞为 INTERNAL_ERROR;
+                # 现路由为 VALIDATION_ERROR, 与 AppValidationError 分支同构组装。
+                fail_item = {
+                    item_key: idx if item_key == "index" else (item.get(item_key) if isinstance(item, dict) else item),
+                    "error_code": "VALIDATION_ERROR",
+                    "error_message": str(e.detail),
+                }
                 if isinstance(item, dict):
                     fail_item["row_number"] = item.get("row_number")
                     # 【B-8 防御层】validated_data 中 SlugRelatedField 字段是模型实例, 归一化后方可 JSON 序列化
@@ -241,7 +256,7 @@ class BatchResponseHelper:
         serializer_class: Any,
         message: str,
         request_items: list[dict[str, Any]] | None = None,
-    ) -> Any:
+    ) -> Response:
         """批量创建: 将 Service 返回的 success_items 对象列表二次序列化后响应
 
         result 需包含 total/success_count/fail_count/success_items(对象)/fail_items。

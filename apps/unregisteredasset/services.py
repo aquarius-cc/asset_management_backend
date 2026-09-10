@@ -45,6 +45,7 @@ from apps.unregisteredasset.handlers import (
 )
 from apps.unregisteredasset.models import UnregisteredAsset
 from apps.unregisteredasset.selectors import UnregisteredAssetSelector
+from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError
 
 
@@ -192,6 +193,52 @@ class UnregisteredAssetService:
             logger.warning(f"审计日志记录失败(create): {e}", exc_info=True)
 
         return unregistered  # type: ignore[no-any-return]
+
+    @staticmethod
+    def batch_create_unregistered(
+        data_list: list[dict[str, Any]], operator_jobcode: str, operator_name: str | None = None
+    ) -> dict[str, Any]:
+        """批量创建未登记资产申请
+
+        【D-1 收敛】视图层手写循环(views.batch_create)下沉至 Service,
+        复用 BatchOperationMixin.batch_execute。条目级序列化校验
+        (is_valid(raise_exception=True))在驱动函数内执行, DRF ValidationError
+        由 batch_execute 的 VALIDATION_ERROR 分支捕获为 fail_item。
+
+        Args:
+            data_list: 待创建的数据条目列表
+            operator_jobcode: 操作人工号(发现人)
+            operator_name: 操作人姓名(可选)
+
+        Returns:
+            dict: batch_execute 统一结果(total/success_count/fail_count/
+                success_items/fail_items)
+        """
+        from apps.unregisteredasset.serializers import UnregisteredAssetCreateSerializer
+        from core.batch_mixins import BatchOperationMixin
+
+        def _create_item(idx: int, item: dict[str, Any]) -> UnregisteredAsset:
+            serializer = UnregisteredAssetCreateSerializer(data=item)
+            serializer.is_valid(raise_exception=True)
+            return UnregisteredAssetService.create(
+                data=serializer.validated_data,
+                operator_jobcode=operator_jobcode,
+                operator_name=operator_name,
+            )
+
+        result = BatchOperationMixin.batch_execute(
+            items=data_list,
+            process_fn=_create_item,
+            max_batch_size=MAX_BATCH_SIZE,
+            use_transaction=False,
+        )
+        # 【契约锁定】本端点 fail_items 契约与迁移前手写版一致(快照测试逐键锁定):
+        # 剔除 batch_execute 为其他消费方生成的 row_number 键, 保持
+        # {index, error_code, error_message, input_data} 原结构。仅在本方法内
+        # 生效, 不影响其他 10 个 batch_execute 消费方。
+        for fail_item in result["fail_items"]:
+            fail_item.pop("row_number", None)
+        return result
 
     @staticmethod
     @transaction.atomic

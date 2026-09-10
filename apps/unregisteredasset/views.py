@@ -21,7 +21,6 @@
 from typing import Any
 
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import exceptions as drf_exceptions
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
@@ -255,58 +254,18 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet[
                 message=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条", status_code=status.HTTP_400_BAD_REQUEST
             )
 
-        # 【DR-1 收敛】异常分层: AppValidationError 透传注册错误码,
-        # 消除原 CREATE_FAILED 单码制与 str(e) 的内部异常文本暴露
-        success_items = []
-        fail_items = []
-        for idx, item in enumerate(items):
-            try:
-                serializer = UnregisteredAssetCreateSerializer(data=item)
-                serializer.is_valid(raise_exception=True)
-                instance = UnregisteredAssetService.create(
-                    data=serializer.validated_data,
-                    operator_jobcode=resolve_operator(request.user)[0],
-                    operator_name=resolve_operator(request.user)[1],
-                )
-                success_items.append(UnregisteredAssetDetailSerializer(instance).data)
-            except AppValidationError as e:
-                fail_items.append(
-                    {
-                        "index": idx,
-                        "error_code": e.error_code or "VALIDATION_ERROR",
-                        "error_message": str(e.detail),
-                        "input_data": item,
-                    }
-                )
-            except drf_exceptions.ValidationError as e:
-                # 条目级 serializer 校验失败(DRF ValidationError)
-                fail_items.append(
-                    {
-                        "index": idx,
-                        "error_code": "VALIDATION_ERROR",
-                        "error_message": str(e.detail),
-                        "input_data": item,
-                    }
-                )
-            except Exception:
-                fail_items.append(
-                    {
-                        "index": idx,
-                        "error_code": "INTERNAL_ERROR",
-                        "error_message": "服务器内部错误,请稍后重试",
-                        "input_data": item,
-                    }
-                )
-
-        return success_response(
-            data={
-                "total": len(items),
-                "success_count": len(success_items),
-                "fail_count": len(fail_items),
-                "success_items": success_items,
-                "fail_items": fail_items,
-            },
-            message=f"批量创建完成,成功 {len(success_items)} 条,失败 {len(fail_items)} 条",
+        # 【D-1 收敛】手写循环下沉至 Service(batch_execute), 操作人信息仅解析一次
+        operator_jobcode, operator_name = resolve_operator(request.user)
+        result = UnregisteredAssetService.batch_create_unregistered(
+            data_list=items,
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+        )
+        return BatchResponseHelper.create_response(
+            result=result,
+            serializer_class=UnregisteredAssetDetailSerializer,
+            message=f"批量创建完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
+            request_items=items,
         )
 
     @action(detail=False, methods=["post"], url_path="batch-delete")

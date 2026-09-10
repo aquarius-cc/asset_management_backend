@@ -85,6 +85,16 @@ class TestAssetViewSet:
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data["data"]) >= 1
 
+    def test_get_asset_by_recordcode_path_only(self, authenticated_client, asset):
+        """[D-5 回归护栏] 纯路径调用（无 ?recordcode=）此前被 query 读取遮蔽必 400"""
+        url = reverse("assets-get-asset-by-recordcode", kwargs={"recordcode": asset.recordcode})
+        response = authenticated_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["data"]) >= 1
+
+    # 注：400"缺少 recordcode 参数"分支现为防御性代码——url_path 捕获组 [^/.]+
+    # 要求路径段非空，路由层无法产生空 recordcode 请求，故不设集成用例。
+
     def test_combine_search(self, authenticated_client, asset):
         url = reverse("assets-combine-search")
         response = authenticated_client.get(url, {"asset_name": asset.asset_name})

@@ -181,7 +181,8 @@ class AssetViewSet(  # type: ignore[misc]
 
     @action(detail=False, methods=["get"], url_path="getassetbyrecordcode/(?P<recordcode>[^/.]+)")
     def get_asset_by_recordcode(self, request: Any, recordcode: Any = None) -> Response:
-        code = request.query_params.get("recordcode")
+        # 【D-5 修复】路径参数优先, query 兜底——原实现只读 query, 纯路径调用必 400
+        code = recordcode or request.query_params.get("recordcode")
         if not code:
             return error_response(message="缺少 recordcode 参数", status_code=400)
         assets = self.get_queryset().filter(recordcode=code)

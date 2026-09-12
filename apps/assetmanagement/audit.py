@@ -280,6 +280,23 @@ class AuditLogger:
             operator_name=operator_name,
         )
 
+    @staticmethod
+    def log_public_scan(
+        asset_code: str,
+        asset_name: str,
+        asset_specification: str | None = None,
+    ) -> bool:
+        """记录公开扫码查询日志(匿名访问,操作人不落库,仅记 IP)"""
+        return AuditLogger._safe_log(
+            OperationLogService.log_operation,
+            asset_code=asset_code,
+            asset_name=asset_name,
+            asset_specification=asset_specification,
+            operation_type=AssetOperationLog.OperationType.PUBLIC_SCAN,
+            description="公开扫码查询",
+            ip_address=get_current_ip(),
+        )
+
 
 def audit_operation(operation_type: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """

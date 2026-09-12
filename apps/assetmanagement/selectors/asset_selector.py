@@ -123,17 +123,13 @@ class AssetSelector:
 
     @staticmethod
     def get_asset_for_public_scan(recordcode: str) -> Asset | None:
-        """公开扫码查询:按 recordcode 获取资产,预加载类型/仓库/保管人。
+        """公开扫码查询:按 recordcode 获取资产(仅基本字段,不做关联预加载)。
 
-        与 get_asset_by_recordcode 的区别:本方法带 select_related,
-        用于 public_scan_view 等需要关联数据的只读场景。
+        与 get_asset_by_recordcode 的区别:本方法面向 public_scan_view 的
+        6 字段白名单返回,无 select_related JOIN(R4-04 最小暴露收敛)。
         """
         try:
-            return Asset.objects.select_related(
-                "asset_type_recordcode",
-                "asset_storage_recordcode",
-                "asset_manager_recordcode",
-            ).get(recordcode=recordcode, is_deleted=False)
+            return Asset.objects.get(recordcode=recordcode, is_deleted=False)
         except Asset.DoesNotExist:
             return None
 

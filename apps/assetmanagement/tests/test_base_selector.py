@@ -270,9 +270,19 @@ class TestHardDiskSNSelector:
 class TestDashboardSelector:
     """仪表盘选择器测试类"""
 
-    def test_get_statistics(self, asset):
+    @pytest.fixture
+    def full_scope_user(self, db):
+        """全量范围用户(superuser 无部门限制),保持既有全库断言语义"""
+        from apps.authusermanagement.models import AuthUser
+        from core.tests import TEST_PASSWORD
+
+        return AuthUser.objects.create_superuser(
+            auth_username="fullscope", password=TEST_PASSWORD, auth_phone="13800000001"
+        )
+
+    def test_get_statistics(self, asset, full_scope_user):
         """获取统计信息"""
-        stats = DashboardSelector.get_statistics()
+        stats = DashboardSelector.get_statistics(full_scope_user)
         assert "total_assets" in stats
         assert "total_value" in stats
         assert "in_store" in stats
@@ -282,9 +292,9 @@ class TestDashboardSelector:
         assert "scrapped" in stats
         assert stats["total_assets"] == 1
 
-    def test_get_overview_statistics(self, asset):
+    def test_get_overview_statistics(self, asset, full_scope_user):
         """获取概览统计信息"""
-        stats = DashboardSelector.get_overview_statistics()
+        stats = DashboardSelector.get_overview_statistics(full_scope_user)
         assert "total_assets" in stats
         assert "total_value" in stats
         assert "total_contracts" in stats
@@ -302,7 +312,7 @@ class TestDashboardSelector:
         assert stats["in_stock_assets"] == 1
         assert stats["active_assets"] == 0
 
-    def test_get_recent_out_assets(self, asset, user):
+    def test_get_recent_out_assets(self, asset, user, full_scope_user):
         """获取最近出库记录"""
         from apps.assetmanagement.models import OutAsset
 
@@ -310,7 +320,7 @@ class TestDashboardSelector:
             asset_recordcode=asset,
             outasset_date="2024-01-01",
         )
-        result = DashboardSelector.get_recent_out_assets()
+        result = DashboardSelector.get_recent_out_assets(full_scope_user)
         assert len(result) == 1
         assert result[0]["asset_code"] == "A001"
         assert "id" in result[0]
@@ -318,7 +328,7 @@ class TestDashboardSelector:
         assert "recipient_name" in result[0]
         assert "department_name" in result[0]
 
-    def test_get_recent_out_assets_with_applicant(self, asset, user):
+    def test_get_recent_out_assets_with_applicant(self, asset, user, full_scope_user):
         """出库记录携带申请人FK，验证select_related正确填充"""
         from apps.assetmanagement.models import OutAsset
 
@@ -327,12 +337,12 @@ class TestDashboardSelector:
             outasset_applicant_recordcode=user,
             outasset_date="2024-01-01",
         )
-        result = DashboardSelector.get_recent_out_assets()
+        result = DashboardSelector.get_recent_out_assets(full_scope_user)
         assert len(result) == 1
         assert result[0]["recipient_name"] == "测试用户"
         assert result[0]["department_name"] == "测试部门"
 
-    def test_get_recent_recycle_assets(self, asset, user):
+    def test_get_recent_recycle_assets(self, asset, user, full_scope_user):
         """获取最近回收记录"""
         from apps.assetmanagement.models import OutAsset, RecycleAsset
 
@@ -345,7 +355,7 @@ class TestDashboardSelector:
             outasset_recordcode=outasset,
             recycle_asset_date="2024-01-02",
         )
-        result = DashboardSelector.get_recent_recycle_assets()
+        result = DashboardSelector.get_recent_recycle_assets(full_scope_user)
         assert len(result) == 1
         assert result[0]["asset_code"] == "A001"
         assert "id" in result[0]
@@ -353,7 +363,7 @@ class TestDashboardSelector:
         assert "returner_name" in result[0]
         assert "department_name" in result[0]
 
-    def test_get_recent_recycle_assets_with_operator(self, asset, user):
+    def test_get_recent_recycle_assets_with_operator(self, asset, user, full_scope_user):
         """回收记录携带操作人FK，验证select_related正确填充"""
         from apps.assetmanagement.models import OutAsset, RecycleAsset
 
@@ -367,14 +377,14 @@ class TestDashboardSelector:
             operator_employee=user,
             recycle_asset_date="2024-01-02",
         )
-        result = DashboardSelector.get_recent_recycle_assets()
+        result = DashboardSelector.get_recent_recycle_assets(full_scope_user)
         assert len(result) == 1
         assert result[0]["returner_name"] == "测试用户"
         assert result[0]["department_name"] == "测试部门"
 
-    def test_get_asset_trend(self, asset):
+    def test_get_asset_trend(self, asset, full_scope_user):
         """获取资产趋势数据"""
-        result = DashboardSelector.get_asset_trend(days=30)
+        result = DashboardSelector.get_asset_trend(full_scope_user, days=30)
         assert isinstance(result, list)
         assert len(result) >= 30
         assert result[0]["date"]
@@ -383,22 +393,22 @@ class TestDashboardSelector:
         assert "recovered" in result[0]
         assert "scrapped" in result[0]
 
-    def test_get_department_distribution(self, asset):
+    def test_get_department_distribution(self, asset, full_scope_user):
         """获取资产按部门分布统计"""
-        result = DashboardSelector.get_department_distribution()
+        result = DashboardSelector.get_department_distribution(full_scope_user)
         assert isinstance(result, list)
 
-    def test_get_type_distribution(self, asset, asset_type):
+    def test_get_type_distribution(self, asset, asset_type, full_scope_user):
         """获取资产按类型分布统计"""
-        result = DashboardSelector.get_type_distribution()
+        result = DashboardSelector.get_type_distribution(full_scope_user)
         assert isinstance(result, list)
 
-    def test_get_expiring_assets(self, asset):
+    def test_get_expiring_assets(self, asset, full_scope_user):
         """获取即将到期的资产"""
-        result = DashboardSelector.get_expiring_assets()
+        result = DashboardSelector.get_expiring_assets(full_scope_user)
         assert isinstance(result, list)
 
-    def test_get_maintenance_reminders(self, asset):
+    def test_get_maintenance_reminders(self, asset, full_scope_user):
         """获取维护提醒数据"""
-        result = DashboardSelector.get_maintenance_reminders()
+        result = DashboardSelector.get_maintenance_reminders(full_scope_user)
         assert isinstance(result, list)

@@ -204,8 +204,9 @@ class TestAssetViewSet:
         url = reverse("assets-found-and-return", kwargs={"recordcode": asset.recordcode})
         data = {"found_location": "测试找回位置", "found_description": "测试找回描述"}
         response = admin_authenticated_client.post(url, data, format="json")
-        # Asset is in_store, not lost — raises LostAsset.DoesNotExist (500) or AppValidationError (400)
-        assert response.status_code in [status.HTTP_400_BAD_REQUEST, status.HTTP_500_INTERNAL_SERVER_ERROR]
+        # Asset is in_store, not lost → Service 抛 AppValidationError(NO_LOST_RECORD) → 400
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "无遗失记录" in response.data["message"]
 
     def test_repair(self, admin_authenticated_client, asset):
         url = reverse("assets-repair", kwargs={"recordcode": asset.recordcode})

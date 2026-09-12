@@ -417,7 +417,7 @@ class AssetViewSet(  # type: ignore[misc]
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
         )
-        return success_response(data=AssetDetailSerializer(asset).data, message="遗失资产已找回并入库")
+        return success_response(data=AssetDetailSerializer(asset).data, message="遗失资产已找回，已进入待发放")
 
     @action(detail=True, methods=["post"], url_path="repair")
     def repair(self, request: Any, recordcode: Any = None) -> Response:

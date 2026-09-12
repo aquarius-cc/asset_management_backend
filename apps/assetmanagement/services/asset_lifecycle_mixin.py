@@ -14,7 +14,7 @@ from django.db import transaction
 from apps.assetmanagement.audit import AuditLogger
 from apps.assetmanagement.models import Asset, BrokenAsset, FoundAsset, LostAsset
 from apps.assetmanagement.models.operation_log import AssetOperationLog
-from apps.assetmanagement.state_machine import AssetFSM
+from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
 
 
 class AssetLifecycleMixin:
@@ -30,7 +30,11 @@ class AssetLifecycleMixin:
         operator_name: str = "",
     ) -> Asset:
         """标记资产为已损坏"""
-        asset = Asset.objects.select_for_update().get(asset_code=asset_code)
+        from core.exceptions import AppValidationError
+
+        asset = Asset.objects.select_for_update().filter(asset_code=asset_code).first()
+        if asset is None:
+            raise AppValidationError(detail=f"资产 {asset_code} 不存在", error_code="ASSET_NOT_FOUND")
 
         if asset.asset_current_status == Asset.AssetStatus.BROKEN:
             return asset
@@ -39,7 +43,10 @@ class AssetLifecycleMixin:
 
         operator = EmployeeSelector.get_employee_by_jobcode(operator_jobcode)
 
-        AssetFSM.mark_broken(asset)
+        try:
+            AssetFSM.mark_broken(asset)
+        except InvalidTransitionError as e:
+            raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
         asset.save(update_fields=["asset_current_status", "updated_at"])
 
         from apps.assetmanagement.models import AssetOperationLog, BrokenAsset
@@ -72,7 +79,11 @@ class AssetLifecycleMixin:
         operator_name: str = "",
     ) -> Asset:
         """标记资产为已遗失"""
-        asset = Asset.objects.select_for_update().get(asset_code=asset_code)
+        from core.exceptions import AppValidationError
+
+        asset = Asset.objects.select_for_update().filter(asset_code=asset_code).first()
+        if asset is None:
+            raise AppValidationError(detail=f"资产 {asset_code} 不存在", error_code="ASSET_NOT_FOUND")
 
         if asset.asset_current_status == Asset.AssetStatus.LOST:
             return asset
@@ -81,7 +92,10 @@ class AssetLifecycleMixin:
 
         operator = EmployeeSelector.get_employee_by_jobcode(operator_jobcode)
 
-        AssetFSM.mark_lost(asset)
+        try:
+            AssetFSM.mark_lost(asset)
+        except InvalidTransitionError as e:
+            raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
         asset.save(update_fields=["asset_current_status", "updated_at"])
 
         from apps.assetmanagement.models import AssetOperationLog, LostAsset
@@ -114,17 +128,24 @@ class AssetLifecycleMixin:
         operator_name: str = "",
     ) -> Asset:
         """找回遗失资产(转入待发放状态)"""
-        asset = Asset.objects.select_for_update().get(asset_code=asset_code)
+        from core.exceptions import AppValidationError
 
-        from apps.assetmanagement.models import LostAsset
+        asset = Asset.objects.select_for_update().filter(asset_code=asset_code).first()
+        if asset is None:
+            raise AppValidationError(detail=f"资产 {asset_code} 不存在", error_code="ASSET_NOT_FOUND")
 
-        lost_record = LostAsset.objects.get(asset_recordcode=asset)
+        lost_record = LostAsset.objects.filter(asset_recordcode=asset).first()
+        if lost_record is None:
+            raise AppValidationError(detail=f"资产 {asset_code} 无遗失记录,无法找回", error_code="NO_LOST_RECORD")
 
         from apps.usermanagement.selectors import EmployeeSelector
 
         operator = EmployeeSelector.get_employee_by_jobcode(operator_jobcode)
 
-        AssetFSM.found_and_return(asset)
+        try:
+            AssetFSM.found_and_return(asset)
+        except InvalidTransitionError as e:
+            raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
         asset.save(update_fields=["asset_current_status", "updated_at"])
 
         from apps.assetmanagement.models import AssetOperationLog, FoundAsset
@@ -261,7 +282,7 @@ class AssetLifecycleMixin:
 
         def _create_one(idx: int, item: dict[str, Any]) -> Asset:
             return AssetLifecycleMixin.mark_asset_broken(
-                asset_code=item["asset_recordcode"],
+                asset_code=item["asset_code"],
                 broken_reason=item["broken_reason"],
                 broken_description=item.get("broken_description", ""),
                 operator_jobcode=operator_jobcode,

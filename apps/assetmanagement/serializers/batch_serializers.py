@@ -174,7 +174,7 @@ class BrokenAssetBatchCreateItemSerializer(serializers.Serializer):  # type: ign
     """单条损坏资产批量创建数据校验"""
 
     row_number = serializers.IntegerField(required=False, help_text="Excel 行号")
-    asset_recordcode = serializers.CharField(required=True, help_text="资产 recordcode")
+    asset_code = serializers.CharField(required=True, help_text="资产编码")
     broken_date = serializers.DateField(required=False, help_text="损坏日期")
     broken_reason = serializers.CharField(required=True, max_length=200, help_text="损坏原因")
     broken_description = serializers.CharField(required=False, allow_blank=True, default="", help_text="损坏描述")

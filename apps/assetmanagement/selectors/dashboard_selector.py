@@ -6,21 +6,43 @@
 
 from typing import Any
 
-from django.db.models import Count, Sum
+from django.db.models import Count, QuerySet, Sum
 
 from apps.assetmanagement.models import Asset, Contract
+from core.department_scope import (
+    build_asset_owned_department_q,
+    get_asset_linked_queryset_for_user,
+    get_department_codes_for_user,
+)
 
 
 class DashboardSelector:
     """仪表盘查询选择器"""
 
     @staticmethod
-    def get_statistics() -> dict[str, Any]:
-        asset_stats = Asset.objects.filter(is_deleted=False).aggregate(
+    def _scoped_asset_queryset(user: Any) -> QuerySet[Any, Any]:
+        """按用户部门范围过滤 Asset 查询集(与全系统行级隔离单一事实来源)
+
+        get_department_codes_for_user 返回值语义:
+        - None: 无限制(system_admin / auditor / superuser / 无 Employee)
+        - 空列表: 无权限(部门级角色但无部门),返回空集
+        - 非空列表: 限定部门范围(三路径归属)
+        """
+        codes = get_department_codes_for_user(user)
+        if codes is None:
+            return Asset.objects.filter(is_deleted=False)
+        if not codes:
+            return Asset.objects.none()
+        return Asset.objects.filter(is_deleted=False).filter(build_asset_owned_department_q(codes))
+
+    @staticmethod
+    def get_statistics(user: Any) -> dict[str, Any]:
+        assets = DashboardSelector._scoped_asset_queryset(user)
+        asset_stats = assets.aggregate(
             total=Count("id"), total_value=Sum("asset_purchase_price")
         )
         status_counts = (
-            Asset.objects.filter(is_deleted=False).values("asset_current_status").annotate(count=Count("id"))
+            assets.values("asset_current_status").annotate(count=Count("id"))
         )
         status_dict = {item["asset_current_status"]: item["count"] for item in status_counts}
         return {
@@ -34,23 +56,23 @@ class DashboardSelector:
         }
 
     @staticmethod
-    def get_overview_statistics() -> dict[str, Any]:
-        """获取仪表盘概览统计 — 资产 + 合同 + 状态分布 + 月度/累计操作数"""
+    def get_overview_statistics(user: Any) -> dict[str, Any]:
+        """获取仪表盘概览统计 — 资产 + 合同 + 状态分布 + 月度/累计操作数(按用户范围)"""
         from django.utils import timezone
 
         from apps.assetmanagement.models import OutAsset, RecycleAsset
 
         now = timezone.now()
 
-        asset_stats = Asset.objects.filter(is_deleted=False).aggregate(
+        assets = DashboardSelector._scoped_asset_queryset(user)
+        asset_stats = assets.aggregate(
             total=Count("id"), total_value=Sum("asset_purchase_price")
         )
         contract_stats = Contract.objects.filter(is_deleted=False).aggregate(total=Count("id"))
 
         # 按状态分组（一次查询覆盖全部 8 种状态）
         status_counts = dict(
-            Asset.objects.filter(is_deleted=False)
-            .values_list("asset_current_status")
+            assets.values_list("asset_current_status")
             .annotate(count=Count("id"))
             .values_list("asset_current_status", "count")
         )
@@ -60,15 +82,17 @@ class DashboardSelector:
             for code, label in Asset.ASSET_STATUS_CHOICES
         }
 
-        # 月度 / 累计操作数
-        monthly_distributed = OutAsset.objects.filter(
-            is_deleted=False, outasset_date__year=now.year, outasset_date__month=now.month
+        # 月度 / 累计操作数(与资产同范围隔离)
+        scoped_out_qs = get_asset_linked_queryset_for_user(user, OutAsset.objects.filter(is_deleted=False))
+        scoped_recycle_qs = get_asset_linked_queryset_for_user(user, RecycleAsset.objects.filter(is_deleted=False))
+        monthly_distributed = scoped_out_qs.filter(
+            outasset_date__year=now.year, outasset_date__month=now.month
         ).count()
-        monthly_recycled = RecycleAsset.objects.filter(
-            is_deleted=False, recycle_asset_date__year=now.year, recycle_asset_date__month=now.month
+        monthly_recycled = scoped_recycle_qs.filter(
+            recycle_asset_date__year=now.year, recycle_asset_date__month=now.month
         ).count()
-        total_distributed = OutAsset.objects.filter(is_deleted=False).count()
-        total_recycled = RecycleAsset.objects.filter(is_deleted=False).count()
+        total_distributed = scoped_out_qs.count()
+        total_recycled = scoped_recycle_qs.count()
 
         return {
             "total_assets": asset_stats["total"] or 0,
@@ -87,19 +111,19 @@ class DashboardSelector:
         }
 
     @staticmethod
-    def get_recent_out_assets(limit: int = 10) -> list[dict[str, Any]]:
-        """获取最近出库记录"""
+    def get_recent_out_assets(user: Any, limit: int = 10) -> list[dict[str, Any]]:
+        """获取最近出库记录(按用户部门范围隔离)"""
         from apps.assetmanagement.models import OutAsset
 
-        outassets = (
-            OutAsset.objects.filter(is_deleted=False)
-            .select_related(
+        out_qs = get_asset_linked_queryset_for_user(
+            user,
+            OutAsset.objects.filter(is_deleted=False).select_related(
                 "asset_recordcode",
                 "outasset_applicant_recordcode",
                 "outasset_applicant_recordcode__employee_department",
-            )
-            .order_by("-outasset_date")[:limit]
+            ),
         )
+        outassets = out_qs.order_by("-outasset_date")[:limit]
         return [
             {
                 "id": oa.pk,
@@ -124,20 +148,20 @@ class DashboardSelector:
         ]
 
     @staticmethod
-    def get_recent_recycle_assets(limit: int = 10) -> list[dict[str, Any]]:
-        """获取最近回收记录"""
+    def get_recent_recycle_assets(user: Any, limit: int = 10) -> list[dict[str, Any]]:
+        """获取最近回收记录(按用户部门范围隔离)"""
         from apps.assetmanagement.models import RecycleAsset
 
-        recycles = (
-            RecycleAsset.objects.filter(is_deleted=False)
-            .select_related(
+        recycle_qs = get_asset_linked_queryset_for_user(
+            user,
+            RecycleAsset.objects.filter(is_deleted=False).select_related(
                 "asset_recordcode",
                 "outasset_recordcode",
                 "operator_employee",
                 "operator_employee__employee_department",
-            )
-            .order_by("-recycle_asset_date")[:limit]
+            ),
         )
+        recycles = recycle_qs.order_by("-recycle_asset_date")[:limit]
         return [
             {
                 "id": r.pk,
@@ -159,11 +183,12 @@ class DashboardSelector:
 
     @staticmethod
     def get_asset_trend(
+        user: Any,
         days: int = 30,
         start_date: str | None = None,
         end_date: str | None = None,
     ) -> list[dict[str, Any]]:
-        """获取资产趋势数据(按日统计)
+        """获取资产趋势数据(按日统计,按用户部门范围隔离)
 
         支持两种模式：
         1. 日期范围模式：传入 start_date/end_date (YYYY-MM-DD)，返回该范围内每日数据
@@ -186,7 +211,8 @@ class DashboardSelector:
             range_start = range_end - timedelta(days=days)
 
         daily_creates = (
-            Asset.objects.filter(is_deleted=False, created_at__date__gte=range_start, created_at__date__lte=range_end)
+            DashboardSelector._scoped_asset_queryset(user)
+            .filter(created_at__date__gte=range_start, created_at__date__lte=range_end)
             .annotate(date=TruncDate("created_at"))
             .values("date")
             .annotate(count=Count("id"))
@@ -213,18 +239,24 @@ class DashboardSelector:
         return trend_data
 
     @staticmethod
-    def get_department_distribution() -> list[dict[str, Any]]:
-        """获取资产按部门分布统计
+    def get_department_distribution(user: Any) -> list[dict[str, Any]]:
+        """获取资产按部门分布统计(仅展示用户范围内的部门,不泄露其他部门)
 
         返回格式对齐前端 types/dashboard.ts 内联类型：
         [{"department_name": str, "asset_count": int, "percentage": float}]
         """
-        dept_stats = (
-            Asset.objects.filter(is_deleted=False, asset_manager_recordcode__isnull=False)
-            .values("asset_manager_recordcode__employee_department__department_name")
-            .annotate(asset_count=Count("id"))
-            .order_by("-asset_count")
-        )
+        codes = get_department_codes_for_user(user)
+        if codes is not None and not codes:
+            return []
+
+        dept_stats_qs = Asset.objects.filter(is_deleted=False, asset_manager_recordcode__isnull=False)
+        if codes:
+            dept_stats_qs = dept_stats_qs.filter(
+                asset_manager_recordcode__employee_department__department_code__in=codes
+            )
+        dept_stats = dept_stats_qs.values(
+            "asset_manager_recordcode__employee_department__department_name"
+        ).annotate(asset_count=Count("id")).order_by("-asset_count")
 
         total = sum(item["asset_count"] for item in dept_stats) or 1
         return [
@@ -237,14 +269,16 @@ class DashboardSelector:
         ]
 
     @staticmethod
-    def get_type_distribution() -> list[dict[str, Any]]:
-        """获取资产按类型分布统计
+    def get_type_distribution(user: Any) -> list[dict[str, Any]]:
+        """获取资产按类型分布统计(按用户部门范围隔离)
 
         返回格式对齐前端 types/dashboard.ts 内联类型：
         [{"type_name": str, "count": int, "percentage": float}]
         """
         type_stats = (
-            Asset.objects.filter(is_deleted=False, asset_type_recordcode__isnull=False)
+            DashboardSelector._scoped_asset_queryset(user)
+            .select_related("asset_type_recordcode")
+            .filter(asset_type_recordcode__isnull=False)
             .values("asset_type_recordcode__type_name")
             .annotate(asset_count=Count("id"))
             .order_by("-asset_count")
@@ -261,8 +295,8 @@ class DashboardSelector:
         ]
 
     @staticmethod
-    def get_expiring_assets(days: int = 30) -> list[dict[str, Any]]:
-        """获取即将到期的资产(保修期即将结束)
+    def get_expiring_assets(user: Any, days: int = 30) -> list[dict[str, Any]]:
+        """获取即将到期的资产(保修期即将结束,按用户部门范围隔离)
 
         返回格式对齐前端 types/dashboard.ts ExpiringAsset：
         [{"id": int, "asset_code": str, "asset_name": str, "expire_date": str, "days_until_expire": int}]
@@ -272,7 +306,8 @@ class DashboardSelector:
         from dateutil.relativedelta import relativedelta  # type: ignore[import-untyped]
 
         expiring_assets = (
-            Asset.objects.filter(is_deleted=False, asset_warranty_period__gt=0, asset_purchase_date__isnull=False)
+            DashboardSelector._scoped_asset_queryset(user)
+            .filter(asset_warranty_period__gt=0, asset_purchase_date__isnull=False)
             .order_by("asset_purchase_date")[:50]
         )
 
@@ -295,8 +330,8 @@ class DashboardSelector:
         return sorted(result, key=lambda x: x["days_until_expire"])
 
     @staticmethod
-    def get_maintenance_reminders() -> list[dict[str, Any]]:
-        """获取维护提醒数据
+    def get_maintenance_reminders(user: Any) -> list[dict[str, Any]]:
+        """获取维护提醒数据(按用户部门范围隔离)
 
         返回格式对齐前端 types/dashboard.ts MaintenanceReminder：
         [{"id": int, "asset_code": str, "asset_name": str, "maintenance_date": str, "type": str}]
@@ -307,7 +342,8 @@ class DashboardSelector:
         now = timezone.now().date()
 
         assets = (
-            Asset.objects.filter(is_deleted=False, asset_current_status="in_use", asset_entry_date__isnull=False)
+            DashboardSelector._scoped_asset_queryset(user)
+            .filter(asset_current_status="in_use", asset_entry_date__isnull=False)
             .order_by("asset_entry_date")[:50]
         )
 

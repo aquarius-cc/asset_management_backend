@@ -21,7 +21,7 @@ class DashboardViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ViewSet):
 
     @action(detail=False, methods=["get"])
     def overview(self, request: Any) -> Response:
-        stats = DashboardSelector.get_overview_statistics()
+        stats = DashboardSelector.get_overview_statistics(request.user)
         return success_response(data=stats)
 
     @action(detail=False, methods=["get"])
@@ -30,7 +30,7 @@ class DashboardViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ViewSet):
             limit = min(int(request.query_params.get("limit", 10) or 10), 100)
         except (ValueError, TypeError):
             limit = 10
-        result = DashboardSelector.get_recent_out_assets(limit=limit)
+        result = DashboardSelector.get_recent_out_assets(request.user, limit=limit)
         return success_response(data=result)
 
     @action(detail=False, methods=["get"], url_path="recent_recycle_assets")
@@ -39,7 +39,7 @@ class DashboardViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ViewSet):
             limit = min(int(request.query_params.get("limit", 10) or 10), 100)
         except (ValueError, TypeError):
             limit = 10
-        result = DashboardSelector.get_recent_recycle_assets(limit=limit)
+        result = DashboardSelector.get_recent_recycle_assets(request.user, limit=limit)
         return success_response(data=result)
 
     @action(detail=False, methods=["get"])
@@ -47,23 +47,25 @@ class DashboardViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ViewSet):
         start_date = request.query_params.get("start_date")
         end_date = request.query_params.get("end_date")
         if start_date and end_date:
-            result = DashboardSelector.get_asset_trend(start_date=start_date, end_date=end_date)
+            result = DashboardSelector.get_asset_trend(
+                request.user, start_date=start_date, end_date=end_date
+            )
         else:
             try:
                 days = min(int(request.query_params.get("days", 30) or 30), 365)
             except (ValueError, TypeError):
                 days = 30
-            result = DashboardSelector.get_asset_trend(days=days)
+            result = DashboardSelector.get_asset_trend(request.user, days=days)
         return success_response(data=result)
 
     @action(detail=False, methods=["get"])
     def department_distribution(self, request: Any) -> Response:
-        result = DashboardSelector.get_department_distribution()
+        result = DashboardSelector.get_department_distribution(request.user)
         return success_response(data=result)
 
     @action(detail=False, methods=["get"], url_path="type_distribution")
     def type_distribution(self, request: Any) -> Response:
-        result = DashboardSelector.get_type_distribution()
+        result = DashboardSelector.get_type_distribution(request.user)
         return success_response(data=result)
 
     @action(detail=False, methods=["get"], url_path="expiring_assets")
@@ -72,10 +74,10 @@ class DashboardViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ViewSet):
             days = min(int(request.query_params.get("days", 30) or 30), 365)
         except (ValueError, TypeError):
             days = 30
-        result = DashboardSelector.get_expiring_assets(days=days)
+        result = DashboardSelector.get_expiring_assets(request.user, days=days)
         return success_response(data=result)
 
     @action(detail=False, methods=["get"], url_path="maintenance_reminders")
     def maintenance_reminders(self, request: Any) -> Response:
-        result = DashboardSelector.get_maintenance_reminders()
+        result = DashboardSelector.get_maintenance_reminders(request.user)
         return success_response(data=result)

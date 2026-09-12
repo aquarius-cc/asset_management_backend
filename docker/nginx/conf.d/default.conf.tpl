@@ -184,6 +184,26 @@ server {
         access_log off;
     }
 
+    # --- Prometheus 指标 (OC-4): 仅内网可抓取 ---
+    # Prometheus 直接抓取 web:8000/metrics/（config/prometheus.yml job "django"，容器网络），不走 Nginx；
+    # 本块仅收紧公网探测面——当前 /metrics/ 会落到 SPA catch-all 返回 index.html（不代理到后端，指标不外泄），
+    # ACL 属纵深防御（防止未来代理化后外泄）；公网源 IP 永不为 10.x，实际效果 = 公网 deny all。
+    # 若未来 Prometheus 改走 Nginx（本块 allow 段生效），需将抓取源网段并入 allow。
+    location = /metrics/ {
+        allow 10.0.0.0/8;
+        deny all;
+
+        proxy_pass http://asset_backend;
+        # 安全头防御护栏（与 /health/ 同型）
+        proxy_hide_header Strict-Transport-Security;
+        proxy_hide_header X-Content-Type-Options;
+        proxy_hide_header X-Frame-Options;
+        proxy_hide_header Referrer-Policy;
+        proxy_hide_header Permissions-Policy;
+        proxy_set_header Host $host;
+        access_log off;
+    }
+
     # --- 静态文件 (30天缓存 + immutable 指纹) ---
     location /static/ {
         alias /app/staticfiles/;

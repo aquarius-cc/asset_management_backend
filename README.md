@@ -71,7 +71,7 @@ python manage.py runserver
 参考 `.env.example` 文件，配置以下环境变量：
 
 - `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` - 数据库配置
-- `SECRET_KEY` - Django 密钥（**生产环境必须通过环境变量注入，禁止使用 `base.py` 中的开发默认值**）
+- `SECRET_KEY` - Django 密钥（**生产环境必须通过环境变量注入，禁止使用 `base.py` 中的开发默认值**；本地开发可不设——`development.py` 自动回退弱密钥并触发 `_INSECURE_KEYS` 启动校验告警，**仅限本地开发**。生产由 `production.py` 强制：环境变量注入 + 长度 ≥20 + 弱密钥黑名单，违规启动即失败 `ImproperlyConfigured`）
 - `DEBUG` - 调试模式（生产环境设为 `False`）
 - `ALLOWED_HOSTS` - 允许的主机域名
 

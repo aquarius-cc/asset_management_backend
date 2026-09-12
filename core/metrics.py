@@ -46,18 +46,6 @@ ERROR_COUNT = Counter(
     ["method", "endpoint", "status_code"],
 )
 
-# 数据库查询计数(用于检测慢查询)
-DB_QUERY_COUNT = Counter(
-    "asset_mgmt_db_queries_total",
-    "数据库查询总数",
-)
-
-DB_QUERY_LATENCY = Histogram(
-    "asset_mgmt_db_query_duration_seconds",
-    "数据库查询耗时(秒)",
-    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0),
-)
-
 
 def metrics_view(request: "HttpRequest") -> HttpResponse:
     """

@@ -49,7 +49,7 @@ class DamagedAssetService:
         damaged_asset.original_status = old_status
         damaged_asset.save(update_fields=["original_status", "updated_at"])
         try:
-            AssetFSM.damaged(asset)
+            AssetFSM.to_damaged(asset)
         except InvalidTransitionError as e:
             raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
         asset.save(update_fields=["asset_current_status", "updated_at"])
@@ -267,10 +267,10 @@ class DamagedAssetService:
         # 软删除待报废记录
         damaged_asset.delete()
 
-        # 恢复资产状态
+        # 恢复资产状态(按申请前状态回退,与 reject 一致)
         asset = Asset.objects.select_for_update().get(pk=damaged_asset.asset_recordcode.pk)  # type: ignore[union-attr]
         old_status = asset.asset_current_status
-        AssetFSM.cancel_damaged(asset)
+        AssetFSM.cancel_damaged(asset, original_status=damaged_asset.original_status)
         asset.save(update_fields=["asset_current_status", "updated_at"])
 
         # 审计日志

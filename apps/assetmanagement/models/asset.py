@@ -211,7 +211,7 @@ class Asset(BaseModel):
         null=True,
         blank=True,
         verbose_name="二维码",
-        help_text="二维码内容(JSON格式),存储扫码查看资产详情的链接与资产编码",
+        help_text="二维码内容,存储扫码查看资产详情的链接(如 {base_url}/scan/{recordcode}/)",
     )
     asset_current_status = models.CharField(
         max_length=20,

@@ -7,7 +7,7 @@
 主路径:  in_store ──outasset──→ in_use ──recycle──→ recycled_pending ──to_damaged──→ damaged ──approve──→ scrapped(终态)
          recycled_pending ──outasset──→ in_use(再次出库)
          damaged ──reject──→ broken/lost/in_use/recycled_pending/repairing (审批拒绝,按original_status回退)
-         damaged ──cancel──→ recycled_pending(用户取消)
+         damaged ──cancel──→ 按original_status回退(用户取消,与reject一致)
 
 损坏/遗失/维修路径:
          in_store / in_use / recycled_pending ──mark_broken──→ broken

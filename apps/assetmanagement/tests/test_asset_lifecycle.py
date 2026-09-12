@@ -20,7 +20,6 @@ from apps.assetmanagement.models import (
 )
 from apps.assetmanagement.services.asset_service import AssetService
 from apps.assetmanagement.services.repair_asset_service import RepairAssetService
-from apps.assetmanagement.state_machine import InvalidTransitionError
 from core.exceptions import AppValidationError, ResourceConflictError
 
 
@@ -52,16 +51,28 @@ class TestMarkAssetBroken:
         assert result.asset_current_status == "broken"
 
     def test_mark_broken_invalid_transition(self, asset, user):
-        """scrapped 状态不能标记为 broken"""
+        """scrapped 状态不能标记为 broken(Service 层转 AppValidationError)"""
         asset.asset_current_status = "scrapped"
         asset.save()
-        with pytest.raises(InvalidTransitionError):
+        with pytest.raises(AppValidationError) as exc_info:
             AssetService.mark_asset_broken(
                 asset_code="A001",
                 broken_reason="x",
                 operator_jobcode=user.employee_jobcode,
                 operator_name=user.employee_name,
             )
+        assert exc_info.value.error_code == "INVALID_STATE_TRANSITION"
+
+    def test_mark_broken_asset_not_found(self, user):
+        """不存在的资产编码应抛 ASSET_NOT_FOUND(A6 修复)"""
+        with pytest.raises(AppValidationError) as exc_info:
+            AssetService.mark_asset_broken(
+                asset_code="NO_SUCH_CODE",
+                broken_reason="x",
+                operator_jobcode=user.employee_jobcode,
+                operator_name=user.employee_name,
+            )
+        assert exc_info.value.error_code == "ASSET_NOT_FOUND"
 
 
 @pytest.mark.django_db
@@ -92,16 +103,28 @@ class TestMarkAssetLost:
         assert result.asset_current_status == "lost"
 
     def test_mark_lost_invalid_transition(self, asset, user):
-        """scrapped 状态不能标记为 lost"""
+        """scrapped 状态不能标记为 lost(Service 层转 AppValidationError)"""
         asset.asset_current_status = "scrapped"
         asset.save()
-        with pytest.raises(InvalidTransitionError):
+        with pytest.raises(AppValidationError) as exc_info:
             AssetService.mark_asset_lost(
                 asset_code="A001",
                 lost_reason="x",
                 operator_jobcode=user.employee_jobcode,
                 operator_name=user.employee_name,
             )
+        assert exc_info.value.error_code == "INVALID_STATE_TRANSITION"
+
+    def test_mark_lost_asset_not_found(self, user):
+        """不存在的资产编码应抛 ASSET_NOT_FOUND(A6 修复)"""
+        with pytest.raises(AppValidationError) as exc_info:
+            AssetService.mark_asset_lost(
+                asset_code="NO_SUCH_CODE",
+                lost_reason="x",
+                operator_jobcode=user.employee_jobcode,
+                operator_name=user.employee_name,
+            )
+        assert exc_info.value.error_code == "ASSET_NOT_FOUND"
 
 
 @pytest.mark.django_db
@@ -129,15 +152,43 @@ class TestFindAndReturnAsset:
         assert result.asset_current_status == "recycled_pending"
 
     def test_find_and_return_no_lost_record(self, asset, user):
-        """没有 LostAsset 记录时应报错"""
+        """没有 LostAsset 记录时应返回业务错误 400(NO_LOST_RECORD),而非 500"""
         asset.asset_current_status = "lost"
         asset.save()
-        with pytest.raises(LostAsset.DoesNotExist):
+        with pytest.raises(AppValidationError) as exc_info:
             AssetService.find_and_return_asset(
                 asset_code="A001",
                 operator_jobcode=user.employee_jobcode,
                 operator_name=user.employee_name,
             )
+        assert exc_info.value.error_code == "NO_LOST_RECORD"
+
+    def test_find_and_return_asset_not_found(self, user):
+        """资产不存在时应返回业务错误 400(ASSET_NOT_FOUND),而非 500"""
+        with pytest.raises(AppValidationError) as exc_info:
+            AssetService.find_and_return_asset(
+                asset_code="NON_EXISTENT",
+                operator_jobcode=user.employee_jobcode,
+                operator_name=user.employee_name,
+            )
+        assert exc_info.value.error_code == "ASSET_NOT_FOUND"
+
+    def test_find_and_return_repeat_calls(self, asset, user):
+        """重复找回(资产已非 lost)应返回业务错误 400,而非 500 InvalidTransitionError"""
+        self._make_lost_asset(asset, user)
+        AssetService.find_and_return_asset(
+            asset_code="A001",
+            found_location="仓库A",
+            operator_jobcode=user.employee_jobcode,
+            operator_name=user.employee_name,
+        )
+        with pytest.raises(AppValidationError) as exc_info:
+            AssetService.find_and_return_asset(
+                asset_code="A001",
+                operator_jobcode=user.employee_jobcode,
+                operator_name=user.employee_name,
+            )
+        assert exc_info.value.error_code == "INVALID_STATE_TRANSITION"
 
 
 @pytest.mark.django_db
@@ -334,3 +385,45 @@ class TestRepairFailed:
         assert kwargs["notification_type"] == "status_change"
         assert "维修失败" in kwargs["message"]
         assert kwargs["priority"] == "high"
+
+
+@pytest.mark.django_db
+class TestBatchCreateBrokenAssets:
+    """batch_create_broken_assets 批量损坏登记测试（R3-04 载荷键统一为 asset_code）"""
+
+    def test_batch_create_broken_success(self, asset, user):
+        items = [
+            {
+                "row_number": 1,
+                "asset_code": "A001",
+                "broken_reason": "屏幕破裂",
+                "broken_description": "批量登记",
+            }
+        ]
+        result = AssetService.batch_create_broken_assets(
+            items=items,
+            operator_jobcode=user.employee_jobcode,
+            operator_name=user.employee_name,
+        )
+        assert result["total"] == 1
+        assert result["success_count"] == 1
+        assert result["fail_count"] == 0
+        asset.refresh_from_db()
+        assert asset.asset_current_status == "broken"
+        assert BrokenAsset.objects.filter(asset_recordcode=asset).exists()
+
+    def test_batch_create_broken_mixed_results(self, asset, user):
+        """多条条目时逐条执行且状态独立"""
+        items = [
+            {"row_number": 1, "asset_code": "A001", "broken_reason": "碰撞损坏"},
+            {"row_number": 2, "asset_code": "A001", "broken_reason": "再次登记应幂等"},
+        ]
+        result = AssetService.batch_create_broken_assets(
+            items=items,
+            operator_jobcode=user.employee_jobcode,
+            operator_name=user.employee_name,
+        )
+        assert result["total"] == 2
+        assert result["success_count"] == 2
+        assert result["fail_count"] == 0
+        assert BrokenAsset.objects.filter(asset_recordcode=asset).count() == 1

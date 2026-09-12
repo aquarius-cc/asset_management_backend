@@ -14,7 +14,7 @@ from apps.assetmanagement.state_machine.constants import AssetState
 #
 # 【业务规则】
 # - reject(审批拒绝)回退到申请前状态(由 original_status 决定,见 reject_to_original)
-# - cancel(用户取消)回到 recycled_pending
+# - cancel(用户取消)按 original_status 回退(与 reject 同构,缺失/非法兜底 recycled_pending,见 cancel_damaged)
 # - scrapped 为终态,不允许任何转出
 # - 维修完成/找回入池:已使用过的资产(维修/找回)统一回到 recycled_pending,
 #   in_store 仅表示首次入库的新资产

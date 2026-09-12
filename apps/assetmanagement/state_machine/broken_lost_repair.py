@@ -58,7 +58,7 @@ class BrokenLostRepairTransitionsMixin:
     @classmethod
     def found_and_return(cls, asset: "Asset") -> None:
         """
-        找回入库: lost → recycled_pending
+        找回(重新进入发放池): lost → recycled_pending
 
         遗失资产被找回后,转入待发放状态,等待再次分配。
         触发时机: 资产找回后,由 AssetService 调用。

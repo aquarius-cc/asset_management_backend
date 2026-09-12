@@ -1,4 +1,4 @@
-"""资产状态机核心测试(CT-3: 全路径覆盖 + 审批拒绝回退路径专项)"""
+﻿"""资产状态机核心测试(CT-3: 全路径覆盖 + 审批拒绝回退路径专项)"""
 
 import pytest
 
@@ -52,6 +52,43 @@ class TestRejectToOriginal:
         asset = _make_asset(storage, asset_type, "in_use", "A_FSM_E")
         with pytest.raises(InvalidTransitionError):
             AssetFSM.reject_to_original(asset, "in_use")
+
+
+@pytest.mark.django_db
+class TestCancelDamaged:
+    """取消报废回退路径专项: 与 reject_to_original 同构"""
+
+    def _damaged_asset(self, storage, asset_type):
+        return _make_asset(storage, asset_type, "damaged", "A_FSM_C")
+
+    @pytest.mark.parametrize(
+        ("original_status", "expected_status"),
+        [
+            ("in_use", "in_use"),
+            ("recycled_pending", "recycled_pending"),
+            ("broken", "broken"),
+            ("lost", "lost"),
+            ("repairing", "repairing"),
+        ],
+    )
+    def test_cancel_returns_to_original(self, storage, asset_type, original_status, expected_status):
+        """damaged → 原状态(合法原状态逐一回退,与 reject 一致)"""
+        asset = self._damaged_asset(storage, asset_type)
+        AssetFSM.cancel_damaged(asset, original_status)
+        assert asset.asset_current_status == expected_status
+
+    @pytest.mark.parametrize("original_status", [None, "in_store", "scrapped", "unknown_x"])
+    def test_cancel_illegal_original_falls_back(self, storage, asset_type, original_status):
+        """缺失/非法原状态兜底 recycled_pending"""
+        asset = self._damaged_asset(storage, asset_type)
+        AssetFSM.cancel_damaged(asset, original_status)
+        assert asset.asset_current_status == "recycled_pending"
+
+    def test_cancel_on_non_damaged_raises(self, storage, asset_type):
+        """非 damaged 状态取消应抛 InvalidTransitionError"""
+        asset = _make_asset(storage, asset_type, "in_use", "A_FSM_CE")
+        with pytest.raises(InvalidTransitionError):
+            AssetFSM.cancel_damaged(asset, "in_use")
 
 
 @pytest.mark.django_db
@@ -122,11 +159,21 @@ class TestMarkLostFromRecycledPending:
 
 @pytest.mark.django_db
 class TestLostToDamaged:
-    """CT-3: lost → damaged (damaged) 显式路径测试"""
+    """CT-3: lost → damaged (to_damaged) 显式路径测试"""
 
     def test_lost_to_damaged(self, storage, asset_type):
         asset = _make_asset(storage, asset_type, "lost", "A_FSM_LD")
-        AssetFSM.damaged(asset)
+        AssetFSM.to_damaged(asset)
+        assert asset.asset_current_status == "damaged"
+
+
+@pytest.mark.django_db
+class TestBrokenToDamaged:
+    """CT-3: broken → damaged (to_damaged) 显式路径测试"""
+
+    def test_broken_to_damaged(self, storage, asset_type):
+        asset = _make_asset(storage, asset_type, "broken", "A_FSM_BD")
+        AssetFSM.to_damaged(asset)
         assert asset.asset_current_status == "damaged"
 
 
@@ -142,7 +189,7 @@ class TestScrappedTerminalRejection:
     def test_scrapped_blocks_damaged(self, storage, asset_type):
         asset = _make_asset(storage, asset_type, "scrapped", "A_FSM_SCR_DM")
         with pytest.raises(InvalidTransitionError):
-            AssetFSM.damaged(asset)
+            AssetFSM.to_damaged(asset)
 
     def test_scrapped_blocks_mark_broken(self, storage, asset_type):
         asset = _make_asset(storage, asset_type, "scrapped", "A_FSM_SCR_BK")

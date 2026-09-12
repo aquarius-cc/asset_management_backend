@@ -113,6 +113,7 @@ class AssetOperationLog(models.Model):
         APPROVE = "approve", "审批"
         TRANSFER = "transfer", "转移"
         STATE_CHANGE = "state_change", "状态变更"
+        PUBLIC_SCAN = "public_scan", "公开扫码"
 
     # 向后兼容
     OPERATION_TYPE_CHOICES = OperationType.choices

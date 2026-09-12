@@ -32,9 +32,9 @@ class ScrappingTransitionsMixin:
     # ===================================================================
 
     @classmethod
-    def damaged(cls, asset: "Asset") -> None:
+    def to_damaged(cls, asset: "Asset") -> None:
         """
-        申请报废: (recycled_pending | broken | repairing | lost) → damaged
+        申请报废(to_damaged): (recycled_pending | broken | repairing | lost) → damaged
         资产转为待报废状态。
         【业务决策】in_use 不允许直接申请报废,须先回收再申请。
         触发时机: 创建待报废记录(DamagedAsset)后,由 DamagedAssetService 调用。
@@ -47,14 +47,16 @@ class ScrappingTransitionsMixin:
         cls._transition(asset, AssetState.DAMAGED)  # type: ignore[attr-defined]
 
     @classmethod
-    def cancel_damaged(cls, asset: "Asset") -> None:
+    def cancel_damaged(cls, asset: "Asset", original_status: str | None = None) -> None:
         """
-        取消报废申请: damaged → recycled_pending
-        用户主动取消待报废申请,资产回到待发放状态。
-        【业务语义】与 reject 不同:cancel 是用户主动取消,reject 是审批人拒绝。
+        取消报废申请: damaged → original_status(缺失/非法时兜底 recycled_pending)
+        用户主动取消待报废申请,资产回到申请前的状态(与 reject 回退目标一致)。
+        【业务语义】与 reject 不同:cancel 是用户主动取消,reject 是审批人拒绝;
+        但回退目标相同:均按申请前状态(original_status)回退。
         触发时机: 删除待报废记录后(用户主动操作)。
         Args:
             asset: 资产实例
+            original_status: 进入 damaged 前的状态(从 DamagedAsset.original_status 获取)
 
         Raises:
             InvalidTransitionError: 当前状态不是 damaged 时抛出
@@ -62,7 +64,17 @@ class ScrappingTransitionsMixin:
         current = AssetState.from_string(asset.asset_current_status)
         if current != AssetState.DAMAGED:
             raise InvalidTransitionError(f"只有'待报废'状态的资产才能取消申请,当前状态: {current.value}")
-        asset.asset_current_status = AssetState.RECYCLED_PENDING.value
+
+        try:
+            target = AssetState(original_status) if original_status else None
+        except ValueError:
+            target = None
+
+        # 兜底: original_status 缺失或非法时,回退到 recycled_pending(可回收再分配)
+        if target is None or target not in cls._REJECT_TARGETS:
+            target = AssetState.RECYCLED_PENDING
+
+        asset.asset_current_status = target.value
 
     # ===================================================================
     # 审批相关状态转换
@@ -115,13 +127,23 @@ class ScrappingTransitionsMixin:
 
         asset.asset_current_status = target.value
 
+    # AI_REVIEW_NEEDED: 该路径业务流程不可达(damaged 入边不含 in_use),仅为保留未来业务扩展
     @classmethod
     def reject_to_in_use(cls, asset: "Asset") -> None:
         """
         审批拒绝(在用): damaged → in_use
 
-        待报废审批被拒绝后,资产回到在用状态。
-        触发时机: 审批人拒绝待报废申请,且原状态为 in_use 时。
+        【防御性方法】业务流程不可达:DAMAGED 的入边仅来自
+        (recycled_pending|broken|repairing|lost),in_use 永不进入待报废状态,
+        故 DamagedAsset.original_status 永不为 in_use(service 端权威记录,
+        damaged_asset_service.create_damaged :46-49)。
+        注意:transitions.py:63 中 damaged→in_use 仍是合法转换(转换表语义),
+        仅是业务不可达;保留此方法以备未来放开"in_use 直接申请报废"。
+        其余 reject_to_broken/lost/recycled_pending/repairing 虽同样不直接被
+        service 调用,但其目标状态经 reject_to_original 统一入口可达,仅本方法需
+        标记防御。
+
+        触发时机: 审批人拒绝待报废申请,且原状态为 in_use 时(当前不可达)。
 
         Args:
             asset: 资产实例

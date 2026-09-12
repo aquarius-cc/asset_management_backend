@@ -52,6 +52,25 @@ def asset_recycled_pending(db, storage, asset_type, user):
 
 
 @pytest.fixture
+def asset_broken(db, storage, asset_type, user):
+    """创建处于 broken 状态的资产(可申请报废)"""
+    asset = Asset.objects.create(
+        asset_code="A_DMG_B",
+        asset_name="待报废测试",
+        asset_purchase_price=3000.00,
+        asset_purchase_date="2024-01-01",
+        asset_entry_date="2024-01-15",
+        asset_storage_recordcode=storage,
+        asset_type_recordcode=asset_type,
+        asset_current_status="broken",
+    )
+    asset.asset_applicant_recordcode = user
+    asset.asset_manager_recordcode = user
+    asset.save(update_fields=["asset_applicant_recordcode", "asset_manager_recordcode"])
+    return asset
+
+
+@pytest.fixture
 def asset_damaged(db, storage, asset_type, user):
     """创建处于 damaged 状态的资产"""
     asset = Asset.objects.create(
@@ -114,6 +133,16 @@ class TestCreateDamagedAsset:
         with pytest.raises(AppValidationError) as exc_info:
             DamagedAssetService.create_damaged_asset({"asset_recordcode": asset_in_use, "damaged_asset_number": 1})
         assert exc_info.value.error_code == "INVALID_STATE_TRANSITION"
+
+    def test_create_from_broken_success(self, asset_broken):
+        """CT-3: broken → damaged Service 层正向路径"""
+        result = DamagedAssetService.create_damaged_asset(
+            {"asset_recordcode": asset_broken, "damaged_asset_number": 1}
+        )
+        result.refresh_from_db()
+        assert result.original_status == "broken"
+        asset_broken.refresh_from_db()
+        assert asset_broken.asset_current_status == "damaged"
 
 
 @pytest.mark.django_db
@@ -318,7 +347,7 @@ class TestRejectAssetRecordcode:
 @pytest.mark.django_db
 class TestCancelAssetRecordcode:
     def test_cancel_success(self, asset_damaged):
-        """取消报废:damaged → recycled_pending"""
+        """取消报废:damaged → original_status(in_use),与 reject 回退目标一致"""
         _ = DamagedAsset.objects.create(
             asset_recordcode=asset_damaged,
             damaged_asset_number=1,
@@ -331,7 +360,24 @@ class TestCancelAssetRecordcode:
             operator_name="操作人",
         )
         asset_damaged.refresh_from_db()
-        assert asset_damaged.asset_current_status == "recycled_pending"
+        assert asset_damaged.asset_current_status == "in_use"
+
+    def test_cancel_success_batch_inherits_original_status(self, asset_damaged):
+        """批量取消经委托自动继承新回退语义:original_status="broken" → broken"""
+        _ = DamagedAsset.objects.create(
+            asset_recordcode=asset_damaged,
+            damaged_asset_number=1,
+            approval_status="pending",
+            original_status="broken",
+        )
+        result = DamagedAssetService.batch_delete_asset_recordcodes(
+            [asset_damaged.recordcode],
+            operator_jobcode="U001",
+            operator_name="操作人",
+        )
+        asset_damaged.refresh_from_db()
+        assert asset_damaged.asset_current_status == "broken"
+        assert result["success_count"] == 1
 
     def test_cancel_nonexistent_raises(self):
         with pytest.raises(AppValidationError) as exc_info:

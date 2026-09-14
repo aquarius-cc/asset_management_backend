@@ -199,8 +199,8 @@ class DamagedAssetViewSet(  # type: ignore[misc]
         }
         return success_response(data={"total_damaged": total, "by_status": by_status})
 
-    @action(detail=False, methods=["post"], url_path="batch-delete")  # type: ignore[type-var]
-    def batch_delete(self, request: Any) -> None:
+    @action(detail=False, methods=["post"], url_path="batch-delete")
+    def batch_delete(self, request: Any) -> Response:
         serializer = DamagedAssetBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         ids = serializer.validated_data["ids"]
@@ -211,7 +211,7 @@ class DamagedAssetViewSet(  # type: ignore[misc]
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
         )
-        return BatchResponseHelper.delete_response(  # type: ignore[no-any-return]
+        return BatchResponseHelper.delete_response(
             result,
             message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )

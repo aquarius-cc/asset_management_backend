@@ -14,6 +14,7 @@ import time
 import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any
 
 
 # ==================== 配置(AR-4: 禁止硬编码, 全部经环境变量管理) ====================
@@ -45,7 +46,7 @@ def build_sign(timestamp: str) -> str:
     return base64.b64encode(digest).decode("utf-8")
 
 
-def build_card(alert: dict) -> dict:
+def build_card(alert: dict[str, Any]) -> dict[str, Any]:
     """将单条 Alertmanager alert 转换为飞书交互卡片."""
     labels = alert.get("labels", {})
     annotations = alert.get("annotations", {})
@@ -61,7 +62,7 @@ def build_card(alert: dict) -> dict:
         title = f"{emoji} {severity} 告警"
         template = {"critical": "red", "warning": "orange"}.get(severity, "yellow")
 
-    def field(label: str, value: str) -> dict:
+    def field(label: str, value: str) -> dict[str, Any]:
         return {"is_short": True, "text": {"tag": "lark_md", "content": f"**{label}**\n{value}"}}
 
     elements = [
@@ -85,7 +86,7 @@ def build_card(alert: dict) -> dict:
     }
 
 
-def send_to_feishu(card: dict) -> tuple:
+def send_to_feishu(card: dict[str, Any]) -> tuple[bool, str]:
     """POST 卡片到飞书机器人. 返回 (ok, 错误说明).
 
     重试策略: 429 与 5xx 指数退避重试; 其余 4xx 直接失败(客户端错误重试无意义).
@@ -123,7 +124,7 @@ def send_to_feishu(card: dict) -> tuple:
 class AdapterHandler(BaseHTTPRequestHandler):
     """仅暴露 POST /alertmanager 与 GET /healthz."""
 
-    def _reply(self, code: int, body: dict) -> None:
+    def _reply(self, code: int, body: dict[str, Any]) -> None:
         data = json.dumps(body).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
@@ -131,13 +132,13 @@ class AdapterHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def do_GET(self):
+    def do_GET(self) -> None:
         if self.path == "/healthz":
             self._reply(200, {"status": "ok"})
         else:
             self._reply(404, {"error": "not found"})
 
-    def do_POST(self):
+    def do_POST(self) -> None:
         if self.path != "/alertmanager":
             self._reply(404, {"error": "not found"})
             return
@@ -159,7 +160,7 @@ class AdapterHandler(BaseHTTPRequestHandler):
             log.info("delivered %s alert(s)", len(results))
             self._reply(200, {"delivered": len(results)})
 
-    def log_message(self, fmt, *args):  # 屏蔽默认 stderr 访问日志, 统一走结构化 logger
+    def log_message(self, fmt: str, *args: Any) -> None:  # 屏蔽默认 stderr 访问日志, 统一走结构化 logger
         log.debug("access %s", fmt % args)
 
 

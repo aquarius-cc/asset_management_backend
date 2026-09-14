@@ -63,7 +63,7 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         self._pong_window_start = 0.0
         self._pong_count = 0
         self._pending_mark_read: set[Any] = set()
-        self._flush_task: asyncio.Task | None = None
+        self._flush_task: asyncio.Task[Any] | None = None
 
         user = await self._authenticate()
         if user is None:

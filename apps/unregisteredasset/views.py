@@ -135,7 +135,7 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet[
         serializer.is_valid(raise_exception=True)
 
         # 获取操作人工号:优先取请求中的 discovery_person,否则解析当前用户
-        operator_jobcode = request.data.get("discovery_person") or resolve_operator(request.user)[0]  # type: ignore[arg-type]
+        operator_jobcode = request.data.get("discovery_person") or resolve_operator(request.user)[0]  # type: ignore[union-attr, arg-type]
         operator_name = resolve_operator(request.user)[1]  # type: ignore[arg-type]
 
         # 创建记录
@@ -350,7 +350,7 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet[
                 )
 
         # 【DR-1 收敛】响应组装复用 BatchResponseHelper
-        return BatchResponseHelper.delete_response(  # type: ignore[no-any-return]
+        return BatchResponseHelper.delete_response(
             {
                 "total": len(ids),
                 "success_count": len(success_ids),

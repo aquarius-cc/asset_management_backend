@@ -129,7 +129,7 @@ class AssetSelector:
         6 字段白名单返回,无 select_related JOIN(R4-04 最小暴露收敛)。
         """
         try:
-            return Asset.objects.get(recordcode=recordcode, is_deleted=False)
+            return cast(Asset, Asset.objects.get(recordcode=recordcode, is_deleted=False))
         except Asset.DoesNotExist:
             return None
 

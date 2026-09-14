@@ -141,18 +141,21 @@ class AssetViewSet(  # type: ignore[misc]
         return success_response(data=response_serializer.data, message=message, status_code=status.HTTP_201_CREATED)
 
     def update(self, request: Any, *args: Any, **kwargs: Any) -> Response:
+        partial = kwargs.pop("partial", False)
         asset = self.get_object()
-        asset_code = asset.asset_code
-        asset = AssetService.update_asset(
-            asset_code=asset_code,
-            update_data=request.data,
+        serializer = self.get_serializer(asset, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        updated_asset = AssetService.update_asset(
+            asset_code=asset.asset_code,
+            update_data=serializer.validated_data,
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
         )
-        serializer = AssetDetailSerializer(asset)
+        serializer = AssetDetailSerializer(updated_asset)
         return success_response(data=serializer.data, message="更新成功")
 
     def partial_update(self, request: Any, *args: Any, **kwargs: Any) -> Response:
+        kwargs["partial"] = True
         return self.update(request, *args, **kwargs)
 
     def destroy(self, request: Any, *args: Any, **kwargs: Any) -> Response:

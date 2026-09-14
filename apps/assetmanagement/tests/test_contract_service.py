@@ -74,6 +74,17 @@ class TestAddPaymentRecord:
         assert result.amount_paid == Decimal("15000.00")
         assert result.amount_unpaid == Decimal("35000.00")
 
+    def test_add_payment_decimal_cumulative_precision(self):
+        """【CT-4 回归屏障】0.1 三次累计必须精确等于 0.3(十进制累加,禁止二进制浮点漂移)"""
+        ContractService.create_contract(_contract_data(contract_amount=Decimal("50000.00")))
+        ContractService.add_payment_record("C001", Decimal("0.1"))
+        ContractService.add_payment_record("C001", Decimal("0.1"))
+        result = ContractService.add_payment_record("C001", Decimal("0.1"))
+        assert result.amount_paid == Decimal("0.3")
+        assert result.amount_unpaid == Decimal("49999.70")
+        data = json.loads(result.paid_record)
+        assert data["payments"][2]["amount"] == "0.1"
+
     def test_add_payment_settlement_status_uses_settlemented_price(self):
         _ = ContractService.create_contract(
             _contract_data(

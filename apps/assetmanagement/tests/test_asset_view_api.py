@@ -6,6 +6,8 @@
 - 自定义 actions
 """
 
+from decimal import Decimal
+
 import pytest
 from django.urls import reverse
 from rest_framework import status
@@ -56,11 +58,67 @@ class TestAssetViewSet:
         assert response.data["code"] == 0
         assert response.data["data"]["asset_code"] == asset.asset_code
 
-    def test_update_asset(self, admin_authenticated_client, asset, storage, asset_type):
+    def test_update_asset(self, admin_authenticated_client, asset, storage, asset_type, contract, employee):
+        """全表单载荷(含 FK SlugRelatedField 键)——修复既有"整表单编辑 400"缺陷的回归锚点"""
         url = reverse("assets-detail", kwargs={"recordcode": asset.recordcode})
-        data = {"asset_name": "更新后的资产名称", "asset_purchase_price": "1500.00"}
+        data = {
+            "asset_name": "更新后的资产名称",
+            "asset_purchase_price": "1500.00",
+            "asset_purchase_number": 3,
+            "asset_unit": "台",
+            "asset_brand": "品牌B",
+            "asset_specification": "规格B",
+            "asset_type": asset_type.type_code,
+            "asset_contract": contract.contract_code,
+            "asset_purchase_date": "2026-01-01",
+            "asset_warranty_period": 24,
+            "asset_entry_date": "2026-01-02",
+            "asset_storage": storage.storage_code,
+            "asset_entry_person": employee.employee_jobcode,
+            "asset_applicant": employee.employee_jobcode,
+            "asset_manager": employee.employee_jobcode,
+            "asset_using_location": "办公区B",
+            "asset_description": "更新后的描述",
+        }
         response = admin_authenticated_client.patch(url, data, format="json")
         assert response.status_code == status.HTTP_200_OK
+        asset.refresh_from_db()
+        assert asset.asset_name == "更新后的资产名称"
+        assert asset.asset_type_recordcode == asset_type
+        assert asset.asset_contract_recordcode == contract
+        assert asset.asset_storage_recordcode == storage
+        assert asset.asset_entry_person_recordcode == employee
+        assert asset.asset_unit == "台"
+        assert asset.asset_purchase_price == Decimal("1500.00")
+
+    def test_update_asset_put_full_form(self, admin_authenticated_client, asset, storage, asset_type, contract, employee):
+        """PUT(partial=False)全表单路径回归护栏（此前 PUT 无任何用例覆盖）"""
+        url = reverse("assets-detail", kwargs={"recordcode": asset.recordcode})
+        data = {
+            "asset_name": "PUT全量更新",
+            "asset_type": asset_type.type_code,
+            "asset_storage": storage.storage_code,
+            "asset_contract": contract.contract_code,
+            "asset_entry_person": employee.employee_jobcode,
+        }
+        response = admin_authenticated_client.put(url, data, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        asset.refresh_from_db()
+        assert asset.asset_name == "PUT全量更新"
+
+    def test_update_asset_rejects_status_field(self, admin_authenticated_client, asset):
+        """PATCH asset_current_status → 400:Serializer 未知字段拦截(状态变更只走 FSM 入口,CT-3)"""
+        url = reverse("assets-detail", kwargs={"recordcode": asset.recordcode})
+        response = admin_authenticated_client.patch(
+            url, {"asset_current_status": "in_store"}, format="json"
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_update_asset_rejects_unknown_field(self, admin_authenticated_client, asset):
+        """PATCH 未知字段 → 400:StrictUnknownFieldMixin 收紧 DRF 默认静默忽略"""
+        url = reverse("assets-detail", kwargs={"recordcode": asset.recordcode})
+        response = admin_authenticated_client.patch(url, {"bogus_field": 1}, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_partial_update_asset(self, admin_authenticated_client, asset):
         url = reverse("assets-detail", kwargs={"recordcode": asset.recordcode})

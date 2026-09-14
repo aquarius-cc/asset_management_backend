@@ -8,7 +8,7 @@ from collections.abc import Iterable
 from datetime import date
 from typing import Any, cast
 
-from dateutil.relativedelta import relativedelta  # type: ignore[import-untyped]
+from dateutil.relativedelta import relativedelta
 from django.db.models import Q, QuerySet
 
 from apps.assetmanagement.models import Asset, OutAsset, RecycleAsset

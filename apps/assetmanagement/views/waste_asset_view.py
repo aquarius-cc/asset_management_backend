@@ -176,8 +176,8 @@ class WasteAssetViewSet(  # type: ignore[misc]
             qs = qs.filter(waste_asset_date__lte=end_date)
         return self._paginate_and_respond(qs)
 
-    @action(detail=False, methods=["post"], url_path="batch-delete")  # type: ignore[type-var]
-    def batch_delete(self, request: Any) -> None:
+    @action(detail=False, methods=["post"], url_path="batch-delete")
+    def batch_delete(self, request: Any) -> Response:
         serializer = WasteAssetBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         ids = serializer.validated_data["ids"]
@@ -188,7 +188,7 @@ class WasteAssetViewSet(  # type: ignore[misc]
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
         )
-        return BatchResponseHelper.delete_response(  # type: ignore[no-any-return]
+        return BatchResponseHelper.delete_response(
             result,
             message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )

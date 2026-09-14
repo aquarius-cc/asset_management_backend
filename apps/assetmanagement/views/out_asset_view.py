@@ -205,8 +205,8 @@ class OutAssetViewSet(  # type: ignore[misc]
     def partial_update(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         return self.update(request, *args, **kwargs)
 
-    @action(detail=False, methods=["post"], url_path="batch-create")  # type: ignore[type-var]
-    def batch_create(self, request: Any) -> None:
+    @action(detail=False, methods=["post"], url_path="batch-create")
+    def batch_create(self, request: Any) -> Response:
         serializer = OutAssetBatchCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         result = OutAssetService.batch_create_outasset(
@@ -215,7 +215,7 @@ class OutAssetViewSet(  # type: ignore[misc]
             operator_name=resolve_operator(request.user)[1],
         )
         # 【DR-1/B-8】响应组装复用 BatchResponseHelper; input_data 以用户原始输入回显
-        return BatchResponseHelper.create_response(  # type: ignore[no-any-return]
+        return BatchResponseHelper.create_response(
             result,
             OutAssetCreateSerializer,
             message=f"批量出库完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
@@ -237,8 +237,8 @@ class OutAssetViewSet(  # type: ignore[misc]
             )
         return success_response(message="删除成功")
 
-    @action(detail=False, methods=["post"], url_path="batch-delete")  # type: ignore[type-var]
-    def batch_delete(self, request: Any) -> None:
+    @action(detail=False, methods=["post"], url_path="batch-delete")
+    def batch_delete(self, request: Any) -> Response:
         serializer = OutAssetBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         result = OutAssetService.batch_delete_outasset(
@@ -247,7 +247,7 @@ class OutAssetViewSet(  # type: ignore[misc]
             operator_name=resolve_operator(request.user)[1],
         )
         # 【DR-1 收敛】响应组装复用 BatchResponseHelper
-        return BatchResponseHelper.delete_response(  # type: ignore[no-any-return]
+        return BatchResponseHelper.delete_response(
             result,
             message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )

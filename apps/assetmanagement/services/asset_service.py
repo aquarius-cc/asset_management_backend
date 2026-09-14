@@ -6,7 +6,10 @@
 
 import string
 import uuid
+from datetime import date, datetime, time
+from decimal import Decimal
 from typing import Any
+from uuid import UUID
 
 from django.db import transaction
 
@@ -24,21 +27,20 @@ from core.exceptions import AppValidationError
 from .asset_lifecycle_mixin import AssetLifecycleMixin
 
 
-# 字段白名单,防止通过 setattr 修改任意字段
-ASSET_UPDATE_ALLOWED_FIELDS = frozenset(
+# 不可变字段集(防御纵深,非字段白名单):
+# - 标识/系统字段不可经通用更新接口修改
+# - asset_current_status 的变更所有权归状态机(FSM 专用入口),保证 CT-3 全路径约束
+# 字段来源唯一性由 AssetUpdateSerializer 承担(DR-1);入参必须是已校验的 validated_data
+ASSET_UPDATE_IMMUTABLE_FIELDS = frozenset(
     [
-        "asset_name",
-        "asset_type_recordcode",
-        "asset_storage_recordcode",
-        "asset_brand",
-        "asset_specification",
-        "asset_purchase_date",
-        "asset_purchase_price",
-        "asset_warranty_period",
-        "asset_description",
+        "asset_code",
+        "recordcode",
+        "qr_code",
+        "version",
+        "is_deleted",
+        "created_at",
+        "updated_at",
         "asset_current_status",
-        "asset_manager_recordcode",
-        "is_active",
     ]
 )
 
@@ -153,28 +155,42 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
         operator_jobcode: str | None = None,
         operator_name: str | None = None,
     ) -> Asset:
+        """更新资产(入参必须是 Serializer 校验后的 validated_data)。
+
+        字段来源唯一性由 AssetUpdateSerializer 承担(DR-1),Service 仅保留
+        ASSET_UPDATE_IMMUTABLE_FIELDS 不可变集作为防御纵深:
+        - 状态变更(asset_current_status)必须走 FSM 专用入口(CT-3);
+        - 标识/系统字段不可经通用更新接口修改。
+
+        validated_data 中 FK 字段为模型实例,审计快照统一 str() 归一化,
+        保证 OperationLog JSON 字段可序列化。
+        """
         asset = AssetSelector.get_asset_by_code(asset_code)
         if not asset:
             raise AppValidationError(detail=f"资产 {asset_code} 不存在", error_code="ASSET_NOT_FOUND")
         asset = Asset.objects.select_for_update().get(pk=asset.pk)
-        before_data = {}
-        for key in update_data.keys():
-            if key in ASSET_UPDATE_ALLOWED_FIELDS:
-                field_value = getattr(asset, key)
-                if hasattr(field_value, "pk"):
-                    before_data[key] = str(field_value)
-                else:
-                    before_data[key] = field_value
-        for key, value in update_data.items():
-            if key in ASSET_UPDATE_ALLOWED_FIELDS:
-                setattr(asset, key, value)
-            else:
+
+        def _normalize(value: Any) -> Any:
+            # FK 实例 → 其 recordcode（FK 列真实值，与存量审计日志口径一致）；
+            # 无 recordcode 的兜底取 pk；Decimal/date 等非 JSON 原生类型转 str；
+            # 其余标量原样
+            if hasattr(value, "pk"):
+                return str(getattr(value, "recordcode", value.pk))
+            if isinstance(value, (Decimal, date, datetime, time, UUID)):
+                return str(value)
+            return value
+
+        for key in update_data:
+            if key in ASSET_UPDATE_IMMUTABLE_FIELDS:
                 raise AppValidationError(detail=f"不允许修改字段: {key}", error_code="FIELD_NOT_ALLOWED")
+        before_data = {key: _normalize(getattr(asset, key)) for key in update_data}
+        for key, value in update_data.items():
+            setattr(asset, key, value)
         asset.save()
         AuditLogger.log_asset_update(
             asset=asset,
             before_data=before_data,
-            after_data=update_data,
+            after_data={key: _normalize(value) for key, value in update_data.items()},
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
         )

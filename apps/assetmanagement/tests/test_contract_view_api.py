@@ -11,6 +11,8 @@
 - 自定义 actions: batch_create, batch_delete, getcontractByname, statistics, update_settlement_status, payment_record, global_search
 """
 
+from decimal import Decimal
+
 import pytest
 from django.urls import reverse
 from rest_framework import status
@@ -163,8 +165,43 @@ class TestContractViewSet:
         url = reverse("contracts-payment-record", kwargs={"recordcode": contract.recordcode})
         data = {"amount": 5000.00, "description": "测试付款"}
         response = admin_authenticated_client.post(url, data, format="json")
-        # Service has Decimal/float type mismatch — accept 500 until fixed
-        assert response.status_code in [status.HTTP_200_OK, status.HTTP_500_INTERNAL_SERVER_ERROR]
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["code"] == 0
+        assert response.data["data"]["contract"]["amount_paid"] == "5000.00"
+
+    def test_payment_record_cumulative_precision(self, admin_authenticated_client, contract):
+        """【CT-4 回归屏障】三次 0.1 付款必须精确累计为 0.3,禁止二进制浮点漂移"""
+        url = reverse("contracts-payment-record", kwargs={"recordcode": contract.recordcode})
+        for _ in range(3):
+            response = admin_authenticated_client.post(url, {"amount": "0.1"}, format="json")
+            assert response.status_code == status.HTTP_200_OK
+        contract.refresh_from_db()
+        assert contract.amount_paid == Decimal("0.3")
+
+    def test_payment_record_rejects_garbage(self, admin_authenticated_client, contract):
+        """【CT-4 回归屏障】非数值金额返回 400 而非 500"""
+        url = reverse("contracts-payment-record", kwargs={"recordcode": contract.recordcode})
+        response = admin_authenticated_client.post(url, {"amount": "abc"}, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data["code"] != 0
+
+    def test_payment_record_rejects_nan(self, admin_authenticated_client, contract):
+        """【CT-4 回归屏障】NaN 金额必须被 is_finite 拦截为 400,禁止穿透落库"""
+        url = reverse("contracts-payment-record", kwargs={"recordcode": contract.recordcode})
+        response = admin_authenticated_client.post(url, {"amount": "nan"}, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_payment_record_rejects_inf(self, admin_authenticated_client, contract):
+        """【CT-4 回归屏障】Inf 金额必须被 is_finite 拦截为 400,禁止穿透落库"""
+        url = reverse("contracts-payment-record", kwargs={"recordcode": contract.recordcode})
+        response = admin_authenticated_client.post(url, {"amount": "inf"}, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_payment_record_rejects_overflow(self, admin_authenticated_client, contract):
+        """【CT-4 回归屏障】超 DecimalField(max_digits=12) 上限的金额必须 400,禁止 DB DataError 500"""
+        url = reverse("contracts-payment-record", kwargs={"recordcode": contract.recordcode})
+        response = admin_authenticated_client.post(url, {"amount": "1e10"}, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_global_search(self, authenticated_client, contract):
         """测试全局搜索合同"""

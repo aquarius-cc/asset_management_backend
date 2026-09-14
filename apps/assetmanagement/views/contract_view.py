@@ -2,6 +2,7 @@
 合同管理视图集
 """
 
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from django_filters.rest_framework import DjangoFilterBackend
@@ -106,8 +107,8 @@ class ContractViewSet(  # type: ignore[misc]
         )
         return success_response(message="删除成功")
 
-    @action(detail=False, methods=["post"], url_path="batch-delete")  # type: ignore[type-var]
-    def batch_delete(self, request: Any) -> None:
+    @action(detail=False, methods=["post"], url_path="batch-delete")
+    def batch_delete(self, request: Any) -> Response:
         serializer = ContractBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         operator_jobcode, operator_name = resolve_operator(request.user)
@@ -117,7 +118,7 @@ class ContractViewSet(  # type: ignore[misc]
             operator_name=operator_name,
         )
         # 【DR-1 收敛】响应组装复用 BatchResponseHelper
-        return BatchResponseHelper.delete_response(  # type: ignore[no-any-return]
+        return BatchResponseHelper.delete_response(
             result,
             message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
@@ -190,9 +191,13 @@ class ContractViewSet(  # type: ignore[misc]
         if not amount:
             return error_response(message="请提供付款金额", status_code=400)
         try:
-            amount = float(amount)
-        except ValueError:
+            amount = Decimal(str(amount))
+        except (ValueError, InvalidOperation):
             return error_response(message="付款金额格式错误", status_code=400)
+        if not amount.is_finite():
+            return error_response(message="付款金额必须为有限数字", status_code=400)
+        if amount > Decimal("9999999999.99"):
+            return error_response(message="付款金额超出允许范围", status_code=400)
         contract = self.get_object()
         updated = ContractService.add_payment_record(contract.contract_code, amount, description)
         serializer = ContractDetailSerializer(instance=updated)

@@ -131,6 +131,7 @@ class AuthUser(AbstractBaseUser, PermissionsMixin):
     auth_date_update = models.DateTimeField(auto_now=True, verbose_name="更新日期", help_text="用户信息更新时间")
     auth_phone = models.CharField(max_length=15, verbose_name="联系电话", help_text="用户联系电话")
     # 覆盖PermissionsMixin的groups和user_permissions字段,避免related_name冲突
+    # related_name 有意覆盖,django-stubs 桩与泛型 manager 不匹配,精确压制
     groups = models.ManyToManyField(
         "auth.Group",
         verbose_name="groups",
@@ -138,7 +139,7 @@ class AuthUser(AbstractBaseUser, PermissionsMixin):
         help_text="The groups this user belongs to. A user will get all permissions granted to each of their groups.",
         related_name="authuser_set",
         related_query_name="authuser",
-    )
+    )  # type: ignore[assignment]
     user_permissions = models.ManyToManyField(
         "auth.Permission",
         verbose_name="user permissions",
@@ -146,7 +147,7 @@ class AuthUser(AbstractBaseUser, PermissionsMixin):
         help_text="Specific permissions for this user.",
         related_name="authuser_set",
         related_query_name="authuser",
-    )
+    )  # type: ignore[assignment]
     # 【AGENTS规范】添加排序字段,支持前端自定义显示顺序
     # sort_order = models.IntegerField(
     #     default=0,

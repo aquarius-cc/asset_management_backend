@@ -56,21 +56,56 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):  # type: ignore[
     password = serializers.CharField(
         write_only=True, required=False, validators=[validate_password], style={"input_type": "password"}
     )
+    # 【BE-02 修复】修改密码时必填原密码,防止会话劫持导致的静默改密
+    old_password = serializers.CharField(write_only=True, required=False, style={"input_type": "password"})
 
     class Meta:
         model = AuthUser
-        fields = ("email", "auth_phone", "password")
+        fields = ("email", "auth_phone", "password", "old_password")
         # 所有字段都应该是可选的,因为用户可能只想更新其中一个
         extra_kwargs = {
             "email": {"required": False},
             "auth_phone": {"required": False},
         }
 
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        """
+        【BE-02 修复】当提交 password 时,强制校验 old_password:
+
+        - 未提供原密码 -> 400 ValidationError
+        - 原密码校验失败 -> 400 ValidationError
+
+        校验成功后从 attrs 移除 old_password,避免传入 update 流程。
+        """
+        # 【BE-02 备注】空密码(""/纯空白/None)由 CharField 默认 allow_blank=False
+        # 在字段校验层拒绝，不会进入本方法(DRF 3.16.0 源码佐证)。
+        # 若未来放开 allow_blank，必须在 validate 内补充:
+        #     if password is not None and password:
+        # 并显式拒绝空串 —— 届时 Django set_password("") 可被 check_password("") 通过。
+        password = attrs.get("password")
+        old_password = attrs.get("old_password")
+        if password:
+            if not old_password:
+                raise serializers.ValidationError({"old_password": "修改密码时必须提供原密码"})
+            # self.instance 由视图以 request.user 实例化,此处必填
+            if not self.instance or not self.instance.check_password(old_password):
+                raise serializers.ValidationError({"old_password": "原密码错误"})
+        attrs.pop("old_password", None)
+        return attrs
+
     def update(self, instance: AuthUser, validated_data: dict[str, Any]) -> AuthUser:
-        """更新用户个人信息"""
+        """
+        更新用户个人信息
+
+        【BE-02 修复】密码修改后,通过 AuthService
+        invalidate_user_refresh_tokens() 作废该用户全部 refresh
+        token, 防范会话劫持导致的永久占据。
+        """
         # 处理密码更新
         if "password" in validated_data:
             instance.set_password(validated_data["password"])
+            # 改密成功即吊销全部 refresh token, 强制其他设备重新登录
+            AuthService.invalidate_user_refresh_tokens(instance)
 
         # 更新其他字段
         for field in ["email", "auth_phone"]:
@@ -163,7 +198,9 @@ class LogoutSerializer(serializers.Serializer):  # type: ignore[type-arg]
     - cookie 通道(PC): 从 refresh Cookie 读取, 无需 body 提交
     """
 
-    refresh = serializers.CharField(required=False, allow_blank=True, help_text="需要作废的 refresh token(cookie 通道可省略)")
+    refresh = serializers.CharField(
+        required=False, allow_blank=True, help_text="需要作废的 refresh token(cookie 通道可省略)"
+    )
 
     def validate_refresh(self, value: str) -> str:
         """

@@ -396,3 +396,34 @@ class TestProfileAndRegister:
         payload = _decode(resp.data["data"]["access"])
         assert payload["role"] == "regular_user"
         assert "asset_access_token" in api_client.cookies
+
+
+@pytest.mark.django_db
+class TestProfilePasswordChange:
+    """PUT /auth/profile/ 修改密码: old_password 校验 + 改密吊销(BE-02 端到端, T4)"""
+
+    PASS = "NewPass123!"
+
+    def test_change_password_without_old_password_400(self, api_client):
+        user = _make_user("pwc1")
+        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {AuthService.issue_tokens(user)['access']}")
+        resp = api_client.put(PROFILE_URL, {"password": self.PASS})
+        assert resp.status_code == 400
+        assert "修改密码时必须提供原密码" in str(resp.data["data"]["old_password"])
+
+    def test_change_password_wrong_old_password_400(self, api_client):
+        user = _make_user("pwc2")
+        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {AuthService.issue_tokens(user)['access']}")
+        resp = api_client.put(PROFILE_URL, {"password": self.PASS, "old_password": "wrong-old-pass"})
+        assert resp.status_code == 400
+        assert "原密码错误" in str(resp.data["data"]["old_password"])
+
+    def test_change_password_success_revokes_old_refresh(self, api_client):
+        user = _make_user("pwc3")
+        tokens = AuthService.issue_tokens(user)
+        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
+        resp = api_client.put(PROFILE_URL, {"password": self.PASS, "old_password": TEST_PASSWORD})
+        assert resp.status_code == 200
+        assert resp.data["code"] == 0
+        refreshed = api_client.post(REFRESH_URL, {"refresh": tokens["refresh"]})
+        assert refreshed.status_code == 401

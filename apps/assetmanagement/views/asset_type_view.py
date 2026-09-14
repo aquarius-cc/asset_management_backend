@@ -84,8 +84,8 @@ class AssetTypeViewSet(  # type: ignore[misc]
         )
         return success_response(message="删除成功")
 
-    @action(detail=False, methods=["post"], url_path="batch-delete")  # type: ignore[type-var]
-    def batch_delete(self, request: Any) -> None:
+    @action(detail=False, methods=["post"], url_path="batch-delete")
+    def batch_delete(self, request: Any) -> Response:
         serializer = AssetTypeBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         operator_jobcode, operator_name = resolve_operator(request.user)
@@ -95,13 +95,13 @@ class AssetTypeViewSet(  # type: ignore[misc]
             operator_name=operator_name,
         )
         # 【DR-1 收敛】响应组装复用 BatchResponseHelper
-        return BatchResponseHelper.delete_response(  # type: ignore[no-any-return]
+        return BatchResponseHelper.delete_response(
             result,
             message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
 
-    @action(detail=False, methods=["post"], url_path="batch-create")  # type: ignore[type-var]
-    def batch_create(self, request: Any) -> None:
+    @action(detail=False, methods=["post"], url_path="batch-create")
+    def batch_create(self, request: Any) -> Response:
         serializer = AssetTypeBatchCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         operator_jobcode, operator_name = resolve_operator(request.user)
@@ -111,7 +111,7 @@ class AssetTypeViewSet(  # type: ignore[misc]
             operator_name=operator_name,
         )
         # 【DR-1 收敛】many=True 与逐条序列化等价性由 test_b5_many_vs_itemwise 实证锁定
-        return BatchResponseHelper.create_response(  # type: ignore[no-any-return]
+        return BatchResponseHelper.create_response(
             result,
             AssetTypeSerializer,
             message=f"批量创建完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",

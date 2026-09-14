@@ -45,6 +45,31 @@ class TestUpdateAsset:
             )
         assert exc_info.value.error_code == "FIELD_NOT_ALLOWED"
 
+    def test_update_asset_rejects_status_change(self, asset):
+        """asset_current_status 变更所有权归 FSM,不可经通用更新接口直改(CT-3)"""
+        with pytest.raises(AppValidationError) as exc_info:
+            AssetService.update_asset(
+                asset_code="A001",
+                update_data={"asset_current_status": "in_store"},
+            )
+        assert exc_info.value.error_code == "FIELD_NOT_ALLOWED"
+
+    def test_update_asset_fk_instance(self, asset, asset_type):
+        """validated_data 中 FK 字段为模型实例,setattr 更新成功且审计快照归一化"""
+        from apps.assetmanagement.models import AssetType
+
+        new_type = AssetType.objects.create(
+            type_code="AT-T-002",
+            type_name="测试类型B",
+            parent=None,
+        )
+        result = AssetService.update_asset(
+            asset_code="A001",
+            update_data={"asset_type_recordcode": new_type},
+        )
+        result.refresh_from_db()
+        assert result.asset_type_recordcode == new_type
+
     def test_update_asset_multiple_fields(self, asset):
         result = AssetService.update_asset(
             asset_code="A001",

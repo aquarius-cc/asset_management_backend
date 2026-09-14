@@ -82,7 +82,7 @@ EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 # 【日志配置 - 测试专用】
 # =============================================================================
 # 减少日志输出,避免测试干扰
-LOGGING["handlers"]["console"]["level"] = "WARNING"  # type: ignore[index]
+LOGGING["handlers"]["console"]["level"] = "WARNING"
 
 # =============================================================================
 # 【调试模式 - 测试专用】

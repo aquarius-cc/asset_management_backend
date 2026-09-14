@@ -4,6 +4,7 @@ Django base settings for asset_management project.
 
 from datetime import timedelta
 from pathlib import Path
+from typing import Any
 
 from decouple import config
 
@@ -270,7 +271,7 @@ CSP_DIRECTIVES = {
 }
 
 # Logging
-LOGGING = {
+LOGGING: dict[str, Any] = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {

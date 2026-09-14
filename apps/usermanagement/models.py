@@ -146,7 +146,7 @@ class Department(BaseModel):
             Department.objects.filter(path__startswith=f"{self.path}/").values_list("department_code", flat=True)
         )
         cache.set(cache_key, result, timeout=300)  # 5 分钟缓存
-        return result  # type: ignore[no-any-return]
+        return result
 
 
 class EmployeeRole(models.TextChoices):

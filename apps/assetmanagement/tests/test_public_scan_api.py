@@ -10,6 +10,7 @@ from rest_framework import status
 
 from apps.assetmanagement.models import AssetOperationLog
 
+
 # R4-04 白名单:与 public_scan_view 的 data dict 严格对齐
 PUBLIC_SCAN_FIELDS = {
     "asset_code",

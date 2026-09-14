@@ -21,6 +21,7 @@ from apps.assetmanagement.serializers.base_model_serializers import (
     ContractSerializer,
     HardDiskSNSimpleSerializer,
     StorageSerializer,
+    StrictUnknownFieldMixin,
 )
 
 
@@ -126,10 +127,12 @@ class AssetDetailSerializer(serializers.ModelSerializer):  # type: ignore[type-a
         ]
 
 
-class AssetUpdateSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
+class AssetUpdateSerializer(StrictUnknownFieldMixin, serializers.ModelSerializer):  # type: ignore[type-arg]
     """资产更新序列化器
 
     排除 recordcode 和 asset_code(后端自动生成,不可修改)。
+    排除 asset_current_status(状态变更只允许走 FSM 专用入口,禁止经通用更新接口直改)。
+    未知字段一律 400(StrictUnknownFieldMixin,DRF 默认静默忽略被收紧)。
     前端传入业务编码(asset_type_code/contract_code/storage_code/employee_jobcode),
     DRF SlugRelatedField 自动转换为 recordcode 存入数据库。
     """
@@ -155,21 +158,21 @@ class AssetUpdateSerializer(serializers.ModelSerializer):  # type: ignore[type-a
         allow_null=True,
         required=False,
     )
-    asset_entry_person = serializers.SlugRelatedField(  # type: ignore[var-annotated]
+    asset_entry_person = serializers.SlugRelatedField(
         slug_field="employee_jobcode",
         queryset=get_employee_queryset(),
         source="asset_entry_person_recordcode",
         allow_null=True,
         required=False,
     )
-    asset_applicant = serializers.SlugRelatedField(  # type: ignore[var-annotated]
+    asset_applicant = serializers.SlugRelatedField(
         slug_field="employee_jobcode",
         queryset=get_employee_queryset(),
         source="asset_applicant_recordcode",
         allow_null=True,
         required=False,
     )
-    asset_manager = serializers.SlugRelatedField(  # type: ignore[var-annotated]
+    asset_manager = serializers.SlugRelatedField(
         slug_field="employee_jobcode",
         queryset=get_employee_queryset(),
         source="asset_manager_recordcode",
@@ -196,7 +199,6 @@ class AssetUpdateSerializer(serializers.ModelSerializer):  # type: ignore[type-a
             "asset_applicant",
             "asset_manager",
             "asset_using_location",
-            "asset_current_status",
             "asset_description",
         ]
         extra_kwargs = {
@@ -245,21 +247,21 @@ class AssetCreateSerializer(serializers.ModelSerializer):  # type: ignore[type-a
         allow_null=True,
         required=False,
     )
-    asset_entry_person = serializers.SlugRelatedField(  # type: ignore[var-annotated]
+    asset_entry_person = serializers.SlugRelatedField(
         slug_field="employee_jobcode",
         queryset=get_employee_queryset(),
         source="asset_entry_person_recordcode",
         allow_null=True,
         required=False,
     )
-    asset_applicant = serializers.SlugRelatedField(  # type: ignore[var-annotated]
+    asset_applicant = serializers.SlugRelatedField(
         slug_field="employee_jobcode",
         queryset=get_employee_queryset(),
         source="asset_applicant_recordcode",
         allow_null=True,
         required=False,
     )
-    asset_manager = serializers.SlugRelatedField(  # type: ignore[var-annotated]
+    asset_manager = serializers.SlugRelatedField(
         slug_field="employee_jobcode",
         queryset=get_employee_queryset(),
         source="asset_manager_recordcode",

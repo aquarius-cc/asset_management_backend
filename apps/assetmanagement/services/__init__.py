@@ -28,7 +28,7 @@
 
 # 导入所有服务类,保持向后兼容
 from apps.assetmanagement.services.asset_service import (
-    ASSET_UPDATE_ALLOWED_FIELDS,
+    ASSET_UPDATE_IMMUTABLE_FIELDS,
     AssetCodeGenerator,
     AssetService,
 )
@@ -48,7 +48,7 @@ from apps.assetmanagement.services.waste_asset_service import WasteAssetService
 
 
 __all__ = [
-    "ASSET_UPDATE_ALLOWED_FIELDS",
+    "ASSET_UPDATE_IMMUTABLE_FIELDS",
     "OUTASSET_UPDATE_ALLOWED_FIELDS",
     "AssetCodeGenerator",
     "AssetService",

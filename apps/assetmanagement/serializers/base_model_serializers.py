@@ -4,6 +4,7 @@
 包含 Storage, Contract, AssetType, HardDiskSN 等基础模型的序列化器。
 """
 
+from collections.abc import Mapping
 from typing import Any
 
 from rest_framework import serializers
@@ -14,6 +15,24 @@ from apps.assetmanagement.models import (
     HardDiskSN,
     Storage,
 )
+
+
+class StrictUnknownFieldMixin:
+    """拒绝未声明字段(DRF 默认静默忽略未知字段,此处显式收紧为 400)。
+
+    供更新类 Serializer 复用,使"允许修改什么"以 Meta.fields 为唯一来源(DR-1)。
+    """
+
+    def to_internal_value(self, data: Any) -> Any:
+        # 非 Mapping 载荷（如 JSON 数组）交回 DRF 原生处理，避免 set(data) 对 dict 求哈希崩 500
+        if not isinstance(data, Mapping):
+            return super().to_internal_value(data)  # type: ignore[misc]
+        unknown = set(data) - set(self.fields)  # type: ignore[attr-defined]
+        if unknown:
+            raise serializers.ValidationError(
+                dict.fromkeys(sorted(unknown), "未知字段，不允许更新")
+            )
+        return super().to_internal_value(data)  # type: ignore[misc]
 
 
 class StorageSerializer(serializers.ModelSerializer[Storage]):

@@ -3,6 +3,7 @@
 """
 
 import pytest
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 
 from apps.authusermanagement.models import AuthUser
@@ -141,3 +142,40 @@ class TestAuthService:
 
         assert user.auth_username == "renamed"
         assert user.email == "new@example.com"
+
+    def test_invalidate_refresh_tokens_blacklists_all(self):
+        """改密吊销: 用户全部 refresh token 应进入黑名单且不可再用(BE-02)"""
+        user = AuthUser.objects.create_user(
+            auth_username="bluser", password=TEST_PASSWORD, auth_phone="13710010008"
+        )
+        tokens = AuthService.issue_tokens(user)
+        refresh_jti = RefreshToken(tokens["refresh"])["jti"]
+        assert not BlacklistedToken.objects.filter(token__jti=refresh_jti).exists()
+
+        AuthService.invalidate_user_refresh_tokens(user)
+
+        assert BlacklistedToken.objects.filter(token__jti=refresh_jti).exists()
+        with pytest.raises(TokenError):
+            AuthService.refresh_tokens(tokens["refresh"])
+
+    def test_invalidate_refresh_tokens_no_tokens_is_noop(self):
+        """无任何 refresh token 时吊销应为无操作且不抛异常"""
+        user = AuthUser.objects.create_user(
+            auth_username="blnone", password=TEST_PASSWORD, auth_phone="13710010009"
+        )
+        AuthService.invalidate_user_refresh_tokens(user)
+        assert BlacklistedToken.objects.count() == 0
+
+    def test_invalidate_refresh_tokens_error_tolerant(self, monkeypatch):
+        """黑名单写入失败时应静默容错, 不中断改密主流程"""
+        user = AuthUser.objects.create_user(
+            auth_username="blerr", password=TEST_PASSWORD, auth_phone="13710010010"
+        )
+        AuthService.issue_tokens(user)
+
+        def _boom(**kwargs):
+            raise RuntimeError("blacklist down")
+
+        monkeypatch.setattr(BlacklistedToken.objects, "get_or_create", _boom)
+
+        AuthService.invalidate_user_refresh_tokens(user)

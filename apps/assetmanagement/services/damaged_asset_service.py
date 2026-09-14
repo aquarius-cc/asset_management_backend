@@ -215,7 +215,7 @@ class DamagedAssetService:
         AuditLogger.log_state_change(
             asset=asset,
             from_state=old_status,
-            to_state=asset.asset_current_status,  # type: ignore[union-attr]
+            to_state=asset.asset_current_status,
             trigger="reject",
             operator_jobcode=approver_jobcode,
             operator_name=operator_name,
@@ -225,12 +225,12 @@ class DamagedAssetService:
         from apps.notification.helpers import send_notification_on_commit
 
         send_notification_on_commit(
-            asset=asset,  # type: ignore[arg-type]
+            asset=asset,
             notification_type="approval",
             title="待报废审批拒绝",
-            message=f"资产 {asset.asset_code} 的报废申请已被拒绝",  # type: ignore[union-attr]
+            message=f"资产 {asset.asset_code} 的报废申请已被拒绝",
             priority="medium",
-            related_url=f"/main/assetdetails/{asset.asset_code}",  # type: ignore[union-attr]
+            related_url=f"/main/assetdetails/{asset.asset_code}",
         )
 
         return damaged_asset
@@ -277,7 +277,7 @@ class DamagedAssetService:
         AuditLogger.log_state_change(
             asset=asset,
             from_state=old_status,
-            to_state=asset.asset_current_status,  # type: ignore[union-attr]
+            to_state=asset.asset_current_status,
             trigger="cancel",
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,

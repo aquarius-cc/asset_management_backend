@@ -83,7 +83,7 @@ class StorageViewSet(  # type: ignore[misc]
         type_dict = dict(STORAGE_TYPE_CHOICES)
         type_stats = {}
         for item in type_stats_qs:
-            code = item["storage_type"]
+            code = item["storage_type"] or ""
             type_stats[code] = {"name": type_dict.get(code, code), "count": item["count"]}
         return success_response(data={"total_storages": total, "by_type": type_stats})
 
@@ -97,8 +97,8 @@ class StorageViewSet(  # type: ignore[misc]
         )
         return success_response(message="删除成功")
 
-    @action(detail=False, methods=["post"], url_path="batch-delete")  # type: ignore[type-var]
-    def batch_delete(self, request: Any) -> None:
+    @action(detail=False, methods=["post"], url_path="batch-delete")
+    def batch_delete(self, request: Any) -> Response:
         serializer = StorageBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         operator_jobcode, operator_name = resolve_operator(request.user)
@@ -108,7 +108,7 @@ class StorageViewSet(  # type: ignore[misc]
             operator_name=operator_name,
         )
         # 【DR-1 收敛】响应组装复用 BatchResponseHelper
-        return BatchResponseHelper.delete_response(  # type: ignore[no-any-return]
+        return BatchResponseHelper.delete_response(
             result,
             message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )

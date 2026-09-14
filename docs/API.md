@@ -32,7 +32,7 @@
 | POST | `/api/auth/login/` | 用户登录 | Body: {auth_username, password} | {user, refresh, access} | AllowAny |
 | POST | `/api/auth/logout/` | 退出登录（Token 黑名单） | Body: {refresh} | {} | 认证 |
 | GET | `/api/auth/profile/` | 获取当前用户信息 | 无 | AuthUser 字段 | 认证 |
-| PUT | `/api/auth/profile/` | 更新当前用户信息 | Body: {email, auth_phone} | AuthUser 字段 | 认证 |
+| PUT | `/api/auth/profile/` | 更新当前用户信息（改密须提供原密码） | Body: {email, auth_phone, password, old_password} | AuthUser 字段 | 认证 |
 | POST | `/api/auth/token/refresh/` | 刷新 JWT Token | Body: {refresh} | {access} | AllowAny |
 | POST | `/api/auth/token/verify/` | 验证 JWT Token | Body: {token} | {} | AllowAny |
 | GET | `/api/auth/users/` | 用户列表 | ?page, ?page_size | {count, results} | 管理员 |

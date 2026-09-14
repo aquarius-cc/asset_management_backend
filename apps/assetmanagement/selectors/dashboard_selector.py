@@ -303,7 +303,7 @@ class DashboardSelector:
         """
         from datetime import date
 
-        from dateutil.relativedelta import relativedelta  # type: ignore[import-untyped]
+        from dateutil.relativedelta import relativedelta
 
         expiring_assets = (
             DashboardSelector._scoped_asset_queryset(user)
@@ -313,7 +313,7 @@ class DashboardSelector:
 
         result = []
         for asset in expiring_assets:
-            warranty_end = asset.asset_purchase_date + relativedelta(months=asset.asset_warranty_period * 12)  # type: ignore[operator]
+            warranty_end = asset.asset_purchase_date + relativedelta(months=asset.asset_warranty_period * 12)
             days_remaining = (warranty_end - date.today()).days
 
             if 0 <= days_remaining <= days:

@@ -169,8 +169,8 @@ class RecycleAssetViewSet(  # type: ignore[misc]
         serializer = RecycleAssetDetailSerializer(record)
         return success_response(data=serializer.data, message="查询成功")
 
-    @action(detail=False, methods=["post"], url_path="batch-create")  # type: ignore[type-var]
-    def batch_create(self, request: Any) -> None:
+    @action(detail=False, methods=["post"], url_path="batch-create")
+    def batch_create(self, request: Any) -> Response:
         serializer = RecycleAssetBatchCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -200,7 +200,7 @@ class RecycleAssetViewSet(  # type: ignore[misc]
             operator_name=resolve_operator(request.user)[1],
         )
         # 【DR-1/B-8】响应组装复用 BatchResponseHelper; input_data 以用户原始输入回显
-        return BatchResponseHelper.create_response(  # type: ignore[no-any-return]
+        return BatchResponseHelper.create_response(
             result,
             RecycleAssetCreateSerializer,
             message=f"批量回收完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
@@ -222,8 +222,8 @@ class RecycleAssetViewSet(  # type: ignore[misc]
             )
         return success_response(message="删除成功")
 
-    @action(detail=False, methods=["post"], url_path="batch-delete")  # type: ignore[type-var]
-    def batch_delete(self, request: Any) -> None:
+    @action(detail=False, methods=["post"], url_path="batch-delete")
+    def batch_delete(self, request: Any) -> Response:
         serializer = RecycleAssetBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         result = RecycleAssetService.batch_delete_recycle_asset(
@@ -232,7 +232,7 @@ class RecycleAssetViewSet(  # type: ignore[misc]
             operator_name=resolve_operator(request.user)[1],
         )
         # 【DR-1 收敛】响应组装复用 BatchResponseHelper
-        return BatchResponseHelper.delete_response(  # type: ignore[no-any-return]
+        return BatchResponseHelper.delete_response(
             result,
             message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )

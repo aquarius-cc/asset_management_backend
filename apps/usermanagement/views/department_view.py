@@ -303,29 +303,29 @@ class DepartmentViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ModelViewSe
 
         return success_response(data={"updated_count": updated_count}, message="排序更新成功")
 
-    @action(detail=False, methods=["post"], url_path="batch-create")  # type: ignore[type-var]
-    def batch_create(self, request: Any) -> None:
+    @action(detail=False, methods=["post"], url_path="batch-create")
+    def batch_create(self, request: Any) -> Response:
         """批量创建部门"""
         serializer = DepartmentBatchCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         result = DepartmentService.batch_create_department(serializer.validated_data["items"])
 
-        return BatchResponseHelper.create_response(  # type: ignore[no-any-return]
+        return BatchResponseHelper.create_response(
             result,
             DepartmentSerializer,
             message=f"批量创建完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
 
-    @action(detail=False, methods=["post"], url_path="batch-delete")  # type: ignore[type-var]
-    def batch_delete(self, request: Any) -> None:
+    @action(detail=False, methods=["post"], url_path="batch-delete")
+    def batch_delete(self, request: Any) -> Response:
         """批量删除部门"""
         serializer = DepartmentBatchDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         result = DepartmentService.batch_delete_department(serializer.validated_data["ids"])
 
-        return BatchResponseHelper.delete_response(  # type: ignore[no-any-return]
+        return BatchResponseHelper.delete_response(
             result,
             message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )

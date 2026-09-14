@@ -12,6 +12,8 @@ import ast
 import re
 import sys
 from pathlib import Path
+from typing import Any, cast
+
 
 ROOT = Path(__file__).resolve().parent.parent
 BE_DIR = ROOT
@@ -21,14 +23,14 @@ FE_DIR = ROOT.parent / "vue-assetmanagement"
 INIT_CMD = BE_DIR / "apps" / "usermanagement" / "management" / "commands" / "init_production_data.py"
 
 
-def _parse_modules_config() -> dict:
+def _parse_modules_config() -> dict[str, Any]:
     """AST 解析 init_production_data.py 中的 MODULES_CONFIG 字典。"""
     tree = ast.parse(INIT_CMD.read_text(encoding="utf-8"))
     for node in ast.walk(tree):
         if isinstance(node, ast.Assign):
             for target in node.targets:
                 if isinstance(target, ast.Name) and target.id == "MODULES_CONFIG":
-                    return ast.literal_eval(node.value)
+                    return cast(dict[str, Any], ast.literal_eval(node.value))
     raise RuntimeError("MODULES_CONFIG not found in init_production_data.py")
 
 
@@ -36,7 +38,7 @@ def _parse_modules_config() -> dict:
 EXTRA_CODES = {"system_config:manage"}
 
 
-def build_code_set(modules: dict) -> set[str]:
+def build_code_set(modules: dict[str, Any]) -> set[str]:
     """从 MODULES_CONFIG 构建完整权限码集合。"""
     codes = set()
     for module, cfg in modules.items():
@@ -99,7 +101,7 @@ def _extract_existing_codes(ts_path: Path) -> set[str]:
     return set(re.findall(r"'([a-z_]+:[a-z_]+)'", text))
 
 
-def check_fe(modules: dict) -> bool:
+def check_fe(modules: dict[str, Any]) -> bool:
     """校验前端文件是否与 MODULES_CONFIG 一致。"""
     expected = build_code_set(modules)
     ts_path = FE_DIR / "src" / "constants" / "permissionCodes.ts"
@@ -120,7 +122,7 @@ def check_fe(modules: dict) -> bool:
     return ok
 
 
-def check_be(modules: dict) -> bool:
+def check_be(modules: dict[str, Any]) -> bool:
     """校验后端常量文件是否与 MODULES_CONFIG 一致。"""
     expected = build_code_set(modules)
     be_path = BE_DIR / "constants" / "permission_constants.py"

@@ -212,10 +212,10 @@ class OutAssetBatchItemSerializer(serializers.Serializer):  # type: ignore[type-
     outasset_type = serializers.CharField(required=True)
     outasset_description = serializers.CharField(required=False, allow_blank=True)
     return_date = serializers.DateField(required=False, allow_null=True)
-    outasset_applicant = serializers.SlugRelatedField(  # type: ignore[var-annotated]
+    outasset_applicant = serializers.SlugRelatedField(
         slug_field="employee_jobcode", queryset=get_employee_queryset(), required=True, write_only=True
     )
-    outasset_manager = serializers.SlugRelatedField(  # type: ignore[var-annotated]
+    outasset_manager = serializers.SlugRelatedField(
         slug_field="employee_jobcode", queryset=get_employee_queryset(), required=True, write_only=True
     )
     outasset_using_location = serializers.CharField(required=True, write_only=True)

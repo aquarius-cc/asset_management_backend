@@ -12,6 +12,7 @@ from typing import Any
 
 from drf_spectacular.utils import extend_schema
 from rest_framework.decorators import action
+from rest_framework.response import Response
 
 from apps.assetmanagement.models import BrokenAsset, FoundAsset, LostAsset
 from apps.assetmanagement.selectors import (
@@ -55,8 +56,8 @@ class BrokenAssetViewSet(AssetLifecycleViewSetBase):
     search_fields_extra = ("broken_reason",)
     ordering_field = "broken_date"
 
-    @action(detail=False, methods=["post"], url_path="batch-create")  # type: ignore[type-var]
-    def batch_create(self, request: Any) -> None:
+    @action(detail=False, methods=["post"], url_path="batch-create")
+    def batch_create(self, request: Any) -> Response:
         serializer = BrokenAssetBatchCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         operator_jobcode, operator_name = resolve_operator(request.user)
@@ -66,7 +67,7 @@ class BrokenAssetViewSet(AssetLifecycleViewSetBase):
             operator_name=operator_name,
         )
         # 【DR-1 收敛】响应组装复用 BatchResponseHelper(message 显式传入, 契约不变)
-        return BatchResponseHelper.create_response(  # type: ignore[no-any-return]
+        return BatchResponseHelper.create_response(
             result,
             BrokenAssetCreateSerializer,
             message=f"批量创建完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
@@ -86,8 +87,8 @@ class LostAssetViewSet(AssetLifecycleViewSetBase):
     search_fields_extra = ("lost_reason",)
     ordering_field = "lost_date"
 
-    @action(detail=False, methods=["post"], url_path="batch-create")  # type: ignore[type-var]
-    def batch_create(self, request: Any) -> None:
+    @action(detail=False, methods=["post"], url_path="batch-create")
+    def batch_create(self, request: Any) -> Response:
         serializer = LostAssetBatchCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         operator_jobcode, operator_name = resolve_operator(request.user)
@@ -97,7 +98,7 @@ class LostAssetViewSet(AssetLifecycleViewSetBase):
             operator_name=operator_name,
         )
         # 【DR-1 收敛】响应组装复用 BatchResponseHelper(message 显式传入, 契约不变)
-        return BatchResponseHelper.create_response(  # type: ignore[no-any-return]
+        return BatchResponseHelper.create_response(
             result,
             LostAssetCreateSerializer,
             message=f"批量创建完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",

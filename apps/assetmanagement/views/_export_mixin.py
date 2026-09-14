@@ -77,8 +77,8 @@ class ExportExcelMixin:
 
         # 自动调整列宽
         for col in ws.columns:
-            max_length = max(len(str(cell.value or "")) for cell in col)  # type: ignore[attr-defined]
-            ws.column_dimensions[col[0].column_letter].width = min(max_length + 4, 40)  # type: ignore[index]
+            max_length = max(len(str(cell.value or "")) for cell in col)
+            ws.column_dimensions[col[0].column_letter].width = min(max_length + 4, 40)
 
         response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         response["Content-Disposition"] = f'attachment; filename="{self.export_filename}"'

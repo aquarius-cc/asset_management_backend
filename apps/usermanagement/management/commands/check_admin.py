@@ -7,8 +7,11 @@
   - 超管不存在：exit 2，打印指引（非阻断启动，仅用于发布检查单）
 """
 
+from typing import Any
+
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
+
 
 User = get_user_model()
 
@@ -16,12 +19,13 @@ User = get_user_model()
 class Command(BaseCommand):
     help = "检查是否存在超级管理员（M-2 发布验证门禁）"
 
-    def handle(self, *args, **options):
-        admins = User.objects.filter(is_superuser=True, is_active=True)
+    def handle(self, *args: Any, **options: Any) -> Any:
+        admins = User.objects.filter(is_superuser=True, auth_is_active=True)
         if admins.exists():
             admin = admins.first()
+            assert admin is not None
             self.stdout.write(self.style.SUCCESS(
-                f"[PASS] 超管存在：username={admin.username} (id={admin.id})"
+                f"[PASS] 超管存在：username={admin.get_username()} (id={admin.pk})"
             ))
             return 0
         else:

@@ -227,7 +227,7 @@ class RecycleAssetBatchCreateSerializer(serializers.Serializer):  # type: ignore
     recycle_asset_storage = serializers.SlugRelatedField(
         slug_field="storage_code", queryset=Storage.objects.all(), required=False, allow_null=True
     )
-    recycle_asset_recycle_person_jobcode = serializers.SlugRelatedField(  # type: ignore[var-annotated]
+    recycle_asset_recycle_person_jobcode = serializers.SlugRelatedField(
         slug_field="employee_jobcode", queryset=get_employee_queryset(), required=False, allow_null=True
     )
 

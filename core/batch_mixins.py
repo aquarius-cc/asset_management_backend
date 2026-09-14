@@ -283,7 +283,7 @@ class BatchResponseHelper:
         return success_response(data=data, message=message)
 
     @staticmethod
-    def delete_response(result: dict[str, Any], message: str) -> Any:
+    def delete_response(result: dict[str, Any], message: str) -> Response:
         """批量删除: Service 返回 dict 原样透传(success_ids 形态)"""
         return success_response(data=result, message=message)
 

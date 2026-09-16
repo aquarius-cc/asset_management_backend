@@ -68,12 +68,21 @@ class TestOutAssetViewSet:
 
     def test_update_out_asset(self, admin_authenticated_client, outasset):
         """测试更新出库记录"""
+        from apps.assetmanagement.models import AssetOperationLog
+
         url = reverse("out-assets-detail", kwargs={"recordcode": outasset.recordcode})
         data = {"outasset_date": "2024-04-01"}
         response = admin_authenticated_client.put(url, data, format="json")
         assert response.status_code == status.HTTP_200_OK
         assert response.data["code"] == 0
         assert response.data["data"]["outasset_date"] == "2024-04-01"
+        log = AssetOperationLog.objects.filter(
+            asset_code=outasset.asset_recordcode.asset_code,
+            operation_type="update",
+        ).first()
+        assert log is not None, "更新出库记录应产生操作日志"
+        assert log.operator_jobcode is not None, "操作日志应记录操作人工号"
+        assert log.operator_jobcode == "adminuser"
 
     def test_partial_update_out_asset(self, admin_authenticated_client, outasset):
         """测试部分更新出库记录"""

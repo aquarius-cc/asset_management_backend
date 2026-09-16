@@ -199,6 +199,7 @@ class OutAssetViewSet(  # type: ignore[misc]
         outasset = OutAssetService.update_outasset(
             recordcode=recordcode,  # type: ignore[arg-type]
             update_data=request.data,
+            **self.get_operator_context(),
         )
         return success_response(data=OutAssetDetailSerializer(outasset).data, message="更新成功")
 

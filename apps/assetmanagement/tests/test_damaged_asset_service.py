@@ -7,6 +7,7 @@ from django.test import TestCase as DjangoTestCase
 
 from apps.assetmanagement.models import (
     Asset,
+    AssetOperationLog,
     DamagedAsset,
 )
 from apps.assetmanagement.services.damaged_asset_service import DamagedAssetService
@@ -393,3 +394,50 @@ class TestCancelAssetRecordcode:
         with pytest.raises(AppValidationError) as exc_info:
             DamagedAssetService.cancel_asset_recordcode(asset_damaged.recordcode)
         assert exc_info.value.error_code == "INVALID_APPROVAL_STATUS"
+
+
+@pytest.mark.django_db
+class TestUpdateDamagedAsset:
+    def test_update_success(self, asset_damaged):
+        """更新待报废记录应成功并产生含操作人的审计日志(BE-05P2)"""
+        dmg = DamagedAsset.objects.create(
+            asset_recordcode=asset_damaged,
+            damaged_asset_number=1,
+            damaged_asset_description="原始描述",
+        )
+        result = DamagedAssetService.update_damaged_asset(
+            recordcode=dmg.recordcode,
+            update_data={"damaged_asset_description": "更新后描述"},
+            operator_jobcode="U001",
+            operator_name="测试操作人",
+        )
+        result.refresh_from_db()
+        assert result.damaged_asset_description == "更新后描述"
+        log = AssetOperationLog.objects.filter(
+            asset_code=asset_damaged.asset_code,
+            operation_type="update",
+        ).first()
+        assert log is not None, "更新待报废记录应产生操作日志"
+        assert log.operator_jobcode == "U001"
+
+    def test_update_not_found_raises(self):
+        with pytest.raises(AppValidationError) as exc_info:
+            DamagedAssetService.update_damaged_asset(
+                recordcode="NONEXIST",
+                update_data={"damaged_asset_description": "x"},
+                operator_jobcode="U001",
+            )
+        assert exc_info.value.error_code == "DAMAGED_RECORD_NOT_FOUND"
+
+    def test_update_invalid_fields_ignored(self, asset_damaged):
+        dmg = DamagedAsset.objects.create(
+            asset_recordcode=asset_damaged,
+            damaged_asset_number=1,
+        )
+        result = DamagedAssetService.update_damaged_asset(
+            recordcode=dmg.recordcode,
+            update_data={"invalid_field": "忽略", "damaged_asset_description": "有效"},
+            operator_jobcode="U001",
+        )
+        result.refresh_from_db()
+        assert result.damaged_asset_description == "有效"

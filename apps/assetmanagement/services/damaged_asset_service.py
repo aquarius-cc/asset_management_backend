@@ -67,13 +67,20 @@ class DamagedAssetService:
 
     @staticmethod
     @transaction.atomic
-    def update_damaged_asset(recordcode: str, update_data: dict[str, Any]) -> DamagedAsset:
+    def update_damaged_asset(
+        recordcode: str,
+        update_data: dict[str, Any],
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+    ) -> DamagedAsset:
         """
         更新待报废记录(select_for_update 防并发覆盖)
 
         Args:
             recordcode: 待报废记录编码
             update_data: 更新字段(白名单过滤)
+            operator_jobcode: 操作人工号
+            operator_name: 操作人姓名
 
         Returns:
             更新后的 DamagedAsset
@@ -84,13 +91,24 @@ class DamagedAssetService:
 
         allowed_fields = {"damaged_asset_description", "damaged_date", "damaged_asset_number"}
         update_fields = []
+        before_data: dict[str, Any] = {}
+        after_data: dict[str, Any] = {}
         for field, value in update_data.items():
             if field in allowed_fields and value is not None:
+                before_data[field] = getattr(damaged_asset, field)
                 setattr(damaged_asset, field, value)
+                after_data[field] = value
                 update_fields.append(field)
 
         if update_fields:
             damaged_asset.save(update_fields=update_fields)
+            AuditLogger.log_asset_update(
+                asset=damaged_asset.asset_recordcode,
+                before_data=before_data,
+                after_data=after_data,
+                operator_jobcode=operator_jobcode,
+                operator_name=operator_name,
+            )
         return damaged_asset
 
     @staticmethod

@@ -132,6 +132,8 @@ class DamagedAssetViewSet(  # type: ignore[misc]
         updated = DamagedAssetService.update_damaged_asset(
             recordcode=obj.recordcode,
             update_data=request.data,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         return success_response(data=DamagedAssetUpdateSerializer(updated).data, message="更新待报废记录成功")
 
@@ -141,6 +143,8 @@ class DamagedAssetViewSet(  # type: ignore[misc]
         updated = DamagedAssetService.update_damaged_asset(
             recordcode=obj.recordcode,
             update_data=request.data,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
         )
         return success_response(data=DamagedAssetUpdateSerializer(updated).data, message="更新待报废记录成功")
 

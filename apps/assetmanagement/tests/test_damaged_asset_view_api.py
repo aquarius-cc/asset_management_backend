@@ -72,12 +72,21 @@ class TestDamagedAssetViewSet:
 
     def test_update_damaged_asset(self, admin_authenticated_client, damaged_asset):
         """测试更新待报废资产"""
+        from apps.assetmanagement.models import AssetOperationLog
+
         url = reverse("damaged-assets-detail", kwargs={"recordcode": damaged_asset.recordcode})
         data = {"damaged_asset_description": "更新后的损坏描述"}
         response = admin_authenticated_client.put(url, data, format="json")
         assert response.status_code == status.HTTP_200_OK
         assert response.data["code"] == 0
         assert response.data["data"]["damaged_asset_description"] == "更新后的损坏描述"
+        log = AssetOperationLog.objects.filter(
+            asset_code=damaged_asset.asset_recordcode.asset_code,
+            operation_type="update",
+        ).first()
+        assert log is not None, "更新待报废记录应产生操作日志"
+        assert log.operator_jobcode is not None, "操作日志应记录操作人工号"
+        assert log.operator_jobcode == "adminuser"
 
     def test_partial_update_damaged_asset(self, admin_authenticated_client, damaged_asset):
         """测试部分更新待报废资产"""

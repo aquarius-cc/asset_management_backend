@@ -32,7 +32,7 @@ from core.batch_mixins import BatchResponseHelper
 from core.constants import ASSET_STATUS_CHOICES
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
-from core.permissions import IsAssetAdminOrAbove
+from core.permissions import IsAssetAdminOrAbove, IsSystemAdmin
 from utils.response_utils import error_response, success_response
 from utils.user_utils import resolve_operator
 
@@ -92,7 +92,9 @@ class AssetViewSet(  # type: ignore[misc]
     export_sheet_name = "资产列表"
 
     def get_permissions(self) -> Any:
-        """RBAC: 写操作需 asset_admin+,读操作需认证"""
+        """RBAC: 写操作需 asset_admin+,读操作需认证;change_status 为废弃数据修复端点为 system_admin 专属"""
+        if self.action == "change_status":
+            return [IsSystemAdmin()]
         if self.action in self.admin_actions:
             return [IsAssetAdminOrAbove()]
         return [permissions.IsAuthenticated()]

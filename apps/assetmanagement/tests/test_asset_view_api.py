@@ -194,6 +194,32 @@ class TestAssetViewSet:
         assert log.operator_jobcode == admin_auth_user.auth_username
         assert log.operator_jobcode != str(admin_auth_user.auth_id)
 
+    def test_change_status_requires_system_admin(self, api_client, asset, department):
+        """废弃数据修复端点仅限系统管理员(BE-06):asset_admin 应 403,防权限面漂移"""
+        from apps.authusermanagement.models import AuthUser
+        from apps.usermanagement.models import Employee
+
+        aa = AuthUser.objects.create_user(auth_username="aa_be06", password="p", auth_phone="13800000019")
+        Employee.objects.create(
+            employee_jobcode="aa_be06",
+            employee_name="资产管理员",
+            employee_department=department,
+            role="asset_admin",
+            employee_phone="13800000119",
+        )
+        manager = Employee.objects.create(
+            employee_jobcode="mgr_be06",
+            employee_name="部门保管人",
+            employee_department=department,
+            employee_phone="13800000129",
+        )
+        asset.asset_manager_recordcode = manager
+        asset.save(update_fields=["asset_manager_recordcode"])
+        api_client.force_authenticate(user=aa)
+        url = reverse("assets-change-status", kwargs={"recordcode": asset.recordcode})
+        resp = api_client.post(url, {"status": "in_use", "description": "越权尝试"}, format="json")
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+
     def test_change_outasset_employee(self, admin_authenticated_client, asset, employee):
         url = reverse("assets-change-outasset-employee", kwargs={"recordcode": asset.recordcode})
         data = {"applicant_jobcode": employee.employee_jobcode, "manager_jobcode": employee.employee_jobcode}

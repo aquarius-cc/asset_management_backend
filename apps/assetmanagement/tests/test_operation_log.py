@@ -108,16 +108,23 @@ class TestLoggingIdUniqueness:
 class TestGetByLoggingIdService:
     """服务层根据 logging_id 查询测试"""
 
-    def test_existing_logging_id(self):
+    @pytest.fixture
+    def query_admin(self, db):
+        """无 Employee 记录的 AuthUser:部门范围 None(不过滤)"""
+        from apps.authusermanagement.models import AuthUser
+
+        return AuthUser.objects.create_user(auth_username="testuser", password=TEST_PASSWORD)
+
+    def test_existing_logging_id(self, query_admin):
         """查询存在的 logging_id 应返回记录"""
         log = AssetOperationLog.objects.create(asset_code="TEST001", operation_type="create", description="测试")
-        result = OperationLogQueryService.get_operation_log_by_logging_id(log.logging_id)
+        result = OperationLogQueryService.get_operation_log_by_logging_id(query_admin, log.logging_id)
         assert result is not None
         assert result.id == log.id
 
-    def test_nonexistent_logging_id(self):
+    def test_nonexistent_logging_id(self, query_admin):
         """查询不存在的 logging_id 应返回 None"""
-        result = OperationLogQueryService.get_operation_log_by_logging_id("nonexistent-Log-20250123-A1B2C3D4")
+        result = OperationLogQueryService.get_operation_log_by_logging_id(query_admin, "nonexistent-Log-20250123-A1B2C3D4")
         assert result is None
 
 

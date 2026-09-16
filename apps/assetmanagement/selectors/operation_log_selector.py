@@ -19,24 +19,49 @@ Class:
 from datetime import timedelta
 from typing import Any
 
+from django.db.models import QuerySet
 from django.utils import timezone
 
-from apps.assetmanagement.models import AssetOperationLog
+from apps.assetmanagement.models import Asset, AssetOperationLog
+from core.department_scope import build_asset_owned_department_q, get_department_codes_for_user
 
 
 class OperationLogSelector:
     """操作日志查询选择器"""
 
     @staticmethod
-    def get_asset_history(asset_code: str) -> list[AssetOperationLog]:
-        """获取指定资产的完整操作历史"""
-        return list(AssetOperationLog.objects.filter(asset_code=asset_code).order_by("-operation_time"))
+    def _scope_by_user(queryset: QuerySet[AssetOperationLog], user: Any) -> QuerySet[AssetOperationLog]:
+        """RBAC 行级过滤:按用户部门范围过滤操作日志
+
+        AssetOperationLog.asset_code 为 CharField(非 FK),不能直接复用
+        get_asset_linked_queryset_for_user(该函数按 asset_recordcode FK 过滤),
+        故经 Asset 三路径归属子查询过滤。归属判定与资产查询单一事实来源一致
+        (build_asset_owned_department_q / get_department_codes_for_user)。
+
+        get_department_codes_for_user 语义:
+        - None: 无限制(system_admin / auditor / superuser / 无 Employee)
+        - 空列表: 无权限(部门级角色但无部门),返回空集
+        """
+        codes = get_department_codes_for_user(user)
+        if codes is None:
+            return queryset
+        if not codes:
+            return queryset.none()
+        scoped_asset_codes = Asset.objects.filter(build_asset_owned_department_q(codes)).values("asset_code")
+        return queryset.filter(asset_code__in=scoped_asset_codes)
 
     @staticmethod
-    def get_recent_operations(days: int = 7) -> list[AssetOperationLog]:
+    def get_asset_history(user: Any, asset_code: str) -> list[AssetOperationLog]:
+        """获取指定资产的完整操作历史"""
+        queryset = AssetOperationLog.objects.filter(asset_code=asset_code)
+        return list(OperationLogSelector._scope_by_user(queryset, user).order_by("-operation_time"))
+
+    @staticmethod
+    def get_recent_operations(user: Any, days: int = 7) -> list[AssetOperationLog]:
         """获取最近 N 天的操作记录"""
         start_time = timezone.now() - timedelta(days=days)
-        return list(AssetOperationLog.objects.filter(operation_time__gte=start_time).order_by("-operation_time"))
+        queryset = AssetOperationLog.objects.filter(operation_time__gte=start_time)
+        return list(OperationLogSelector._scope_by_user(queryset, user).order_by("-operation_time"))
 
     @staticmethod
     def get_operations_by_type(operation_type: str) -> list[AssetOperationLog]:
@@ -44,16 +69,20 @@ class OperationLogSelector:
         return list(AssetOperationLog.objects.filter(operation_type=operation_type).order_by("-operation_time"))
 
     @staticmethod
-    def get_user_operations(operator_jobcode: str) -> list[AssetOperationLog]:
+    def get_user_operations(user: Any, operator_jobcode: str) -> list[AssetOperationLog]:
         """获取指定用户的操作记录"""
-        return list(AssetOperationLog.objects.filter(operator_jobcode=operator_jobcode).order_by("-operation_time"))
+        queryset = AssetOperationLog.objects.filter(operator_jobcode=operator_jobcode)
+        return list(OperationLogSelector._scope_by_user(queryset, user).order_by("-operation_time"))
 
     @staticmethod
-    def get_asset_status_timeline(asset_code: str) -> list[dict[str, Any]]:
+    def get_asset_status_timeline(user: Any, asset_code: str) -> list[dict[str, Any]]:
         """获取资产状态变更时间线"""
-        logs = AssetOperationLog.objects.filter(
-            asset_code=asset_code,
-            operation_type__in=["create", "out", "recycle", "damaged", "waste", "approve"],
+        logs = OperationLogSelector._scope_by_user(
+            AssetOperationLog.objects.filter(
+                asset_code=asset_code,
+                operation_type__in=["create", "out", "recycle", "damaged", "waste", "approve"],
+            ),
+            user,
         ).order_by("operation_time")
 
         return [
@@ -69,23 +98,28 @@ class OperationLogSelector:
         ]
 
     @staticmethod
-    def get_operation_log_by_logging_id(logging_id: str) -> AssetOperationLog | None:
+    def get_operation_log_by_logging_id(user: Any, logging_id: str) -> AssetOperationLog | None:
         """根据 LoggingId 查询单条操作记录"""
+        queryset = OperationLogSelector._scope_by_user(
+            AssetOperationLog.objects.filter(logging_id=logging_id), user
+        )
         try:
-            return AssetOperationLog.objects.get(logging_id=logging_id)
+            return queryset.get()
         except AssetOperationLog.DoesNotExist:
             return None
 
     @staticmethod
-    def get_operation_log_by_pk(pk: int) -> AssetOperationLog | None:
+    def get_operation_log_by_pk(user: Any, pk: int) -> AssetOperationLog | None:
         """根据主键查询单条操作记录"""
+        queryset = OperationLogSelector._scope_by_user(AssetOperationLog.objects.filter(pk=pk), user)
         try:
-            return AssetOperationLog.objects.get(pk=pk)
+            return queryset.get()
         except AssetOperationLog.DoesNotExist:
             return None
 
     @staticmethod
     def query_operation_logs(
+        user: Any,
         asset_code: str | None = None,
         operation_type: str | None = None,
         operator_jobcode: str | None = None,
@@ -106,4 +140,4 @@ class OperationLogSelector:
         if end_time:
             queryset = queryset.filter(operation_time__lte=end_time)
 
-        return list(queryset.order_by("-operation_time"))
+        return list(OperationLogSelector._scope_by_user(queryset, user).order_by("-operation_time"))

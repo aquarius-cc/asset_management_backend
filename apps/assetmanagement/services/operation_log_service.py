@@ -15,7 +15,10 @@
 """
 
 import logging
+from datetime import date, datetime, time
+from decimal import Decimal
 from typing import Any
+from uuid import UUID
 
 from django.db import transaction
 
@@ -24,6 +27,24 @@ from apps.assetmanagement.selectors.operation_log_selector import OperationLogSe
 
 
 logger = logging.getLogger(__name__)
+
+
+def _to_json_safe(value: Any) -> Any:
+    """将审计快照值幂等归一化为 JSON 安全类型(写入收口,DR-1 唯一实现)。
+
+    说明: Django JSONField 入库时无法序列化 date/Decimal/FK 实例等类型,
+    此前由各调用方自行归一(如 asset_service._normalize),易遗漏致日志被
+    AuditLogger._safe_log 静默吞掉。此处统一收口,对已归一值幂等无副作用。
+    """
+    if isinstance(value, dict):
+        return {key: _to_json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_to_json_safe(item) for item in value]
+    if hasattr(value, "pk"):
+        return str(getattr(value, "recordcode", value.pk))
+    if isinstance(value, (Decimal, date, datetime, time, UUID)):
+        return str(value)
+    return value
 
 
 class OperationLogService:
@@ -83,6 +104,10 @@ class OperationLogService:
         # 【易错点】确保资产编码不为空
         if not asset_code:
             raise ValueError("资产编码不能为空")
+
+        # 审计快照写入前统一归一化为 JSON 安全类型(幂等,DR-1)
+        before_data = _to_json_safe(before_data) if before_data else before_data
+        after_data = _to_json_safe(after_data) if after_data else after_data
 
         try:
             log = AssetOperationLog.objects.create(
@@ -389,14 +414,14 @@ class OperationLogQueryService:
     """
 
     @staticmethod
-    def get_asset_history(asset_code: str) -> list[AssetOperationLog]:
+    def get_asset_history(user: Any, asset_code: str) -> list[AssetOperationLog]:
         """获取指定资产的完整操作历史"""
-        return OperationLogSelector.get_asset_history(asset_code)
+        return OperationLogSelector.get_asset_history(user, asset_code)
 
     @staticmethod
-    def get_recent_operations(days: int = 7) -> list[AssetOperationLog]:
+    def get_recent_operations(user: Any, days: int = 7) -> list[AssetOperationLog]:
         """获取最近N天的操作记录"""
-        return OperationLogSelector.get_recent_operations(days)
+        return OperationLogSelector.get_recent_operations(user, days)
 
     @staticmethod
     def get_operations_by_type(operation_type: str) -> list[AssetOperationLog]:
@@ -404,29 +429,30 @@ class OperationLogQueryService:
         return OperationLogSelector.get_operations_by_type(operation_type)
 
     @staticmethod
-    def get_user_operations(operator_jobcode: str) -> list[AssetOperationLog]:
+    def get_user_operations(user: Any, operator_jobcode: str) -> list[AssetOperationLog]:
         """获取指定用户的操作记录"""
-        return OperationLogSelector.get_user_operations(operator_jobcode)
+        return OperationLogSelector.get_user_operations(user, operator_jobcode)
 
     @staticmethod
-    def get_asset_status_timeline(asset_code: str) -> list[dict[str, Any]]:
+    def get_asset_status_timeline(user: Any, asset_code: str) -> list[dict[str, Any]]:
         """获取资产状态变更时间线"""
-        return OperationLogSelector.get_asset_status_timeline(asset_code)
+        return OperationLogSelector.get_asset_status_timeline(user, asset_code)
 
     @staticmethod
-    def get_operation_log_by_logging_id(logging_id: str) -> AssetOperationLog | None:
+    def get_operation_log_by_logging_id(user: Any, logging_id: str) -> AssetOperationLog | None:
         """根据 LoggingId 查询操作记录"""
-        return OperationLogSelector.get_operation_log_by_logging_id(logging_id)
+        return OperationLogSelector.get_operation_log_by_logging_id(user, logging_id)
 
     # 【AGENTS 规范 - P1-09】以下方法为 View 层查询逻辑下沉到 Service 层而新增
 
     @staticmethod
-    def get_operation_log_by_pk(pk: int) -> AssetOperationLog | None:
+    def get_operation_log_by_pk(user: Any, pk: int) -> AssetOperationLog | None:
         """【AGENTS 规范 - P1-09】根据主键查询单条操作记录"""
-        return OperationLogSelector.get_operation_log_by_pk(pk)
+        return OperationLogSelector.get_operation_log_by_pk(user, pk)
 
     @staticmethod
     def query_operation_logs(
+        user: Any,
         asset_code: str | None = None,
         operation_type: str | None = None,
         operator_jobcode: str | None = None,
@@ -435,6 +461,7 @@ class OperationLogQueryService:
     ) -> list[AssetOperationLog]:
         """【AGENTS 规范 - P1-09】多条件组合查询操作记录"""
         return OperationLogSelector.query_operation_logs(
+            user,
             asset_code=asset_code,
             operation_type=operation_type,
             operator_jobcode=operator_jobcode,

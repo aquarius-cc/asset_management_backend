@@ -145,6 +145,7 @@ class AssetOperationLogListView(ResponseWrapperMixin, APIView):
 
         # 【AGENTS 规范 - P1-09】调用 Service 层执行查询,View 不直接操作 ORM
         logs = OperationLogQueryService.query_operation_logs(
+            user=request.user,
             asset_code=asset_code,
             operation_type=operation_type,
             operator_jobcode=operator_jobcode,
@@ -185,7 +186,7 @@ class AssetOperationLogDetailView(ResponseWrapperMixin, APIView):
     def get(self, request: Any, pk: int) -> Response:
         """获取单条操作记录"""
         # 【AGENTS 规范 - P1-09】调用 Service 层查询,View 不直接操作 ORM
-        log = OperationLogQueryService.get_operation_log_by_pk(pk)
+        log = OperationLogQueryService.get_operation_log_by_pk(request.user, pk)
 
         if not log:
             return error_response(message=f"操作记录 {pk} 不存在", status_code=status.HTTP_404_NOT_FOUND)
@@ -225,7 +226,7 @@ class AssetHistoryView(ResponseWrapperMixin, APIView):
         """获取资产操作历史"""
 
         # 使用服务层查询
-        logs = OperationLogQueryService.get_asset_history(asset_code)
+        logs = OperationLogQueryService.get_asset_history(request.user, asset_code)
 
         if not logs:
             return error_response(message=f"资产 {asset_code} 没有操作记录", status_code=status.HTTP_404_NOT_FOUND)
@@ -271,7 +272,7 @@ class AssetOperationLogByLoggingIdView(ResponseWrapperMixin, APIView):
     )
     def get(self, request: Any, logging_id: str) -> Response:
         """通过 LoggingId 获取操作记录"""
-        log = OperationLogQueryService.get_operation_log_by_logging_id(logging_id)
+        log = OperationLogQueryService.get_operation_log_by_logging_id(request.user, logging_id)
 
         if not log:
             return error_response(message=f"操作记录 {logging_id} 不存在", status_code=status.HTTP_404_NOT_FOUND)
@@ -310,7 +311,7 @@ class AssetStatusTimelineView(ResponseWrapperMixin, APIView):
     def get(self, request: Any, asset_code: str) -> Response:
         """获取资产状态变更时间线"""
 
-        timeline = OperationLogQueryService.get_asset_status_timeline(asset_code)
+        timeline = OperationLogQueryService.get_asset_status_timeline(request.user, asset_code)
 
         if not timeline:
             return error_response(message=f"资产 {asset_code} 没有状态变更记录", status_code=status.HTTP_404_NOT_FOUND)
@@ -358,7 +359,7 @@ class RecentOperationsView(ResponseWrapperMixin, APIView):
             return error_response(message="days 参数必须是整数")
 
         # 使用服务层查询
-        logs = OperationLogQueryService.get_recent_operations(days_int)
+        logs = OperationLogQueryService.get_recent_operations(request.user, days_int)
 
         # 使用 CustomPageNumberPagination 统一分页格式
         paginator = CustomPageNumberPagination()
@@ -403,7 +404,7 @@ class UserOperationsView(ResponseWrapperMixin, APIView):
         """获取用户操作记录"""
 
         # 使用服务层查询
-        logs = OperationLogQueryService.get_user_operations(operator_jobcode)
+        logs = OperationLogQueryService.get_user_operations(request.user, operator_jobcode)
 
         if not logs:
             return error_response(

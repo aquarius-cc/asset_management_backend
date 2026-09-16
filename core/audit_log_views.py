@@ -17,7 +17,6 @@ from typing import Any
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema  # type: ignore[attr-defined]
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -25,6 +24,7 @@ from core.audit_query_service import AuditLogQueryService
 from core.mixins import ResponseWrapperMixin
 from core.models_audit import AuditLog
 from core.pagination import CustomPageNumberPagination
+from core.permissions import IsAuditorOrAdmin
 from utils.response_utils import error_response, success_response
 
 
@@ -77,7 +77,7 @@ class AuditLogListView(ResponseWrapperMixin, APIView):
     - days: 最近 N 天(与日期范围互斥)
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuditorOrAdmin]
 
     @extend_schema(
         summary="查询通用审计日志",
@@ -208,7 +208,7 @@ class AuditLogDetailView(ResponseWrapperMixin, APIView):
     获取单条审计记录的详细信息。
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuditorOrAdmin]
 
     @extend_schema(
         summary="获取审计日志详情",
@@ -240,7 +240,7 @@ class AuditLogByLoggingIdView(ResponseWrapperMixin, APIView):
     根据 logging_id 获取单条审计记录的详细信息。
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuditorOrAdmin]
 
     @extend_schema(
         summary="通过 logging_id 查询审计日志",
@@ -281,7 +281,7 @@ class RecentAuditLogsView(ResponseWrapperMixin, APIView):
     获取最近 N 天的审计日志,用于监控和审计。
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuditorOrAdmin]
 
     @extend_schema(
         summary="获取最近审计日志",
@@ -332,7 +332,7 @@ class AuditLogsByAppLabelView(ResponseWrapperMixin, APIView):
     获取指定应用的所有审计日志。
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuditorOrAdmin]
 
     @extend_schema(
         summary="按应用标识查询审计日志",
@@ -380,7 +380,7 @@ class AuditLogsByOperatorView(ResponseWrapperMixin, APIView):
     获取指定操作人的所有审计日志。
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuditorOrAdmin]
 
     @extend_schema(
         summary="按操作人查询审计日志",

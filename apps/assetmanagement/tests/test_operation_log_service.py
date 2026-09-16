@@ -1,5 +1,6 @@
 """资产操作日志服务测试"""
 
+import itertools
 from datetime import timedelta
 
 import pytest
@@ -10,6 +11,7 @@ from apps.assetmanagement.services.operation_log_service import (
     OperationLogQueryService,
     OperationLogService,
 )
+from core.tests import TEST_PASSWORD
 
 
 @pytest.mark.django_db
@@ -199,85 +201,221 @@ class TestOperationLogQueryService:
             operator_jobcode=jobcode,
         )
 
-    def test_get_asset_history(self, asset):
+    @pytest.fixture
+    def query_admin(self, db):
+        """无 Employee 记录的 AuthUser:部门范围 None(不过滤),保持既有查询行为断言"""
+        from apps.authusermanagement.models import AuthUser
+
+        return AuthUser.objects.create_user(auth_username="ops_q", password=TEST_PASSWORD)
+
+    def test_get_asset_history(self, asset, query_admin):
         self._create_log(asset.asset_code, "create")
         self._create_log(asset.asset_code, "update")
-        logs = OperationLogQueryService.get_asset_history(asset.asset_code)
+        logs = OperationLogQueryService.get_asset_history(query_admin, asset.asset_code)
         assert len(logs) == 2
 
-    def test_get_asset_history_empty(self):
-        logs = OperationLogQueryService.get_asset_history("NONEXIST")
+    def test_get_asset_history_empty(self, query_admin):
+        logs = OperationLogQueryService.get_asset_history(query_admin, "NONEXIST")
         assert len(logs) == 0
 
-    def test_get_recent_operations(self, asset):
+    def test_get_recent_operations(self, asset, query_admin):
         self._create_log(asset.asset_code)
-        logs = OperationLogQueryService.get_recent_operations(days=7)
+        logs = OperationLogQueryService.get_recent_operations(query_admin, days=7)
         assert len(logs) >= 1
 
-    def test_get_operations_by_type(self, asset):
+    def test_get_operations_by_type(self, asset, query_admin):
         self._create_log(asset.asset_code, "create")
         self._create_log(asset.asset_code, "update")
         logs = OperationLogQueryService.get_operations_by_type("create")
         assert all(log.operation_type == "create" for log in logs)
 
-    def test_get_user_operations(self, asset):
+    def test_get_user_operations(self, asset, query_admin):
         self._create_log(asset.asset_code, jobcode="U001")
         self._create_log(asset.asset_code, jobcode="U002")
-        logs = OperationLogQueryService.get_user_operations("U001")
+        logs = OperationLogQueryService.get_user_operations(query_admin, "U001")
         assert all(log.operator_jobcode == "U001" for log in logs)
 
-    def test_get_asset_status_timeline(self, asset):
+    def test_get_asset_status_timeline(self, asset, query_admin):
         self._create_log(asset.asset_code, "create")
         self._create_log(asset.asset_code, "out")
-        timeline = OperationLogQueryService.get_asset_status_timeline(asset.asset_code)
+        timeline = OperationLogQueryService.get_asset_status_timeline(query_admin, asset.asset_code)
         assert len(timeline) == 2
         assert "time" in timeline[0]
 
-    def test_get_operation_log_by_logging_id(self, asset):
+    def test_get_operation_log_by_logging_id(self, asset, query_admin):
         log = self._create_log(asset.asset_code)
-        result = OperationLogQueryService.get_operation_log_by_logging_id(log.logging_id)
+        result = OperationLogQueryService.get_operation_log_by_logging_id(query_admin, log.logging_id)
         assert result is not None
         assert result.pk == log.pk
 
-    def test_get_operation_log_by_logging_id_not_found(self):
-        result = OperationLogQueryService.get_operation_log_by_logging_id("NONEXIST")
+    def test_get_operation_log_by_logging_id_not_found(self, query_admin):
+        result = OperationLogQueryService.get_operation_log_by_logging_id(query_admin, "NONEXIST")
         assert result is None
 
-    def test_get_operation_log_by_pk(self, asset):
+    def test_get_operation_log_by_pk(self, asset, query_admin):
         log = self._create_log(asset.asset_code)
-        result = OperationLogQueryService.get_operation_log_by_pk(log.pk)
+        result = OperationLogQueryService.get_operation_log_by_pk(query_admin, log.pk)
         assert result is not None
         assert result.pk == log.pk
 
-    def test_get_operation_log_by_pk_not_found(self):
-        result = OperationLogQueryService.get_operation_log_by_pk(999999)
+    def test_get_operation_log_by_pk_not_found(self, query_admin):
+        result = OperationLogQueryService.get_operation_log_by_pk(query_admin, 999999)
         assert result is None
 
-    def test_query_operation_logs(self, asset):
+    def test_query_operation_logs(self, asset, query_admin):
         self._create_log(asset.asset_code, "create", "U001")
         self._create_log(asset.asset_code, "update", "U002")
         logs = OperationLogQueryService.query_operation_logs(
+            query_admin,
             asset_code=asset.asset_code,
             operation_type="create",
         )
         assert len(logs) == 1
 
-    def test_query_operation_logs_by_jobcode(self, asset):
+    def test_query_operation_logs_by_jobcode(self, asset, query_admin):
         self._create_log(asset.asset_code, "create", "U10")
         self._create_log(asset.asset_code, "update", "U20")
-        logs = OperationLogQueryService.query_operation_logs(operator_jobcode="U10")
+        logs = OperationLogQueryService.query_operation_logs(query_admin, operator_jobcode="U10")
         assert len(logs) == 1
 
-    def test_query_operation_logs_by_time_range(self, asset):
+    def test_query_operation_logs_by_time_range(self, asset, query_admin):
         self._create_log(asset.asset_code)
         now = timezone.now()
         logs = OperationLogQueryService.query_operation_logs(
+            query_admin,
             start_time=now - timedelta(hours=1),
             end_time=now + timedelta(hours=1),
         )
         assert len(logs) >= 1
 
-    def test_query_operation_logs_empty_filters(self, asset):
+    def test_query_operation_logs_empty_filters(self, asset, query_admin):
         self._create_log(asset.asset_code)
-        logs = OperationLogQueryService.query_operation_logs()
+        logs = OperationLogQueryService.query_operation_logs(query_admin)
         assert len(logs) >= 1
+
+
+@pytest.mark.django_db
+class TestOperationLogRowIsolation:
+    """操作日志行级隔离回归(BE-03):部门级用户不可见他部门资产日志"""
+
+    _phone_seq = itertools.count(1)
+
+    def _make_employee(self, username, role, department):
+        from apps.usermanagement.models import Employee
+
+        return Employee.objects.create(
+            employee_jobcode=username,
+            employee_name=f"{username}员工",
+            employee_department=department,
+            role=role,
+            employee_phone=f"138{next(self._phone_seq):08d}",
+        )
+
+    def _make_user(self, username, role, department):
+        from apps.authusermanagement.models import AuthUser
+
+        self._make_employee(username, role, department)
+        return AuthUser.objects.create_user(auth_username=username, password=TEST_PASSWORD)
+
+    def _make_asset(self, code, manager):
+        from apps.assetmanagement.models import Asset, AssetType
+
+        asset_type = AssetType.objects.create(type_code=code, type_name=f"类型{code}")
+        return Asset.objects.create(
+            asset_code=code,
+            asset_name=f"资产{code}",
+            asset_purchase_price=1000,
+            asset_purchase_date="2024-01-01",
+            asset_entry_date="2024-01-15",
+            asset_type_recordcode=asset_type,
+            asset_manager_recordcode=manager,
+            asset_current_status="in_store",
+        )
+
+    def _depts(self):
+        from apps.usermanagement.models import Department
+
+        return (
+            Department.objects.create(department_code="DEPT-A", department_name="A部门"),
+            Department.objects.create(department_code="DEPT-B", department_name="B部门"),
+        )
+
+    def test_regular_user_cannot_query_other_dept_log(self):
+        from apps.usermanagement.models import EmployeeRole
+
+        dept_a, dept_b = self._depts()
+        manager_b = self._make_employee("mgr_b", EmployeeRole.ASSET_ADMIN, dept_b)
+        asset_b = self._make_asset("AST-B001", manager_b)
+        AssetOperationLog.objects.create(
+            asset_code=asset_b.asset_code, operation_type="create", description="B资产创建"
+        )
+        user_a = self._make_user("reg_a1", EmployeeRole.REGULAR_USER, dept_a)
+
+        assert OperationLogQueryService.query_operation_logs(user_a, asset_code="AST-B001") == []
+
+    def test_sysadmin_sees_all_logs(self):
+        from apps.usermanagement.models import EmployeeRole
+
+        dept_a, dept_b = self._depts()
+        manager_b = self._make_employee("mgr_b", EmployeeRole.ASSET_ADMIN, dept_b)
+        asset_b = self._make_asset("AST-B002", manager_b)
+        AssetOperationLog.objects.create(
+            asset_code=asset_b.asset_code, operation_type="create", description="B资产创建"
+        )
+        admin = self._make_user("ops_adm", EmployeeRole.SYSTEM_ADMIN, dept_a)
+
+        assert len(OperationLogQueryService.query_operation_logs(admin, asset_code="AST-B002")) == 1
+
+    def test_dept_user_sees_own_dept_log(self):
+        from apps.usermanagement.models import EmployeeRole
+
+        dept_a, _ = self._depts()
+        manager_a = self._make_employee("mgr_a", EmployeeRole.ASSET_ADMIN, dept_a)
+        asset_a = self._make_asset("AST-A001", manager_a)
+        AssetOperationLog.objects.create(
+            asset_code=asset_a.asset_code, operation_type="create", description="A资产创建"
+        )
+        user_a = self._make_user("reg_a2", EmployeeRole.REGULAR_USER, dept_a)
+
+        assert len(OperationLogQueryService.query_operation_logs(user_a, asset_code="AST-A001")) == 1
+
+    def test_api_regular_user_list_returns_empty(self):
+        from rest_framework.test import APIClient
+
+        from apps.usermanagement.models import EmployeeRole
+
+        dept_a, dept_b = self._depts()
+        manager_b = self._make_employee("mgr_b", EmployeeRole.ASSET_ADMIN, dept_b)
+        asset_b = self._make_asset("AST-B003", manager_b)
+        AssetOperationLog.objects.create(
+            asset_code=asset_b.asset_code, operation_type="create", description="B资产创建"
+        )
+        user_a = self._make_user("reg_a3", EmployeeRole.REGULAR_USER, dept_a)
+
+        client = APIClient()
+        client.force_authenticate(user=user_a)
+        resp = client.get("/api/v1/assets/operation-logs/", {"asset_code": "AST-B003"})
+
+        assert resp.status_code == 200
+        assert resp.data["data"]["count"] == 0
+        assert resp.data["data"]["results"] == []
+
+    def test_api_regular_user_detail_returns_404(self):
+        from rest_framework.test import APIClient
+
+        from apps.usermanagement.models import EmployeeRole
+
+        dept_a, dept_b = self._depts()
+        manager_b = self._make_employee("mgr_b", EmployeeRole.ASSET_ADMIN, dept_b)
+        asset_b = self._make_asset("AST-B004", manager_b)
+        log = AssetOperationLog.objects.create(
+            asset_code=asset_b.asset_code, operation_type="create", description="B资产创建"
+        )
+        user_a = self._make_user("reg_a4", EmployeeRole.REGULAR_USER, dept_a)
+
+        client = APIClient()
+        client.force_authenticate(user=user_a)
+        resp = client.get(f"/api/v1/assets/operation-logs/{log.pk}/")
+
+        assert resp.status_code == 404
+        assert resp.data["code"] == 404

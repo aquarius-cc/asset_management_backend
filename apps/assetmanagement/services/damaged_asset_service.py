@@ -12,6 +12,7 @@ from django.utils import timezone
 from apps.assetmanagement.audit import AuditLogger
 from apps.assetmanagement.models import Asset, DamagedAsset, WasteAsset
 from apps.assetmanagement.selectors import (
+    AssetSelector,
     DamagedAssetSelector,
 )
 from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
@@ -29,11 +30,18 @@ class DamagedAssetService:
     @staticmethod
     @transaction.atomic
     def create_damaged_asset(
-        damaged_data: dict[str, Any], operator_jobcode: str | None = None, operator_name: str | None = None
+        damaged_data: dict[str, Any],
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+        user: Any | None = None,
     ) -> DamagedAsset:
         asset = damaged_data.get("asset_recordcode")
         if not asset:
             raise AppValidationError(detail="缺少资产编码", error_code="MISSING_ASSET_CODE")
+
+        # BEQ-02 行级隔离: 创建前校验目标资产在用户可见范围内(与 by_asset 查询侧同口径)
+        if user is not None:
+            AssetSelector.ensure_asset_visible(asset, user)
 
         if DamagedAssetSelector.exists_by_asset_code(asset.asset_code):
             raise AppValidationError(

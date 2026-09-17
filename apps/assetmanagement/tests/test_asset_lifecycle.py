@@ -34,12 +34,13 @@ class TestMarkAssetBroken:
             operator_jobcode=user.employee_jobcode,
             operator_name=user.employee_name,
         )
-        result.refresh_from_db()
-        assert result.asset_current_status == "broken"
+        # mark_asset_broken 返回创建的 BrokenAsset 记录(BEQ-02 顺带修复: batch 响应按记录序列化)
+        assert result.broken_reason == "硬件故障"
+        assert result.asset_recordcode == asset
         assert BrokenAsset.objects.filter(asset_recordcode=asset).exists()
 
     def test_mark_broken_already_broken(self, asset, user):
-        """已损坏的资产再次标记应幂等返回"""
+        """已损坏的资产再次标记应幂等返回既有损坏记录"""
         asset.asset_current_status = "broken"
         asset.save()
         result = AssetService.mark_asset_broken(
@@ -48,7 +49,7 @@ class TestMarkAssetBroken:
             operator_jobcode=user.employee_jobcode,
             operator_name=user.employee_name,
         )
-        assert result.asset_current_status == "broken"
+        assert result.asset_recordcode.asset_current_status == "broken"
 
     def test_mark_broken_invalid_transition(self, asset, user):
         """scrapped 状态不能标记为 broken(Service 层转 AppValidationError)"""
@@ -86,12 +87,13 @@ class TestMarkAssetLost:
             operator_jobcode=user.employee_jobcode,
             operator_name=user.employee_name,
         )
-        result.refresh_from_db()
-        assert result.asset_current_status == "lost"
+        # mark_asset_lost 返回创建的 LostAsset 记录(BEQ-02 顺带修复: batch 响应按记录序列化)
+        assert result.lost_reason == "遗失"
+        assert result.asset_recordcode == asset
         assert LostAsset.objects.filter(asset_recordcode=asset).exists()
 
     def test_mark_lost_already_lost(self, asset, user):
-        """已遗失的资产再次标记应幂等返回"""
+        """已遗失的资产再次标记应幂等返回既有遗失记录"""
         asset.asset_current_status = "lost"
         asset.save()
         result = AssetService.mark_asset_lost(
@@ -100,7 +102,7 @@ class TestMarkAssetLost:
             operator_jobcode=user.employee_jobcode,
             operator_name=user.employee_name,
         )
-        assert result.asset_current_status == "lost"
+        assert result.asset_recordcode.asset_current_status == "lost"
 
     def test_mark_lost_invalid_transition(self, asset, user):
         """scrapped 状态不能标记为 lost(Service 层转 AppValidationError)"""

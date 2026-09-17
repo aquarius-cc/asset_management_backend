@@ -44,6 +44,20 @@ class AssetSelector:
         return AssetSelector.apply_user_scope(Asset.objects.for_list(), user)
 
     @staticmethod
+    def ensure_asset_visible(asset: Asset, user: Any) -> None:
+        """
+        行级隔离校验(SC-4/BEQ-02): 校验资产在用户的可见范围内, 越权抛 404 语义异常。
+
+        创建入口(报废/损坏/遗失/送修申请)统一前置调用, 与 by_asset 查询侧口径一致。
+        """
+        from core.exceptions import AppValidationError
+
+        if not AssetSelector.get_queryset_for_user(user).filter(pk=asset.pk).exists():
+            raise AppValidationError(
+                detail=f"资产 {asset.asset_code} 不存在或无权操作", error_code="ASSET_NOT_VISIBLE"
+            )
+
+    @staticmethod
     def get_all_assets() -> QuerySet[Asset]:
         return Asset.objects.filter(is_deleted=False)
 

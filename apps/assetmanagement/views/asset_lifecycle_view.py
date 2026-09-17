@@ -65,6 +65,7 @@ class BrokenAssetViewSet(AssetLifecycleViewSetBase):
             items=serializer.validated_data["items"],
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
+            user=request.user,
         )
         # 【DR-1 收敛】响应组装复用 BatchResponseHelper(message 显式传入, 契约不变)
         return BatchResponseHelper.create_response(
@@ -96,6 +97,7 @@ class LostAssetViewSet(AssetLifecycleViewSetBase):
             items=serializer.validated_data["items"],
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
+            user=request.user,
         )
         # 【DR-1 收敛】响应组装复用 BatchResponseHelper(message 显式传入, 契约不变)
         return BatchResponseHelper.create_response(

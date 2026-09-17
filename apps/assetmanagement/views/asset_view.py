@@ -389,20 +389,20 @@ class AssetViewSet(  # type: ignore[misc]
     def mark_broken(self, request: Any, recordcode: Any = None) -> Response:
         """POST /assets/{recordcode}/mark-broken/ — 标记资产损坏"""
         asset = self.get_object()
-        asset = AssetService.mark_asset_broken(
+        broken_record = AssetService.mark_asset_broken(
             asset_code=asset.asset_code,
             broken_reason=request.data.get("broken_reason", ""),
             broken_description=request.data.get("broken_description", ""),
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
         )
-        return success_response(data=AssetDetailSerializer(asset).data, message="资产已标记为损坏")
+        return success_response(data=AssetDetailSerializer(broken_record.asset_recordcode).data, message="资产已标记为损坏")
 
     @action(detail=True, methods=["post"], url_path="mark-lost", permission_classes=[IsAssetAdminOrAbove])
     def mark_lost(self, request: Any, recordcode: Any = None) -> Response:
         """POST /assets/{recordcode}/mark-lost/ — 标记资产遗失"""
         asset = self.get_object()
-        asset = AssetService.mark_asset_lost(
+        lost_record = AssetService.mark_asset_lost(
             asset_code=asset.asset_code,
             lost_reason=request.data.get("lost_reason", ""),
             last_known_location=request.data.get("last_known_location", ""),
@@ -410,7 +410,7 @@ class AssetViewSet(  # type: ignore[misc]
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
         )
-        return success_response(data=AssetDetailSerializer(asset).data, message="资产已标记为遗失")
+        return success_response(data=AssetDetailSerializer(lost_record.asset_recordcode).data, message="资产已标记为遗失")
 
     @action(detail=True, methods=["post"], url_path="found")
     def found_and_return(self, request: Any, recordcode: Any = None) -> Response:

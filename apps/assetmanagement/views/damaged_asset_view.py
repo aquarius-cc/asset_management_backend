@@ -119,6 +119,7 @@ class DamagedAssetViewSet(  # type: ignore[misc]
             damaged_data=damaged_data,
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
+            user=request.user,
         )
         return success_response(
             data=DamagedAssetCreateSerializer(damaged_asset).data,

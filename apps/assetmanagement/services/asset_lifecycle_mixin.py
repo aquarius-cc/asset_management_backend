@@ -14,6 +14,7 @@ from django.db import transaction
 from apps.assetmanagement.audit import AuditLogger
 from apps.assetmanagement.models import Asset, BrokenAsset, FoundAsset, LostAsset
 from apps.assetmanagement.models.operation_log import AssetOperationLog
+from apps.assetmanagement.selectors.asset_selector import AssetSelector
 from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
 
 
@@ -28,16 +29,29 @@ class AssetLifecycleMixin:
         broken_description: str = "",
         operator_jobcode: str = "",
         operator_name: str = "",
-    ) -> Asset:
-        """标记资产为已损坏"""
+        user: Any | None = None,
+    ) -> BrokenAsset:
+        """标记资产为已损坏, 返回创建的 BrokenAsset 记录(batch 响应按该记录序列化)"""
         from core.exceptions import AppValidationError
 
         asset = Asset.objects.select_for_update().filter(asset_code=asset_code).first()
         if asset is None:
             raise AppValidationError(detail=f"资产 {asset_code} 不存在", error_code="ASSET_NOT_FOUND")
 
+        # BEQ-02 行级隔离: 创建前校验目标资产在用户可见范围内(与 by_asset 查询侧同口径)
+        if user is not None:
+            AssetSelector.ensure_asset_visible(asset, user)
+
         if asset.asset_current_status == Asset.AssetStatus.BROKEN:
-            return asset
+            existing = BrokenAsset.objects.filter(asset_recordcode=asset).order_by("-created_at").first()
+            if existing is not None:
+                return existing
+            # 历史数据缺失时补建记录, 保持幂等语义(不改变资产状态, 不重复 FSM 迁移)
+            return BrokenAsset.objects.create(
+                asset_recordcode=asset,
+                broken_reason=broken_reason,
+                broken_description=broken_description,
+            )
 
         from apps.usermanagement.selectors import EmployeeSelector
 
@@ -49,14 +63,16 @@ class AssetLifecycleMixin:
             raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
         asset.save(update_fields=["asset_current_status", "updated_at"])
 
-        from apps.assetmanagement.models import AssetOperationLog, BrokenAsset
+        from apps.assetmanagement.models import AssetOperationLog
 
-        BrokenAsset.objects.create(
+        broken_record = BrokenAsset.objects.create(
             asset_recordcode=asset,
             broken_reason=broken_reason,
             broken_description=broken_description,
             operator_employee=operator,
         )
+        # DateField default=timezone.now 使内存实例携带 datetime, 刷新为 DB 落库后的 date(否则响应序列化拒绝)
+        broken_record.refresh_from_db()
         AssetOperationLog.objects.create(
             asset_code=asset.asset_code,
             asset_name=asset.asset_name,
@@ -66,7 +82,7 @@ class AssetLifecycleMixin:
             operator_name=operator_name,
             description=f"资产标记为已损坏: {broken_reason}",
         )
-        return asset
+        return broken_record
 
     @staticmethod
     @transaction.atomic
@@ -77,16 +93,30 @@ class AssetLifecycleMixin:
         lost_description: str = "",
         operator_jobcode: str = "",
         operator_name: str = "",
-    ) -> Asset:
-        """标记资产为已遗失"""
+        user: Any | None = None,
+    ) -> LostAsset:
+        """标记资产为已遗失, 返回创建的 LostAsset 记录(batch 响应按该记录序列化)"""
         from core.exceptions import AppValidationError
 
         asset = Asset.objects.select_for_update().filter(asset_code=asset_code).first()
         if asset is None:
             raise AppValidationError(detail=f"资产 {asset_code} 不存在", error_code="ASSET_NOT_FOUND")
 
+        # BEQ-02 行级隔离: 创建前校验目标资产在用户可见范围内(与 by_asset 查询侧同口径)
+        if user is not None:
+            AssetSelector.ensure_asset_visible(asset, user)
+
         if asset.asset_current_status == Asset.AssetStatus.LOST:
-            return asset
+            existing = LostAsset.objects.filter(asset_recordcode=asset).order_by("-created_at").first()
+            if existing is not None:
+                return existing
+            # 历史数据缺失时补建记录, 保持幂等语义(不改变资产状态, 不重复 FSM 迁移)
+            return LostAsset.objects.create(
+                asset_recordcode=asset,
+                last_known_location=last_known_location,
+                lost_reason=lost_reason,
+                lost_description=lost_description,
+            )
 
         from apps.usermanagement.selectors import EmployeeSelector
 
@@ -98,15 +128,17 @@ class AssetLifecycleMixin:
             raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
         asset.save(update_fields=["asset_current_status", "updated_at"])
 
-        from apps.assetmanagement.models import AssetOperationLog, LostAsset
+        from apps.assetmanagement.models import AssetOperationLog
 
-        LostAsset.objects.create(
+        lost_record = LostAsset.objects.create(
             asset_recordcode=asset,
             last_known_location=last_known_location,
             lost_reason=lost_reason,
             lost_description=lost_description,
             operator_employee=operator,
         )
+        # DateField default=timezone.now 使内存实例携带 datetime, 刷新为 DB 落库后的 date(否则响应序列化拒绝)
+        lost_record.refresh_from_db()
         AssetOperationLog.objects.create(
             asset_code=asset.asset_code,
             asset_name=asset.asset_name,
@@ -116,7 +148,7 @@ class AssetLifecycleMixin:
             operator_name=operator_name,
             description=f"资产标记为已遗失: {lost_reason}",
         )
-        return asset
+        return lost_record
 
     @staticmethod
     @transaction.atomic
@@ -276,6 +308,7 @@ class AssetLifecycleMixin:
         items: list[dict[str, Any]],
         operator_jobcode: str = "",
         operator_name: str = "",
+        user: Any | None = None,
     ) -> dict[str, Any]:
         """批量创建损坏资产记录"""
         from core.batch_mixins import BatchOperationMixin
@@ -287,6 +320,7 @@ class AssetLifecycleMixin:
                 broken_description=item.get("broken_description", ""),
                 operator_jobcode=operator_jobcode,
                 operator_name=operator_name,
+                user=user,
             )
 
         return BatchOperationMixin.batch_execute(
@@ -298,6 +332,7 @@ class AssetLifecycleMixin:
         items: list[dict[str, Any]],
         operator_jobcode: str = "",
         operator_name: str = "",
+        user: Any | None = None,
     ) -> dict[str, Any]:
         """批量创建遗失资产记录"""
         from core.batch_mixins import BatchOperationMixin
@@ -309,6 +344,7 @@ class AssetLifecycleMixin:
                 lost_description=item.get("lost_description", ""),
                 operator_jobcode=operator_jobcode,
                 operator_name=operator_name,
+                user=user,
             )
 
         return BatchOperationMixin.batch_execute(

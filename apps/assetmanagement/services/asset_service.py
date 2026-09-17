@@ -121,6 +121,9 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
         asset_data.pop("asset_code", None)
         asset_type = asset_data.get("asset_type_recordcode")
         purchase_number = asset_data.get("asset_purchase_number", 1)
+        # 创建资产初始状态统一注入 in_store,禁止客户端指定(CT-3);
+        # 需在防污染拷贝(dict(asset_data))之后覆写,不污染调用方原 dict。
+        asset_data["asset_current_status"] = Asset.AssetStatus.IN_STORE
         codes = AssetCodeGenerator.generate_with_unique_check(
             asset_type=asset_type,
             purchase_number=purchase_number,

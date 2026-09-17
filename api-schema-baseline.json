@@ -12094,7 +12094,7 @@
             },
             "AssetCreate": {
                 "type": "object",
-                "description": "资产创建序列化器\n\n前端传入业务编码(asset_type_code/contract_code/storage_code/employee_jobcode),\nDRF SlugRelatedField 自动转换为 recordcode 存入数据库。\n\n字段名约定(前端字段名 → 后端模型字段名):\n- asset_type → asset_type_recordcode: 传入 AssetType.asset_type_code(如 \"AT001\")\n- asset_contract → asset_contract_recordcode: 传入 Contract.contract_code(如 \"CT001\")\n- asset_storage → asset_storage_recordcode: 传入 Storage.storage_code(如 \"ST001\")\n- asset_entry_person → asset_entry_person_recordcode: 传入 Employee.employee_jobcode(如 \"E001\")\n- asset_applicant → asset_applicant_recordcode: 传入 Employee.employee_jobcode(如 \"E002\")\n- asset_manager → asset_manager_recordcode: 传入 Employee.employee_jobcode(如 \"E003\")",
+                "description": "资产创建序列化器\n\n前端传入业务编码(asset_type_code/contract_code/storage_code/employee_jobcode),\nDRF SlugRelatedField 自动转换为 recordcode 存入数据库。\n\n字段名约定(前端字段名 → 后端模型字段名):\n- asset_type → asset_type_recordcode: 传入 AssetType.asset_type_code(如 \"AT001\")\n- asset_contract → asset_contract_recordcode: 传入 Contract.contract_code(如 \"CT001\")\n- asset_storage → asset_storage_recordcode: 传入 Storage.storage_code(如 \"ST001\")\n- asset_entry_person → asset_entry_person_recordcode: 传入 Employee.employee_jobcode(如 \"E001\")\n- asset_applicant → asset_applicant_recordcode: 传入 Employee.employee_jobcode(如 \"E002\")\n- asset_manager → asset_manager_recordcode: 传入 Employee.employee_jobcode(如 \"E003\")\n\n节点:asset_current_status 不在 fields 中(创建初始状态统一由\nAssetService.create_asset 注入 in_store 枚举,禁止客户端指定,CT-3)。",
                 "properties": {
                     "asset_code": {
                         "type": "string",
@@ -12196,16 +12196,6 @@
                         "description": "资产使用的地点",
                         "maxLength": 100
                     },
-                    "asset_current_status": {
-                        "allOf": [
-                            {
-                                "$ref": "#/components/schemas/AssetStatusEnum"
-                            }
-                        ],
-                        "default": "in_store",
-                        "title": "资产当前状态",
-                        "description": "资产状态:在库/已回收待发放/在用/已损坏/维修中/已遗失/待报废/已报废\n\n* `in_store` - 在库\n* `in_use` - 在用\n* `recycled_pending` - 已回收待发放\n* `broken` - 已损坏\n* `repairing` - 维修中\n* `lost` - 已遗失\n* `damaged` - 待报废\n* `scrapped` - 已报废"
-                    },
                     "asset_description": {
                         "type": "string",
                         "nullable": true,
@@ -12223,7 +12213,7 @@
             },
             "AssetCreateRequest": {
                 "type": "object",
-                "description": "资产创建序列化器\n\n前端传入业务编码(asset_type_code/contract_code/storage_code/employee_jobcode),\nDRF SlugRelatedField 自动转换为 recordcode 存入数据库。\n\n字段名约定(前端字段名 → 后端模型字段名):\n- asset_type → asset_type_recordcode: 传入 AssetType.asset_type_code(如 \"AT001\")\n- asset_contract → asset_contract_recordcode: 传入 Contract.contract_code(如 \"CT001\")\n- asset_storage → asset_storage_recordcode: 传入 Storage.storage_code(如 \"ST001\")\n- asset_entry_person → asset_entry_person_recordcode: 传入 Employee.employee_jobcode(如 \"E001\")\n- asset_applicant → asset_applicant_recordcode: 传入 Employee.employee_jobcode(如 \"E002\")\n- asset_manager → asset_manager_recordcode: 传入 Employee.employee_jobcode(如 \"E003\")",
+                "description": "资产创建序列化器\n\n前端传入业务编码(asset_type_code/contract_code/storage_code/employee_jobcode),\nDRF SlugRelatedField 自动转换为 recordcode 存入数据库。\n\n字段名约定(前端字段名 → 后端模型字段名):\n- asset_type → asset_type_recordcode: 传入 AssetType.asset_type_code(如 \"AT001\")\n- asset_contract → asset_contract_recordcode: 传入 Contract.contract_code(如 \"CT001\")\n- asset_storage → asset_storage_recordcode: 传入 Storage.storage_code(如 \"ST001\")\n- asset_entry_person → asset_entry_person_recordcode: 传入 Employee.employee_jobcode(如 \"E001\")\n- asset_applicant → asset_applicant_recordcode: 传入 Employee.employee_jobcode(如 \"E002\")\n- asset_manager → asset_manager_recordcode: 传入 Employee.employee_jobcode(如 \"E003\")\n\n节点:asset_current_status 不在 fields 中(创建初始状态统一由\nAssetService.create_asset 注入 in_store 枚举,禁止客户端指定,CT-3)。",
                 "properties": {
                     "asset_name": {
                         "type": "string",
@@ -12334,16 +12324,6 @@
                         "title": "资产使用地点",
                         "description": "资产使用的地点",
                         "maxLength": 100
-                    },
-                    "asset_current_status": {
-                        "allOf": [
-                            {
-                                "$ref": "#/components/schemas/AssetStatusEnum"
-                            }
-                        ],
-                        "default": "in_store",
-                        "title": "资产当前状态",
-                        "description": "资产状态:在库/已回收待发放/在用/已损坏/维修中/已遗失/待报废/已报废\n\n* `in_store` - 在库\n* `in_use` - 在用\n* `recycled_pending` - 已回收待发放\n* `broken` - 已损坏\n* `repairing` - 维修中\n* `lost` - 已遗失\n* `damaged` - 待报废\n* `scrapped` - 已报废"
                     },
                     "asset_description": {
                         "type": "string",

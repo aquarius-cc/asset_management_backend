@@ -7,6 +7,7 @@ from datetime import date
 
 import pytest
 
+from apps.assetmanagement.models import Asset
 from apps.assetmanagement.services import AssetService, OutAssetService, RecycleAssetService
 
 
@@ -44,6 +45,33 @@ class TestAssetService:
         # 验证编码格式:ASSET-{category}-{type_code}-{YYYYMMDD}-{6位随机}-{4位序号}
         assert asset.asset_code.startswith(f"{asset_type.type_code}-")
         assert asset.asset_name == "新资产"
+        # 【P0-1 回归】创建初始状态统一为 in_store(Service 注入,客户端传入引用同一 dict 时强制覆盖)
+        asset.refresh_from_db()
+        assert asset.asset_current_status == Asset.AssetStatus.IN_STORE
+
+    def test_create_asset_forces_initial_status(self, storage, asset_type):
+        """【P0-1 回归】即使入参指定非法初始状态,落库后仍为 in_store(绕过 FSM 防线,CT-3)"""
+        asset_data = {
+            "asset_name": "新资产",
+            "asset_purchase_price": 2000.00,
+            "asset_purchase_date": "2024-01-01",
+            "asset_entry_date": "2024-01-15",
+            "asset_storage_recordcode": storage,
+            "asset_current_status": "scrapped",
+            "asset_type_recordcode": asset_type,
+            "asset_purchase_number": 1,
+        }
+        original = dict(asset_data)
+
+        assets = AssetService.create_asset(asset_data)
+
+        assert len(assets) == 1
+        asset = assets[0]
+        asset.refresh_from_db()
+        assert asset.asset_current_status == Asset.AssetStatus.IN_STORE
+        # 防污染检查:Service 不得修改调用方原 dict
+        assert asset_data == original
+        assert original["asset_current_status"] == "scrapped"
 
     def test_create_asset_batch(self, storage, asset_type):
         """
@@ -73,6 +101,10 @@ class TestAssetService:
         assert codes[0].endswith("0001")
         assert codes[1].endswith("0002")
         assert codes[2].endswith("0003")
+        # 【P0-1 回归】批量创建的每条资产初始状态均为 in_store
+        for asset in assets:
+            asset.refresh_from_db()
+            assert asset.asset_current_status == Asset.AssetStatus.IN_STORE
 
     def test_create_asset_duplicate_code(self, asset, storage, asset_type):
         """

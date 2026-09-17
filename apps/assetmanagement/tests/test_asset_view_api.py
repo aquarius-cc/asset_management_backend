@@ -12,7 +12,7 @@ import pytest
 from django.urls import reverse
 from rest_framework import status
 
-from apps.assetmanagement.models import AssetOperationLog
+from apps.assetmanagement.models import Asset, AssetOperationLog
 
 
 @pytest.fixture
@@ -45,11 +45,37 @@ class TestAssetViewSet:
             "asset_entry_date": "2024-02-15",
             "asset_storage": storage.storage_code,
             "asset_type": asset_type.type_code,
-            "asset_current_status": "in_store",
         }
         response = admin_authenticated_client.post(url, data, format="json")
         assert response.status_code == status.HTTP_201_CREATED
         assert response.data["code"] == 0
+        # 【P0-1 回归】DB 层断言:创建后落库状态固定为 in_store
+        created = response.data["data"][0]
+        asset = Asset.objects.get(asset_code=created["asset_code"])
+        assert asset.asset_current_status == "in_store"
+
+    def test_create_asset_ignores_status_field(self, admin_authenticated_client, storage, asset_type):
+        """【P0-1 回归】客户端传非法初始状态被忽略,Service 强制 in_store 兜底(状态机绕过防线,CT-3)
+
+        基于决策:CreateSerializer 不加 StrictUnknownFieldMixin(静默忽略+Service 兜底),
+        与 Update 侧"显式 400"策略区分。DB 断言防止"serializer 看起来对,service 仍可绕过"。
+        """
+        url = reverse("assets-list")
+        data = {
+            "asset_name": "新资产",
+            "asset_purchase_price": "2000.00",
+            "asset_purchase_date": "2024-02-01",
+            "asset_entry_date": "2024-02-15",
+            "asset_storage": storage.storage_code,
+            "asset_type": asset_type.type_code,
+            "asset_current_status": "scrapped",
+        }
+        response = admin_authenticated_client.post(url, data, format="json")
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["code"] == 0
+        created = response.data["data"][0]
+        asset = Asset.objects.get(asset_code=created["asset_code"])
+        assert asset.asset_current_status == "in_store"
 
     def test_retrieve_asset(self, authenticated_client, asset):
         url = reverse("assets-detail", kwargs={"recordcode": asset.recordcode})

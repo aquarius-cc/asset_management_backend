@@ -222,6 +222,9 @@ class AssetCreateSerializer(serializers.ModelSerializer):  # type: ignore[type-a
     - asset_entry_person → asset_entry_person_recordcode: 传入 Employee.employee_jobcode(如 "E001")
     - asset_applicant → asset_applicant_recordcode: 传入 Employee.employee_jobcode(如 "E002")
     - asset_manager → asset_manager_recordcode: 传入 Employee.employee_jobcode(如 "E003")
+
+    节点:asset_current_status 不在 fields 中(创建初始状态统一由
+    AssetService.create_asset 注入 in_store 枚举,禁止客户端指定,CT-3)。
     """
 
     asset_code = serializers.CharField(max_length=64, read_only=True)
@@ -289,7 +292,6 @@ class AssetCreateSerializer(serializers.ModelSerializer):  # type: ignore[type-a
             "asset_applicant",
             "asset_manager",
             "asset_using_location",
-            "asset_current_status",
             "asset_description",
         ]
         extra_kwargs = {
@@ -299,7 +301,6 @@ class AssetCreateSerializer(serializers.ModelSerializer):  # type: ignore[type-a
             "asset_entry_date": {"required": True},
             "asset_purchase_number": {"required": False, "default": 1},
             "asset_warranty_period": {"required": False, "default": 0},
-            "asset_current_status": {"required": False, "default": "in_store"},
             "asset_unit": {"required": False, "allow_blank": True, "allow_null": True},
             "asset_brand": {"required": False, "allow_blank": True, "allow_null": True},
             "asset_specification": {"required": False, "allow_blank": True, "allow_null": True},

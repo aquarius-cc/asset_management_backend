@@ -1,4 +1,4 @@
-"""
+﻿"""
 回收资产清空字段测试
 
 【P0 修复】验证回收时清空 asset_applicant、asset_manager、asset_using_location
@@ -134,6 +134,26 @@ class TestOutAssetDeleteClearFields(TestCase):
             asset_current_status="in_store",
         )
 
+        # 【对抗审核·评审点3】出库前注入原值：原申请人/原保管人 已在库,原使用地点已登记
+        self.original_user = Employee.objects.create(
+            employee_jobcode="U_ORIG",
+            employee_name="原申请人",
+            employee_department=self.department,
+            employee_phone="13800000002",
+        )
+        self.asset.asset_applicant_recordcode = self.original_user
+        self.asset.asset_manager_recordcode = self.original_user
+        self.asset.asset_using_location = "原使用地点"
+        self.asset.asset_current_status = "in_store"
+        self.asset.save(
+            update_fields=[
+                "asset_applicant_recordcode",
+                "asset_manager_recordcode",
+                "asset_using_location",
+                "asset_current_status",
+            ]
+        )
+
         # 通过 Service 创建出库记录
         outasset_data = {
             "asset_recordcode": self.asset,
@@ -172,15 +192,15 @@ class TestOutAssetDeleteClearFields(TestCase):
         self.asset.refresh_from_db()
         self.assertEqual(self.asset.asset_current_status, "in_store", "删除出库记录后状态应恢复为 in_store")
 
-        # 【BE-C2 修复】验证字段从快照恢复(而非清空)
+        # 【评审点3 修复】验证字段恢复为出库前原值(而非清空、亦非残留出库单目标值)
         self.assertEqual(
-            self.asset.asset_applicant_recordcode, self.user, "删除出库记录后 asset_applicant_recordcode 应从快照恢复"
+            self.asset.asset_applicant_recordcode, self.original_user, "删除出库记录后 asset_applicant_recordcode 应恢复出库前原值"
         )
         self.assertEqual(
-            self.asset.asset_manager_recordcode, self.user, "删除出库记录后 asset_manager_recordcode 应从快照恢复"
+            self.asset.asset_manager_recordcode, self.original_user, "删除出库记录后 asset_manager_recordcode 应恢复出库前原值"
         )
         self.assertEqual(
-            self.asset.asset_using_location, "测试使用地点", "删除出库记录后 asset_using_location 应从快照恢复"
+            self.asset.asset_using_location, "原使用地点", "删除出库记录后 asset_using_location 应恢复出库前原值"
         )
 
         # 【审计修复】取消出库应写入状态变更审计日志

@@ -63,6 +63,8 @@ class OutAssetService:
         outasset_data["outasset_using_location"] = using_location
 
         # 构建 JSON 快照(包含恢复所需的所有字段)
+        # 【P0-2 修复】applicant/manager/using_location 为出库单目标值(仅追溯展示);
+        # original_* 为出库前资产原值,取消出库时用于恢复原始字段。
         snapshot = {
             "applicant": {
                 "jobcode": applicant.employee_jobcode if applicant else None,
@@ -80,6 +82,23 @@ class OutAssetService:
             "asset_storage_recordcode": (
                 asset.asset_storage_recordcode.recordcode if asset.asset_storage_recordcode else None
             ),
+            "original_applicant": (
+                {
+                    "jobcode": asset.asset_applicant_recordcode.employee_jobcode,
+                    "name": asset.asset_applicant_recordcode.employee_name,
+                }
+                if asset.asset_applicant_recordcode
+                else None
+            ),
+            "original_manager": (
+                {
+                    "jobcode": asset.asset_manager_recordcode.employee_jobcode,
+                    "name": asset.asset_manager_recordcode.employee_name,
+                }
+                if asset.asset_manager_recordcode
+                else None
+            ),
+            "original_using_location": asset.asset_using_location,
         }
         outasset_data["outasset_snapshot"] = snapshot
 
@@ -211,8 +230,18 @@ class OutAssetService:
             # 从快照恢复资产字段(而非清空为 None)
             update_fields = ["asset_current_status"]
 
-            # 恢复申请人
-            if snapshot.get("applicant") and snapshot["applicant"].get("jobcode"):
+            # 恢复申请人:优先用出库前原值(original_*),含原值为 None→置 None 双向
+            if "original_applicant" in snapshot:
+                original = snapshot["original_applicant"]
+                if original and original.get("jobcode"):
+                    from apps.usermanagement.selectors import EmployeeSelector
+
+                    applicant = EmployeeSelector.get_employee_by_jobcode(original["jobcode"])
+                    asset.asset_applicant_recordcode = applicant  # 查不到则置 None(出库前原值不可达)
+                else:
+                    asset.asset_applicant_recordcode = None
+                update_fields.append("asset_applicant_recordcode")
+            elif snapshot.get("applicant") and snapshot["applicant"].get("jobcode"):
                 from apps.usermanagement.selectors import EmployeeSelector
 
                 applicant = EmployeeSelector.get_employee_by_jobcode(snapshot["applicant"]["jobcode"])
@@ -220,8 +249,18 @@ class OutAssetService:
                     asset.asset_applicant_recordcode = applicant
                     update_fields.append("asset_applicant_recordcode")
 
-            # 恢复保管人
-            if snapshot.get("manager") and snapshot["manager"].get("jobcode"):
+            # 恢复保管人:优先用出库前原值
+            if "original_manager" in snapshot:
+                original = snapshot["original_manager"]
+                if original and original.get("jobcode"):
+                    from apps.usermanagement.selectors import EmployeeSelector
+
+                    manager = EmployeeSelector.get_employee_by_jobcode(original["jobcode"])
+                    asset.asset_manager_recordcode = manager  # 查不到则置 None
+                else:
+                    asset.asset_manager_recordcode = None
+                update_fields.append("asset_manager_recordcode")
+            elif snapshot.get("manager") and snapshot["manager"].get("jobcode"):
                 from apps.usermanagement.selectors import EmployeeSelector
 
                 manager = EmployeeSelector.get_employee_by_jobcode(snapshot["manager"]["jobcode"])
@@ -229,8 +268,11 @@ class OutAssetService:
                     asset.asset_manager_recordcode = manager
                     update_fields.append("asset_manager_recordcode")
 
-            # 恢复使用地点
-            if snapshot.get("using_location"):
+            # 恢复使用地点:优先用出库前原值(原值为 None 时置 None)
+            if "original_using_location" in snapshot:
+                asset.asset_using_location = snapshot["original_using_location"]
+                update_fields.append("asset_using_location")
+            elif snapshot.get("using_location"):
                 asset.asset_using_location = snapshot["using_location"]
                 update_fields.append("asset_using_location")
 

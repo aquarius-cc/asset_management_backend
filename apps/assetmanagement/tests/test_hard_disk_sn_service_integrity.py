@@ -38,11 +38,13 @@ class TestHardDiskSNIntegrityFallback:
                 HardDiskSNService.update(recordcode=hd.recordcode, update_data={"harddisk_sn_code": "SN-DUP-A"})
         assert exc_info.value.error_code == "DUPLICATE_SN_CODE"
 
-    def test_batch_save_race_maps_to_duplicate(self, db: Any, asset: Asset) -> None:
+    def test_batch_save_race_maps_to_duplicate(self, db: Any, asset: Asset, admin_auth_user) -> None:
         disks = [{"harddisk_sn_code": "SN-DUP-2", "harddisk_type": "SSD"}]
         with patch.object(HardDiskSN.objects, "create", side_effect=_SN_VIOLATION):
             with pytest.raises(AppValidationError) as exc_info:
-                HardDiskSNService.batch_save(asset_recordcode=asset.recordcode, disks=disks)
+                HardDiskSNService.batch_save(
+                    asset_recordcode=asset.recordcode, disks=disks, user=admin_auth_user
+                )
         assert exc_info.value.error_code == "DUPLICATE_SN_CODE"
 
     def test_non_sn_integrity_error_propagates(self, db: Any, asset: Asset) -> None:

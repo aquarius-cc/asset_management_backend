@@ -2,8 +2,11 @@
 资产选择器测试
 """
 
+from uuid import uuid4
+
 import pytest
 
+from apps.assetmanagement.models import Asset, Storage
 from apps.assetmanagement.selectors.asset_selector import AssetSelector, AssetTypeSelector
 from apps.authusermanagement.models import AuthUser
 from apps.usermanagement.models import Department, Employee
@@ -67,67 +70,67 @@ class TestAssetSelector:
         queryset = AssetSelector.get_assets_with_all_relations()
         assert queryset.count() == 1
 
-    def test_get_available_assets(self, asset):
+    def test_get_available_assets(self, asset, admin_auth_user):
         """应返回可用资产(in_store 或 recycled_pending)"""
-        queryset = AssetSelector.get_available_assets()
+        queryset = AssetSelector.get_available_assets(user=admin_auth_user)
         # 当前资产状态是 in_store,应该返回
         assert queryset.count() == 1
 
-    def test_get_available_assets_with_code_filter(self, asset):
+    def test_get_available_assets_with_code_filter(self, asset, admin_auth_user):
         """按资产编码过滤可用资产"""
-        queryset = AssetSelector.get_available_assets(asset_code="A001")
+        queryset = AssetSelector.get_available_assets(asset_code="A001", user=admin_auth_user)
         assert queryset.count() == 1
 
-    def test_get_available_assets_with_name_filter(self, asset):
+    def test_get_available_assets_with_name_filter(self, asset, admin_auth_user):
         """按资产名称过滤可用资产"""
-        queryset = AssetSelector.get_available_assets(asset_name="测试")
+        queryset = AssetSelector.get_available_assets(asset_name="测试", user=admin_auth_user)
         assert queryset.count() == 1
 
-    def test_get_assets_by_status(self, asset):
+    def test_get_assets_by_status(self, asset, admin_auth_user):
         """按状态获取资产"""
-        queryset = AssetSelector.get_assets_by_status("in_store")
+        queryset = AssetSelector.get_assets_by_status("in_store", user=admin_auth_user)
         assert queryset.count() == 1
 
-    def test_get_asset_by_code(self, asset):
+    def test_get_asset_by_code(self, asset, admin_auth_user):
         """按编码获取资产"""
-        result = AssetSelector.get_asset_by_code("A001")
+        result = AssetSelector.get_asset_by_code("A001", user=admin_auth_user)
         assert result is not None
         assert result.asset_code == "A001"
 
-    def test_get_asset_by_code_not_found(self):
+    def test_get_asset_by_code_not_found(self, admin_auth_user):
         """按编码获取不存在的资产"""
-        result = AssetSelector.get_asset_by_code("NOTEXIST")
+        result = AssetSelector.get_asset_by_code("NOTEXIST", user=admin_auth_user)
         assert result is None
 
-    def test_get_asset_detail_by_code(self, asset):
+    def test_get_asset_detail_by_code(self, asset, admin_auth_user):
         """按编码获取资产详情"""
-        result = AssetSelector.get_asset_detail_by_code("A001")
+        result = AssetSelector.get_asset_detail_by_code("A001", user=admin_auth_user)
         assert result is not None
         assert result.asset_code == "A001"
 
-    def test_get_asset_detail_by_code_not_found(self):
+    def test_get_asset_detail_by_code_not_found(self, admin_auth_user):
         """按编码获取不存在的资产详情"""
-        result = AssetSelector.get_asset_detail_by_code("NOTEXIST")
+        result = AssetSelector.get_asset_detail_by_code("NOTEXIST", user=admin_auth_user)
         assert result is None
 
-    def test_search_assets(self, asset):
+    def test_search_assets(self, asset, admin_auth_user):
         """搜索资产"""
-        queryset = AssetSelector.search_assets(keyword="测试")
+        queryset = AssetSelector.search_assets(keyword="测试", user=admin_auth_user)
         assert queryset.count() == 1
 
-    def test_search_assets_by_status(self, asset):
+    def test_search_assets_by_status(self, asset, admin_auth_user):
         """按状态搜索资产"""
-        queryset = AssetSelector.search_assets(status="in_store")
+        queryset = AssetSelector.search_assets(status="in_store", user=admin_auth_user)
         assert queryset.count() == 1
 
-    def test_search_assets_by_type(self, asset, asset_type):
+    def test_search_assets_by_type(self, asset, asset_type, admin_auth_user):
         """按类型搜索资产"""
-        queryset = AssetSelector.search_assets(asset_type="AT001")
+        queryset = AssetSelector.search_assets(asset_type="AT001", user=admin_auth_user)
         assert queryset.count() == 1
 
-    def test_search_assets_by_storage(self, asset, storage):
+    def test_search_assets_by_storage(self, asset, storage, admin_auth_user):
         """按仓库搜索资产"""
-        queryset = AssetSelector.search_assets(storage_code="S001")
+        queryset = AssetSelector.search_assets(storage_code="S001", user=admin_auth_user)
         assert queryset.count() == 1
 
     def test_get_asset_statistics(self, asset):
@@ -138,9 +141,9 @@ class TestAssetSelector:
         assert "status_distribution" in stats
         assert stats["total_count"] == 1
 
-    def test_get_assets_by_type(self, asset, asset_type):
+    def test_get_assets_by_type(self, asset, asset_type, admin_auth_user):
         """按类型获取资产"""
-        queryset = AssetSelector.get_assets_by_type("AT001")
+        queryset = AssetSelector.get_assets_by_type("AT001", user=admin_auth_user)
         assert queryset.count() == 1
 
     def test_exists_by_code(self, asset):
@@ -148,9 +151,9 @@ class TestAssetSelector:
         assert AssetSelector.exists_by_code("A001") is True
         assert AssetSelector.exists_by_code("NOTEXIST") is False
 
-    def test_get_assets_by_storage(self, asset, storage):
+    def test_get_assets_by_storage(self, asset, storage, admin_auth_user):
         """按仓库获取资产"""
-        queryset = AssetSelector.get_assets_by_storage("S001")
+        queryset = AssetSelector.get_assets_by_storage("S001", user=admin_auth_user)
         assert queryset.count() == 1
 
     def test_combine_search(self, asset):
@@ -258,3 +261,80 @@ class TestAssetSelectorPublicScan:
         asset.save(update_fields=["is_deleted"])
         result = AssetSelector.get_asset_for_public_scan(asset.recordcode)
         assert result is None
+
+
+@pytest.mark.django_db
+class TestReferencedEmployeeRecordcodes:
+    """AssetSelector.referenced_employee_recordcodes 单元测试(B-20 守卫收敛)"""
+
+    @staticmethod
+    def _create_employee(department: Department, jobcode: str) -> Employee:
+        return Employee.objects.create(
+            employee_jobcode=jobcode,
+            employee_name=f"关联员工{jobcode}",
+            employee_department=department,
+            employee_phone="137" + uuid4().hex[:8],
+        )
+
+    @staticmethod
+    def _create_asset(
+        storage: Storage,
+        asset_type,
+        *,
+        applicant: Employee | None = None,
+        manager: Employee | None = None,
+    ) -> Asset:
+        return Asset.objects.create(
+            asset_code=f"REF-{uuid4().hex[:8].upper()}",
+            asset_name="引用检查资产",
+            asset_purchase_price=1000.00,
+            asset_purchase_date="2024-01-01",
+            asset_entry_date="2024-01-15",
+            asset_storage_recordcode=storage,
+            asset_type_recordcode=asset_type,
+            asset_current_status="in_store",
+            asset_applicant_recordcode=applicant,
+            asset_manager_recordcode=manager,
+        )
+
+    def test_empty_candidates(self):
+        assert AssetSelector.referenced_employee_recordcodes([]) == set()
+
+    def test_applicant_hit(self, department, storage, asset_type):
+        employee = self._create_employee(department, "REF-EMP-01")
+        self._create_asset(storage, asset_type, applicant=employee)
+        assert AssetSelector.referenced_employee_recordcodes([employee.recordcode]) == {
+            employee.recordcode
+        }
+
+    def test_manager_hit(self, department, storage, asset_type):
+        employee = self._create_employee(department, "REF-EMP-02")
+        self._create_asset(storage, asset_type, manager=employee)
+        assert AssetSelector.referenced_employee_recordcodes([employee.recordcode]) == {
+            employee.recordcode
+        }
+
+    def test_both_roles_dedup(self, department, storage, asset_type):
+        applicant = self._create_employee(department, "REF-EMP-03")
+        manager = self._create_employee(department, "REF-EMP-04")
+        self._create_asset(storage, asset_type, applicant=applicant)
+        self._create_asset(storage, asset_type, manager=manager)
+        result = AssetSelector.referenced_employee_recordcodes(
+            [applicant.recordcode, manager.recordcode]
+        )
+        assert result == {applicant.recordcode, manager.recordcode}
+
+    def test_soft_deleted_asset_excluded(self, department, storage, asset_type):
+        employee = self._create_employee(department, "REF-EMP-05")
+        asset = self._create_asset(storage, asset_type, applicant=employee)
+        asset.is_deleted = True
+        asset.save(update_fields=["is_deleted"])
+        assert AssetSelector.referenced_employee_recordcodes([employee.recordcode]) == set()
+
+    def test_unreferenced_excluded(self, department, storage, asset_type):
+        linked = self._create_employee(department, "REF-EMP-06")
+        unrelated = self._create_employee(department, "REF-EMP-07")
+        self._create_asset(storage, asset_type, applicant=linked)
+        assert AssetSelector.referenced_employee_recordcodes(
+            [linked.recordcode, unrelated.recordcode]
+        ) == {linked.recordcode}

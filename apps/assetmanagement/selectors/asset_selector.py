@@ -9,12 +9,29 @@ from typing import Any, cast
 
 from django.db.models import Count, Q, QuerySet, Sum
 
-from apps.assetmanagement.models import Asset, AssetOperationLog, AssetType
+from apps.assetmanagement.models import Asset, AssetOperationLog, AssetType, Contract, Storage
 from core.department_scope import build_asset_owned_department_q, get_department_codes_for_user
 
 
 class AssetSelector:
-    """资产管理查询选择器"""
+    """资产管理查询选择器
+
+    行级隔离约定(B12 加固):
+    - 所有对外资产查询方法**必须**接收 `user` 参数并在返回前施 `apply_user_scope`
+      (不可见与不存在同义,单条方法返回 None,列表方法为空集)。
+    - 显式豁免(调用方不得自行移除标注,改动需评审):
+      1. exists_by_code — 资产编码全局唯一性校验(录入防重除外),故意不做行级过滤;
+      2. get_asset_for_public_scan — 匿名公开扫码(R4-04),无用户上下文;
+      3. get_all_assets / get_assets_for_list / get_assets_with_all_relations —
+         基础查询体,调用方**必须**经 get_queryset_for_user/apply_user_scope 包裹;
+      4. combine_search — 存量调用方已 _scoped(asset_view.combine_search),二期收敛;
+      5. get_operation_logs_for_asset — 入参 asset 已由调用方 scoped 可见性保证;
+      6. get_queryset_for_user / apply_user_scope / ensure_asset_visible — 机制本身;
+      7. exists_by_storage — 主数据删除守卫(仓库引用存在性, 全局资源, 无部门语义);
+      8. exists_by_contract — 主数据删除守卫(合同引用存在性, 全局资源, 无部门语义);
+      9. exists_by_asset_type — 主数据删除守卫(类型引用存在性, 全局资源, 无部门语义);
+      10. referenced_employee_recordcodes — 员工删除守卫(资产引用存在性检查, 全局资源, 无部门语义);
+    """
 
     @staticmethod
     def apply_user_scope(queryset: QuerySet[Asset], user: Any) -> QuerySet[Asset]:
@@ -77,6 +94,8 @@ class AssetSelector:
         asset_brand: str | None = None,
         asset_contract_code: str | None = None,
         asset_contract_name: str | None = None,
+        *,
+        user: Any,
     ) -> QuerySet[Asset]:
         """
         获取可用资产列表(支持多条件搜索)
@@ -88,6 +107,7 @@ class AssetSelector:
             asset_brand: 资产品牌(模糊匹配)
             asset_contract_code: 合同编码(精确匹配)
             asset_contract_name: 合同名称(模糊匹配)
+            user: 操作人,用于行级部门范围隔离(B12 必填)
 
         Returns:
             QuerySet[Asset]: 可用资产列表
@@ -112,26 +132,30 @@ class AssetSelector:
         if asset_contract_name:
             queryset = queryset.filter(asset_contract_recordcode__contract_name__icontains=asset_contract_name)
 
-        return queryset
+        return AssetSelector.apply_user_scope(queryset, user)
 
     @staticmethod
-    def get_assets_by_status(status: str) -> QuerySet[Asset]:
-        return Asset.objects.filter(asset_current_status=status, is_deleted=False)
+    def get_assets_by_status(status: str, *, user: Any) -> QuerySet[Asset]:
+        return AssetSelector.apply_user_scope(
+            Asset.objects.filter(asset_current_status=status, is_deleted=False), user
+        )
 
     @staticmethod
-    def get_asset_by_code(asset_code: str) -> Asset | None:
+    def get_asset_by_code(asset_code: str, *, user: Any) -> Asset | None:
         try:
-            return Asset.objects.select_related(
+            queryset = Asset.objects.select_related(
                 "asset_type_recordcode", "asset_storage_recordcode", "asset_contract_recordcode"
-            ).get(asset_code=asset_code, is_deleted=False)
+            ).filter(asset_code=asset_code, is_deleted=False)
+            return AssetSelector.apply_user_scope(queryset, user).get()
         except Asset.DoesNotExist:
             return None
 
     @staticmethod
-    def get_asset_by_recordcode(recordcode: str) -> Asset | None:
-        """按 recordcode 查询单条资产(未软删除)"""
+    def get_asset_by_recordcode(recordcode: str, *, user: Any) -> Asset | None:
+        """按 recordcode 查询单条资产(未软删除,施行级隔离)"""
         try:
-            return cast(Asset, Asset.objects.get(recordcode=recordcode, is_deleted=False))
+            queryset = Asset.objects.filter(recordcode=recordcode, is_deleted=False)
+            return AssetSelector.apply_user_scope(queryset, user).get()
         except Asset.DoesNotExist:
             return None
 
@@ -141,6 +165,7 @@ class AssetSelector:
 
         与 get_asset_by_recordcode 的区别:本方法面向 public_scan_view 的
         6 字段白名单返回,无 select_related JOIN(R4-04 最小暴露收敛)。
+        行级隔离豁免:匿名公开扫码,无用户上下文(AssetSelector 行级约定豁免 #2)。
         """
         try:
             return cast(Asset, Asset.objects.get(recordcode=recordcode, is_deleted=False))
@@ -148,15 +173,16 @@ class AssetSelector:
             return None
 
     @staticmethod
-    def get_asset_detail_by_code(asset_code: str) -> Asset | None:
+    def get_asset_detail_by_code(asset_code: str, *, user: Any) -> Asset | None:
         try:
-            return Asset.objects.select_related(
+            queryset = Asset.objects.select_related(
                 "asset_type_recordcode",
                 "asset_storage_recordcode",
                 "asset_contract_recordcode",
                 "asset_entry_person_recordcode",
                 "asset_manager_recordcode",
-            ).get(asset_code=asset_code)
+            ).filter(asset_code=asset_code)
+            return AssetSelector.apply_user_scope(queryset, user).get()
         except Asset.DoesNotExist:
             return None
 
@@ -167,6 +193,8 @@ class AssetSelector:
         asset_type: str | None = None,
         storage_code: str | None = None,
         contract_code: str | None = None,
+        *,
+        user: Any,
     ) -> QuerySet[Asset]:
         queryset = Asset.objects.filter(is_deleted=False).select_related(
             "asset_type_recordcode", "asset_storage_recordcode", "asset_contract_recordcode"
@@ -186,7 +214,7 @@ class AssetSelector:
             queryset = queryset.filter(asset_storage_recordcode__storage_code=storage_code)
         if contract_code:
             queryset = queryset.filter(asset_contract_recordcode__contract_code=contract_code)
-        return queryset.order_by("-asset_entry_date")
+        return AssetSelector.apply_user_scope(queryset, user).order_by("-asset_entry_date")
 
     @staticmethod
     def get_asset_statistics(user: Any = None) -> dict[str, Any]:
@@ -216,17 +244,64 @@ class AssetSelector:
         }
 
     @staticmethod
-    def get_assets_by_type(asset_type: str) -> QuerySet[Asset]:
-        return Asset.objects.filter(asset_type_recordcode__type_code=asset_type, is_deleted=False)
+    def get_assets_by_type(asset_type: str, *, user: Any) -> QuerySet[Asset]:
+        return AssetSelector.apply_user_scope(
+            Asset.objects.filter(asset_type_recordcode__type_code=asset_type, is_deleted=False), user
+        )
 
     @staticmethod
     def exists_by_code(asset_code: str) -> bool:
         # 【P0-19 修复】显式过滤 is_deleted=False,防御性编码
+        # 行级隔离豁免:资产编码全局唯一性校验(录入防重),故意不做行级过滤
+        # (AssetSelector 行级约定豁免 #1),禁止为配合行级隔离而擅自改此方法。
         return Asset.objects.filter(asset_code=asset_code, is_deleted=False).exists()
 
     @staticmethod
-    def get_assets_by_storage(storage_code: str) -> QuerySet[Asset]:
-        return Asset.objects.filter(asset_storage_recordcode__storage_code=storage_code, is_deleted=False)
+    def exists_by_storage(storage: Storage) -> bool:
+        # 行级隔离豁免:主数据删除守卫(仓库引用存在性, 全局资源, 无部门语义)
+        # (AssetSelector 行级约定豁免 #7)
+        return Asset.objects.filter(asset_storage_recordcode=storage, is_deleted=False).exists()
+
+    @staticmethod
+    def exists_by_contract(contract: Contract) -> bool:
+        # 行级隔离豁免:主数据删除守卫(合同引用存在性, 全局资源, 无部门语义)
+        # (AssetSelector 行级约定豁免 #8)
+        return Asset.objects.filter(asset_contract_recordcode=contract, is_deleted=False).exists()
+
+    @staticmethod
+    def exists_by_asset_type(asset_type: AssetType) -> bool:
+        # 行级隔离豁免:主数据删除守卫(类型引用存在性, 全局资源, 无部门语义)
+        # (AssetSelector 行级约定豁免 #9)
+        return Asset.objects.filter(asset_type_recordcode=asset_type, is_deleted=False).exists()
+
+    @staticmethod
+    def referenced_employee_recordcodes(employee_recordcodes: Iterable[str]) -> set[str]:
+        # 【B-20 收敛】员工批量删除守卫统一入口(申请人/保管人两处引用检查收敛于此)
+        # 行级隔离豁免:员工删除守卫(全局引用存在性检查, 无部门语义)
+        # (AssetSelector 行级约定豁免 #10),不做行级过滤
+        # FK to_field="recordcode":values_list 运行时返回 recordcode 字符串;
+        # django-stubs 按 pk 类型(int)推算,统一 str() 归一,符合运行时语义。
+        employee_list = list(employee_recordcodes)
+        if not employee_list:
+            return set()
+        referenced: set[str] = set()
+        for recordcode in Asset.objects.filter(
+            asset_applicant_recordcode__in=employee_list, is_deleted=False
+        ).values_list("asset_applicant_recordcode", flat=True):
+            if recordcode:
+                referenced.add(str(recordcode))
+        for recordcode in Asset.objects.filter(
+            asset_manager_recordcode__in=employee_list, is_deleted=False
+        ).values_list("asset_manager_recordcode", flat=True):
+            if recordcode:
+                referenced.add(str(recordcode))
+        return referenced
+
+    @staticmethod
+    def get_assets_by_storage(storage_code: str, *, user: Any) -> QuerySet[Asset]:
+        return AssetSelector.apply_user_scope(
+            Asset.objects.filter(asset_storage_recordcode__storage_code=storage_code, is_deleted=False), user
+        )
 
     @staticmethod
     def combine_search(field_filters: dict[str, str], exact_filters: dict[str, str]) -> QuerySet[Asset]:

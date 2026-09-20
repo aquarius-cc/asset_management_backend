@@ -239,3 +239,73 @@ class TestForceRecycleFromAny:
         asset = _make_asset(storage, asset_type, "scrapped", "A_FSM_FR_SCR")
         with pytest.raises(InvalidTransitionError):
             AssetFSM.force_recycle_from_any(asset)
+
+
+@pytest.mark.django_db
+class TestOutAssetTransition:
+    """CT-3: (in_store | recycled_pending) → in_use(outasset 显式路径)"""
+
+    @pytest.mark.parametrize("source_status", ["in_store", "recycled_pending"])
+    def test_outasset_to_in_use(self, storage, asset_type, source_status):
+        asset = _make_asset(storage, asset_type, source_status, f"A_FSM_OUT_{source_status[0].upper()}")
+        AssetFSM.outasset(asset)
+        assert asset.asset_current_status == "in_use"
+
+
+@pytest.mark.django_db
+class TestCancelOutAsset:
+    """CT-3: in_use → previous_status(cancel_outasset 显式路径)"""
+
+    @pytest.mark.parametrize(
+        ("previous_status", "expected_status"),
+        [("in_store", "in_store"), ("recycled_pending", "recycled_pending")],
+    )
+    def test_cancel_outasset_returns_previous(self, storage, asset_type, previous_status, expected_status):
+        asset = _make_asset(storage, asset_type, "in_use", f"A_FSM_CO_{previous_status}")
+        AssetFSM.cancel_outasset(asset, previous_status)
+        assert asset.asset_current_status == expected_status
+
+    def test_cancel_outasset_illegal_previous_raises(self, storage, asset_type):
+        asset = _make_asset(storage, asset_type, "in_use", "A_FSM_COE")
+        with pytest.raises(InvalidTransitionError):
+            AssetFSM.cancel_outasset(asset, "scrapped")
+
+    def test_cancel_outasset_on_non_in_use_raises(self, storage, asset_type):
+        asset = _make_asset(storage, asset_type, "in_store", "A_FSM_CON")
+        with pytest.raises(InvalidTransitionError):
+            AssetFSM.cancel_outasset(asset, "in_store")
+
+
+@pytest.mark.django_db
+class TestCancelRecycle:
+    """CT-3: recycled_pending → in_use(cancel_recycle 显式路径)"""
+
+    def test_cancel_recycle_to_in_use(self, storage, asset_type):
+        asset = _make_asset(storage, asset_type, "recycled_pending", "A_FSM_CR")
+        AssetFSM.cancel_recycle(asset)
+        assert asset.asset_current_status == "in_use"
+
+    def test_cancel_recycle_on_non_pending_raises(self, storage, asset_type):
+        asset = _make_asset(storage, asset_type, "in_use", "A_FSM_CR_E")
+        with pytest.raises(InvalidTransitionError):
+            AssetFSM.cancel_recycle(asset)
+
+
+@pytest.mark.django_db
+class TestMarkBrokenFromInStore:
+    """CT-3: in_store → broken 显式路径(VALID_TRANSITIONS 声明,此前零覆盖)"""
+
+    def test_mark_broken_from_in_store(self, storage, asset_type):
+        asset = _make_asset(storage, asset_type, "in_store", "A_FSM_BKS")
+        AssetFSM.mark_broken(asset)
+        assert asset.asset_current_status == "broken"
+
+
+@pytest.mark.django_db
+class TestMarkLostFromInStore:
+    """CT-3: in_store → lost 显式路径(VALID_TRANSITIONS 声明,此前零覆盖)"""
+
+    def test_mark_lost_from_in_store(self, storage, asset_type):
+        asset = _make_asset(storage, asset_type, "in_store", "A_FSM_LSS")
+        AssetFSM.mark_lost(asset)
+        assert asset.asset_current_status == "lost"

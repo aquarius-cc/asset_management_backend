@@ -6,7 +6,8 @@ BrokenAsset / LostAsset / FoundAsset 三个 ViewSet 的公共骨架。
 
 【契约保护】本文件所有响应键名、错误码、message 文案均由
 test_batch_contract_snapshot.py 与 test_lifecycle_view_api.py 锁定,
-修改前必须先更新对应快照断言。
+修改前必须先更新对应快照断言。批量删除文案契约 2026-09-20 经 #17
+定案为中文标准模板(与 test_b5_baseline_snapshot.py 全仓 8 端点同款)。
 """
 
 from typing import Any
@@ -19,6 +20,7 @@ from rest_framework.response import Response
 
 from apps.assetmanagement.selectors.asset_selector import AssetSelector
 from apps.assetmanagement.services.asset_lifecycle_mixin import AssetLifecycleMixin
+from core.batch_mixins import BatchResponseHelper
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
 from core.permissions import IsAssetAdminOrAbove
@@ -98,39 +100,18 @@ class AssetLifecycleViewSetBase(  # type: ignore[misc]
 
     @action(detail=False, methods=["post"], url_path="batch-delete")
     def batch_delete(self, request: Any) -> Response:
-        """批量删除(三视图集完全一致, 仅模型异常类与 Service 方法名不同)"""
+        """批量删除(三视图集完全一致, 仅 delete_service_method 字符串差异, 编排收敛至 Service)"""
         ids = request.data.get("ids", [])
         if not ids:
             return error_response(message="缺少 ids 参数", status_code=400)
-        success_ids: list[str] = []
-        fail_items: list[dict[str, str]] = []
         operator_jobcode, operator_name = resolve_operator(request.user)
-        delete_fn = getattr(AssetLifecycleMixin, self.delete_service_method)
-        for recordcode in ids:
-            try:
-                delete_fn(
-                    recordcode=recordcode,
-                    operator_jobcode=operator_jobcode,
-                    operator_name=operator_name,
-                )
-                success_ids.append(recordcode)
-            except self.model.DoesNotExist:  # type: ignore[attr-defined]
-                fail_items.append(
-                    {"id": recordcode, "error_code": "NOT_FOUND", "error_message": "Record not found"}
-                )
-            except Exception:
-                fail_items.append(
-                    {"id": recordcode, "error_code": "INTERNAL_ERROR", "error_message": "Server error"}
-                )
-        return success_response(
-            data={
-                "total": len(ids),
-                "success_count": len(success_ids),
-                "fail_count": len(fail_items),
-                "success_ids": success_ids,
-                "fail_items": fail_items,
-            },
-            message=f"Batch delete done: {len(success_ids)} success, {len(fail_items)} fail",
+        result = AssetLifecycleMixin.batch_delete_lifecycle_asset(
+            ids, self.delete_service_method, operator_jobcode, operator_name,
+        )
+        # 【DR-1 收敛】响应组装复用 BatchResponseHelper(键集/失败分类/message 模板逐字段对齐全仓 8 端点)
+        return BatchResponseHelper.delete_response(
+            result,
+            message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )
 
     @action(detail=False, methods=["get"], url_path="by-asset/(?P<asset_code>[^/.]+)")

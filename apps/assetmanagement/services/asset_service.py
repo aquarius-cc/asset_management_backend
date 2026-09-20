@@ -14,14 +14,13 @@ from uuid import UUID
 from django.db import transaction
 
 from apps.assetmanagement.audit import AuditLogger
-from apps.assetmanagement.models import Asset
+from apps.assetmanagement.models import Asset, DamagedAsset, OutAsset
 from apps.assetmanagement.selectors import (
     AssetSelector,
     StorageSelector,
 )
 from apps.assetmanagement.state_machine import AssetFSM
 from core.batch_mixins import BatchOperationMixin
-from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError
 
 from .asset_lifecycle_mixin import AssetLifecycleMixin
@@ -157,6 +156,8 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
         update_data: dict[str, Any],
         operator_jobcode: str | None = None,
         operator_name: str | None = None,
+        *,
+        user: Any,
     ) -> Asset:
         """更新资产(入参必须是 Serializer 校验后的 validated_data)。
 
@@ -167,11 +168,15 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
 
         validated_data 中 FK 字段为模型实例,审计快照统一 str() 归一化,
         保证 OperationLog JSON 字段可序列化。
+
+        user 必填(B12): 行级隔离,不可见与不存在同义(ASSET_NOT_FOUND)。
         """
-        asset = AssetSelector.get_asset_by_code(asset_code)
+        asset = AssetSelector.get_asset_by_code(asset_code, user=user)
         if not asset:
             raise AppValidationError(detail=f"资产 {asset_code} 不存在", error_code="ASSET_NOT_FOUND")
         asset = Asset.objects.select_for_update().get(pk=asset.pk)
+        # B12 TOCTOU 兜底: 锁内重取快照后再次校验行级可见性
+        AssetSelector.ensure_asset_visible(asset, user)
 
         def _normalize(value: Any) -> Any:
             # FK 实例 → 其 recordcode（FK 列真实值，与存量审计日志口径一致）；
@@ -200,18 +205,17 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
         return asset
 
     @staticmethod
-    @transaction.atomic
-    def delete_asset(asset_code: str, operator_jobcode: str | None = None, operator_name: str | None = None) -> None:
-        asset = AssetSelector.get_asset_by_code(asset_code)
-        if not asset:
-            raise AppValidationError(detail=f"资产 {asset_code} 不存在", error_code="ASSET_NOT_FOUND")
-        asset = Asset.objects.select_for_update().get(pk=asset.pk)
+    def _delete_guarded(
+        asset: Asset,
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+    ) -> None:
+        """删除守卫 + 审计 + 软删除的唯一实现(单条/批量共用,DR-1);失败抛 AppValidationError"""
+        # [HALT] 统一删除入口:状态/出库/待报废守卫 + 审计 + asset.delete()
         if asset.asset_current_status != Asset.AssetStatus.IN_STORE:
             raise AppValidationError(
                 detail=f"资产当前状态为 {asset.asset_current_status},不允许删除", error_code="ASSET_IN_USE"
             )
-        from apps.assetmanagement.models import DamagedAsset, OutAsset
-
         if OutAsset.objects.filter(asset_recordcode=asset, is_deleted=False).exists():
             raise AppValidationError(
                 detail=f"资产 {asset.asset_code} 存在未完成的出库记录", error_code="ASSET_HAS_OUTASSET"
@@ -226,6 +230,23 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
             operator_name=operator_name,
         )
         asset.delete()
+
+    @staticmethod
+    @transaction.atomic
+    def delete_asset(
+        asset_code: str,
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+        *,
+        user: Any,
+    ) -> None:
+        asset = AssetSelector.get_asset_by_code(asset_code, user=user)
+        if not asset:
+            raise AppValidationError(detail=f"资产 {asset_code} 不存在", error_code="ASSET_NOT_FOUND")
+        asset = Asset.objects.select_for_update().get(pk=asset.pk)
+        # B12 TOCTOU 兜底: 锁内重取快照后再次校验行级可见性
+        AssetSelector.ensure_asset_visible(asset, user)
+        AssetService._delete_guarded(asset, operator_jobcode, operator_name)
 
     @staticmethod
     def batch_create_asset(
@@ -250,72 +271,29 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
 
     @staticmethod
     def batch_delete_asset(
-        asset_codes: list[str], operator_jobcode: str | None = None, operator_name: str | None = None
+        asset_codes: list[str],
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+        *,
+        user: Any,
     ) -> dict[str, Any]:
-        if len(asset_codes) > MAX_BATCH_SIZE:
-            raise AppValidationError(
-                detail=f"单次批量删除不能超过 {MAX_BATCH_SIZE} 条", error_code="BATCH_SIZE_EXCEEDED"
-            )
-        success_ids: list[str] = []
-        fail_items: list[dict[str, Any]] = []
-        for asset_code in asset_codes:
+        def _delete_one(asset_code: str) -> None:
+            # B12 行级隔离: 不可见/不存在统一归入 NOT_FOUND,响应结构不变。
+            # 先经 scoped 查询解析(外层连接过滤不可用于 select_for_update,
+            # PostgreSQL 会拒绝锁取 outer join 的可空侧),再按主键加锁 + TOCTOU 兜底。
+            asset = AssetSelector.get_asset_by_code(asset_code, user=user)
+            if not asset:
+                raise AppValidationError(detail=f"资产 {asset_code} 不存在", error_code="NOT_FOUND")
+            asset = Asset.objects.select_for_update().get(pk=asset.pk)
             try:
-                with transaction.atomic():
-                    asset = Asset.objects.select_for_update().filter(asset_code=asset_code, is_deleted=False).first()
-                    if not asset:
-                        fail_items.append(
-                            {"id": asset_code, "error_code": "NOT_FOUND", "error_message": f"资产 {asset_code} 不存在"}
-                        )
-                        continue
-                    if asset.asset_current_status != Asset.AssetStatus.IN_STORE:
-                        fail_items.append(
-                            {
-                                "id": asset_code,
-                                "error_code": "ASSET_IN_USE",
-                                "error_message": f"资产当前状态为 {asset.asset_current_status},不允许删除",
-                            }
-                        )
-                        continue
-                    from apps.assetmanagement.models import DamagedAsset, OutAsset
+                AssetSelector.ensure_asset_visible(asset, user)
+            except AppValidationError:
+                raise AppValidationError(detail=f"资产 {asset_code} 不存在", error_code="NOT_FOUND") from None
+            # 守卫须在 try 之外: ASSET_IN_USE/ASSET_HAS_OUTASSET/HAS_DAMAGED_RECORDS
+            # 原样抛给 batch_delete_execute,禁止误映射为 NOT_FOUND
+            AssetService._delete_guarded(asset, operator_jobcode, operator_name)
 
-                    if OutAsset.objects.filter(asset_recordcode=asset, is_deleted=False).exists():
-                        fail_items.append(
-                            {
-                                "id": asset_code,
-                                "error_code": "HAS_OUTASSET_RECORDS",
-                                "error_message": "资产存在关联出库记录,不允许删除",
-                            }
-                        )
-                        continue
-                    if DamagedAsset.objects.filter(asset_recordcode=asset, is_deleted=False).exists():
-                        fail_items.append(
-                            {
-                                "id": asset_code,
-                                "error_code": "HAS_DAMAGED_RECORDS",
-                                "error_message": "资产存在待报废记录,不允许删除",
-                            }
-                        )
-                        continue
-                    AuditLogger.log_asset_delete(
-                        asset_code=asset.asset_code,
-                        asset_name=asset.asset_name,
-                        asset=asset,
-                        operator_jobcode=operator_jobcode,
-                        operator_name=operator_name,
-                    )
-                    asset.delete()
-                    success_ids.append(asset_code)
-            except Exception:
-                fail_items.append(
-                    {"id": asset_code, "error_code": "INTERNAL_ERROR", "error_message": "服务器内部错误,请稍后重试"}
-                )
-        return {
-            "total": len(asset_codes),
-            "success_count": len(success_ids),
-            "fail_count": len(fail_items),
-            "success_ids": success_ids,
-            "fail_items": fail_items,
-        }
+        return BatchOperationMixin.batch_delete_execute(ids=asset_codes, process_fn=_delete_one)
 
     @staticmethod
     @transaction.atomic
@@ -325,14 +303,18 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
         description: str = "",
         operator_jobcode: str | None = None,
         operator_name: str | None = None,
+        *,
+        user: Any,
     ) -> Asset:
         valid_statuses = dict(Asset.ASSET_STATUS_CHOICES)
         if new_status not in valid_statuses:
             raise AppValidationError(detail=f"无效的资产状态: {new_status}", error_code="INVALID_ASSET_STATUS")
-        asset = AssetSelector.get_asset_by_code(asset_code)
+        asset = AssetSelector.get_asset_by_code(asset_code, user=user)
         if not asset:
             raise AppValidationError(detail=f"资产 {asset_code} 不存在", error_code="ASSET_NOT_FOUND")
         asset = Asset.objects.select_for_update().get(pk=asset.pk)
+        # B12 TOCTOU 兜底: 锁内重取快照后再次校验行级可见性
+        AssetSelector.ensure_asset_visible(asset, user)
         old_status = asset.asset_current_status
         from apps.assetmanagement.state_machine import AssetState
 
@@ -351,11 +333,21 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
 
     @staticmethod
     @transaction.atomic
-    def change_outasset_employee(asset_code: str, applicant_jobcode: str, manager_jobcode: str) -> Asset:
-        asset = AssetSelector.get_asset_by_code(asset_code)
+    def change_outasset_employee(
+        asset_code: str,
+        applicant_jobcode: str,
+        manager_jobcode: str,
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+        *,
+        user: Any,
+    ) -> Asset:
+        asset = AssetSelector.get_asset_by_code(asset_code, user=user)
         if not asset:
             raise AppValidationError(detail=f"资产 {asset_code} 不存在", error_code="ASSET_NOT_FOUND")
         asset = Asset.objects.select_for_update().get(pk=asset.pk)
+        # B12 TOCTOU 兜底: 锁内重取快照后再次校验行级可见性
+        AssetSelector.ensure_asset_visible(asset, user)
         old_applicant = asset.asset_applicant_recordcode
         old_manager = asset.asset_manager_recordcode
         asset.asset_applicant_recordcode = applicant_jobcode  # type: ignore[assignment]
@@ -364,19 +356,28 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
             asset=asset,
             before_data={"asset_applicant": str(old_applicant), "asset_manager": str(old_manager)},
             after_data={"asset_applicant": applicant_jobcode, "asset_manager": manager_jobcode},
-            operator_jobcode=None,
-            operator_name=None,
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
         )
         asset.save()
         return asset
 
     @staticmethod
     @transaction.atomic
-    def transfer_asset_to_storage(asset_code: str, storage_code: str) -> Asset:
-        asset = AssetSelector.get_asset_by_code(asset_code)
+    def transfer_asset_to_storage(
+        asset_code: str,
+        storage_code: str,
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+        *,
+        user: Any,
+    ) -> Asset:
+        asset = AssetSelector.get_asset_by_code(asset_code, user=user)
         if not asset:
             raise AppValidationError(detail=f"资产 {asset_code} 不存在", error_code="ASSET_NOT_FOUND")
         asset = Asset.objects.select_for_update().get(pk=asset.pk)
+        # B12 TOCTOU 兜底: 锁内重取快照后再次校验行级可见性
+        AssetSelector.ensure_asset_visible(asset, user)
         storage = StorageSelector.get_storage_by_code(storage_code)
         if not storage:
             raise AppValidationError(detail=f"仓库 {storage_code} 不存在", error_code="STORAGE_NOT_FOUND")
@@ -386,8 +387,8 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
             asset=asset,
             before_data={"asset_storage": old_storage.storage_name if old_storage else None},
             after_data={"asset_storage": storage.storage_name},
-            operator_jobcode=None,
-            operator_name=None,
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
         )
         asset.save()
         return asset

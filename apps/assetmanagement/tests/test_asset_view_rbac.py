@@ -102,7 +102,7 @@ class TestAssetViewReadScope:
         self, api_client: APIClient, user_a: AuthUser, asset_a: Asset, asset_b: Asset
     ) -> None:
         api_client.force_authenticate(user=user_a)
-        resp = api_client.get("/api/v1/assets/assets/getassetbyname/RB-ASSET/")
+        resp = api_client.get("/api/v1/assets/assets/get_asset_by_name/RB-ASSET/")
         assert resp.status_code == status.HTTP_200_OK
         assert _codes(resp.data["data"]) == ["A-RB-001"]
 
@@ -110,7 +110,7 @@ class TestAssetViewReadScope:
         self, api_client: APIClient, user_a: AuthUser, asset_a: Asset, asset_b: Asset
     ) -> None:
         api_client.force_authenticate(user=user_a)
-        resp = api_client.get(f"/api/v1/assets/assets/getassetbyrecordcode/x/?recordcode={asset_b.recordcode}")
+        resp = api_client.get(f"/api/v1/assets/assets/get_asset_by_recordcode/x/?recordcode={asset_b.recordcode}")
         assert resp.status_code == status.HTTP_200_OK
         assert resp.data["data"] == []
 

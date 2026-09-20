@@ -1581,9 +1581,9 @@
                 }
             }
         },
-        "/api/v1/assets/assets/getassetbyname/{name}/": {
+        "/api/v1/assets/assets/get_asset_by_name/{name}/": {
             "get": {
-                "operationId": "v1_assets_assets_getassetbyname_list",
+                "operationId": "v1_assets_assets_get_asset_by_name_list",
                 "description": "支持 pk(数字)和 recordcode(字符串)双模式查找的 get_object()。\n\n子类必须设置 lookup_field = \"recordcode\"(或其变体如 \"asset_recordcode__asset_code\")。",
                 "parameters": [
                     {
@@ -1692,9 +1692,9 @@
                 }
             }
         },
-        "/api/v1/assets/assets/getassetbyrecordcode/{recordcode}/": {
+        "/api/v1/assets/assets/get_asset_by_recordcode/{recordcode}/": {
             "get": {
-                "operationId": "v1_assets_assets_getassetbyrecordcode_retrieve",
+                "operationId": "v1_assets_assets_get_asset_by_recordcode_retrieve",
                 "description": "支持 pk(数字)和 recordcode(字符串)双模式查找的 get_object()。\n\n子类必须设置 lookup_field = \"recordcode\"(或其变体如 \"asset_recordcode__asset_code\")。",
                 "parameters": [
                     {
@@ -2142,7 +2142,7 @@
         "/api/v1/assets/broken-assets/batch-delete/": {
             "post": {
                 "operationId": "v1_assets_broken_assets_batch_delete_create",
-                "description": "批量删除(三视图集完全一致, 仅模型异常类与 Service 方法名不同)",
+                "description": "批量删除(三视图集完全一致, 仅 delete_service_method 字符串差异, 编排收敛至 Service)",
                 "tags": [
                     "损坏资产"
                 ],
@@ -2815,9 +2815,9 @@
                 }
             }
         },
-        "/api/v1/assets/contracts/getcontractByname/{name}/": {
+        "/api/v1/assets/contracts/get_contract_by_name/{name}/": {
             "get": {
-                "operationId": "v1_assets_contracts_getcontractByname_list",
+                "operationId": "v1_assets_contracts_get_contract_by_name_list",
                 "description": "支持 pk(数字)和 recordcode(字符串)双模式查找的 get_object()。\n\n子类必须设置 lookup_field = \"recordcode\"(或其变体如 \"asset_recordcode__asset_code\")。",
                 "parameters": [
                     {
@@ -3521,7 +3521,7 @@
                         "schema": {
                             "type": "string",
                             "title": "待报废资产的资产唯一标识码",
-                            "description": "待报废的资产唯一标识码(通过 recordcode 关联)"
+                            "description": "待报废的资产唯一标识码(通过 recordcode 关联)。由 Partial Unique Constraint 保证仅非软删记录唯一,软删(驳回/取消)释放槽位以便重新申请"
                         },
                         "required": true
                     }
@@ -3888,7 +3888,7 @@
         "/api/v1/assets/found-assets/batch-delete/": {
             "post": {
                 "operationId": "v1_assets_found_assets_batch_delete_create",
-                "description": "批量删除(三视图集完全一致, 仅模型异常类与 Service 方法名不同)",
+                "description": "批量删除(三视图集完全一致, 仅 delete_service_method 字符串差异, 编排收敛至 Service)",
                 "tags": [
                     "找回资产"
                 ],
@@ -4782,7 +4782,7 @@
         "/api/v1/assets/lost-assets/batch-delete/": {
             "post": {
                 "operationId": "v1_assets_lost_assets_batch_delete_create",
-                "description": "批量删除(三视图集完全一致, 仅模型异常类与 Service 方法名不同)",
+                "description": "批量删除(三视图集完全一致, 仅 delete_service_method 字符串差异, 编排收敛至 Service)",
                 "tags": [
                     "遗失资产"
                 ],
@@ -14924,7 +14924,7 @@
                         "type": "string",
                         "nullable": true,
                         "title": "待报废资产的资产唯一标识码",
-                        "description": "待报废的资产唯一标识码(通过 recordcode 关联)"
+                        "description": "待报废的资产唯一标识码(通过 recordcode 关联)。由 Partial Unique Constraint 保证仅非软删记录唯一,软删(驳回/取消)释放槽位以便重新申请"
                     },
                     "approval_status": {
                         "allOf": [
@@ -15014,7 +15014,7 @@
                         "type": "string",
                         "nullable": true,
                         "title": "待报废资产的资产唯一标识码",
-                        "description": "待报废的资产唯一标识码(通过 recordcode 关联)"
+                        "description": "待报废的资产唯一标识码(通过 recordcode 关联)。由 Partial Unique Constraint 保证仅非软删记录唯一,软删(驳回/取消)释放槽位以便重新申请"
                     },
                     "approval_status": {
                         "allOf": [
@@ -15074,7 +15074,7 @@
                         "type": "string",
                         "nullable": true,
                         "title": "待报废资产的资产唯一标识码",
-                        "description": "待报废的资产唯一标识码(通过 recordcode 关联)"
+                        "description": "待报废的资产唯一标识码(通过 recordcode 关联)。由 Partial Unique Constraint 保证仅非软删记录唯一,软删(驳回/取消)释放槽位以便重新申请"
                     },
                     "damaged_asset_number": {
                         "type": "integer",
@@ -15149,7 +15149,7 @@
                         "type": "string",
                         "nullable": true,
                         "title": "待报废资产的资产唯一标识码",
-                        "description": "待报废的资产唯一标识码(通过 recordcode 关联)"
+                        "description": "待报废的资产唯一标识码(通过 recordcode 关联)。由 Partial Unique Constraint 保证仅非软删记录唯一,软删(驳回/取消)释放槽位以便重新申请"
                     },
                     "damaged_asset_number": {
                         "type": "integer",
@@ -15197,7 +15197,7 @@
                         "type": "string",
                         "nullable": true,
                         "title": "待报废资产的资产唯一标识码",
-                        "description": "待报废的资产唯一标识码(通过 recordcode 关联)"
+                        "description": "待报废的资产唯一标识码(通过 recordcode 关联)。由 Partial Unique Constraint 保证仅非软删记录唯一,软删(驳回/取消)释放槽位以便重新申请"
                     },
                     "approval_status": {
                         "allOf": [
@@ -15300,7 +15300,7 @@
                         "type": "string",
                         "nullable": true,
                         "title": "待报废资产的资产唯一标识码",
-                        "description": "待报废的资产唯一标识码(通过 recordcode 关联)"
+                        "description": "待报废的资产唯一标识码(通过 recordcode 关联)。由 Partial Unique Constraint 保证仅非软删记录唯一,软删(驳回/取消)释放槽位以便重新申请"
                     },
                     "approval_status": {
                         "allOf": [
@@ -15366,7 +15366,7 @@
                         "type": "string",
                         "nullable": true,
                         "title": "待报废资产的资产唯一标识码",
-                        "description": "待报废的资产唯一标识码(通过 recordcode 关联)",
+                        "description": "待报废的资产唯一标识码(通过 recordcode 关联)。由 Partial Unique Constraint 保证仅非软删记录唯一,软删(驳回/取消)释放槽位以便重新申请",
                         "readOnly": true
                     },
                     "approval_status": {
@@ -15475,7 +15475,8 @@
                         "type": "string",
                         "nullable": true,
                         "title": "待报废资产的资产唯一标识码",
-                        "description": "待报废的资产唯一标识码(通过 recordcode 关联)"
+                        "description": "待报废的资产唯一标识码(通过 recordcode 关联)。由 Partial Unique Constraint 保证仅非软删记录唯一,软删(驳回/取消)释放槽位以便重新申请",
+                        "readOnly": true
                     },
                     "damaged_asset_number": {
                         "type": "integer",
@@ -15499,6 +15500,7 @@
                     },
                     "is_active": {
                         "type": "boolean",
+                        "readOnly": true,
                         "title": "是否启用",
                         "description": "控制记录是否激活"
                     },
@@ -15532,6 +15534,7 @@
                     }
                 },
                 "required": [
+                    "asset_recordcode",
                     "damaged_asset_contract_code",
                     "damaged_asset_contract_name",
                     "damaged_asset_name",
@@ -15539,6 +15542,7 @@
                     "damaged_asset_storage_code",
                     "damaged_asset_storage_name",
                     "id",
+                    "is_active",
                     "recordcode"
                 ]
             },
@@ -15546,12 +15550,6 @@
                 "type": "object",
                 "description": "待报废资产更新序列化器\n用途:update, partial_update action\n特点:写入字段,recordcode 只读",
                 "properties": {
-                    "asset_recordcode": {
-                        "type": "string",
-                        "nullable": true,
-                        "title": "待报废资产的资产唯一标识码",
-                        "description": "待报废的资产唯一标识码(通过 recordcode 关联)"
-                    },
                     "damaged_asset_number": {
                         "type": "integer",
                         "maximum": 2147483647,
@@ -15571,11 +15569,6 @@
                         "nullable": true,
                         "title": "待报废资产描述",
                         "description": "报废原因等说明"
-                    },
-                    "is_active": {
-                        "type": "boolean",
-                        "title": "是否启用",
-                        "description": "控制记录是否激活"
                     }
                 }
             },
@@ -17871,6 +17864,13 @@
                         "title": "出库资产描述",
                         "description": "出库的补充说明"
                     },
+                    "outasset_using_location": {
+                        "type": "string",
+                        "nullable": true,
+                        "title": "出库使用地点",
+                        "description": "出库时的使用地点",
+                        "maxLength": 100
+                    },
                     "return_date": {
                         "type": "string",
                         "format": "date",
@@ -17922,6 +17922,13 @@
                         "nullable": true,
                         "title": "出库资产描述",
                         "description": "出库的补充说明"
+                    },
+                    "outasset_using_location": {
+                        "type": "string",
+                        "nullable": true,
+                        "title": "出库使用地点",
+                        "description": "出库时的使用地点",
+                        "maxLength": 100
                     },
                     "return_date": {
                         "type": "string",
@@ -19452,12 +19459,6 @@
                 "type": "object",
                 "description": "待报废资产更新序列化器\n用途:update, partial_update action\n特点:写入字段,recordcode 只读",
                 "properties": {
-                    "asset_recordcode": {
-                        "type": "string",
-                        "nullable": true,
-                        "title": "待报废资产的资产唯一标识码",
-                        "description": "待报废的资产唯一标识码(通过 recordcode 关联)"
-                    },
                     "damaged_asset_number": {
                         "type": "integer",
                         "maximum": 2147483647,
@@ -19477,11 +19478,6 @@
                         "nullable": true,
                         "title": "待报废资产描述",
                         "description": "报废原因等说明"
-                    },
-                    "is_active": {
-                        "type": "boolean",
-                        "title": "是否启用",
-                        "description": "控制记录是否激活"
                     }
                 }
             },
@@ -19748,6 +19744,13 @@
                         "nullable": true,
                         "title": "出库资产描述",
                         "description": "出库的补充说明"
+                    },
+                    "outasset_using_location": {
+                        "type": "string",
+                        "nullable": true,
+                        "title": "出库使用地点",
+                        "description": "出库时的使用地点",
+                        "maxLength": 100
                     },
                     "return_date": {
                         "type": "string",

@@ -130,7 +130,7 @@
 | DELETE | `/api/assets/contracts/{contract_code}/` | 删除合同（软删除） | 路径: contract_code | - | 管理员 |
 | GET | `/api/assets/contracts/statistics/` | 合同统计 | 无 | 合同统计数据 | 认证 |
 | GET | `/api/assets/contracts/search/` | 全局模糊搜索合同 | ?keyword, ?page, ?page_size | {count, results} | 认证 |
-| GET | `/api/assets/contracts/getcontractByname/{name}/` | 按名称模糊查询合同 | 路径: name | {count, results} | 认证 |
+| GET | `/api/assets/contracts/get_contract_by_name/{name}/` | 按名称模糊查询合同 | 路径: name | {count, results} | 认证 |
 | POST | `/api/assets/contracts/{contract_code}/update_settlement_status/` | 更新合同结算状态 | Body: {status} | {contract} | 管理员 |
 | POST | `/api/assets/contracts/{contract_code}/payment_record/` | 添加付款记录 | Body: {amount, description} | {contract} | 管理员 |
 | POST | `/api/assets/contracts/batch-delete/` | 批量删除合同 | Body: {ids: [...]} | {total, success_count, fail_count, success_ids, fail_items} | 管理员 |
@@ -148,8 +148,8 @@
 | GET | `/api/assets/assets/statistics/` | 资产统计 | 无 | 资产统计数据 | 认证 |
 | GET | `/api/assets/assets/search/` | 全局搜索资产 | ?keyword, ?status, ?asset_type, ?storage_code, ?contract_code, ?page, ?page_size | {count, results} | 认证 |
 | GET | `/api/assets/assets/search_available/` | 查询可用资产 | ?asset_code, ?asset_name, ?asset_specification, ?asset_brand, ?asset_contract_code, ?asset_contract_name, ?page, ?page_size | {count, results} | 认证 |
-| GET | `/api/assets/assets/getassetbyname/{name}/` | 按名称模糊查询资产 | 路径: name | {count, results} | 认证 |
-| GET | `/api/assets/assets/getassetbyrecordcode/{recordcode}/` | 按记录编码查询资产 | 路径: recordcode | [Asset 字段] | 认证 |
+| GET | `/api/assets/assets/get_asset_by_name/{name}/` | 按名称模糊查询资产 | 路径: name | {count, results} | 认证 |
+| GET | `/api/assets/assets/get_asset_by_recordcode/{recordcode}/` | 按记录编码查询资产 | 路径: recordcode | [Asset 字段] | 认证 |
 | GET | `/api/assets/assets/combined_details/` | 资产综合详情 | ?asset_code | 综合资产数据 | 认证 |
 | GET | `/api/assets/assets/contract_by_asset/{asset_code}/` | 通过资产编码查询关联合同 | 路径: asset_code | ContractDetail 字段 | 认证 |
 | POST | `/api/assets/assets/{asset_code}/change_status/` | 变更资产状态 | Body: {status, description} | {asset} | 认证 |

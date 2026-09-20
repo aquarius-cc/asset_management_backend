@@ -25,16 +25,6 @@ class DamagedAssetSelector:
         return DamagedAsset.objects.filter(is_deleted=False)
 
     @staticmethod
-    def get_asset_recordcode_by_asset_code(asset_code: str) -> DamagedAsset | None:
-        try:
-            # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
-            return DamagedAsset.objects.with_asset_details().get(
-                asset_recordcode__asset_code=asset_code, is_deleted=False
-            )
-        except DamagedAsset.DoesNotExist:
-            return None
-
-    @staticmethod
     def get_asset_recordcode_for_update(asset_recordcode: str) -> DamagedAsset:
         """
         获取待报废记录并加行锁(用于事务更新)
@@ -50,11 +40,12 @@ class DamagedAssetSelector:
         Raises:
             DamagedAsset.DoesNotExist: 记录不存在或已被删除
         """
-        # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
-        return (
-            DamagedAsset.objects.with_asset_details()
-            .select_for_update()
-            .get(asset_recordcode__recordcode=asset_recordcode, is_deleted=False)
+        # 单一查询完成存在性检查 + 行锁,仅锁 am_damaged_asset 主表。
+        # 注意:本查询禁止叠加 with_asset_details()/select_related —— asset_recordcode
+        # 为可空 OneToOneField,select_for_update 会对可空侧生成 LEFT OUTER JOIN,
+        # PostgreSQL 会抛 NotSupportedError(FOR UPDATE 不能作用于外连接可空侧)。
+        return DamagedAsset.objects.select_for_update().get(
+            asset_recordcode__recordcode=asset_recordcode, is_deleted=False
         )
 
     @staticmethod

@@ -317,3 +317,20 @@ class TestRepairAssetViewSet:
         response = admin_authenticated_client.delete(url)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert RepairAsset.objects.filter(recordcode=repair_asset.recordcode).exists()
+
+    def test_batch_delete(self, admin_authenticated_client, repair_asset, broken_asset):
+        """批量删除维修记录(#17 下沉 Service 后视图冒烟: 成功 + 失败明细 + 标准中文文案)"""
+        RepairAsset.objects.filter(recordcode=repair_asset.recordcode).update(repair_status="completed")
+        url = reverse("repair-assets-batch-delete")
+        response = admin_authenticated_client.post(
+            url,
+            {"ids": [repair_asset.recordcode, broken_asset.recordcode]},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["code"] == 0
+        data = response.data["data"]
+        assert data["success_count"] == 1
+        assert data["fail_items"][0]["error_code"] == "NOT_FOUND"
+        assert response.data["message"] == "批量删除完成,成功 1 条,失败 1 条"
+        assert not RepairAsset.objects.filter(recordcode=repair_asset.recordcode, is_deleted=False).exists()

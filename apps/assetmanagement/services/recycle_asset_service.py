@@ -109,6 +109,17 @@ class RecycleAssetService:
                 raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
             asset.save(update_fields=["asset_current_status"])
 
+            # AC-61: 记录第二次 FSM 转换(recycled_pending → broken)
+            fallback_jobcode = recycle_person_obj.employee_jobcode if recycle_person_obj else None
+            AuditLogger.log_state_change(
+                asset=asset,
+                from_state=Asset.AssetStatus.RECYCLED_PENDING,
+                to_state=Asset.AssetStatus.BROKEN,
+                trigger="recycle_mark_broken",
+                operator_jobcode=operator_jobcode or fallback_jobcode,
+                operator_name=operator_name or "",
+            )
+
             BrokenAsset.objects.create(
                 asset_recordcode=asset,
                 broken_date=recycle_asset.recycle_asset_date,
@@ -128,6 +139,17 @@ class RecycleAssetService:
             except InvalidTransitionError as e:
                 raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
             asset.save(update_fields=["asset_current_status"])
+
+            # AC-61: 记录第二次 FSM 转换(recycled_pending → lost)
+            fallback_jobcode = recycle_person_obj.employee_jobcode if recycle_person_obj else None
+            AuditLogger.log_state_change(
+                asset=asset,
+                from_state=Asset.AssetStatus.RECYCLED_PENDING,
+                to_state=Asset.AssetStatus.LOST,
+                trigger="recycle_mark_lost",
+                operator_jobcode=operator_jobcode or fallback_jobcode,
+                operator_name=operator_name or "",
+            )
 
             LostAsset.objects.create(
                 asset_recordcode=asset,

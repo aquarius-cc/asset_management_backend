@@ -97,6 +97,34 @@ class TestDamagedAssetViewSet:
         assert response.data["code"] == 0
         assert response.data["data"]["damaged_asset_description"] == "部分更新后的损坏描述"
 
+    def test_update_damaged_asset_invalid_number_rejected(self, admin_authenticated_client, damaged_asset):
+        """B8 输入门禁: 损坏数量类型错误应返回 400,不得落 Service"""
+        url = reverse("damaged-assets-detail", kwargs={"recordcode": damaged_asset.recordcode})
+        data = {"damaged_asset_number": "abc"}
+        response = admin_authenticated_client.put(url, data, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        damaged_asset.refresh_from_db()
+        assert damaged_asset.damaged_asset_number == 1
+
+    def test_update_damaged_asset_is_active_read_only(self, admin_authenticated_client, damaged_asset):
+        """B8 白名单对齐: is_active 非 Service 可写字段, serializer 只读, 提交后不得生效"""
+        url = reverse("damaged-assets-detail", kwargs={"recordcode": damaged_asset.recordcode})
+        data = {"damaged_asset_description": "更新后的损坏描述", "is_active": False}
+        response = admin_authenticated_client.put(url, data, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        damaged_asset.refresh_from_db()
+        assert damaged_asset.damaged_asset_description == "更新后的损坏描述"
+        assert damaged_asset.is_active is True
+
+    def test_update_damaged_asset_unknown_field_ignored(self, admin_authenticated_client, damaged_asset):
+        """B8 Gap B 决策: 未知字段静默忽略(DRF 默认), 声明字段正常生效"""
+        url = reverse("damaged-assets-detail", kwargs={"recordcode": damaged_asset.recordcode})
+        data = {"damaged_asset_description": "更新后的损坏描述", "foo": "bar"}
+        response = admin_authenticated_client.put(url, data, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        damaged_asset.refresh_from_db()
+        assert damaged_asset.damaged_asset_description == "更新后的损坏描述"
+
     def test_destroy_damaged_asset(self, admin_authenticated_client, damaged_asset):
         """测试删除待报废资产"""
         url = reverse("damaged-assets-detail", kwargs={"recordcode": damaged_asset.recordcode})

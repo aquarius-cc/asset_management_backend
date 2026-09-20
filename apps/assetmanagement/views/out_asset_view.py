@@ -195,16 +195,26 @@ class OutAssetViewSet(  # type: ignore[misc]
         )
 
     def update(self, request: Any, *args: Any, **kwargs: Any) -> Response:
-        recordcode = self.kwargs.get("recordcode")
-        outasset = OutAssetService.update_outasset(
-            recordcode=recordcode,  # type: ignore[arg-type]
-            update_data=request.data,
+        outasset = self.get_object()
+        serializer = self.get_serializer(outasset, data=request.data, partial=False)
+        serializer.is_valid(raise_exception=True)
+        updated = OutAssetService.update_outasset(
+            recordcode=outasset.recordcode,
+            update_data=serializer.validated_data,
             **self.get_operator_context(),
         )
-        return success_response(data=OutAssetDetailSerializer(outasset).data, message="更新成功")
+        return success_response(data=OutAssetDetailSerializer(updated).data, message="更新成功")
 
     def partial_update(self, request: Any, *args: Any, **kwargs: Any) -> Response:
-        return self.update(request, *args, **kwargs)
+        outasset = self.get_object()
+        serializer = self.get_serializer(outasset, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        updated = OutAssetService.update_outasset(
+            recordcode=outasset.recordcode,
+            update_data=serializer.validated_data,
+            **self.get_operator_context(),
+        )
+        return success_response(data=OutAssetDetailSerializer(updated).data, message="更新成功")
 
     @action(detail=False, methods=["post"], url_path="batch-create")
     def batch_create(self, request: Any) -> Response:

@@ -350,3 +350,51 @@ class AssetLifecycleMixin:
         return BatchOperationMixin.batch_execute(
             items=items, process_fn=_create_one, max_batch_size=100, use_transaction=False,
         )
+
+    @staticmethod
+    # [HALT] 批量删除既有生命周期事件记录(软删+审计透传, 批大小与逐条原子由 batch_delete_execute 保证)
+    def batch_delete_lifecycle_asset(
+        ids: list[str],
+        delete_service_method: str,
+        operator_jobcode: str = "",
+        operator_name: str = "",
+    ) -> dict[str, Any]:
+        """批量删除损坏/遗失/找回记录(子类差异仅 delete_service_method 参数)"""
+        from core.batch_mixins import BatchOperationMixin
+        from core.exceptions import AppValidationError
+
+        def _delete_one(recordcode: str) -> None:
+            try:
+                getattr(AssetLifecycleMixin, delete_service_method)(
+                    recordcode=recordcode,
+                    operator_jobcode=operator_jobcode,
+                    operator_name=operator_name,
+                )
+            except (BrokenAsset.DoesNotExist, LostAsset.DoesNotExist, FoundAsset.DoesNotExist):
+                raise AppValidationError(detail=f"记录 {recordcode} 不存在", error_code="NOT_FOUND") from None
+
+        return BatchOperationMixin.batch_delete_execute(ids=ids, process_fn=_delete_one)
+
+    @staticmethod
+    # [HALT] 批量删除维修记录(进行中的记录由其单条实现拒绝, error_code 透传)
+    def batch_delete_repair_asset(
+        ids: list[str],
+        operator_jobcode: str = "",
+        operator_name: str = "",
+    ) -> dict[str, Any]:
+        """批量删除维修记录"""
+        from apps.assetmanagement.models import RepairAsset
+        from core.batch_mixins import BatchOperationMixin
+        from core.exceptions import AppValidationError
+
+        def _delete_one(recordcode: str) -> None:
+            try:
+                AssetLifecycleMixin.delete_repair_asset(
+                    recordcode=recordcode,
+                    operator_jobcode=operator_jobcode,
+                    operator_name=operator_name,
+                )
+            except RepairAsset.DoesNotExist:
+                raise AppValidationError(detail=f"记录 {recordcode} 不存在", error_code="NOT_FOUND") from None
+
+        return BatchOperationMixin.batch_delete_execute(ids=ids, process_fn=_delete_one)

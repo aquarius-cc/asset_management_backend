@@ -106,6 +106,8 @@ class DamagedAssetUpdateSerializer(serializers.ModelSerializer):  # type: ignore
         extra_kwargs = {
             "damaged_asset_number": {"required": False},
             "damaged_date": {"required": False},
+            "asset_recordcode": {"read_only": True},
+            "is_active": {"read_only": True},
         }
 
 

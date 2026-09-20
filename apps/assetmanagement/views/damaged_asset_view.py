@@ -130,9 +130,11 @@ class DamagedAssetViewSet(  # type: ignore[misc]
     def update(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         """BE-H2: 通过 Service 层更新,含 select_for_update + @transaction.atomic"""
         obj = self.get_object()
+        serializer = self.get_serializer(obj, data=request.data, partial=False)
+        serializer.is_valid(raise_exception=True)
         updated = DamagedAssetService.update_damaged_asset(
             recordcode=obj.recordcode,
-            update_data=request.data,
+            update_data=serializer.validated_data,
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
         )
@@ -141,9 +143,11 @@ class DamagedAssetViewSet(  # type: ignore[misc]
     def partial_update(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         """BE-H2: 通过 Service 层更新,含 select_for_update + @transaction.atomic"""
         obj = self.get_object()
+        serializer = self.get_serializer(obj, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
         updated = DamagedAssetService.update_damaged_asset(
             recordcode=obj.recordcode,
-            update_data=request.data,
+            update_data=serializer.validated_data,
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
         )

@@ -14,69 +14,69 @@ class TestAssetSelector:
     资产查询选择器测试
     """
 
-    def test_get_available_assets(self, asset):
+    def test_get_available_assets(self, asset, admin_auth_user):
         """
         测试获取可用资产
 
         【修复】asset_type_code 是 ForeignKey,需通过 .type_code 访问编码
         """
-        available = AssetSelector.get_available_assets()
+        available = AssetSelector.get_available_assets(user=admin_auth_user)
 
         assert available.count() >= 1
         assert available.first().asset_code == "A001"
         assert available.first().asset_type_recordcode.type_code == "AT001"
 
-    def test_get_assets_by_status(self, asset):
+    def test_get_assets_by_status(self, asset, admin_auth_user):
         """
         测试按状态获取资产
 
         【修复】asset_type_code 是 ForeignKey,需通过 .type_code 访问编码
         """
-        in_store_assets = AssetSelector.get_assets_by_status("in_store")
+        in_store_assets = AssetSelector.get_assets_by_status("in_store", user=admin_auth_user)
 
         assert in_store_assets.count() >= 1
         assert in_store_assets.first().asset_code == "A001"
         assert in_store_assets.first().asset_type_recordcode.type_code == "AT001"
 
-    def test_get_asset_by_code(self, asset):
+    def test_get_asset_by_code(self, asset, admin_auth_user):
         """
         测试通过编码获取资产
 
         【修复】asset_type_code 是 ForeignKey,需通过 .type_code 访问编码
         """
-        result = AssetSelector.get_asset_by_code("A001")
+        result = AssetSelector.get_asset_by_code("A001", user=admin_auth_user)
 
         assert result is not None
         assert result.asset_code == "A001"
         assert result.asset_type_recordcode.type_code == "AT001"
 
-    def test_get_asset_by_code_not_found(self):
+    def test_get_asset_by_code_not_found(self, admin_auth_user):
         """
         测试获取不存在的资产
         """
-        result = AssetSelector.get_asset_by_code("NONEXISTENT")
+        result = AssetSelector.get_asset_by_code("NONEXISTENT", user=admin_auth_user)
 
         assert result is None
 
-    def test_search_assets(self, asset):
+    def test_search_assets(self, asset, admin_auth_user):
         """
         测试搜索资产
 
         【修复】asset_type_code 是 ForeignKey,需通过 .type_code 访问编码
         """
-        results = AssetSelector.search_assets(keyword="测试")
+        results = AssetSelector.search_assets(keyword="测试", user=admin_auth_user)
 
         assert results.count() >= 1
         assert results.first().asset_code == "A001"
         assert results.first().asset_type_recordcode.type_code == "AT001"
 
-    def test_search_assets_by_status(self, asset):
+    def test_search_assets_by_status(self, asset, admin_auth_user):
         """
         测试按状态搜索资产
 
         【修复】asset_type_code 是 ForeignKey,需通过 .type_code 访问编码
         """
-        results = AssetSelector.search_assets(status="in_store")
+        results = AssetSelector.search_assets(status="in_store", user=admin_auth_user)
 
         assert results.count() >= 1
         assert all(a.asset_current_status == "in_store" for a in results)

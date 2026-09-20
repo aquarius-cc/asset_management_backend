@@ -3,6 +3,7 @@
 from unittest import mock
 
 import pytest
+from django.db import IntegrityError
 from django.test import TestCase as DjangoTestCase
 
 from apps.assetmanagement.models import (
@@ -10,6 +11,7 @@ from apps.assetmanagement.models import (
     AssetOperationLog,
     DamagedAsset,
 )
+from apps.assetmanagement.selectors.damaged_asset_selector import DamagedAssetSelector
 from apps.assetmanagement.services.damaged_asset_service import DamagedAssetService
 from core.exceptions import AppValidationError
 
@@ -118,6 +120,30 @@ class TestCreateDamagedAsset:
         with pytest.raises(AppValidationError) as exc_info:
             DamagedAssetService.create_damaged_asset({"asset_recordcode": asset_recycled_pending, "damaged_asset_number": 1})
         assert exc_info.value.error_code == "DUPLICATE_DAMAGED_RECORD"
+
+    def test_create_integrity_error_mapped_to_business_code(self, asset_recycled_pending):
+        """锁后查重窗口内并发插入: DB 唯一约束兜底映射为业务错误而非通用 400"""
+        violation = IntegrityError(
+            "duplicate key value violates unique constraint "
+            "'am_damaged_asset_asset_recordcode_id_key'\n"
+            "DETAIL: (asset_recordcode_id)=(ASSET-20260920-X) already exists"
+        )
+        with mock.patch.object(DamagedAsset.objects, "create", side_effect=violation):
+            with pytest.raises(AppValidationError) as exc_info:
+                DamagedAssetService.create_damaged_asset(
+                    {"asset_recordcode": asset_recycled_pending, "damaged_asset_number": 1}
+                )
+        assert exc_info.value.error_code == "DUPLICATE_DAMAGED_RECORD"
+
+    def test_create_non_damaged_integrity_error_propagates(self, asset_recycled_pending):
+        """非待报废表唯一约束的完整性错误不得误标为 DUPLICATE_DAMAGED_RECORD"""
+        other = IntegrityError("duplicate key value violates unique constraint 'am_asset_asset_code_key'")
+        with mock.patch.object(DamagedAsset.objects, "create", side_effect=other):
+            with pytest.raises(IntegrityError) as exc_info:
+                DamagedAssetService.create_damaged_asset(
+                    {"asset_recordcode": asset_recycled_pending, "damaged_asset_number": 1}
+                )
+        assert "DUPLICATE_DAMAGED_RECORD" not in str(exc_info.value)
 
     def test_create_populates_original_status(self, asset_recycled_pending):
         """创建时应自动记录申请前状态(审批拒绝回退依据,业务约束 §三.5)"""
@@ -441,3 +467,106 @@ class TestUpdateDamagedAsset:
         )
         result.refresh_from_db()
         assert result.damaged_asset_description == "有效"
+
+
+@pytest.mark.django_db
+class TestDamagedSlotRelease:
+    """PR-2 方案X: 软删(驳回/取消)释放唯一槽位,允许同一资产重新申请报废"""
+
+    def test_reapply_after_cancel_succeeds(self, asset_recycled_pending):
+        DamagedAssetService.create_damaged_asset(
+            {"asset_recordcode": asset_recycled_pending, "damaged_asset_number": 1}
+        )
+        DamagedAssetService.cancel_asset_recordcode(
+            asset_recycled_pending.recordcode,
+            operator_jobcode="U001",
+            operator_name="操作人",
+        )
+        assert DamagedAssetSelector.exists_by_asset_code(asset_recycled_pending.asset_code) is False
+        result = DamagedAssetService.create_damaged_asset(
+            {"asset_recordcode": asset_recycled_pending, "damaged_asset_number": 1}
+        )
+        assert result.approval_status == "pending"
+        asset_recycled_pending.refresh_from_db()
+        assert asset_recycled_pending.asset_current_status == "damaged"
+
+    def test_reapply_after_reject_succeeds(self, asset_recycled_pending, user):
+        DamagedAssetService.create_damaged_asset(
+            {"asset_recordcode": asset_recycled_pending, "damaged_asset_number": 1}
+        )
+        reject_result = DamagedAssetService.reject_asset_recordcode(
+            asset_recycled_pending.recordcode,
+            approver_jobcode=user.employee_jobcode,
+            operator_name="审批人",
+        )
+        assert reject_result.approval_status == "rejected"
+        assert DamagedAssetSelector.exists_by_asset_code(asset_recycled_pending.asset_code) is False
+        result = DamagedAssetService.create_damaged_asset(
+            {"asset_recordcode": asset_recycled_pending, "damaged_asset_number": 1}
+        )
+        assert result.approval_status == "pending"
+        asset_recycled_pending.refresh_from_db()
+        assert asset_recycled_pending.asset_current_status == "damaged"
+
+    def test_cancel_soft_deletes_releases_slot(self, asset_recycled_pending):
+        created = DamagedAssetService.create_damaged_asset(
+            {"asset_recordcode": asset_recycled_pending, "damaged_asset_number": 1}
+        )
+        DamagedAssetService.cancel_asset_recordcode(
+            asset_recycled_pending.recordcode,
+            operator_jobcode="U001",
+            operator_name="操作人",
+        )
+        assert DamagedAsset.all_objects.filter(recordcode=created.recordcode).exists() is True
+        tombstone = DamagedAsset.all_objects.get(recordcode=created.recordcode)
+        assert tombstone.is_deleted is True
+        assert DamagedAsset.objects.filter(recordcode=created.recordcode).exists() is False
+        assert DamagedAssetSelector.exists_by_asset_code(asset_recycled_pending.asset_code) is False
+
+    def test_reject_soft_deletes_and_keeps_tombstone(self, asset_recycled_pending, user):
+        created = DamagedAssetService.create_damaged_asset(
+            {"asset_recordcode": asset_recycled_pending, "damaged_asset_number": 1}
+        )
+        result = DamagedAssetService.reject_asset_recordcode(
+            asset_recycled_pending.recordcode,
+            approver_jobcode=user.employee_jobcode,
+            operator_name="审批人",
+        )
+        assert result.is_deleted is True
+        assert result.approval_status == "rejected"
+        assert DamagedAsset.objects.filter(recordcode=created.recordcode).exists() is False
+        assert DamagedAsset.all_objects.filter(recordcode=created.recordcode).exists() is True
+        log = AssetOperationLog.objects.filter(asset_code=asset_recycled_pending.asset_code).first()
+        assert log is not None, "驳回应产生资产级状态变更审计日志"
+        assert "触发: reject" in log.description
+
+    def test_tombstone_and_active_coexist(self, asset_recycled_pending, user):
+        DamagedAssetService.create_damaged_asset(
+            {"asset_recordcode": asset_recycled_pending, "damaged_asset_number": 1}
+        )
+        DamagedAssetService.reject_asset_recordcode(
+            asset_recycled_pending.recordcode,
+            approver_jobcode=user.employee_jobcode,
+            operator_name="审批人",
+        )
+        DamagedAssetService.create_damaged_asset(
+            {"asset_recordcode": asset_recycled_pending, "damaged_asset_number": 1}
+        )
+        assert DamagedAsset.objects.filter(asset_recordcode=asset_recycled_pending).count() == 1
+        assert DamagedAsset.all_objects.filter(asset_recordcode=asset_recycled_pending).count() == 2
+        assert DamagedAssetSelector.exists_by_asset_code(asset_recycled_pending.asset_code) is True
+
+    def test_approved_record_still_blocks_reapply(self, asset_damaged, user):
+        """已批准记录保持 active,唯一槽位不释放: 同一资产不得重新申请"""
+        _ = DamagedAsset.objects.create(
+            asset_recordcode=asset_damaged,
+            damaged_asset_number=1,
+            approval_status="approved",
+            original_status="broken",
+        )
+        assert DamagedAssetSelector.exists_by_asset_code(asset_damaged.asset_code) is True
+        with pytest.raises(AppValidationError) as exc_info:
+            DamagedAssetService.create_damaged_asset(
+                {"asset_recordcode": asset_damaged, "damaged_asset_number": 1}
+            )
+        assert exc_info.value.error_code == "DUPLICATE_DAMAGED_RECORD"

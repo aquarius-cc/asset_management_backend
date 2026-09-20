@@ -13,8 +13,8 @@ from typing import Any
 
 from django.db import transaction
 
-from apps.assetmanagement.models import MAX_ASSET_TYPE_LEVEL, Asset, AssetType  # type: ignore[attr-defined]
-from apps.assetmanagement.selectors import AssetTypeSelector
+from apps.assetmanagement.models import MAX_ASSET_TYPE_LEVEL, AssetType  # type: ignore[attr-defined]
+from apps.assetmanagement.selectors import AssetSelector, AssetTypeSelector
 from core.audit_service import GenericAuditService
 from core.batch_mixins import BatchOperationMixin
 from core.constants import MAX_BATCH_SIZE
@@ -132,7 +132,7 @@ class AssetTypeService:
         if not asset_type or asset_type.is_deleted:
             raise AppValidationError(detail=f"资产类型 {type_code} 不存在或已删除", error_code="ASSET_TYPE_NOT_FOUND")
 
-        if Asset.objects.filter(asset_type_recordcode=asset_type, is_deleted=False).exists():
+        if AssetSelector.exists_by_asset_type(asset_type):
             raise AppValidationError(detail="资产类型下存在关联资产,不允许删除", error_code="HAS_RELATED_ASSETS")
 
         GenericAuditService.log_delete(

@@ -267,6 +267,37 @@ class TestEmployeeStatusAndBatch:
         assert result["fail_count"] == 1
         assert result["fail_items"][0]["error_code"] == "HAS_RELATED_ASSETS"
 
+    def test_batch_delete_employee_has_related_assets_as_manager(self, department):
+        employee = Employee.objects.create(
+            employee_jobcode="BD012",
+            employee_name="保管资产员工",
+            employee_department=department,
+            employee_phone="13710001402",
+        )
+        storage = Storage.objects.create(
+            storage_code="BD-S002",
+            storage_name="批量删除仓库二",
+            storage_address="测试地址",
+            storage_location="测试位置",
+            storage_capacity=100,
+        )
+        asset_type = AssetType.objects.create(type_code="BD-AT02", type_name="测试类型二")
+        Asset.objects.create(
+            asset_code="BD-A002",
+            asset_name="保管关联资产",
+            asset_purchase_price=1000,
+            asset_purchase_date=date(2024, 1, 1),
+            asset_entry_date=date(2024, 1, 15),
+            asset_type_recordcode=asset_type,
+            asset_storage_recordcode=storage,
+            asset_manager_recordcode=employee,
+        )
+
+        result = EmployeeService.batch_delete_employee(["BD012"])
+
+        assert result["fail_count"] == 1
+        assert result["fail_items"][0]["error_code"] == "HAS_RELATED_ASSETS"
+
     def test_batch_delete_employee_internal_error(self, department, monkeypatch):
         Employee.objects.create(
             employee_jobcode="BD021",

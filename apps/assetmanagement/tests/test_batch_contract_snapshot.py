@@ -4,10 +4,12 @@
 锁定以下契约, 防止 DR-1 收敛(batch_mixins 复用 / ViewSet 基类提取 /
 BatchResponseHelper 引入)过程中发生行为漂移:
 - 响应 data 的键名集合与类型
-- message 文案逐字一致
+- message 文案逐字一致(2026-09-20 #17 定案: 生命周期批量删除文案
+  由英文改为中文标准模板, 与本文件断言同步更新)
 - fail_items 条目结构(index/row_number/input_data/error_code/error_message)
 
-若本文件任何断言在重构后失败, 说明 API 契约被破坏, 必须回滚。
+若本文件任何断言在重构后失败, 说明 API 契约被破坏, 必须回滚
+(文案契约的显式变更例外: 需同步更新断言并注明定案日期与条目号)。
 """
 
 import pytest
@@ -31,7 +33,11 @@ def admin_authenticated_client(api_client, admin_auth_user):
 
 @pytest.mark.django_db
 class TestLifecycleBatchContract:
-    """资产生命周期批量接口契约快照(BrokenAsset 代表三胞胎)"""
+    """资产生命周期批量接口契约快照(BrokenAsset 代表三胞胎)
+
+    2026-09-20 #17 定案: message/error_message 由英文改为中文标准模板
+    (对齐 test_b5_baseline_snapshot.py 全仓 8 端点), error_code 不变。
+    """
 
     def test_batch_delete_contract(self, admin_authenticated_client, broken_asset):
         """批量删除: 锁定 data 键集、计数语义与 message 文案"""
@@ -53,7 +59,7 @@ class TestLifecycleBatchContract:
         assert data["success_ids"] == [broken_asset.recordcode]
         assert data["fail_items"] == []
         # message 文案逐字锁定
-        assert response.data["message"] == "Batch delete done: 1 success, 0 fail"
+        assert response.data["message"] == "批量删除完成,成功 1 条,失败 0 条"
 
     def test_batch_delete_not_found_contract(self, admin_authenticated_client):
         """批量删除含不存在记录时 fail_items 条目结构锁定"""
@@ -68,7 +74,7 @@ class TestLifecycleBatchContract:
         fail_item = data["fail_items"][0]
         assert set(fail_item.keys()) == {"id", "error_code", "error_message"}
         assert fail_item["error_code"] == "NOT_FOUND"
-        assert fail_item["error_message"] == "Record not found"
+        assert fail_item["error_message"] == "记录 NO_SUCH_RECORDCODE 不存在"
 
     def test_by_asset_contract(self, admin_authenticated_client, asset, broken_asset):
         """by_asset 查询: 锁定成功与 404 的 message 文案"""

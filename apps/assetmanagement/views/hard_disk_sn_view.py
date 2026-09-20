@@ -129,6 +129,7 @@ class HardDiskSNViewSet(  # type: ignore[misc]
         result = HardDiskSNService.batch_save(
             asset_recordcode=serializer.validated_data["asset_recordcode"],
             disks=serializer.validated_data["disks"],
+            user=request.user,
         )
         return success_response(
             data=result,

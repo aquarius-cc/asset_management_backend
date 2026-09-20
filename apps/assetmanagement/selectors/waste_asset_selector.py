@@ -25,16 +25,6 @@ class WasteAssetSelector:
         return WasteAsset.objects.filter(is_deleted=False)
 
     @staticmethod
-    def get_asset_recordcode_by_asset_code(asset_code: str) -> WasteAsset | None:
-        try:
-            # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
-            return WasteAsset.objects.with_asset_details().get(
-                asset_recordcode__asset_code=asset_code, is_deleted=False
-            )
-        except WasteAsset.DoesNotExist:
-            return None
-
-    @staticmethod
     def get_by_asset_code(asset_code: str, user: Any = None) -> QuerySet[WasteAsset]:
         # 【性能优化】复用模型 QuerySet 的 with_asset_details() 方法
         qs = WasteAsset.objects.filter(asset_recordcode__asset_code=asset_code, is_deleted=False).with_asset_details()

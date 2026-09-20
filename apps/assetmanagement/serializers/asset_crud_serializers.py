@@ -349,8 +349,8 @@ class CombinedAssetSerializer(serializers.Serializer):  # type: ignore[type-arg]
     paid_record = serializers.CharField(allow_blank=True, allow_null=True)
 
     @classmethod
-    def get_asset_details_data(cls, asset_code: str) -> dict[str, Any]:
-        database_asset = AssetSelector.get_asset_detail_by_code(asset_code)
+    def get_asset_details_data(cls, asset_code: str, *, user: Any) -> dict[str, Any]:
+        database_asset = AssetSelector.get_asset_detail_by_code(asset_code, user=user)
         if not database_asset:
             return {"asset_code": asset_code}
         return AssetDetailSerializer(database_asset).data

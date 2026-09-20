@@ -1,3 +1,4 @@
+# TECHNICAL_DEBT: >500 lines
 """
 资产管理视图集
 """
@@ -152,6 +153,7 @@ class AssetViewSet(  # type: ignore[misc]
             update_data=serializer.validated_data,
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
+            user=request.user,
         )
         serializer = AssetDetailSerializer(updated_asset)
         return success_response(data=serializer.data, message="更新成功")
@@ -167,6 +169,7 @@ class AssetViewSet(  # type: ignore[misc]
             asset_code=asset_code,
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
+            user=request.user,
         )
         return success_response(message="删除成功")
 
@@ -176,15 +179,15 @@ class AssetViewSet(  # type: ignore[misc]
         ],
         responses={200: AssetDetailSerializer(many=True)},
     )
-    @action(detail=False, methods=["get"], url_path="getassetbyname/(?P<name>[^/.]+)")
+    @action(detail=False, methods=["get"], url_path="get_asset_by_name/(?P<name>[^/.]+)")
     def get_asset_by_name(self, request: Any, name: Any = None) -> Response:
         if not name:
             return success_response(data={"count": 0, "results": []})
-        assets = self._scoped(AssetSelector.search_assets(keyword=name))
+        assets = AssetSelector.search_assets(keyword=name, user=self.request.user)
         serializer = AssetDetailSerializer(assets, many=True)
         return success_response(data={"count": assets.count(), "results": serializer.data})
 
-    @action(detail=False, methods=["get"], url_path="getassetbyrecordcode/(?P<recordcode>[^/.]+)")
+    @action(detail=False, methods=["get"], url_path="get_asset_by_recordcode/(?P<recordcode>[^/.]+)")
     def get_asset_by_recordcode(self, request: Any, recordcode: Any = None) -> Response:
         # 【D-5 修复】路径参数优先, query 兜底——原实现只读 query, 纯路径调用必 400
         code = recordcode or request.query_params.get("recordcode")
@@ -228,14 +231,13 @@ class AssetViewSet(  # type: ignore[misc]
         asset_type = request.query_params.get("asset_type", "").strip() or None
         storage_code = request.query_params.get("storage_code", "").strip() or None
         contract_code = request.query_params.get("contract_code", "").strip() or None
-        assets = self._scoped(
-            AssetSelector.search_assets(
-                keyword=keyword,
-                status=status_filter,
-                asset_type=asset_type,
-                storage_code=storage_code,
-                contract_code=contract_code,
-            )
+        assets = AssetSelector.search_assets(
+            keyword=keyword,
+            status=status_filter,
+            asset_type=asset_type,
+            storage_code=storage_code,
+            contract_code=contract_code,
+            user=self.request.user,
         )
         page = self.paginate_queryset(assets)
         if page is not None:
@@ -253,15 +255,14 @@ class AssetViewSet(  # type: ignore[misc]
         detail=False, methods=["get"], url_path="search_available", permission_classes=[permissions.IsAuthenticated]
     )
     def search_available(self, request: Any) -> Response:
-        available = self._scoped(
-            AssetSelector.get_available_assets(
-                asset_code=request.query_params.get("asset_code"),
-                asset_name=request.query_params.get("asset_name"),
-                asset_specification=request.query_params.get("asset_specification"),
-                asset_brand=request.query_params.get("asset_brand"),
-                asset_contract_code=request.query_params.get("asset_contract_code"),
-                asset_contract_name=request.query_params.get("asset_contract_name"),
-            )
+        available = AssetSelector.get_available_assets(
+            asset_code=request.query_params.get("asset_code"),
+            asset_name=request.query_params.get("asset_name"),
+            asset_specification=request.query_params.get("asset_specification"),
+            asset_brand=request.query_params.get("asset_brand"),
+            asset_contract_code=request.query_params.get("asset_contract_code"),
+            asset_contract_name=request.query_params.get("asset_contract_name"),
+            user=self.request.user,
         )
         page = self.paginate_queryset(available)
         if page is not None:
@@ -290,6 +291,7 @@ class AssetViewSet(  # type: ignore[misc]
             description,
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
+            user=request.user,
         )
         serializer = AssetDetailSerializer(asset)
         return success_response(
@@ -311,7 +313,14 @@ class AssetViewSet(  # type: ignore[misc]
         asset_code = asset.asset_code
         applicant_jobcode = request.data.get("applicant_jobcode")
         manager_jobcode = request.data.get("manager_jobcode")
-        asset = AssetService.change_outasset_employee(asset_code, applicant_jobcode, manager_jobcode)
+        asset = AssetService.change_outasset_employee(
+            asset_code,
+            applicant_jobcode,
+            manager_jobcode,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
+            user=request.user,
+        )
         serializer = AssetDetailSerializer(asset)
         return success_response(
             data={"asset": serializer.data},
@@ -326,7 +335,7 @@ class AssetViewSet(  # type: ignore[misc]
         visible = self._scoped(AssetSelector.get_assets_for_list()).filter(asset_code=asset_code).first()
         if visible is None:
             return error_response(message=f"资产 {asset_code} 不存在", status_code=404)
-        data = CombinedAssetSerializer.get_asset_details_data(asset_code)
+        data = CombinedAssetSerializer.get_asset_details_data(asset_code, user=self.request.user)
         return success_response(data=data, message="查询成功")
 
     @action(detail=False, methods=["get"], url_path="contract_by_asset/(?P<asset_code>[^/.]+)")
@@ -373,6 +382,7 @@ class AssetViewSet(  # type: ignore[misc]
             [code for code in ids if code in scoped_codes],
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
+            user=request.user,
         )
         return success_response(
             data={

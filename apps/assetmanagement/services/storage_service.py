@@ -9,8 +9,8 @@ from typing import Any
 
 from django.db import transaction
 
-from apps.assetmanagement.models import Asset, Storage
-from apps.assetmanagement.selectors import StorageSelector
+from apps.assetmanagement.models import Storage
+from apps.assetmanagement.selectors import AssetSelector, StorageSelector
 from core.audit_service import GenericAuditService
 from core.batch_mixins import BatchOperationMixin
 from core.constants import MAX_BATCH_SIZE
@@ -93,7 +93,7 @@ class StorageService:
         if not storage or storage.is_deleted:
             raise AppValidationError(detail=f"仓库 {storage_code} 不存在或已删除", error_code="STORAGE_NOT_FOUND")
 
-        if Asset.objects.filter(asset_storage_recordcode=storage, is_deleted=False).exists():
+        if AssetSelector.exists_by_storage(storage):
             raise AppValidationError(detail="仓库下存在关联资产,不允许删除", error_code="HAS_RELATED_ASSETS")
 
         GenericAuditService.log_delete(

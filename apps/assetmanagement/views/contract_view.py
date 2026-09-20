@@ -150,7 +150,7 @@ class ContractViewSet(  # type: ignore[misc]
         ],
         responses={200: ContractDetailSerializer(many=True)},
     )
-    @action(detail=False, methods=["get"], url_path="getcontractByname/(?P<name>[^/.]+)")
+    @action(detail=False, methods=["get"], url_path="get_contract_by_name/(?P<name>[^/.]+)")
     def getcontractByname(self, request: Any, name: Any = None) -> Response:
         name = name.strip() if name else ""
         if not name:

@@ -7,6 +7,8 @@ import pytest
 from apps.assetmanagement.models import (
     Asset,
     AssetOperationLog,
+    BrokenAsset,
+    LostAsset,
     OutAsset,
 )
 from apps.assetmanagement.services.recycle_asset_service import RecycleAssetService
@@ -204,6 +206,106 @@ class TestBatchDeleteRecycleAsset:
         assert log.operator_jobcode == user.employee_jobcode
         assert "recycled_pending" in log.description
         assert "in_use" in log.description
+
+
+@pytest.mark.django_db
+class TestRecycleWithBrokenLostMarks:
+    """AC-61: 回收时标记损坏/遗失须记录第二次 FSM 转换(recycled_pending → broken/lost)审计"""
+
+    def _create_recycle(self, out_asset, storage, user, **extra):
+        data = {
+            "outasset_recordcode": out_asset,
+            "recycle_asset_storage": storage,
+            "recycle_asset_recycle_person_jobcode": user,
+            "recycle_asset_date": date.today(),
+        }
+        data.update(extra)
+        return RecycleAssetService.create_recycle_asset(
+            data, operator_jobcode=user.employee_jobcode, operator_name=user.employee_name
+        )
+
+    def test_create_with_broken_records_state_change_audit(self, out_asset, storage, user):
+        asset = out_asset.asset_recordcode
+        RecycleAssetService.create_recycle_asset(
+            {
+                "outasset_recordcode": out_asset,
+                "recycle_asset_storage": storage,
+                "recycle_asset_recycle_person_jobcode": user,
+                "recycle_asset_date": date.today(),
+                "is_broken": True,
+                "broken_reason": "外壳破损",
+            },
+            operator_jobcode=user.employee_jobcode,
+            operator_name=user.employee_name,
+        )
+        asset.refresh_from_db()
+        assert asset.asset_current_status == "broken"
+        assert BrokenAsset.objects.filter(asset_recordcode=asset).exists()
+        log = (
+            AssetOperationLog.objects.filter(
+                asset_code=asset.asset_code,
+                operation_type="state_change",
+                description__contains="recycle_mark_broken",
+            )
+            .order_by("-operation_time")
+            .first()
+        )
+        assert log is not None, "回收标记损坏应记录第二次 FSM 转换审计"
+        assert log.operator_jobcode == user.employee_jobcode
+        assert "recycled_pending" in log.description
+        assert "broken" in log.description
+
+    def test_create_with_lost_records_state_change_audit(self, out_asset, storage, user):
+        asset = out_asset.asset_recordcode
+        RecycleAssetService.create_recycle_asset(
+            {
+                "outasset_recordcode": out_asset,
+                "recycle_asset_storage": storage,
+                "recycle_asset_recycle_person_jobcode": user,
+                "recycle_asset_date": date.today(),
+                "is_lost": True,
+                "lost_reason": "库内盘点缺失",
+            },
+            operator_jobcode=user.employee_jobcode,
+            operator_name=user.employee_name,
+        )
+        asset.refresh_from_db()
+        assert asset.asset_current_status == "lost"
+        assert LostAsset.objects.filter(asset_recordcode=asset).exists()
+        log = (
+            AssetOperationLog.objects.filter(
+                asset_code=asset.asset_code,
+                operation_type="state_change",
+                description__contains="recycle_mark_lost",
+            )
+            .order_by("-operation_time")
+            .first()
+        )
+        assert log is not None, "回收标记遗失应记录第二次 FSM 转换审计"
+        assert log.operator_jobcode == user.employee_jobcode
+        assert "recycled_pending" in log.description
+        assert "lost" in log.description
+
+    def test_normal_recycle_emits_no_broken_lost_audit(self, out_asset, storage, user):
+        """回归护栏: 正常回收路径不得向 broken/lost 转换审计泄漏(保障 normal 分支不动)"""
+        asset = out_asset.asset_recordcode
+        ra = self._create_recycle(out_asset, storage, user)
+        result = RecycleAssetService.batch_delete_recycle_asset(
+            [ra.recordcode], operator_jobcode=user.employee_jobcode, operator_name=user.employee_name
+        )
+        assert result["success_count"] == 1
+        asset.refresh_from_db()
+        assert asset.asset_current_status == "in_use"
+        assert not AssetOperationLog.objects.filter(
+            asset_code=asset.asset_code,
+            operation_type="state_change",
+            description__contains="recycle_mark_broken",
+        ).exists()
+        assert not AssetOperationLog.objects.filter(
+            asset_code=asset.asset_code,
+            operation_type="state_change",
+            description__contains="recycle_mark_lost",
+        ).exists()
 
 
 @pytest.mark.django_db

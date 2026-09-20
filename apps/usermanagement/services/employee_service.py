@@ -325,7 +325,7 @@ class EmployeeService:
         - 员工必须存在
         - 员工不存在关联资产记录(作为申请人/保管人)
         """
-        from apps.assetmanagement.models import Asset
+        from apps.assetmanagement.selectors import AssetSelector
 
         if len(employee_jobcodes) > MAX_BATCH_SIZE:
             raise AppValidationError(
@@ -339,22 +339,8 @@ class EmployeeService:
 
         # 批量预检查:一次查询所有关联资产的员工
         # 【修复】FK to_field="recordcode",需提取 recordcode 而非模型实例
-        employees_with_assets = set()  # type: ignore[var-annotated]
-        if existing_employees:
-            # 提取所有员工的 recordcode(FK 存储的是 recordcode 字符串)
-            recordcodes = [emp.recordcode for emp in existing_employees.values() if emp.recordcode]
-
-            # 查询作为申请人的员工 recordcode
-            applicant_recordcodes = Asset.objects.filter(
-                asset_applicant_recordcode__in=recordcodes, is_deleted=False
-            ).values_list("asset_applicant_recordcode", flat=True)
-            employees_with_assets.update(applicant_recordcodes)
-
-            # 查询作为保管人的员工 recordcode
-            manager_recordcodes = Asset.objects.filter(
-                asset_manager_recordcode__in=recordcodes, is_deleted=False
-            ).values_list("asset_manager_recordcode", flat=True)
-            employees_with_assets.update(manager_recordcodes)
+        recordcodes = [emp.recordcode for emp in existing_employees.values() if emp.recordcode]
+        employees_with_assets = AssetSelector.referenced_employee_recordcodes(recordcodes)
 
         # 【DR-1 收敛】逐条删除框架复用 BatchOperationMixin.batch_delete_execute
         # 预检查数据(existing_employees/employees_with_assets)通过闭包注入

@@ -93,6 +93,35 @@ class TestOutAssetViewSet:
         assert response.data["code"] == 0
         assert response.data["data"]["outasset_date"] == "2024-05-01"
 
+    def test_update_out_asset_invalid_date_rejected(self, admin_authenticated_client, outasset):
+        """B8 输入门禁: 出库日期格式错误应返回 400,不得落 Service"""
+        url = reverse("out-assets-detail", kwargs={"recordcode": outasset.recordcode})
+        data = {"outasset_date": "bad-date"}
+        response = admin_authenticated_client.put(url, data, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        outasset.refresh_from_db()
+        assert outasset.outasset_date != "bad-date"
+
+    def test_update_out_asset_using_location(self, admin_authenticated_client, outasset):
+        """B8 Gap A 决策: outasset_using_location 保留可写(已入 serializer 字段集)"""
+        url = reverse("out-assets-detail", kwargs={"recordcode": outasset.recordcode})
+        data = {"outasset_using_location": "新地点-3号仓库"}
+        response = admin_authenticated_client.put(url, data, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        outasset.refresh_from_db()
+        assert outasset.outasset_using_location == "新地点-3号仓库"
+
+    def test_update_out_asset_unknown_field_ignored(self, admin_authenticated_client, outasset):
+        """B8 Gap B 决策(契约变更留痕): 未知字段静默忽略, 原 FIELD_NOT_ALLOWED 分支不可达"""
+        from datetime import date
+
+        url = reverse("out-assets-detail", kwargs={"recordcode": outasset.recordcode})
+        data = {"outasset_date": "2024-06-01", "foo": "bar"}
+        response = admin_authenticated_client.put(url, data, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        outasset.refresh_from_db()
+        assert outasset.outasset_date == date(2024, 6, 1)
+
     def test_destroy_out_asset(self, admin_authenticated_client, outasset):
         """测试删除出库记录"""
         url = reverse("out-assets-detail", kwargs={"recordcode": outasset.recordcode})

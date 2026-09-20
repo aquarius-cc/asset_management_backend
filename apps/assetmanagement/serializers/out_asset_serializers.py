@@ -183,6 +183,7 @@ class OutAssetUpdateSerializer(serializers.ModelSerializer[OutAsset]):
             "outasset_date",
             "outasset_type",
             "outasset_description",
+            "outasset_using_location",
             "return_date",
         ]
         extra_kwargs = {

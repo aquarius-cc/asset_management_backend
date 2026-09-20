@@ -134,15 +134,16 @@ class HardDiskSNService:
 
     @staticmethod
     @transaction.atomic
-    def batch_save(asset_recordcode: str, disks: list[dict[str, Any]]) -> dict[str, Any]:
+    def batch_save(asset_recordcode: str, disks: list[dict[str, Any]], *, user: Any) -> dict[str, Any]:
         """
         批量保存硬盘(资产入库时调用)
         - 有 recordcode → 更新(仅应用显式提供的字段,禁止跨资产改挂)
         - 无 recordcode → 创建(序列号必填)
         - 校验资产存在、目标硬盘存在且归属一致、序列号唯一性
+        - user 必填(B12): 行级隔离,目标资产不可见时报 ASSET_NOT_FOUND
         """
         HardDiskSNService._validate_payload(disks)
-        asset = HardDiskSNService._resolve_asset(asset_recordcode)
+        asset = HardDiskSNService._resolve_asset(asset_recordcode, user=user)
         rcs = [rc for rc in (disk.get("recordcode") for disk in disks) if rc]
         targets = HardDiskSNService._resolve_targets(asset, rcs)
         HardDiskSNService._validate_sn_presence(disks)
@@ -177,9 +178,9 @@ class HardDiskSNService:
             raise AppValidationError(detail="硬盘列表不能为空", error_code="EMPTY_DISKS")
 
     @staticmethod
-    def _resolve_asset(asset_recordcode: str) -> Asset:
-        """解析资产,不存在时抛错"""
-        asset = AssetSelector.get_asset_by_recordcode(asset_recordcode)
+    def _resolve_asset(asset_recordcode: str, *, user: Any) -> Asset:
+        """解析资产,不存在/不可见时抛错(B12 行级隔离)"""
+        asset = AssetSelector.get_asset_by_recordcode(asset_recordcode, user=user)
         if asset is None:
             raise AppValidationError(
                 detail=f"资产 recordcode '{asset_recordcode}' 不存在",

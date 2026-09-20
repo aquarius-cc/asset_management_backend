@@ -3,6 +3,7 @@
 """
 
 from django.db import models
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.assetmanagement.models.asset import Asset
@@ -57,7 +58,7 @@ class DamagedAsset(BaseModel):
         REPAIRING = "repairing", "维修中"
         LOST = "lost", "已遗失"
 
-    asset_recordcode = models.OneToOneField(
+    asset_recordcode = models.ForeignKey(
         Asset,
         to_field="recordcode",
         verbose_name="待报废资产的资产唯一标识码",
@@ -65,7 +66,7 @@ class DamagedAsset(BaseModel):
         on_delete=models.PROTECT,
         null=True,
         blank=True,
-        help_text="待报废的资产唯一标识码(通过 recordcode 关联)",
+        help_text="待报废的资产唯一标识码(通过 recordcode 关联)。由 Partial Unique Constraint 保证仅非软删记录唯一,软删(驳回/取消)释放槽位以便重新申请",
     )
     damaged_asset_number = models.IntegerField(verbose_name="待报废数量", default=1, help_text="待报废的资产数量")
     damaged_date = models.DateField(
@@ -108,6 +109,14 @@ class DamagedAsset(BaseModel):
         verbose_name = "待报废资产管理"
         verbose_name_plural = "待报废资产管理"
         db_table = "am_damaged_asset"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["asset_recordcode"],
+                condition=Q(is_deleted=False),
+                name="uq_damaged_asset_active_asset",
+                violation_error_message="同一资产仅允许存在一条未删除的待报废记录",
+            ),
+        ]
         indexes = [
             models.Index(fields=["asset_recordcode"]),
             models.Index(fields=["approval_status"]),

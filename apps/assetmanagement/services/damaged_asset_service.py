@@ -6,7 +6,7 @@
 
 from typing import Any
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.assetmanagement.audit import AuditLogger
@@ -39,6 +39,9 @@ class DamagedAssetService:
         if not asset:
             raise AppValidationError(detail="缺少资产编码", error_code="MISSING_ASSET_CODE")
 
+        # B12/TOCTOU 修复: 先锁资产行,再在锁内做 RBAC、查重与建记录,并发在资产行锁上串行化
+        asset = Asset.objects.select_for_update().get(pk=asset.pk)
+
         # BEQ-02 行级隔离: 创建前校验目标资产在用户可见范围内(与 by_asset 查询侧同口径)
         if user is not None:
             AssetSelector.ensure_asset_visible(asset, user)
@@ -48,14 +51,23 @@ class DamagedAssetService:
                 detail=f"资产 {asset.asset_code} 已存在待报废记录", error_code="DUPLICATE_DAMAGED_RECORD"
             )
 
-        damaged_asset = DamagedAsset.objects.create(**damaged_data)
-
-        # 触发 FSM 状态流转: (recycled_pending|broken|repairing|lost) → damaged
-        asset = Asset.objects.select_for_update().get(pk=asset.pk)
+        damaged_data["asset_recordcode"] = asset
         old_status = asset.asset_current_status
         # 记录申请前状态(审批拒绝时回退依据,业务约束 §三.5;服务端权威,不信任客户端传值)
-        damaged_asset.original_status = old_status
-        damaged_asset.save(update_fields=["original_status", "updated_at"])
+        damaged_data["original_status"] = old_status
+
+        # 兜底: 锁后仍可能出现的并发唯一冲突映射为业务错误,而非通用 400
+        try:
+            with transaction.atomic():
+                damaged_asset = DamagedAsset.objects.create(**damaged_data)
+        except IntegrityError as exc:
+            if "asset_recordcode" in str(exc):
+                raise AppValidationError(
+                    detail=f"资产 {asset.asset_code} 已存在待报废记录", error_code="DUPLICATE_DAMAGED_RECORD"
+                ) from exc
+            raise
+
+        # 触发 FSM 状态流转: (recycled_pending|broken|repairing|lost) → damaged
         try:
             AssetFSM.to_damaged(asset)
         except InvalidTransitionError as e:
@@ -135,15 +147,12 @@ class DamagedAssetService:
         Returns:
             Dict: 包含damaged_asset和waste_asset的字典
         """
-        damaged_asset = DamagedAsset.objects.filter(
-            asset_recordcode__recordcode=asset_recordcode_code, is_deleted=False
-        ).first()
-        if not damaged_asset:
+        try:
+            damaged_asset = DamagedAssetSelector.get_asset_recordcode_for_update(asset_recordcode_code)
+        except DamagedAsset.DoesNotExist:
             raise AppValidationError(
                 detail=f"待报废记录 {asset_recordcode_code} 不存在", error_code="DAMAGED_ASSET_NOT_FOUND"
-            )
-
-        damaged_asset = DamagedAsset.objects.select_for_update().get(pk=damaged_asset.pk)
+            ) from None
 
         if damaged_asset.approval_status != DamagedAsset.ApprovalStatus.PENDING:
             raise AppValidationError(
@@ -210,15 +219,12 @@ class DamagedAssetService:
         Returns:
             DamagedAsset: 更新后的待报废记录
         """
-        damaged_asset = DamagedAsset.objects.filter(
-            asset_recordcode__recordcode=asset_recordcode_code, is_deleted=False
-        ).first()
-        if not damaged_asset:
+        try:
+            damaged_asset = DamagedAssetSelector.get_asset_recordcode_for_update(asset_recordcode_code)
+        except DamagedAsset.DoesNotExist:
             raise AppValidationError(
                 detail=f"待报废记录 {asset_recordcode_code} 不存在", error_code="DAMAGED_ASSET_NOT_FOUND"
-            )
-
-        damaged_asset = DamagedAsset.objects.select_for_update().get(pk=damaged_asset.pk)
+            ) from None
 
         if damaged_asset.approval_status != DamagedAsset.ApprovalStatus.PENDING:
             raise AppValidationError(
@@ -259,6 +265,9 @@ class DamagedAssetService:
             related_url=f"/main/assetdetails/{asset.asset_code}",
         )
 
+        # [HALT] 软删除待报废记录: 释放唯一槽位便于重新申请(方案X;审批人/拒绝理由仍保留于 tombstone)
+        damaged_asset.delete()
+
         return damaged_asset
 
     @staticmethod
@@ -274,15 +283,12 @@ class DamagedAssetService:
             operator_jobcode: 操作人工号
             operator_name: 操作人姓名
         """
-        damaged_asset = DamagedAsset.objects.filter(
-            asset_recordcode__recordcode=asset_recordcode_code, is_deleted=False
-        ).first()
-        if not damaged_asset:
+        try:
+            damaged_asset = DamagedAssetSelector.get_asset_recordcode_for_update(asset_recordcode_code)
+        except DamagedAsset.DoesNotExist:
             raise AppValidationError(
                 detail=f"待报废记录 {asset_recordcode_code} 不存在", error_code="DAMAGED_ASSET_NOT_FOUND"
-            )
-
-        damaged_asset = DamagedAsset.objects.select_for_update().get(pk=damaged_asset.pk)
+            ) from None
 
         if damaged_asset.approval_status != DamagedAsset.ApprovalStatus.PENDING:
             raise AppValidationError(

@@ -14,7 +14,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.assetmanagement.models import Contract
-from apps.assetmanagement.selectors import ContractSelector
+from apps.assetmanagement.selectors import AssetSelector, ContractSelector
 from apps.assetmanagement.state_machine.contract_fsm import ContractFSM, ContractInvalidTransitionError
 from core.audit_service import GenericAuditService
 from core.batch_mixins import BatchOperationMixin
@@ -203,10 +203,7 @@ class ContractService:
         if not contract or contract.is_deleted:
             raise AppValidationError(detail=f"合同 {contract_code} 不存在或已删除", error_code="CONTRACT_NOT_FOUND")
 
-        # 【P2-14 修复】删除前检查关联资产,防止数据不一致
-        from apps.assetmanagement.models import Asset
-
-        if Asset.objects.filter(asset_contract_recordcode=contract, is_deleted=False).exists():
+        if AssetSelector.exists_by_contract(contract):
             raise AppValidationError(detail="合同存在关联资产,不允许删除", error_code="HAS_RELATED_ASSETS")
 
         GenericAuditService.log_delete(

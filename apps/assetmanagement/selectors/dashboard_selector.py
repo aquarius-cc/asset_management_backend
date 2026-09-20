@@ -343,7 +343,7 @@ class DashboardSelector:
 
         assets = (
             DashboardSelector._scoped_asset_queryset(user)
-            .filter(asset_current_status="in_use", asset_entry_date__isnull=False)
+            .filter(asset_current_status=Asset.AssetStatus.IN_USE, asset_entry_date__isnull=False)
             .order_by("asset_entry_date")[:50]
         )
 

@@ -27,7 +27,7 @@ def asset_in_use(db, storage, asset_type, user):
         asset_entry_date="2024-01-15",
         asset_storage_recordcode=storage,
         asset_type_recordcode=asset_type,
-        asset_current_status="in_use",
+        asset_current_status=Asset.AssetStatus.IN_USE,
     )
     asset.asset_applicant_recordcode = user
     asset.asset_manager_recordcode = user
@@ -46,7 +46,7 @@ def asset_recycled_pending(db, storage, asset_type, user):
         asset_entry_date="2024-01-15",
         asset_storage_recordcode=storage,
         asset_type_recordcode=asset_type,
-        asset_current_status="recycled_pending",
+        asset_current_status=Asset.AssetStatus.RECYCLED_PENDING,
     )
     asset.asset_applicant_recordcode = user
     asset.asset_manager_recordcode = user
@@ -65,7 +65,7 @@ def asset_broken(db, storage, asset_type, user):
         asset_entry_date="2024-01-15",
         asset_storage_recordcode=storage,
         asset_type_recordcode=asset_type,
-        asset_current_status="broken",
+        asset_current_status=Asset.AssetStatus.BROKEN,
     )
     asset.asset_applicant_recordcode = user
     asset.asset_manager_recordcode = user
@@ -84,7 +84,7 @@ def asset_damaged(db, storage, asset_type, user):
         asset_entry_date="2024-01-15",
         asset_storage_recordcode=storage,
         asset_type_recordcode=asset_type,
-        asset_current_status="damaged",
+        asset_current_status=Asset.AssetStatus.DAMAGED,
     )
     asset.asset_applicant_recordcode = user
     asset.save(update_fields=["asset_applicant_recordcode"])
@@ -153,7 +153,7 @@ class TestCreateDamagedAsset:
         result.refresh_from_db()
         assert result.original_status == "recycled_pending"
         asset_recycled_pending.refresh_from_db()
-        assert asset_recycled_pending.asset_current_status == "damaged"
+        assert asset_recycled_pending.asset_current_status == Asset.AssetStatus.DAMAGED
 
     def test_create_in_use_asset_raises(self, asset_in_use):
         """in_use 资产不允许直接申请报废(须先回收),应抛出 InvalidTransitionError"""
@@ -169,7 +169,7 @@ class TestCreateDamagedAsset:
         result.refresh_from_db()
         assert result.original_status == "broken"
         asset_broken.refresh_from_db()
-        assert asset_broken.asset_current_status == "damaged"
+        assert asset_broken.asset_current_status == Asset.AssetStatus.DAMAGED
 
 
 @pytest.mark.django_db
@@ -190,7 +190,7 @@ class TestApproveAssetRecordcode:
         assert result["damaged_asset"].approval_status == "approved"
         assert result["waste_asset"].pk is not None
         asset_damaged.refresh_from_db()
-        assert asset_damaged.asset_current_status == "scrapped"
+        assert asset_damaged.asset_current_status == Asset.AssetStatus.SCRAPPED
 
     def test_approve_nonexistent_raises(self, user):
         with pytest.raises(AppValidationError) as exc_info:
@@ -246,7 +246,7 @@ class TestRejectAssetRecordcode:
             asset_entry_date="2024-01-01",
             asset_storage_recordcode=storage,
             asset_type_recordcode=asset_type,
-            asset_current_status="damaged",
+            asset_current_status=Asset.AssetStatus.DAMAGED,
         )
         _ = DamagedAsset.objects.create(
             asset_recordcode=asset,
@@ -261,7 +261,7 @@ class TestRejectAssetRecordcode:
         )
         assert result.approval_status == "rejected"
         asset.refresh_from_db()
-        assert asset.asset_current_status == "broken"
+        assert asset.asset_current_status == Asset.AssetStatus.BROKEN
 
     def test_reject_to_lost(self, db, storage, asset_type, user):
         """审批拒绝(原状态 lost):damaged → lost"""
@@ -273,7 +273,7 @@ class TestRejectAssetRecordcode:
             asset_entry_date="2024-01-01",
             asset_storage_recordcode=storage,
             asset_type_recordcode=asset_type,
-            asset_current_status="damaged",
+            asset_current_status=Asset.AssetStatus.DAMAGED,
         )
         _ = DamagedAsset.objects.create(
             asset_recordcode=asset,
@@ -288,7 +288,7 @@ class TestRejectAssetRecordcode:
         )
         assert result.approval_status == "rejected"
         asset.refresh_from_db()
-        assert asset.asset_current_status == "lost"
+        assert asset.asset_current_status == Asset.AssetStatus.LOST
 
     def test_reject_nonexistent_raises(self, user):
         with pytest.raises(AppValidationError) as exc_info:
@@ -317,7 +317,7 @@ class TestRejectAssetRecordcode:
             asset_entry_date="2024-01-01",
             asset_storage_recordcode=storage,
             asset_type_recordcode=asset_type,
-            asset_current_status="damaged",
+            asset_current_status=Asset.AssetStatus.DAMAGED,
         )
         _ = DamagedAsset.objects.create(
             asset_recordcode=asset,
@@ -387,7 +387,7 @@ class TestCancelAssetRecordcode:
             operator_name="操作人",
         )
         asset_damaged.refresh_from_db()
-        assert asset_damaged.asset_current_status == "in_use"
+        assert asset_damaged.asset_current_status == Asset.AssetStatus.IN_USE
 
     def test_cancel_success_batch_inherits_original_status(self, asset_damaged):
         """批量取消经委托自动继承新回退语义:original_status="broken" → broken"""
@@ -403,7 +403,7 @@ class TestCancelAssetRecordcode:
             operator_name="操作人",
         )
         asset_damaged.refresh_from_db()
-        assert asset_damaged.asset_current_status == "broken"
+        assert asset_damaged.asset_current_status == Asset.AssetStatus.BROKEN
         assert result["success_count"] == 1
 
     def test_cancel_nonexistent_raises(self):
@@ -488,7 +488,7 @@ class TestDamagedSlotRelease:
         )
         assert result.approval_status == "pending"
         asset_recycled_pending.refresh_from_db()
-        assert asset_recycled_pending.asset_current_status == "damaged"
+        assert asset_recycled_pending.asset_current_status == Asset.AssetStatus.DAMAGED
 
     def test_reapply_after_reject_succeeds(self, asset_recycled_pending, user):
         DamagedAssetService.create_damaged_asset(
@@ -506,7 +506,7 @@ class TestDamagedSlotRelease:
         )
         assert result.approval_status == "pending"
         asset_recycled_pending.refresh_from_db()
-        assert asset_recycled_pending.asset_current_status == "damaged"
+        assert asset_recycled_pending.asset_current_status == Asset.AssetStatus.DAMAGED
 
     def test_cancel_soft_deletes_releases_slot(self, asset_recycled_pending):
         created = DamagedAssetService.create_damaged_asset(

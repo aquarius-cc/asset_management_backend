@@ -77,7 +77,7 @@ class DamagedAssetService:
         AuditLogger.log_state_change(
             asset=asset,
             from_state=old_status,
-            to_state="damaged",
+            to_state=Asset.AssetStatus.DAMAGED,
             trigger="create_damaged",
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,

@@ -113,7 +113,7 @@ class AssetSelector:
             QuerySet[Asset]: 可用资产列表
         """
         queryset = Asset.objects.filter(
-            Q(asset_current_status="in_store") | Q(asset_current_status="recycled_pending"),
+            Q(asset_current_status=Asset.AssetStatus.IN_STORE) | Q(asset_current_status=Asset.AssetStatus.RECYCLED_PENDING),
             is_deleted=False,
             is_active=True,
         ).select_related("asset_type_recordcode", "asset_storage_recordcode", "asset_contract_recordcode")

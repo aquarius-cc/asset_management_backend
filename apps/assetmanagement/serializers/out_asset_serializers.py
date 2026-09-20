@@ -205,7 +205,7 @@ class OutAssetBatchItemSerializer(serializers.Serializer):  # type: ignore[type-
     row_number = serializers.IntegerField(required=False)
     outasset_asset = serializers.SlugRelatedField(
         slug_field="asset_code",
-        queryset=Asset.objects.filter(is_deleted=False, asset_current_status="in_store"),
+        queryset=Asset.objects.filter(is_deleted=False, asset_current_status=Asset.AssetStatus.IN_STORE),
         required=True,
     )
     outasset_number = serializers.IntegerField(required=False, default=1, min_value=1)

@@ -18,8 +18,10 @@
   本模块依赖 models.Employee、employee_audit_adapter.EmployeeAuditAdapter
 """
 
+from __future__ import annotations
+
 import copy
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
 
@@ -30,10 +32,46 @@ from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError, BusinessLogicError
 
 
+if TYPE_CHECKING:
+    from apps.authusermanagement.models import AuthUser
+
+
 class EmployeeService:
     """
     员工服务
     """
+
+    @staticmethod
+    def _lock_employee_for_binding(employee_jobcode: str) -> Employee:
+        """行级锁锁定员工(绑定/解绑/替换共用)"""
+        return Employee.objects.select_for_update().get(employee_jobcode=employee_jobcode, is_deleted=False)  # type: ignore[no-any-return]
+
+    @staticmethod
+    def _resolve_auth_user_target(auth_username: str, current_jobcode: str) -> AuthUser:
+        """获取目标认证账号并校验未被其他员工占用(bind/replace 共用)"""
+        from apps.authusermanagement.models import AuthUser
+
+        try:
+            auth_user = AuthUser.objects.select_for_update().get(
+                auth_username=auth_username,
+            )
+        except AuthUser.DoesNotExist:
+            raise AppValidationError(
+                detail=f"认证账号 {auth_username} 不存在",
+                error_code="AUTH_USER_NOT_FOUND",
+            )
+
+        existing_binding = (
+            Employee.objects.filter(auth_user=auth_user, is_deleted=False)
+            .exclude(employee_jobcode=current_jobcode)
+            .first()
+        )
+        if existing_binding:
+            raise BusinessLogicError(
+                detail=f"认证账号 {auth_username} 已绑定到员工 {existing_binding.employee_jobcode}",
+                error_code="AUTH_USER_ALREADY_BOUND",
+            )
+        return auth_user
 
     @staticmethod
     @transaction.atomic
@@ -65,10 +103,8 @@ class EmployeeService:
             AppValidationError: 员工或认证账号不存在
             BusinessLogicError: 绑定冲突
         """
-        from apps.authusermanagement.models import AuthUser
-
         # 锁定目标员工
-        employee = Employee.objects.select_for_update().get(employee_jobcode=employee_jobcode, is_deleted=False)
+        employee = EmployeeService._lock_employee_for_binding(employee_jobcode)
 
         if employee.auth_user_id is not None:
             raise BusinessLogicError(
@@ -76,28 +112,8 @@ class EmployeeService:
                 error_code="EMPLOYEE_ALREADY_BOUND",
             )
 
-        # 获取目标认证账号
-        try:
-            auth_user = AuthUser.objects.select_for_update().get(
-                auth_username=auth_username,
-            )
-        except AuthUser.DoesNotExist:
-            raise AppValidationError(
-                detail=f"认证账号 {auth_username} 不存在",
-                error_code="AUTH_USER_NOT_FOUND",
-            )
-
-        # 检查目标认证账号是否已绑定到其他员工
-        existing_binding = (
-            Employee.objects.filter(auth_user=auth_user, is_deleted=False)
-            .exclude(employee_jobcode=employee_jobcode)
-            .first()
-        )
-        if existing_binding:
-            raise BusinessLogicError(
-                detail=f"认证账号 {auth_username} 已绑定到员工 {existing_binding.employee_jobcode}",
-                error_code="AUTH_USER_ALREADY_BOUND",
-            )
+        # 获取目标认证账号并校验占用
+        auth_user = EmployeeService._resolve_auth_user_target(auth_username, employee_jobcode)
 
         # 执行绑定
         employee.auth_user = auth_user
@@ -105,7 +121,7 @@ class EmployeeService:
 
         EmployeeAuditAdapter.log_bind_auth_user(employee, auth_username, operator_jobcode, operator_name)
 
-        return employee  # type: ignore[no-any-return]
+        return employee
 
     @staticmethod
     @transaction.atomic
@@ -135,14 +151,15 @@ class EmployeeService:
             AppValidationError: 员工不存在
             BusinessLogicError: 员工未绑定认证账号
         """
-        employee = Employee.objects.select_for_update().get(employee_jobcode=employee_jobcode, is_deleted=False)
+        employee = EmployeeService._lock_employee_for_binding(employee_jobcode)
 
         if employee.auth_user_id is None:
             raise BusinessLogicError(
                 detail="该员工未绑定认证账号",
                 error_code="EMPLOYEE_NOT_BOUND",
             )
-
+        # 前面已校验 auth_user_id 非空,此处仅作类型收窄
+        assert employee.auth_user is not None
         old_auth_username = employee.auth_user.auth_username
 
         # 执行解绑(AuthUser 权限保留)
@@ -151,7 +168,7 @@ class EmployeeService:
 
         EmployeeAuditAdapter.log_unbind_auth_user(employee, old_auth_username, operator_jobcode, operator_name)
 
-        return employee  # type: ignore[no-any-return]
+        return employee
 
     @staticmethod
     @transaction.atomic
@@ -182,10 +199,8 @@ class EmployeeService:
             AppValidationError: 员工或认证账号不存在
             BusinessLogicError: 替换冲突
         """
-        from apps.authusermanagement.models import AuthUser
-
         # 锁定目标员工
-        employee = Employee.objects.select_for_update().get(employee_jobcode=employee_jobcode, is_deleted=False)
+        employee = EmployeeService._lock_employee_for_binding(employee_jobcode)
 
         old_auth_username = employee.auth_user.auth_username if employee.auth_user else None
 
@@ -196,28 +211,8 @@ class EmployeeService:
                 error_code="AUTH_USER_SAME",
             )
 
-        # 获取新认证账号
-        try:
-            new_auth_user = AuthUser.objects.select_for_update().get(
-                auth_username=new_auth_username,
-            )
-        except AuthUser.DoesNotExist:
-            raise AppValidationError(
-                detail=f"认证账号 {new_auth_username} 不存在",
-                error_code="AUTH_USER_NOT_FOUND",
-            )
-
-        # 检查新认证账号是否已绑定到其他员工
-        existing_binding = (
-            Employee.objects.filter(auth_user=new_auth_user, is_deleted=False)
-            .exclude(employee_jobcode=employee_jobcode)
-            .first()
-        )
-        if existing_binding:
-            raise BusinessLogicError(
-                detail=f"认证账号 {new_auth_username} 已绑定到员工 {existing_binding.employee_jobcode}",
-                error_code="AUTH_USER_ALREADY_BOUND",
-            )
+        # 获取新认证账号并校验占用
+        new_auth_user = EmployeeService._resolve_auth_user_target(new_auth_username, employee_jobcode)
 
         # 执行替换(原子操作)
         employee.auth_user = new_auth_user
@@ -227,7 +222,7 @@ class EmployeeService:
             employee, old_auth_username, new_auth_username, operator_jobcode, operator_name  # type: ignore[arg-type]
         )
 
-        return employee  # type: ignore[no-any-return]
+        return employee
 
     @staticmethod
     @transaction.atomic

@@ -7,7 +7,8 @@
 被 AssetService 继承以保持统一 API。
 """
 
-from typing import Any
+from collections.abc import Callable
+from typing import Any, cast
 
 from django.db import transaction
 
@@ -16,6 +17,66 @@ from apps.assetmanagement.models import Asset, BrokenAsset, FoundAsset, LostAsse
 from apps.assetmanagement.models.operation_log import AssetOperationLog
 from apps.assetmanagement.selectors.asset_selector import AssetSelector
 from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
+
+
+def _run_lifecycle_transition(
+    *,
+    asset_code: str,
+    target_status: Asset.AssetStatus,
+    fsm_method: Callable[[Asset], None],
+    record_model: type[Any],
+    record_kwargs: dict[str, Any],
+    operation_type: AssetOperationLog.OperationType,
+    audit_description: str,
+    operator_jobcode: str,
+    operator_name: str,
+    user: Any | None,
+) -> Any:
+    """幂等标记资产至目标状态并落记录+审计日志(broken/lost 共用)
+
+    状态已为目标时返回现有记录或补建(不触发 FSM); 其余走状态迁移、
+    记录创建、刷新与审计。字段差异(枚举/模型/文案)由调用方参数注入。
+    """
+    from core.exceptions import AppValidationError
+
+    asset = Asset.objects.select_for_update().filter(asset_code=asset_code).first()
+    if asset is None:
+        raise AppValidationError(detail=f"资产 {asset_code} 不存在", error_code="ASSET_NOT_FOUND")
+
+    # BEQ-02 行级隔离: 创建前校验目标资产在用户可见范围内(与 by_asset 查询侧同口径)
+    if user is not None:
+        AssetSelector.ensure_asset_visible(asset, user)
+
+    if asset.asset_current_status == target_status:
+        existing = record_model.objects.filter(asset_recordcode=asset).order_by("-created_at").first()
+        if existing is not None:
+            return existing
+        # 历史数据缺失时补建记录, 保持幂等语义(不改变资产状态, 不重复 FSM 迁移)
+        return record_model.objects.create(asset_recordcode=asset, **record_kwargs)
+
+    from apps.usermanagement.selectors import EmployeeSelector
+
+    operator = EmployeeSelector.get_employee_by_jobcode(operator_jobcode)
+
+    try:
+        fsm_method(asset)
+    except InvalidTransitionError as e:
+        raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
+    asset.save(update_fields=["asset_current_status", "updated_at"])
+
+    record = record_model.objects.create(asset_recordcode=asset, operator_employee=operator, **record_kwargs)
+    # DateField default=timezone.now 使内存实例携带 datetime, 刷新为 DB 落库后的 date(否则响应序列化拒绝)
+    record.refresh_from_db()
+    AssetOperationLog.objects.create(
+        asset_code=asset.asset_code,
+        asset_name=asset.asset_name,
+        asset_specification=asset.asset_specification,
+        operation_type=operation_type,
+        operator_jobcode=operator_jobcode,
+        operator_name=operator_name,
+        description=audit_description,
+    )
+    return record
 
 
 class AssetLifecycleMixin:
@@ -32,57 +93,21 @@ class AssetLifecycleMixin:
         user: Any | None = None,
     ) -> BrokenAsset:
         """标记资产为已损坏, 返回创建的 BrokenAsset 记录(batch 响应按该记录序列化)"""
-        from core.exceptions import AppValidationError
-
-        asset = Asset.objects.select_for_update().filter(asset_code=asset_code).first()
-        if asset is None:
-            raise AppValidationError(detail=f"资产 {asset_code} 不存在", error_code="ASSET_NOT_FOUND")
-
-        # BEQ-02 行级隔离: 创建前校验目标资产在用户可见范围内(与 by_asset 查询侧同口径)
-        if user is not None:
-            AssetSelector.ensure_asset_visible(asset, user)
-
-        if asset.asset_current_status == Asset.AssetStatus.BROKEN:
-            existing = BrokenAsset.objects.filter(asset_recordcode=asset).order_by("-created_at").first()
-            if existing is not None:
-                return existing
-            # 历史数据缺失时补建记录, 保持幂等语义(不改变资产状态, 不重复 FSM 迁移)
-            return BrokenAsset.objects.create(
-                asset_recordcode=asset,
-                broken_reason=broken_reason,
-                broken_description=broken_description,
-            )
-
-        from apps.usermanagement.selectors import EmployeeSelector
-
-        operator = EmployeeSelector.get_employee_by_jobcode(operator_jobcode)
-
-        try:
-            AssetFSM.mark_broken(asset)
-        except InvalidTransitionError as e:
-            raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
-        asset.save(update_fields=["asset_current_status", "updated_at"])
-
-        from apps.assetmanagement.models import AssetOperationLog
-
-        broken_record = BrokenAsset.objects.create(
-            asset_recordcode=asset,
-            broken_reason=broken_reason,
-            broken_description=broken_description,
-            operator_employee=operator,
+        return cast(
+            BrokenAsset,
+            _run_lifecycle_transition(
+                asset_code=asset_code,
+                target_status=Asset.AssetStatus.BROKEN,
+                fsm_method=AssetFSM.mark_broken,
+                record_model=BrokenAsset,
+                record_kwargs={"broken_reason": broken_reason, "broken_description": broken_description},
+                operation_type=AssetOperationLog.OperationType.BROKEN,
+                audit_description=f"资产标记为已损坏: {broken_reason}",
+                operator_jobcode=operator_jobcode,
+                operator_name=operator_name,
+                user=user,
+            ),
         )
-        # DateField default=timezone.now 使内存实例携带 datetime, 刷新为 DB 落库后的 date(否则响应序列化拒绝)
-        broken_record.refresh_from_db()
-        AssetOperationLog.objects.create(
-            asset_code=asset.asset_code,
-            asset_name=asset.asset_name,
-            asset_specification=asset.asset_specification,
-            operation_type=AssetOperationLog.OperationType.BROKEN,
-            operator_jobcode=operator_jobcode,
-            operator_name=operator_name,
-            description=f"资产标记为已损坏: {broken_reason}",
-        )
-        return broken_record
 
     @staticmethod
     @transaction.atomic
@@ -96,59 +121,22 @@ class AssetLifecycleMixin:
         user: Any | None = None,
     ) -> LostAsset:
         """标记资产为已遗失, 返回创建的 LostAsset 记录(batch 响应按该记录序列化)"""
-        from core.exceptions import AppValidationError
-
-        asset = Asset.objects.select_for_update().filter(asset_code=asset_code).first()
-        if asset is None:
-            raise AppValidationError(detail=f"资产 {asset_code} 不存在", error_code="ASSET_NOT_FOUND")
-
-        # BEQ-02 行级隔离: 创建前校验目标资产在用户可见范围内(与 by_asset 查询侧同口径)
-        if user is not None:
-            AssetSelector.ensure_asset_visible(asset, user)
-
-        if asset.asset_current_status == Asset.AssetStatus.LOST:
-            existing = LostAsset.objects.filter(asset_recordcode=asset).order_by("-created_at").first()
-            if existing is not None:
-                return existing
-            # 历史数据缺失时补建记录, 保持幂等语义(不改变资产状态, 不重复 FSM 迁移)
-            return LostAsset.objects.create(
-                asset_recordcode=asset,
-                last_known_location=last_known_location,
-                lost_reason=lost_reason,
-                lost_description=lost_description,
-            )
-
-        from apps.usermanagement.selectors import EmployeeSelector
-
-        operator = EmployeeSelector.get_employee_by_jobcode(operator_jobcode)
-
-        try:
-            AssetFSM.mark_lost(asset)
-        except InvalidTransitionError as e:
-            raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
-        asset.save(update_fields=["asset_current_status", "updated_at"])
-
-        from apps.assetmanagement.models import AssetOperationLog
-
-        lost_record = LostAsset.objects.create(
-            asset_recordcode=asset,
-            last_known_location=last_known_location,
-            lost_reason=lost_reason,
-            lost_description=lost_description,
-            operator_employee=operator,
-        )
-        # DateField default=timezone.now 使内存实例携带 datetime, 刷新为 DB 落库后的 date(否则响应序列化拒绝)
-        lost_record.refresh_from_db()
-        AssetOperationLog.objects.create(
-            asset_code=asset.asset_code,
-            asset_name=asset.asset_name,
-            asset_specification=asset.asset_specification,
+        return cast(LostAsset, _run_lifecycle_transition(
+            asset_code=asset_code,
+            target_status=Asset.AssetStatus.LOST,
+            fsm_method=AssetFSM.mark_lost,
+            record_model=LostAsset,
+            record_kwargs={
+                "last_known_location": last_known_location,
+                "lost_reason": lost_reason,
+                "lost_description": lost_description,
+            },
             operation_type=AssetOperationLog.OperationType.LOST,
+            audit_description=f"资产标记为已遗失: {lost_reason}",
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
-            description=f"资产标记为已遗失: {lost_reason}",
-        )
-        return lost_record
+            user=user,
+        ))
 
     @staticmethod
     @transaction.atomic
@@ -313,7 +301,7 @@ class AssetLifecycleMixin:
         """批量创建损坏资产记录"""
         from core.batch_mixins import BatchOperationMixin
 
-        def _create_one(idx: int, item: dict[str, Any]) -> Asset:
+        def _create_one(idx: int, item: dict[str, Any]) -> BrokenAsset:
             return AssetLifecycleMixin.mark_asset_broken(
                 asset_code=item["asset_code"],
                 broken_reason=item["broken_reason"],
@@ -337,7 +325,7 @@ class AssetLifecycleMixin:
         """批量创建遗失资产记录"""
         from core.batch_mixins import BatchOperationMixin
 
-        def _create_one(idx: int, item: dict[str, Any]) -> Asset:
+        def _create_one(idx: int, item: dict[str, Any]) -> LostAsset:
             return AssetLifecycleMixin.mark_asset_lost(
                 asset_code=item["asset_code"],
                 lost_reason=item["lost_reason"],

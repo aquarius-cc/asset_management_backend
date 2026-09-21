@@ -21,6 +21,42 @@ from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError
 
 
+def _resolve_parent_asset_type(asset_type_data: dict[str, Any]) -> AssetType | None:
+    """解析父类型: 支持 parent_type_code(业务编码)或 parent(recordcode)"""
+    parent = None
+    parent_type_code = asset_type_data.pop("parent_type_code", None)
+    parent_rc = asset_type_data.pop("parent", None)
+
+    if parent_type_code:
+        parent = AssetTypeSelector.get_asset_type_by_code(parent_type_code)
+        if not parent:
+            raise AppValidationError(
+                detail=f"父级类型 {parent_type_code} 不存在", error_code="PARENT_ASSET_TYPE_NOT_FOUND"
+            )
+    elif parent_rc:
+        parent = AssetType.objects.filter(recordcode=parent_rc).first()
+        if not parent:
+            raise AppValidationError(detail="父级类型不存在", error_code="PARENT_ASSET_TYPE_NOT_FOUND")
+    return parent
+
+
+def _compute_level_path(asset_type_data: dict[str, Any], parent: AssetType | None) -> None:
+    """计算层级与物化路径, 并校验层级上限"""
+    if parent:
+        asset_type_data["parent"] = parent
+        asset_type_data["level"] = parent.level + 1
+        asset_type_data["path"] = AssetTypeService._generate_path(parent.path, asset_type_data["type_code"])
+    else:
+        asset_type_data["parent"] = None
+        asset_type_data["level"] = 0
+        asset_type_data["path"] = f"/{asset_type_data['type_code']}"
+
+    if asset_type_data["level"] > MAX_ASSET_TYPE_LEVEL:
+        raise AppValidationError(
+            detail=f"资产类型层级不能超过 {MAX_ASSET_TYPE_LEVEL} 层", error_code="ASSET_TYPE_LEVEL_EXCEEDED"
+        )
+
+
 class AssetTypeService:
     """
     资产类型管理服务
@@ -59,36 +95,9 @@ class AssetTypeService:
         if AssetTypeSelector.exists_by_code(type_code):  # type: ignore[arg-type]
             raise AppValidationError(detail=f"资产类型编码 {type_code} 已存在", error_code="DUPLICATE_ASSET_TYPE_CODE")
 
-        # 解析父类型:支持 parent_type_code(业务编码)或 parent(recordcode)
-        parent = None
-        parent_type_code = asset_type_data.pop("parent_type_code", None)
-        parent_rc = asset_type_data.pop("parent", None)
-
-        if parent_type_code:
-            parent = AssetTypeSelector.get_asset_type_by_code(parent_type_code)
-            if not parent:
-                raise AppValidationError(
-                    detail=f"父级类型 {parent_type_code} 不存在", error_code="PARENT_ASSET_TYPE_NOT_FOUND"
-                )
-        elif parent_rc:
-            parent = AssetType.objects.filter(recordcode=parent_rc).first()
-            if not parent:
-                raise AppValidationError(detail="父级类型不存在", error_code="PARENT_ASSET_TYPE_NOT_FOUND")
-
-        # 计算层级和路径
-        if parent:
-            asset_type_data["parent"] = parent
-            asset_type_data["level"] = parent.level + 1
-            asset_type_data["path"] = AssetTypeService._generate_path(parent.path, asset_type_data["type_code"])
-        else:
-            asset_type_data["parent"] = None
-            asset_type_data["level"] = 0
-            asset_type_data["path"] = f"/{asset_type_data['type_code']}"
-
-        if asset_type_data["level"] > MAX_ASSET_TYPE_LEVEL:
-            raise AppValidationError(
-                detail=f"资产类型层级不能超过 {MAX_ASSET_TYPE_LEVEL} 层", error_code="ASSET_TYPE_LEVEL_EXCEEDED"
-            )
+        # 解析父类型 + 计算层级/路径(委托模块级 helper)
+        parent = _resolve_parent_asset_type(asset_type_data)
+        _compute_level_path(asset_type_data, parent)
 
         # 清理已废弃字段
         asset_type_data.pop("parent_code", None)

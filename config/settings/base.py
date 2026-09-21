@@ -2,6 +2,7 @@
 Django base settings for asset_management project.
 """
 
+import os
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
@@ -21,8 +22,24 @@ LOGS_DIR.mkdir(parents=True, exist_ok=True)
 # - production.py: 从环境变量读取,缺失或弱密钥则抛异常
 # - development.py: 从环境变量读取,缺失则用开发专用密钥
 # - test.py: 硬编码测试密钥
-# 若直接使用 base.py 且未设置 SECRET_KEY,Django 将抛出 ImproperlyConfigured
+# 若直接使用 base.py,须拒绝启动: base 为抽象基类,不提供可运行密钥,
+# 直接部署会导致空 SECRET_KEY(SIGNING_KEY)被用于 JWT HMAC 签名,token 可被伪造。
+# 守卫依据 DJANGO_SETTINGS_MODULE 判定(下方),环境变量为具体环境时零影响。
 SECRET_KEY = config("SECRET_KEY", default="")
+
+# 【SC-1 守卫】base.py 禁止直接部署: 模块加载即 fail-fast。
+# 触发条件: DJANGO_SETTINGS_MODULE 恰好等于 config.settings.base。
+# 三层环境(development/production/test/test_postgres)均不等于 base, 不触发;
+# 误配 base 的部署在启动瞬间抛 ImproperlyConfigured, 空 SECRET_KEY 到不了 JWT 签名
+# (即使绕过守卫, SIMPLE_JWT 已无物化 SIGNING_KEY, simplejwt 回落 settings.SECRET_KEY)。
+if os.environ.get("DJANGO_SETTINGS_MODULE") == "config.settings.base":
+    from django.core.exceptions import ImproperlyConfigured
+
+    raise ImproperlyConfigured(
+        "config.settings.base is an abstract base settings and cannot be deployed directly. "
+        "Use config.settings.development / config.settings.production / config.settings.test "
+        "(or config.settings.test_postgres)."
+    )
 
 # 【修复 S3】DEBUG 默认值为 False,生产环境更安全
 DEBUG = config("DEBUG", default=False, cast=bool)
@@ -185,6 +202,9 @@ REST_FRAMEWORK = {
 }
 
 # Simple JWT
+# 【SC-1】SIGNING_KEY 不在 base 物化: simplejwt 的 api_settings 无该用户键时回落
+# DEFAULTS["SIGNING_KEY"] = settings.SECRET_KEY(运行时), 各环境文件已覆写 SECRET_KEY,
+# 避免 base 加载时快照空值导致全部环境 JWT 用空密钥签名(详见审查报告 #20)。
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=2),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
@@ -193,7 +213,6 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": False,
     "ALGORITHM": "HS256",
-    "SIGNING_KEY": SECRET_KEY,
     "VERIFYING_KEY": None,
     "AUDIENCE": None,
     "ISSUER": None,

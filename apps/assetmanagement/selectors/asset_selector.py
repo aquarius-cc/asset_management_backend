@@ -13,6 +13,69 @@ from apps.assetmanagement.models import Asset, AssetOperationLog, AssetType, Con
 from core.department_scope import build_asset_owned_department_q, get_department_codes_for_user
 
 
+def _build_fuzzy_q(field_filters: dict[str, str]) -> Q | None:
+    """构造字段映射后的 AND 组合模糊 Q(空值跳过; 无有效条件返回 None)"""
+    FIELD_NAME_MAPPING = {
+        "asset_contract": "asset_contract_recordcode__contract_code",
+        "asset_contract_name": "asset_contract_recordcode__contract_name",
+        "asset_type": "asset_type_recordcode__type_code",
+        "asset_storage": "asset_storage_recordcode__storage_code",
+    }
+
+    q_objects = [
+        Q(**{f"{FIELD_NAME_MAPPING.get(field, field)}__icontains": value})
+        for field, value in field_filters.items()
+        if value
+    ]
+    if not q_objects:
+        return None
+    combined_q = q_objects[0]
+    for q in q_objects[1:]:
+        combined_q &= q
+    return combined_q
+
+
+def _apply_exact_filters(queryset: QuerySet[Asset], exact_filters: dict[str, str]) -> QuerySet[Asset]:
+    """叠加精确过滤条件(AND)并处理 asset_type 双尝试与 category 分类展开
+
+    找不到对应类型/分类时返回空集(避免全表返回误匹配)。
+    """
+    if not exact_filters:
+        return queryset
+
+    # 【修复】asset_type 字段:前端传类型代码,需转换为 recordcode
+    # 注意:模型字段已重命名为 asset_type_recordcode
+    if exact_filters.get("asset_type"):
+        type_code = exact_filters.pop("asset_type")
+        # 先尝试作为 recordcode 匹配
+        asset_type = AssetTypeSelector.get_asset_type_by_recordcode(type_code)
+        if not asset_type:
+            # 不是 recordcode,尝试按 asset_type_code 匹配
+            asset_type = AssetTypeSelector.get_asset_type_by_code(type_code)
+
+        if asset_type:
+            # 【修复】使用正确的字段名 asset_type_recordcode
+            exact_filters["asset_type_recordcode"] = asset_type.recordcode  # type: ignore[assignment]
+        else:
+            # 找不到对应类型,返回空集
+            return queryset.none()
+
+    # asset_type_category 字段:通过 AssetType 关联查询
+    if exact_filters.get("asset_type_category"):
+        category = exact_filters.pop("asset_type_category")
+        # 查找该分类下所有 AssetType 的 recordcode
+        type_recordcodes = AssetType.objects.filter(type_code=category, is_deleted=False).values_list(
+            "recordcode", flat=True
+        )
+        if type_recordcodes:
+            exact_filters["asset_type_recordcode__in"] = list(type_recordcodes)  # type: ignore[assignment]
+        else:
+            return queryset.none()
+
+    # 叠加精确过滤条件(AND 关系)
+    return queryset.filter(**{k: v for k, v in exact_filters.items() if v is not None})
+
+
 class AssetSelector:
     """资产管理查询选择器
 
@@ -306,78 +369,25 @@ class AssetSelector:
     @staticmethod
     def combine_search(field_filters: dict[str, str], exact_filters: dict[str, str]) -> QuerySet[Asset]:
         """
-        多字段 AND 模糊搜索
+        多字段 AND 模糊搜索。
 
-        支持前端传入:
-        - asset_type_code: 类型代码或 recordcode,自动转换
-        - asset_type_category: 类型分类,通过 AssetType 关联查询
-
-        :param field_filters: 模糊字段名和值的映射
-        :param exact_filters: 精确字段名和值的映射
-        :return: QuerySet
+        支持前端传入 asset_type_code(类型代码或 recordcode,自动转换)与
+        asset_type_category(经 AssetType 关联查询)。模糊委托 `_build_fuzzy_q`,
+        精确委托 `_apply_exact_filters`。
         """
-        queryset = Asset.objects.filter(is_deleted=False)
+        queryset: QuerySet[Asset] = Asset.objects.filter(is_deleted=False)
 
         # 1. 如果没有传入任何过滤条件,返回空集(避免全表扫描)
         if not field_filters and not exact_filters:
             return queryset.none()
 
-        # 【修复】字段名映射:前端字段名 → 模型字段名
-        FIELD_NAME_MAPPING = {
-            "asset_contract": "asset_contract_recordcode__contract_code",
-            "asset_contract_name": "asset_contract_recordcode__contract_name",
-            "asset_type": "asset_type_recordcode__type_code",
-            "asset_storage": "asset_storage_recordcode__storage_code",
-        }
-
         # 2. 构造 AND 组合的 Q 对象(模糊字段)
-        if field_filters:
-            q_objects = []
-            for field, value in field_filters.items():
-                if not value:
-                    continue
-                # 使用映射后的字段名
-                mapped_field = FIELD_NAME_MAPPING.get(field, field)
-                q_objects.append(Q(**{f"{mapped_field}__icontains": value}))
-            if q_objects:
-                combined_q = q_objects[0]
-                for q in q_objects[1:]:
-                    combined_q &= q
-                queryset = queryset.filter(combined_q)
+        fuzzy_q = _build_fuzzy_q(field_filters)
+        if fuzzy_q is not None:
+            queryset = queryset.filter(fuzzy_q)
 
         # 3. 处理精确过滤条件
-        if exact_filters:
-            # 【修复】asset_type 字段:前端传类型代码,需转换为 recordcode
-            # 注意:模型字段已重命名为 asset_type_recordcode
-            if exact_filters.get("asset_type"):
-                type_code = exact_filters.pop("asset_type")
-                # 先尝试作为 recordcode 匹配
-                asset_type = AssetTypeSelector.get_asset_type_by_recordcode(type_code)
-                if not asset_type:
-                    # 不是 recordcode,尝试按 asset_type_code 匹配
-                    asset_type = AssetTypeSelector.get_asset_type_by_code(type_code)
-
-                if asset_type:
-                    # 【修复】使用正确的字段名 asset_type_recordcode
-                    exact_filters["asset_type_recordcode"] = asset_type.recordcode  # type: ignore[assignment]
-                else:
-                    # 找不到对应类型,返回空集
-                    return queryset.none()
-
-            # asset_type_category 字段:通过 AssetType 关联查询
-            if exact_filters.get("asset_type_category"):
-                category = exact_filters.pop("asset_type_category")
-                # 查找该分类下所有 AssetType 的 recordcode
-                type_recordcodes = AssetType.objects.filter(type_code=category, is_deleted=False).values_list(
-                    "recordcode", flat=True
-                )
-                if type_recordcodes:
-                    exact_filters["asset_type_recordcode__in"] = list(type_recordcodes)  # type: ignore[assignment]
-                else:
-                    return queryset.none()
-
-            # 叠加精确过滤条件(AND 关系)
-            queryset = queryset.filter(**{k: v for k, v in exact_filters.items() if v is not None})
+        queryset = _apply_exact_filters(queryset, exact_filters)
 
         # 4. 预加载关联数据
         queryset = queryset.select_related(

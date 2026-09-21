@@ -47,6 +47,58 @@ def _to_json_safe(value: Any) -> Any:
     return value
 
 
+def _validate_operation_params(operation_type: str, asset_code: str) -> None:
+    """校验操作类型与资产编码(写入入口防呆)"""
+    valid_types = [choice[0] for choice in AssetOperationLog.OPERATION_TYPE_CHOICES]
+    if operation_type not in valid_types:
+        raise ValueError(f"【易错点】无效的操作类型: {operation_type}. 必须是以下之一: {valid_types}")
+
+    # 【易错点】确保资产编码不为空
+    if not asset_code:
+        raise ValueError("资产编码不能为空")
+
+
+def _insert_operation_log(
+    asset_code: str,
+    operation_type: str,
+    description: str,
+    asset_name: str | None,
+    asset_specification: str | None,
+    operator_jobcode: str | None,
+    operator_name: str | None,
+    before_data: dict[str, Any] | None,
+    after_data: dict[str, Any] | None,
+    related_record_code: str | None,
+    related_record_type: str | None,
+    ip_address: str | None,
+) -> AssetOperationLog:
+    """创建日志记录并输出成功日志(写入收口,失败原样重抛)"""
+    try:
+        log = AssetOperationLog.objects.create(
+            asset_code=asset_code,
+            asset_name=asset_name,
+            asset_specification=asset_specification,
+            operation_type=operation_type,
+            description=description,
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+            before_data=before_data,
+            after_data=after_data,
+            related_record_code=related_record_code,
+            related_record_type=related_record_type,
+            ip_address=ip_address,
+        )
+
+        logger.info(
+            f"【OperationLogService】操作日志记录成功: {asset_code} - {operation_type} - {operator_jobcode}"
+        )
+        return log
+
+    except Exception as e:
+        logger.error(f"【OperationLogService】记录操作日志失败: {e}")
+        raise
+
+
 class OperationLogService:
     """
     资产操作日志服务
@@ -71,68 +123,31 @@ class OperationLogService:
         related_record_type: str | None = None,
         ip_address: str | None = None,
     ) -> AssetOperationLog:
+        """记录资产操作日志(须在数据库事务中调用,确保业务数据与日志一致性)。
+
+        校验委托 `_validate_operation_params`,快照归一委托 `_to_json_safe`,
+        落库委托 `_insert_operation_log`。参数语义同落库字段,见方法签名。
         """
-        记录资产操作日志
-
-        【重要】必须在数据库事务中调用此方法,确保业务数据和日志的一致性。
-
-        Args:
-            asset_code: 资产编码
-            operation_type: 操作类型(create/update/delete/out/recycle/damaged/waste/approve/transfer)
-            description: 操作描述
-            asset_name: 资产名称(冗余存储,删除 Asset 不影响记录)
-            asset_specification: 资产规格(冗余存储,删除 Asset 不影响记录)
-            operator_jobcode: 操作人工号
-            operator_name: 操作人姓名
-            before_data: 变更前数据(JSON格式)
-            after_data: 变更后数据(JSON格式)
-            related_record_code: 关联记录编码
-            related_record_type: 关联记录类型
-            ip_address: 操作IP地址
-
-        Returns:
-            AssetOperationLog: 创建的操作日志记录
-
-        Raises:
-            ValueError: 参数验证失败
-        """
-        # 验证操作类型
-        valid_types = [choice[0] for choice in AssetOperationLog.OPERATION_TYPE_CHOICES]
-        if operation_type not in valid_types:
-            raise ValueError(f"【易错点】无效的操作类型: {operation_type}. 必须是以下之一: {valid_types}")
-
-        # 【易错点】确保资产编码不为空
-        if not asset_code:
-            raise ValueError("资产编码不能为空")
+        _validate_operation_params(operation_type, asset_code)
 
         # 审计快照写入前统一归一化为 JSON 安全类型(幂等,DR-1)
         before_data = _to_json_safe(before_data) if before_data else before_data
         after_data = _to_json_safe(after_data) if after_data else after_data
 
-        try:
-            log = AssetOperationLog.objects.create(
-                asset_code=asset_code,
-                asset_name=asset_name,
-                asset_specification=asset_specification,
-                operation_type=operation_type,
-                description=description,
-                operator_jobcode=operator_jobcode,
-                operator_name=operator_name,
-                before_data=before_data,
-                after_data=after_data,
-                related_record_code=related_record_code,
-                related_record_type=related_record_type,
-                ip_address=ip_address,
-            )
-
-            logger.info(
-                f"【OperationLogService】操作日志记录成功: {asset_code} - {operation_type} - {operator_jobcode}"
-            )
-            return log
-
-        except Exception as e:
-            logger.error(f"【OperationLogService】记录操作日志失败: {e}")
-            raise
+        return _insert_operation_log(
+            asset_code=asset_code,
+            operation_type=operation_type,
+            description=description,
+            asset_name=asset_name,
+            asset_specification=asset_specification,
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+            before_data=before_data,
+            after_data=after_data,
+            related_record_code=related_record_code,
+            related_record_type=related_record_type,
+            ip_address=ip_address,
+        )
 
     @classmethod
     def log_asset_create(

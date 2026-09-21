@@ -42,7 +42,6 @@ from apps.unregisteredasset.serializers import (
 from apps.unregisteredasset.services import UnregisteredAssetService
 from core.batch_mixins import BatchResponseHelper
 from core.constants import MAX_BATCH_SIZE
-from core.exceptions import AppValidationError
 from core.mixins import LoggingMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
 from core.permissions import IsDeptManagerOrAbove, IsSystemAdmin
@@ -135,7 +134,7 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet[
         serializer.is_valid(raise_exception=True)
 
         # 获取操作人工号:优先取请求中的 discovery_person,否则解析当前用户
-        operator_jobcode = request.data.get("discovery_person") or resolve_operator(request.user)[0]  # type: ignore[union-attr, arg-type]
+        operator_jobcode = request.data.get("discovery_person") or resolve_operator(request.user)[0]  # type: ignore[arg-type]
         operator_name = resolve_operator(request.user)[1]  # type: ignore[arg-type]
 
         # 创建记录
@@ -270,93 +269,36 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet[
 
     @action(detail=False, methods=["post"], url_path="batch-delete")
     def batch_delete(self, request: Any) -> Response:
-        """
-        【新增】批量删除未登记资产(软删除)
+        """批量删除未登记资产(软删除,仅待审批)
 
-        接收前端提交的未登记资产编码列表,逐条删除。
-        仅允许删除待审批状态的记录。
+        【分层收敛】逻辑下沉至 UnregisteredAssetService.batch_delete_unregistered
+        (复用 batch_delete_execute 逐条事务包裹,失败结构 NOT_FOUND /
+        STATUS_NOT_ALLOWED / VALIDATION_ERROR / INTERNAL_ERROR), View 仅校验
+        ids 非空与批量上限后透传 Service。
 
-        请求格式:
-            POST /api/unregisteredassets/unregistered-assets/batch-delete/
-            {
-                "ids": ["UNR-20260601-ABC123", "UNR-20260602-DEF456"]
-            }
+        Args:
+            request: 请求,body 含 ids(未登记资产编码列表)
 
-        响应格式:
-            {
-                "code": 200,
-                "message": "批量删除成功",
-                "data": {
-                    "total": 2,
-                    "success_count": 1,
-                    "fail_count": 1,
-                    "success_ids": ["UNR-20260601-ABC123"],
-                    "fail_items": [{"id": "UNR-20260602-DEF456", "error_code": "...", "error_message": "..."}]
-                }
-            }
+        Returns:
+            Response: 批量删除结果(total/success_count/fail_count/
+                success_ids/fail_items)
         """
         ids = request.data.get("ids", [])
         if not ids:
             return error_response(message="请提供要删除的 ID 列表", status_code=status.HTTP_400_BAD_REQUEST)
 
-        if len(ids) > 100:
-            return error_response(message="单次批量删除不能超过 100 条", status_code=status.HTTP_400_BAD_REQUEST)
+        if len(ids) > MAX_BATCH_SIZE:
+            return error_response(
+                message=f"单次批量删除不能超过 {MAX_BATCH_SIZE} 条", status_code=status.HTTP_400_BAD_REQUEST
+            )
 
-        success_ids = []
-        fail_items = []
-
-        for unregistered_code in ids:
-            try:
-                instance = UnregisteredAssetSelector.get_by_code(unregistered_code)
-                if not instance:
-                    fail_items.append(
-                        {
-                            "id": unregistered_code,
-                            "error_code": "NOT_FOUND",
-                            "error_message": f"未登记资产 {unregistered_code} 不存在",
-                        }
-                    )
-                    continue
-
-                # 仅允许删除待审批状态的记录
-                if instance.approval_status != "pending":
-                    fail_items.append(
-                        {
-                            "id": unregistered_code,
-                            "error_code": "STATUS_NOT_ALLOWED",
-                            "error_message": f"当前审批状态为 {instance.approval_status},不允许删除",
-                        }
-                    )
-                    continue
-
-                UnregisteredAssetService.delete(
-                    unregistered_code=unregistered_code,
-                    operator_jobcode=resolve_operator(request.user)[0],
-                    operator_name=resolve_operator(request.user)[1],
-                )
-                success_ids.append(unregistered_code)
-
-            except AppValidationError as e:
-                fail_items.append(
-                    {"id": unregistered_code, "error_code": "VALIDATION_ERROR", "error_message": str(e.detail)}
-                )
-            except Exception:
-                fail_items.append(
-                    {
-                        "id": unregistered_code,
-                        "error_code": "INTERNAL_ERROR",
-                        "error_message": "服务器内部错误,请稍后重试",
-                    }
-                )
+        operator_jobcode, operator_name = resolve_operator(request.user)
+        result = UnregisteredAssetService.batch_delete_unregistered(
+            ids=ids, operator_jobcode=operator_jobcode, operator_name=operator_name
+        )
 
         # 【DR-1 收敛】响应组装复用 BatchResponseHelper
         return BatchResponseHelper.delete_response(
-            {
-                "total": len(ids),
-                "success_count": len(success_ids),
-                "fail_count": len(fail_items),
-                "success_ids": success_ids,
-                "fail_items": fail_items,
-            },
-            message=f"批量删除完成,成功 {len(success_ids)} 条,失败 {len(fail_items)} 条",
+            result,
+            message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
         )

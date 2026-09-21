@@ -70,6 +70,140 @@ UNREGISTERED_UPDATE_ALLOWED_FIELDS = frozenset(
 )
 
 
+def _validate_create_scenario(data: dict[str, Any]) -> None:
+    """校验创建场景类型契约: S2/S3 必关联现有资产, S1 禁关联"""
+    scenario_type = data.get("scenario_type")
+    if not scenario_type:
+        raise AppValidationError(detail="场景类型不能为空")
+
+    related_asset = data.get("related_asset")
+    if scenario_type in ["s2_no_outasset", "s3_status_mismatch"]:
+        if not related_asset:
+            raise AppValidationError(detail=f"{scenario_type}场景必须关联现有资产")
+
+    if scenario_type == "s1_no_record" and related_asset:
+        raise AppValidationError(detail="S1场景不应关联现有资产")
+
+
+def _log_create_audit(
+    unregistered: UnregisteredAsset, operator_jobcode: str, operator_name: str | None = None
+) -> None:
+    """记录创建审计日志(延迟导入,异常捕获)"""
+    try:
+        from apps.unregisteredasset.audit_adapter import UnregisteredAssetAuditAdapter
+
+        UnregisteredAssetAuditAdapter.log_create(
+            unregistered=unregistered, operator_jobcode=operator_jobcode, operator_name=operator_name
+        )
+    except Exception as e:
+        # 【P2-10 修复】审计异常记录日志便于排查,但不影响主流程
+        logger.warning(f"审计日志记录失败(create): {e}", exc_info=True)
+
+
+def _apply_whitelist_edits(unregistered: UnregisteredAsset, update_data: dict[str, Any]) -> None:
+    """字段白名单过滤: 非白名单字段直接抛错"""
+    for key, value in update_data.items():
+        if key in UNREGISTERED_UPDATE_ALLOWED_FIELDS:
+            setattr(unregistered, key, value)
+        else:
+            raise AppValidationError(detail=f"不允许修改字段: {key}")
+
+
+def _log_update_audit(
+    unregistered: UnregisteredAsset,
+    before_data: dict[str, Any],
+    after_data: dict[str, Any],
+    operator_jobcode: str,
+    operator_name: str | None = None,
+) -> None:
+    """记录更新审计日志(延迟导入,异常捕获)"""
+    try:
+        from apps.unregisteredasset.audit_adapter import UnregisteredAssetAuditAdapter
+
+        UnregisteredAssetAuditAdapter.log_update(
+            unregistered=unregistered,
+            before_data=before_data,
+            after_data=after_data,
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+        )
+    except Exception as e:
+        # 【P2-10 修复】审计异常记录日志便于排查,但不影响主流程
+        logger.warning(f"审计日志记录失败(update): {e}", exc_info=True)
+
+
+def _prepare_approval(
+    unregistered_code: str, handle_type: str, approver: str, approval_remark: str
+) -> tuple[UnregisteredAsset, Any]:
+    """审批前置: 行锁获取+状态校验+类型匹配+审批人解析+字段设置"""
+    unregistered = UnregisteredAssetSelector.get_by_code_for_update(unregistered_code)
+    if not unregistered:
+        raise AppValidationError(detail=f"未登记资产 {unregistered_code} 不存在")
+
+    if unregistered.approval_status != UnregisteredAsset.ApprovalStatus.PENDING:
+        raise AppValidationError(detail=f"当前状态 {unregistered.approval_status} 不允许审批")
+
+    _validate_handle_type(unregistered.scenario_type, handle_type)
+
+    from apps.usermanagement.selectors import EmployeeSelector
+
+    approver_employee = EmployeeSelector.get_employee_by_jobcode(approver)
+    if not approver_employee:
+        raise AppValidationError(detail=f"审批人 {approver} 不存在")
+
+    unregistered.handle_type = handle_type
+    unregistered.approver = approver_employee
+    unregistered.approval_date = timezone.now().date()
+    unregistered.approval_remark = approval_remark
+
+    return unregistered, approver_employee
+
+
+def _execute_handle(unregistered: UnregisteredAsset, handle_type: str, approver_employee: Any) -> dict[str, Any]:
+    """处理方式五分支派发: reject 不设 APPROVED, 其余设 APPROVED 后 save"""
+    result: dict[str, Any] = {}
+    if handle_type == "reject":
+        unregistered.approval_status = UnregisteredAsset.ApprovalStatus.REJECTED
+        result = {"action": "reject"}
+    elif handle_type == "create_and_recycle":
+        result = _handle_s1_create_and_recycle(unregistered, approver_employee)
+        unregistered.approval_status = UnregisteredAsset.ApprovalStatus.APPROVED
+    elif handle_type == "create_and_damaged":
+        result = _handle_s1_create_and_damaged(unregistered, approver_employee)
+        unregistered.approval_status = UnregisteredAsset.ApprovalStatus.APPROVED
+    elif handle_type == "supplement_and_recycle":
+        result = _handle_s2_supplement_and_recycle(unregistered, approver_employee)
+        unregistered.approval_status = UnregisteredAsset.ApprovalStatus.APPROVED
+    elif handle_type == "correct_and_recycle":
+        result = _handle_s3_correct_and_recycle(unregistered, approver_employee)
+        unregistered.approval_status = UnregisteredAsset.ApprovalStatus.APPROVED
+    unregistered.save()
+    return result
+
+
+def _log_approve_audit(
+    unregistered: UnregisteredAsset,
+    handle_type: str,
+    result: dict[str, Any],
+    approver_employee: Any,
+    operator_name: str | None = None,
+) -> None:
+    """记录审批审计日志(延迟导入,异常捕获)"""
+    try:
+        from apps.unregisteredasset.audit_adapter import UnregisteredAssetAuditAdapter
+
+        UnregisteredAssetAuditAdapter.log_approve(
+            unregistered=unregistered,
+            handle_type=handle_type,
+            result=result,
+            operator_jobcode=approver_employee,
+            operator_name=operator_name,
+        )
+    except Exception as e:
+        # 【P2-10 修复】审计异常记录日志便于排查,但不影响主流程
+        logger.warning(f"审计日志记录失败(approve): {e}", exc_info=True)
+
+
 class UnregisteredAssetService:
     """
     未登记资产管理服务
@@ -119,55 +253,19 @@ class UnregisteredAssetService:
     @staticmethod
     @transaction.atomic
     def create(data: dict[str, Any], operator_jobcode: str, operator_name: str | None = None) -> UnregisteredAsset:
-        """
-        创建未登记资产申请
+        """创建未登记资产申请
 
-        【AGENTS 规范 - 审计解耦】显式记录操作日志
+        场景契约见 `_validate_create_scenario`, 审批人解析见 `_log_create_audit`。
 
         Args:
-            data: 未登记资产数据,包含:
-                - scenario_type: 场景类型(必填)
-                - asset_name: 资产名称(必填)
-                - discovery_date: 发现日期(必填)
-                - discovery_location: 发现地点(必填)
-                - asset_brand: 品牌(可选)
-                - asset_specification: 规格(可选)
-                - unregistered_asset_type: 资产类型(可选)
-                - estimated_value: 预估价值(可选)
-                - related_asset: 关联资产(S2/S3必填)
-                - unregistered_asset_storage: 目标仓库(可选)
-                - attachments: 附件列表(可选)
+            data: 未登记资产数据,包含 scenario_type 等字段
             operator_jobcode: 操作人工号(发现人)
             operator_name: 操作人姓名(可选)
 
-        Returns:
-            UnregisteredAsset: 创建的未登记资产记录
-
         Raises:
             AppValidationError: 参数校验失败时抛出
-
-        Example:
-            >>> asset = UnregisteredAssetService.create({
-            ...     'scenario_type': 's1_no_record',
-            ...     'asset_name': '笔记本',
-            ...     'discovery_date': '2026-05-26',
-            ...     'discovery_location': '会议室A',
-            ... }, operator_jobcode='EMP001')
         """
-        # 参数校验
-        scenario_type = data.get("scenario_type")
-        if not scenario_type:
-            raise AppValidationError(detail="场景类型不能为空")
-
-        # S2/S3场景必须关联现有资产
-        related_asset = data.get("related_asset")
-        if scenario_type in ["s2_no_outasset", "s3_status_mismatch"]:
-            if not related_asset:
-                raise AppValidationError(detail=f"{scenario_type}场景必须关联现有资产")
-
-        # S1场景不应关联现有资产
-        if scenario_type == "s1_no_record" and related_asset:
-            raise AppValidationError(detail="S1场景不应关联现有资产")
+        _validate_create_scenario(data)
 
         # 设置发现人
         from apps.usermanagement.selectors import EmployeeSelector
@@ -182,15 +280,7 @@ class UnregisteredAssetService:
         unregistered = UnregisteredAsset.objects.create(**data)
 
         # 记录审计日志(延迟导入,异常捕获)
-        try:
-            from apps.unregisteredasset.audit_adapter import UnregisteredAssetAuditAdapter
-
-            UnregisteredAssetAuditAdapter.log_create(
-                unregistered=unregistered, operator_jobcode=operator_jobcode, operator_name=operator_name
-            )
-        except Exception as e:
-            # 【P2-10 修复】审计异常记录日志便于排查,但不影响主流程
-            logger.warning(f"审计日志记录失败(create): {e}", exc_info=True)
+        _log_create_audit(unregistered, operator_jobcode, operator_name)
 
         return unregistered  # type: ignore[no-any-return]
 
@@ -245,11 +335,7 @@ class UnregisteredAssetService:
     def update(
         unregistered_code: str, update_data: dict[str, Any], operator_jobcode: str, operator_name: str | None = None
     ) -> UnregisteredAsset:
-        """
-        更新未登记资产信息
-
-        【AGENTS 规范 - 字段白名单】只允许更新指定字段
-        【业务规则】仅待审批状态的记录允许修改
+        """更新未登记资产信息(仅待审批,白名单字段)
 
         Args:
             unregistered_code: 未登记资产编码
@@ -257,18 +343,8 @@ class UnregisteredAssetService:
             operator_jobcode: 操作人工号
             operator_name: 操作人姓名(可选)
 
-        Returns:
-            UnregisteredAsset: 更新后的记录
-
         Raises:
             AppValidationError: 记录不存在、状态不允许或字段不合法时抛出
-
-        Example:
-            >>> updated = UnregisteredAssetService.update(
-            ...     'UNR-20260526-ABC123',
-            ...     {'asset_name': '新名称'},
-            ...     operator_jobcode='EMP001'
-            ... )
         """
         # 获取记录
         unregistered = UnregisteredAssetSelector.get_by_code(unregistered_code)
@@ -287,28 +363,12 @@ class UnregisteredAssetService:
                 before_data[key] = str(value) if hasattr(value, "pk") else value
 
         # 字段白名单过滤
-        for key, value in update_data.items():
-            if key in UNREGISTERED_UPDATE_ALLOWED_FIELDS:
-                setattr(unregistered, key, value)
-            else:
-                raise AppValidationError(detail=f"不允许修改字段: {key}")
+        _apply_whitelist_edits(unregistered, update_data)
 
         unregistered.save()
 
         # 记录审计日志(延迟导入,异常捕获)
-        try:
-            from apps.unregisteredasset.audit_adapter import UnregisteredAssetAuditAdapter
-
-            UnregisteredAssetAuditAdapter.log_update(
-                unregistered=unregistered,
-                before_data=before_data,
-                after_data=update_data,
-                operator_jobcode=operator_jobcode,
-                operator_name=operator_name,
-            )
-        except Exception as e:
-            # 【P2-10 修复】审计异常记录日志便于排查,但不影响主流程
-            logger.warning(f"审计日志记录失败(update): {e}", exc_info=True)
+        _log_update_audit(unregistered, before_data, update_data, operator_jobcode, operator_name)
 
         return unregistered
 
@@ -321,113 +381,32 @@ class UnregisteredAssetService:
         operator_name: str | None = None,
         approval_remark: str = "",
     ) -> dict[str, Any]:
-        """
-        审批并处理未登记资产
+        """审批并处理未登记资产(状态机/审计解耦)
 
-        【AGENTS 规范 - 状态机解耦】显式调用状态机适配器
-        【AGENTS 规范 - 审计解耦】显式记录操作日志
-
-        根据场景类型和处理方式执行不同的业务逻辑:
-        - S1 + create_and_recycle: 创建资产 → 状态设为 recycled_pending → 创建回收记录
-        - S1 + create_and_damaged: 创建资产 → 状态设为 damaged → 创建待报废记录
-        - S2 + supplement_and_recycle: 补建出库记录 → 强制回收
-        - S3 + correct_and_recycle: 强制回收
-        - reject: 拒绝处理,仅更新审批状态
+        处理分支: create_and_recycle / create_and_damaged(创建并回收/报废),
+        supplement_and_recycle(补建出库并回收), correct_and_recycle(修正并回收),
+        reject(仅拒批不设 APPROVED)。
 
         Args:
             unregistered_code: 未登记资产编码
             handle_type: 处理方式
-                - create_and_recycle: 创建并回收
-                - create_and_damaged: 创建并报废
-                - supplement_and_recycle: 补建并回收
-                - correct_and_recycle: 修正并回收
-                - reject: 拒绝
             approver: 审批人工号
             operator_name: 审批人姓名(可选)
             approval_remark: 审批备注(可选)
 
         Returns:
-            Dict[str, Any]: 处理结果,包含:
-                - action: 执行的操作类型
-                - asset_code: 创建的资产编码(如适用)
-                - recycle_id: 回收记录ID(如适用)
-                - damaged_id: 待报废记录ID(如适用)
+            Dict[str, Any]: 处理结果(含 action/asset_code/recycle_id/damaged_id)
 
         Raises:
             AppValidationError: 状态不允许、处理方式不匹配或处理失败时抛出
-
-        Example:
-            >>> result = UnregisteredAssetService.approve_and_handle(
-            ...     'UNR-20260526-ABC123',
-            ...     handle_type='create_and_recycle',
-            ...     approver='ADMIN001'
-            ... )
-            >>> print(result)
-            {'action': 'create_and_recycle', 'asset_code': 'AST-20260526-XXXXXX', 'recycle_id': 1}
         """
-        # 获取记录(行级锁,防止并发审批竞态)
-        unregistered = UnregisteredAssetSelector.get_by_code_for_update(unregistered_code)
-        if not unregistered:
-            raise AppValidationError(detail=f"未登记资产 {unregistered_code} 不存在")
-
-        # 校验审批状态
-        if unregistered.approval_status != UnregisteredAsset.ApprovalStatus.PENDING:
-            raise AppValidationError(detail=f"当前状态 {unregistered.approval_status} 不允许审批")
-
-        # 验证处理方式与场景匹配
-        _validate_handle_type(unregistered.scenario_type, handle_type)
-
-        # 设置审批信息
-        from apps.usermanagement.selectors import EmployeeSelector
-
-        approver_employee = EmployeeSelector.get_employee_by_jobcode(approver)
-        if not approver_employee:
-            raise AppValidationError(detail=f"审批人 {approver} 不存在")
-
-        unregistered.handle_type = handle_type
-        unregistered.approver = approver_employee
-        unregistered.approval_date = timezone.now().date()
-        unregistered.approval_remark = approval_remark
-
-        result = {}
-
-        # 根据处理方式执行不同逻辑
-        if handle_type == "reject":
-            unregistered.approval_status = UnregisteredAsset.ApprovalStatus.REJECTED
-            result = {"action": "reject"}
-
-        elif handle_type == "create_and_recycle":
-            result = _handle_s1_create_and_recycle(unregistered, approver_employee)  # type: ignore[arg-type]
-            unregistered.approval_status = UnregisteredAsset.ApprovalStatus.APPROVED
-
-        elif handle_type == "create_and_damaged":
-            result = _handle_s1_create_and_damaged(unregistered, approver_employee)  # type: ignore[arg-type]
-            unregistered.approval_status = UnregisteredAsset.ApprovalStatus.APPROVED
-
-        elif handle_type == "supplement_and_recycle":
-            result = _handle_s2_supplement_and_recycle(unregistered, approver_employee)  # type: ignore[arg-type]
-            unregistered.approval_status = UnregisteredAsset.ApprovalStatus.APPROVED
-
-        elif handle_type == "correct_and_recycle":
-            result = _handle_s3_correct_and_recycle(unregistered, approver_employee)  # type: ignore[arg-type]
-            unregistered.approval_status = UnregisteredAsset.ApprovalStatus.APPROVED
-
-        unregistered.save()
+        unregistered, approver_employee = _prepare_approval(
+            unregistered_code, handle_type, approver, approval_remark
+        )
+        result = _execute_handle(unregistered, handle_type, approver_employee)
 
         # 记录审计日志(延迟导入,异常捕获)
-        try:
-            from apps.unregisteredasset.audit_adapter import UnregisteredAssetAuditAdapter
-
-            UnregisteredAssetAuditAdapter.log_approve(
-                unregistered=unregistered,
-                handle_type=handle_type,
-                result=result,
-                operator_jobcode=approver_employee,  # type: ignore[arg-type]
-                operator_name=operator_name,
-            )
-        except Exception as e:
-            # 【P2-10 修复】审计异常记录日志便于排查,但不影响主流程
-            logger.warning(f"审计日志记录失败(approve): {e}", exc_info=True)
+        _log_approve_audit(unregistered, handle_type, result, approver_employee, operator_name)
 
         return result
 
@@ -473,3 +452,44 @@ class UnregisteredAssetService:
 
         # 执行软删除
         unregistered.delete()
+
+    @staticmethod
+    def batch_delete_unregistered(
+        ids: list[str], operator_jobcode: str, operator_name: str | None = None
+    ) -> dict[str, Any]:
+        """批量删除未登记资产(软删除,仅待审批)
+
+        【分层收敛】视图层手写循环(views.batch_delete)下沉至 Service,复用
+        BatchOperationMixin.batch_delete_execute 逐条事务包裹。单条失败以
+        AppValidationError(error_code) 抛出,由框架映射为 NOT_FOUND /
+        STATUS_NOT_ALLOWED / VALIDATION_ERROR / INTERNAL_ERROR 结构。
+
+        Args:
+            ids: 待删除编码列表
+            operator_jobcode: 操作人工号
+            operator_name: 操作人姓名(可选)
+
+        Returns:
+            dict: batch_delete_execute 统一结果(total/success_count/fail_count/
+                success_ids/fail_items)
+        """
+        from core.batch_mixins import BatchOperationMixin
+
+        def _delete_item(item_id: str) -> None:
+            instance = UnregisteredAssetSelector.get_by_code(item_id)
+            if not instance:
+                raise AppValidationError(detail=f"未登记资产 {item_id} 不存在", error_code="NOT_FOUND")
+            if not instance.can_delete():
+                raise AppValidationError(
+                    detail=f"当前审批状态为 {instance.approval_status},不允许删除",
+                    error_code="STATUS_NOT_ALLOWED",
+                )
+            UnregisteredAssetService.delete(
+                unregistered_code=item_id,
+                operator_jobcode=operator_jobcode,
+                operator_name=operator_name,
+            )
+
+        return BatchOperationMixin.batch_delete_execute(
+            ids=ids, process_fn=_delete_item, max_batch_size=MAX_BATCH_SIZE
+        )

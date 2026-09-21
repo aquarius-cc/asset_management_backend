@@ -139,11 +139,6 @@ class DamagedAssetService:
         """
         审批通过待报废申请
 
-        Args:
-            asset_recordcode_code: 资产recordcode
-            approver_jobcode: 审批人工号
-            operator_name: 审批人姓名
-
         Returns:
             Dict: 包含damaged_asset和waste_asset的字典
         """
@@ -188,7 +183,16 @@ class DamagedAssetService:
             operator_name=operator_name,
         )
 
-        # P1-8 通知:审批通过 → 事务提交后发给资产所属部门所有 dept_manager(B6)
+        DamagedAssetService._notify_waste_approved(asset)
+
+        return {
+            "damaged_asset": damaged_asset,
+            "waste_asset": waste_asset,
+        }
+
+    @staticmethod
+    def _notify_waste_approved(asset: Asset) -> None:
+        """P1-8 通知:审批通过 → 事务提交后发给资产所属部门所有 dept_manager(B6)"""
         from apps.notification.helpers import send_notification_on_commit
 
         send_notification_on_commit(
@@ -199,11 +203,6 @@ class DamagedAssetService:
             priority="high",
             related_url=f"/main/assetdetails/{asset.asset_code}",
         )
-
-        return {
-            "damaged_asset": damaged_asset,
-            "waste_asset": waste_asset,
-        }
 
     @staticmethod
     @transaction.atomic

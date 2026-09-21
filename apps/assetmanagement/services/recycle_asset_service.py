@@ -50,13 +50,48 @@ class RecycleAssetService:
         - recycle_asset_recycle_person_jobcode: Employee 对象或 employee_jobcode 字符串
         - asset_recordcode: 可选,未提供时从 outasset 自动推导
         """
-        storage_obj = recycle_data.pop("recycle_asset_storage", None)
-        recycle_person_obj = recycle_data.pop("recycle_asset_recycle_person_jobcode", None)
+        storage_obj, recycle_person_obj, asset = RecycleAssetService._normalize_recycle_input(
+            recycle_data, operator_jobcode
+        )
 
-        if storage_obj is not None and not isinstance(storage_obj, Storage):
-            storage_obj = Storage.objects.filter(storage_code=str(storage_obj)).first()
-        if recycle_person_obj is not None and not isinstance(recycle_person_obj, Employee):
-            recycle_person_obj = EmployeeSelector.get_employee_by_jobcode(str(recycle_person_obj))
+        is_broken = recycle_data.pop("is_broken", False)
+        broken_reason = recycle_data.pop("broken_reason", "")
+        is_lost = recycle_data.pop("is_lost", False)
+        lost_reason = recycle_data.pop("lost_reason", "")
+
+        recycle_asset = RecycleAsset.objects.create(**recycle_data)
+
+        asset = Asset.objects.select_for_update().get(pk=asset.pk)
+
+        # AC-32/AC-33: 回收时标记损坏/遗失
+        if is_broken:
+            # 回收 → recycled_pending → broken(两次 FSM 转换合并为一次 save)
+            RecycleAssetService._finalize_broken_or_lost(
+                asset, storage_obj, recycle_person_obj, recycle_asset,
+                operator_jobcode, operator_name,
+                is_broken=True, reason=broken_reason,
+            )
+        elif is_lost:
+            RecycleAssetService._finalize_broken_or_lost(
+                asset, storage_obj, recycle_person_obj, recycle_asset,
+                operator_jobcode, operator_name,
+                is_broken=False, reason=lost_reason,
+            )
+        else:
+            # 正常回收(无损坏/遗失标记)
+            RecycleAssetService._do_recycle_asset_update(
+                asset, storage_obj, recycle_person_obj, recycle_asset,
+                operator_jobcode, operator_name,
+            )
+
+        return recycle_asset  # type: ignore[no-any-return]
+
+    @staticmethod
+    def _normalize_recycle_input(
+        recycle_data: dict[str, Any], operator_jobcode: str | None
+    ) -> tuple[Storage | None, Employee | None, "Asset"]:
+        """归一化回收入参:storage/person 对象化、outasset 解析、资产状态校验、operator 回填"""
+        storage_obj, recycle_person_obj = RecycleAssetService._normalize_recycle_refs(recycle_data)
 
         outasset_recordcode = recycle_data.get("outasset_recordcode")
         if not outasset_recordcode:
@@ -70,9 +105,12 @@ class RecycleAssetService:
         recycle_data["outasset_recordcode"] = outasset
 
         asset = outasset.asset_recordcode
-        if asset.asset_current_status != Asset.AssetStatus.IN_USE:  # type: ignore[union-attr]
+        if asset is None:
+            raise AppValidationError(detail="出库记录未关联有效资产", error_code="OUTASSET_ASSET_MISSING")
+
+        if asset.asset_current_status != Asset.AssetStatus.IN_USE:
             raise AppValidationError(
-                detail=f"资产当前状态为 {asset.asset_current_status},不能回收",  # type: ignore[union-attr]
+                detail=f"资产当前状态为 {asset.asset_current_status},不能回收",
                 error_code="INVALID_ASSET_STATUS_FOR_RECYCLE",
             )
 
@@ -87,86 +125,74 @@ class RecycleAssetService:
             if operator_employee:
                 recycle_data["operator_employee"] = operator_employee
 
-        is_broken = recycle_data.pop("is_broken", False)
-        broken_reason = recycle_data.pop("broken_reason", "")
-        is_lost = recycle_data.pop("is_lost", False)
-        lost_reason = recycle_data.pop("lost_reason", "")
+        return storage_obj, recycle_person_obj, asset
 
-        recycle_asset = RecycleAsset.objects.create(**recycle_data)
+    @staticmethod
+    def _normalize_recycle_refs(recycle_data: dict[str, Any]) -> tuple[Storage | None, Employee | None]:
+        """对象化回收入参:storage/person 字符串 → 模型对象"""
+        storage_obj = recycle_data.pop("recycle_asset_storage", None)
+        recycle_person_obj = recycle_data.pop("recycle_asset_recycle_person_jobcode", None)
 
-        asset = Asset.objects.select_for_update().get(pk=asset.pk)  # type: ignore[union-attr]
+        if storage_obj is not None and not isinstance(storage_obj, Storage):
+            storage_obj = Storage.objects.filter(storage_code=str(storage_obj)).first()
+        if recycle_person_obj is not None and not isinstance(recycle_person_obj, Employee):
+            recycle_person_obj = EmployeeSelector.get_employee_by_jobcode(str(recycle_person_obj))
 
-        # AC-32/AC-33: 回收时标记损坏/遗失
-        if is_broken:
-            # 回收 → recycled_pending → broken(两次 FSM 转换合并为一次 save)
-            RecycleAssetService._do_recycle_asset_update(
-                asset, storage_obj, recycle_person_obj, recycle_asset,
-                operator_jobcode, operator_name,
-            )
-            try:
+        return storage_obj, recycle_person_obj
+
+    @staticmethod
+    def _finalize_broken_or_lost(
+        asset: Asset,
+        storage_obj: "Storage | None",
+        recycle_person_obj: "Employee | None",
+        recycle_asset: RecycleAsset,
+        operator_jobcode: str | None,
+        operator_name: str | None,
+        *,
+        is_broken: bool,
+        reason: str,
+    ) -> None:
+        """回收时标记损坏/遗失(AC-32/AC-33):公共更新 + 二次 FSM 转换 + 审计 + 子记录"""
+        RecycleAssetService._do_recycle_asset_update(
+            asset, storage_obj, recycle_person_obj, recycle_asset,
+            operator_jobcode, operator_name,
+        )
+        try:
+            if is_broken:
                 AssetFSM.mark_broken(asset)
-            except InvalidTransitionError as e:
-                raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
-            asset.save(update_fields=["asset_current_status"])
+            else:
+                AssetFSM.mark_lost(asset)
+        except InvalidTransitionError as e:
+            raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
+        asset.save(update_fields=["asset_current_status"])
 
-            # AC-61: 记录第二次 FSM 转换(recycled_pending → broken)
-            fallback_jobcode = recycle_person_obj.employee_jobcode if recycle_person_obj else None
-            AuditLogger.log_state_change(
-                asset=asset,
-                from_state=Asset.AssetStatus.RECYCLED_PENDING,
-                to_state=Asset.AssetStatus.BROKEN,
-                trigger="recycle_mark_broken",
-                operator_jobcode=operator_jobcode or fallback_jobcode,
-                operator_name=operator_name or "",
-            )
+        # AC-61: 记录第二次 FSM 转换(recycled_pending → broken/lost)
+        fallback_jobcode = recycle_person_obj.employee_jobcode if recycle_person_obj else None
+        AuditLogger.log_state_change(
+            asset=asset,
+            from_state=Asset.AssetStatus.RECYCLED_PENDING,
+            to_state=Asset.AssetStatus.BROKEN if is_broken else Asset.AssetStatus.LOST,
+            trigger="recycle_mark_broken" if is_broken else "recycle_mark_lost",
+            operator_jobcode=operator_jobcode or fallback_jobcode,
+            operator_name=operator_name or "",
+        )
 
+        if is_broken:
             BrokenAsset.objects.create(
                 asset_recordcode=asset,
                 broken_date=recycle_asset.recycle_asset_date,
-                broken_reason=broken_reason or "回收时发现损坏",
+                broken_reason=reason or "回收时发现损坏",
                 broken_description=f"回收时发现损坏,回收记录: {recycle_asset.recordcode}",
                 operator_employee=recycle_person_obj,
             )
-
-        elif is_lost:
-            # 回收 → recycled_pending → lost(两次 FSM 转换合并为一次 save)
-            RecycleAssetService._do_recycle_asset_update(
-                asset, storage_obj, recycle_person_obj, recycle_asset,
-                operator_jobcode, operator_name,
-            )
-            try:
-                AssetFSM.mark_lost(asset)
-            except InvalidTransitionError as e:
-                raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
-            asset.save(update_fields=["asset_current_status"])
-
-            # AC-61: 记录第二次 FSM 转换(recycled_pending → lost)
-            fallback_jobcode = recycle_person_obj.employee_jobcode if recycle_person_obj else None
-            AuditLogger.log_state_change(
-                asset=asset,
-                from_state=Asset.AssetStatus.RECYCLED_PENDING,
-                to_state=Asset.AssetStatus.LOST,
-                trigger="recycle_mark_lost",
-                operator_jobcode=operator_jobcode or fallback_jobcode,
-                operator_name=operator_name or "",
-            )
-
+        else:
             LostAsset.objects.create(
                 asset_recordcode=asset,
                 lost_date=recycle_asset.recycle_asset_date,
-                lost_reason=lost_reason or "回收时发现遗失",
+                lost_reason=reason or "回收时发现遗失",
                 lost_description=f"回收时发现遗失,回收记录: {recycle_asset.recordcode}",
                 operator_employee=recycle_person_obj,
             )
-
-        else:
-            # 正常回收(无损坏/遗失标记)
-            RecycleAssetService._do_recycle_asset_update(
-                asset, storage_obj, recycle_person_obj, recycle_asset,
-                operator_jobcode, operator_name,
-            )
-
-        return recycle_asset  # type: ignore[no-any-return]
 
     @staticmethod
     def _do_recycle_asset_update(

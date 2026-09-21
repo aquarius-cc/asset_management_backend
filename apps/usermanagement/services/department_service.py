@@ -120,20 +120,9 @@ class DepartmentService:
 
         核心业务逻辑:
         1. 验证目标父部门存在性
-        2. 检查循环引用(不能移动到自己的子部门下)
-        3. 验证层级约束(移动后不超过 6 层)
-        4. 更新当前部门及其所有子部门的层级和路径
-
-        Args:
-            department_code: 要移动的部门编码
-            target_parent_code: 目标父部门编码,None 表示成为根部门
-
-        Returns:
-            Department: 更新后的部门实例
-
-        Raises:
-            BusinessLogicError: 循环引用或层级超限
-            ValidationError: 部门不存在
+        2. 检查循环引用
+        3. 验证层级约束(不超过 6 层)
+        4. 更新当前部门及所有子部门的层级和路径
         """
         # 获取要移动的部门
         department = DepartmentSelector.get_department_by_code(department_code)
@@ -143,20 +132,30 @@ class DepartmentService:
         old_path = department.path
         old_level = department.level
 
-        # 如果目标父部门为 None,移动为根部门
+        # 移动为根部门
         if target_parent_code is None:
-            new_level = 0
-            department.parent = None
-            department.level = new_level
-            department.path = f"/{department.department_code}"
-            department.save(update_fields=["parent", "level", "path"])
+            return DepartmentService._move_to_root(department, old_path, old_level)
 
-            # 更新所有子孙的 path 和 level
-            DepartmentService._update_children_paths_and_levels(department, old_path, old_level)
+        target_parent, new_level = DepartmentService._validate_move_hierarchy(
+            department_code, department, target_parent_code
+        )
 
-            return department
+        # 更新部门信息
+        department.parent = target_parent
+        department.level = new_level
+        department.path = DepartmentService._generate_path(target_parent.path, department.department_code)
+        department.save(update_fields=["parent", "level", "path"])
 
-        # 验证目标父部门存在
+        # 更新所有子孙的 path 和 level
+        DepartmentService._update_children_paths_and_levels(department, old_path, old_level)
+
+        return department
+
+    @staticmethod
+    def _validate_move_hierarchy(
+        department_code: str, department: Department, target_parent_code: str
+    ) -> tuple[Department, int]:
+        """验证移动层级合法性:目标存在、无循环引用、深度不超限,返回目标父部门与新层级"""
         target_parent = DepartmentSelector.get_department_by_code(target_parent_code)
         if not target_parent:
             raise AppValidationError(
@@ -188,10 +187,14 @@ class DepartmentService:
                 detail=f"移动后部门层级将超过 {MAX_DEPARTMENT_LEVEL} 层限制", error_code="DEPARTMENT_LEVEL_EXCEEDED"
             )
 
-        # 更新部门信息
-        department.parent = target_parent
-        department.level = new_level
-        department.path = DepartmentService._generate_path(target_parent.path, department.department_code)
+        return target_parent, new_level
+
+    @staticmethod
+    def _move_to_root(department: Department, old_path: str, old_level: int) -> Department:
+        """将部门移动为根部门:层级 0、父级 None、路径重置并级联更新子孙"""
+        department.parent = None
+        department.level = 0
+        department.path = f"/{department.department_code}"
         department.save(update_fields=["parent", "level", "path"])
 
         # 更新所有子孙的 path 和 level

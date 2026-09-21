@@ -1,5 +1,6 @@
 """回收资产管理服务测试"""
 
+import unittest.mock as mock
 from datetime import date
 
 import pytest
@@ -11,7 +12,9 @@ from apps.assetmanagement.models import (
     LostAsset,
     OutAsset,
 )
+from apps.assetmanagement.services import recycle_asset_service
 from apps.assetmanagement.services.recycle_asset_service import RecycleAssetService
+from apps.assetmanagement.state_machine import InvalidTransitionError
 from core.exceptions import AppValidationError
 
 
@@ -340,3 +343,43 @@ class TestReissueRecycleAsset:
         with pytest.raises(AppValidationError) as exc_info:
             RecycleAssetService.reissue_recycle_asset(recycle_asset.recordcode)
         assert exc_info.value.error_code == "INVALID_ASSET_STATUS_FOR_REISSUE"
+
+
+@pytest.mark.django_db
+class TestDefensiveBranches:
+    """CT-3/CT-4 (2026-09-21 B1 拆分配套):覆盖 create_recycle_asset 防御分支"""
+
+    @mock.patch("apps.assetmanagement.services.recycle_asset_service.AssetFSM.mark_broken")
+    def test_broken_secondary_fsm_failure_raises(self, mock_mark_broken, out_asset, storage, user):
+        mock_mark_broken.side_effect = InvalidTransitionError("broken 转换不允许")
+        with pytest.raises(AppValidationError) as exc_info:
+            RecycleAssetService.create_recycle_asset(
+                {
+                    "outasset_recordcode": out_asset,
+                    "recycle_asset_storage": storage,
+                    "recycle_asset_recycle_person_jobcode": user,
+                    "recycle_asset_date": date.today(),
+                    "is_broken": True,
+                }
+            )
+        assert exc_info.value.error_code == "INVALID_STATE_TRANSITION"
+
+    def test_outasset_without_related_asset_raises(self, storage, user):
+        """防御分支:出库记录未关联资产 → OUTASSET_ASSET_MISSING(回收流程不进入)"""
+        fake_outasset = mock.MagicMock()
+        fake_outasset.asset_recordcode = None
+        with mock.patch.object(
+            recycle_asset_service.OutAssetSelector,
+            "get_outasset_by_record_code",
+            return_value=fake_outasset,
+        ):
+            with pytest.raises(AppValidationError) as exc_info:
+                RecycleAssetService.create_recycle_asset(
+                    {
+                        "outasset_recordcode": "OUT_WITHOUT_ASSET",
+                        "recycle_asset_storage": storage,
+                        "recycle_asset_recycle_person_jobcode": user,
+                        "recycle_asset_date": date.today(),
+                    }
+                )
+        assert exc_info.value.error_code == "OUTASSET_ASSET_MISSING"

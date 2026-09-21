@@ -45,11 +45,7 @@ class OutAssetService:
         if not asset:
             raise AppValidationError(detail="缺少资产编码", error_code="MISSING_ASSET_CODE")
 
-        if asset.asset_current_status not in [Asset.AssetStatus.IN_STORE, Asset.AssetStatus.RECYCLED_PENDING]:
-            raise AppValidationError(
-                detail=f"资产当前状态为 {asset.asset_current_status},不能出库",
-                error_code="ILLEGAL_OUTASSET",  # 2001: 非法出库
-            )
+        OutAssetService._validate_outasset_source(asset)
 
         outasset_data["outasset_previous_status"] = asset.asset_current_status
 
@@ -62,10 +58,42 @@ class OutAssetService:
         outasset_data["outasset_manager_recordcode"] = manager
         outasset_data["outasset_using_location"] = using_location
 
-        # 构建 JSON 快照(包含恢复所需的所有字段)
-        # 【P0-2 修复】applicant/manager/using_location 为出库单目标值(仅追溯展示);
-        # original_* 为出库前资产原值,取消出库时用于恢复原始字段。
-        snapshot = {
+        outasset_data["outasset_snapshot"] = OutAssetService._build_outasset_snapshot(
+            asset, applicant, manager, using_location
+        )
+
+        outasset = OutAsset.objects.create(**outasset_data)
+
+        asset = OutAssetService._apply_outasset_to_asset(asset, applicant, manager, using_location)
+
+        AuditLogger.log_asset_out(
+            asset=asset,
+            outrecordcode=outasset.recordcode,
+            operator_jobcode=operator_jobcode or (applicant.employee_jobcode if applicant else None),
+            operator_name=operator_name,
+        )
+
+        return outasset  # type: ignore[no-any-return]
+
+    @staticmethod
+    def _validate_outasset_source(asset: Asset) -> None:
+        """校验出库源状态:仅 in_store / recycled_pending 允许出库"""
+        if asset.asset_current_status not in [Asset.AssetStatus.IN_STORE, Asset.AssetStatus.RECYCLED_PENDING]:
+            raise AppValidationError(
+                detail=f"资产当前状态为 {asset.asset_current_status},不能出库",
+                error_code="ILLEGAL_OUTASSET",  # 2001: 非法出库
+            )
+
+    @staticmethod
+    def _build_outasset_snapshot(
+        asset: Asset, applicant: Any, manager: Any, using_location: Any
+    ) -> dict[str, Any]:
+        """构建 JSON 快照(包含恢复所需的所有字段)
+
+        【P0-2 修复】applicant/manager/using_location 为出库单目标值(仅追溯展示);
+        original_* 为出库前资产原值,取消出库时用于恢复原始字段。
+        """
+        return {
             "applicant": {
                 "jobcode": applicant.employee_jobcode if applicant else None,
                 "name": applicant.employee_name if applicant else None,
@@ -100,10 +128,10 @@ class OutAssetService:
             ),
             "original_using_location": asset.asset_using_location,
         }
-        outasset_data["outasset_snapshot"] = snapshot
 
-        outasset = OutAsset.objects.create(**outasset_data)
-
+    @staticmethod
+    def _apply_outasset_to_asset(asset: Asset, applicant: Any, manager: Any, using_location: Any) -> Asset:
+        """锁行并执行出库:FSM 转换 + 资产字段变化 + 定向 save"""
         asset = Asset.objects.select_for_update().get(pk=asset.pk)
 
         try:
@@ -131,14 +159,7 @@ class OutAssetService:
             update_fields.append("asset_using_location")
         asset.save(update_fields=update_fields)
 
-        AuditLogger.log_asset_out(
-            asset=asset,
-            outrecordcode=outasset.recordcode,
-            operator_jobcode=operator_jobcode or (applicant.employee_jobcode if applicant else None),
-            operator_name=operator_name,
-        )
-
-        return outasset  # type: ignore[no-any-return]
+        return asset
 
     @staticmethod
     @transaction.atomic
@@ -201,99 +222,103 @@ class OutAssetService:
     ) -> dict[str, Any]:
         from core.batch_mixins import BatchOperationMixin
 
-        def _delete_one(recordcode: str) -> None:
-            outasset = OutAsset.objects.select_for_update().filter(recordcode=recordcode, is_deleted=False).first()
-            if not outasset:
-                raise AppValidationError(detail=f"出库记录 {recordcode} 不存在", error_code="NOT_FOUND")
+        return BatchOperationMixin.batch_delete_execute(
+            ids=recordcodes,
+            process_fn=lambda recordcode: OutAssetService._delete_one(
+                recordcode, operator_jobcode, operator_name
+            ),
+        )
 
-            asset = Asset.objects.select_for_update().get(pk=outasset.asset_recordcode.pk)  # type: ignore[union-attr]
-            if asset.asset_current_status != Asset.AssetStatus.IN_USE:
-                raise AppValidationError(
-                    detail=f"关联资产当前状态为 {asset.asset_current_status},不允许删除出库记录",
-                    error_code="STATUS_NOT_ALLOWED",
-                )
-            if RecycleAsset.objects.filter(outasset_recordcode=outasset, is_deleted=False).exists():
-                raise AppValidationError(detail="出库记录存在关联回收记录,不允许删除", error_code="HAS_RECYCLE_RECORDS")
+    @staticmethod
+    def _delete_one(recordcode: str, operator_jobcode: str | None = None, operator_name: str | None = None) -> None:
+        outasset = OutAsset.objects.select_for_update().filter(recordcode=recordcode, is_deleted=False).first()
+        if not outasset:
+            raise AppValidationError(detail=f"出库记录 {recordcode} 不存在", error_code="NOT_FOUND")
 
-            previous_status = outasset.outasset_previous_status or Asset.AssetStatus.IN_STORE
-
-            # 保存快照数据用于恢复资产字段
-            snapshot = outasset.outasset_snapshot or {}
-
-            outasset.delete()
-
-            try:
-                AssetFSM.cancel_outasset(asset, previous_status)
-            except InvalidTransitionError as e:
-                raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
-
-            # 从快照恢复资产字段(而非清空为 None)
-            update_fields = ["asset_current_status"]
-
-            # 恢复申请人:优先用出库前原值(original_*),含原值为 None→置 None 双向
-            if "original_applicant" in snapshot:
-                original = snapshot["original_applicant"]
-                if original and original.get("jobcode"):
-                    from apps.usermanagement.selectors import EmployeeSelector
-
-                    applicant = EmployeeSelector.get_employee_by_jobcode(original["jobcode"])
-                    asset.asset_applicant_recordcode = applicant  # 查不到则置 None(出库前原值不可达)
-                else:
-                    asset.asset_applicant_recordcode = None
-                update_fields.append("asset_applicant_recordcode")
-            elif snapshot.get("applicant") and snapshot["applicant"].get("jobcode"):
-                from apps.usermanagement.selectors import EmployeeSelector
-
-                applicant = EmployeeSelector.get_employee_by_jobcode(snapshot["applicant"]["jobcode"])
-                if applicant:
-                    asset.asset_applicant_recordcode = applicant
-                    update_fields.append("asset_applicant_recordcode")
-
-            # 恢复保管人:优先用出库前原值
-            if "original_manager" in snapshot:
-                original = snapshot["original_manager"]
-                if original and original.get("jobcode"):
-                    from apps.usermanagement.selectors import EmployeeSelector
-
-                    manager = EmployeeSelector.get_employee_by_jobcode(original["jobcode"])
-                    asset.asset_manager_recordcode = manager  # 查不到则置 None
-                else:
-                    asset.asset_manager_recordcode = None
-                update_fields.append("asset_manager_recordcode")
-            elif snapshot.get("manager") and snapshot["manager"].get("jobcode"):
-                from apps.usermanagement.selectors import EmployeeSelector
-
-                manager = EmployeeSelector.get_employee_by_jobcode(snapshot["manager"]["jobcode"])
-                if manager:
-                    asset.asset_manager_recordcode = manager
-                    update_fields.append("asset_manager_recordcode")
-
-            # 恢复使用地点:优先用出库前原值(原值为 None 时置 None)
-            if "original_using_location" in snapshot:
-                asset.asset_using_location = snapshot["original_using_location"]
-                update_fields.append("asset_using_location")
-            elif snapshot.get("using_location"):
-                asset.asset_using_location = snapshot["using_location"]
-                update_fields.append("asset_using_location")
-
-            # 恢复仓库(仅当原状态为 in_store 时,从快照恢复)
-            if previous_status == Asset.AssetStatus.IN_STORE and snapshot.get("asset_storage_recordcode"):
-                from apps.assetmanagement.models import Storage
-
-                storage = Storage.objects.filter(recordcode=snapshot["asset_storage_recordcode"]).first()
-                if storage:
-                    asset.asset_storage_recordcode = storage
-                    update_fields.append("asset_storage_recordcode")
-
-            asset.save(update_fields=update_fields)
-
-            AuditLogger.log_state_change(
-                asset=asset,
-                from_state=Asset.AssetStatus.IN_USE,
-                to_state=previous_status,
-                trigger="cancel_outasset",
-                operator_jobcode=operator_jobcode,
-                operator_name=operator_name,
+        asset = Asset.objects.select_for_update().get(pk=outasset.asset_recordcode.pk)  # type: ignore[union-attr]
+        if asset.asset_current_status != Asset.AssetStatus.IN_USE:
+            raise AppValidationError(
+                detail=f"关联资产当前状态为 {asset.asset_current_status},不允许删除出库记录",
+                error_code="STATUS_NOT_ALLOWED",
             )
+        if RecycleAsset.objects.filter(outasset_recordcode=outasset, is_deleted=False).exists():
+            raise AppValidationError(detail="出库记录存在关联回收记录,不允许删除", error_code="HAS_RECYCLE_RECORDS")
 
-        return BatchOperationMixin.batch_delete_execute(ids=recordcodes, process_fn=_delete_one)
+        previous_status = outasset.outasset_previous_status or Asset.AssetStatus.IN_STORE
+
+        outasset.delete()
+
+        try:
+            AssetFSM.cancel_outasset(asset, previous_status)
+        except InvalidTransitionError as e:
+            raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
+
+        OutAssetService._restore_asset_fields(asset, outasset, previous_status)
+
+        AuditLogger.log_state_change(
+            asset=asset,
+            from_state=Asset.AssetStatus.IN_USE,
+            to_state=previous_status,
+            trigger="cancel_outasset",
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+        )
+
+    @staticmethod
+    def _restore_asset_fields(asset: Asset, outasset: OutAsset, previous_status: str) -> None:
+        """从快照恢复资产字段(而非清空为 None)
+
+        恢复语义:original_* 原值优先(落空置 None),降级用出库单目标值;
+        仅当原状态 in_store 时从快照恢复仓库。
+        """
+        snapshot = outasset.outasset_snapshot or {}
+
+        update_fields = ["asset_current_status"]
+
+        for original_key, fallback_key, field_attr in (
+            ("original_applicant", "applicant", "asset_applicant_recordcode"),
+            ("original_manager", "manager", "asset_manager_recordcode"),
+        ):
+            restore, value = OutAssetService._resolve_snapshot_employee(
+                snapshot, original_key, fallback_key
+            )
+            if restore:
+                setattr(asset, field_attr, value)
+                update_fields.append(field_attr)
+
+        if "original_using_location" in snapshot:
+            asset.asset_using_location = snapshot["original_using_location"]
+            update_fields.append("asset_using_location")
+        elif snapshot.get("using_location"):
+            asset.asset_using_location = snapshot["using_location"]
+            update_fields.append("asset_using_location")
+
+        # 恢复仓库(仅当原状态为 in_store 时,从快照恢复)
+        if previous_status == Asset.AssetStatus.IN_STORE and snapshot.get("asset_storage_recordcode"):
+            from apps.assetmanagement.models import Storage
+
+            storage = Storage.objects.filter(recordcode=snapshot["asset_storage_recordcode"]).first()
+            if storage:
+                asset.asset_storage_recordcode = storage
+                update_fields.append("asset_storage_recordcode")
+
+        asset.save(update_fields=update_fields)
+
+    @staticmethod
+    def _resolve_snapshot_employee(
+        snapshot: dict[str, Any], original_key: str, fallback_key: str
+    ) -> tuple[bool, Any]:
+        """解析快照员工:original 键在则必须覆盖(含落空置 None),否则尝试 fallback 定向"""
+        if original_key in snapshot:
+            original = snapshot[original_key]
+            if original and original.get("jobcode"):
+                from apps.usermanagement.selectors import EmployeeSelector
+
+                return True, EmployeeSelector.get_employee_by_jobcode(original["jobcode"])
+            return True, None
+        fallback = snapshot.get(fallback_key)
+        if fallback and fallback.get("jobcode"):
+            from apps.usermanagement.selectors import EmployeeSelector
+
+            return True, EmployeeSelector.get_employee_by_jobcode(fallback["jobcode"])
+        return False, None

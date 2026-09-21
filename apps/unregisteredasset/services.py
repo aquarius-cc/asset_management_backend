@@ -85,19 +85,24 @@ def _validate_create_scenario(data: dict[str, Any]) -> None:
         raise AppValidationError(detail="S1场景不应关联现有资产")
 
 
-def _log_create_audit(
-    unregistered: UnregisteredAsset, operator_jobcode: str, operator_name: str | None = None
-) -> None:
-    """记录创建审计日志(延迟导入,异常捕获)"""
+def _safe_call_audit(operation: str, *args: Any, **kwargs: Any) -> None:
+    """安全调用审计适配器(延迟导入,异常捕获,失败不影响主流程)"""
     try:
         from apps.unregisteredasset.audit_adapter import UnregisteredAssetAuditAdapter
 
-        UnregisteredAssetAuditAdapter.log_create(
-            unregistered=unregistered, operator_jobcode=operator_jobcode, operator_name=operator_name
-        )
+        getattr(UnregisteredAssetAuditAdapter, f"log_{operation}")(*args, **kwargs)
     except Exception as e:
         # 【P2-10 修复】审计异常记录日志便于排查,但不影响主流程
-        logger.warning(f"审计日志记录失败(create): {e}", exc_info=True)
+        logger.warning(f"审计日志记录失败({operation}): {e}", exc_info=True)
+
+
+def _log_create_audit(
+    unregistered: UnregisteredAsset, operator_jobcode: str, operator_name: str | None = None
+) -> None:
+    """记录创建审计日志(委托 _safe_call_audit)"""
+    _safe_call_audit(
+        "create", unregistered=unregistered, operator_jobcode=operator_jobcode, operator_name=operator_name
+    )
 
 
 def _apply_whitelist_edits(unregistered: UnregisteredAsset, update_data: dict[str, Any]) -> None:
@@ -116,20 +121,15 @@ def _log_update_audit(
     operator_jobcode: str,
     operator_name: str | None = None,
 ) -> None:
-    """记录更新审计日志(延迟导入,异常捕获)"""
-    try:
-        from apps.unregisteredasset.audit_adapter import UnregisteredAssetAuditAdapter
-
-        UnregisteredAssetAuditAdapter.log_update(
-            unregistered=unregistered,
-            before_data=before_data,
-            after_data=after_data,
-            operator_jobcode=operator_jobcode,
-            operator_name=operator_name,
-        )
-    except Exception as e:
-        # 【P2-10 修复】审计异常记录日志便于排查,但不影响主流程
-        logger.warning(f"审计日志记录失败(update): {e}", exc_info=True)
+    """记录更新审计日志(委托 _safe_call_audit)"""
+    _safe_call_audit(
+        "update",
+        unregistered=unregistered,
+        before_data=before_data,
+        after_data=after_data,
+        operator_jobcode=operator_jobcode,
+        operator_name=operator_name,
+    )
 
 
 def _prepare_approval(
@@ -188,20 +188,15 @@ def _log_approve_audit(
     approver_employee: Any,
     operator_name: str | None = None,
 ) -> None:
-    """记录审批审计日志(延迟导入,异常捕获)"""
-    try:
-        from apps.unregisteredasset.audit_adapter import UnregisteredAssetAuditAdapter
-
-        UnregisteredAssetAuditAdapter.log_approve(
-            unregistered=unregistered,
-            handle_type=handle_type,
-            result=result,
-            operator_jobcode=approver_employee,
-            operator_name=operator_name,
-        )
-    except Exception as e:
-        # 【P2-10 修复】审计异常记录日志便于排查,但不影响主流程
-        logger.warning(f"审计日志记录失败(approve): {e}", exc_info=True)
+    """记录审批审计日志(委托 _safe_call_audit)"""
+    _safe_call_audit(
+        "approve",
+        unregistered=unregistered,
+        handle_type=handle_type,
+        result=result,
+        operator_jobcode=approver_employee,
+        operator_name=operator_name,
+    )
 
 
 class UnregisteredAssetService:
@@ -440,15 +435,9 @@ class UnregisteredAssetService:
             raise AppValidationError(detail=f"当前状态 {unregistered.approval_status} 不允许删除")
 
         # 记录审计日志(在删除前,延迟导入,异常捕获)
-        try:
-            from apps.unregisteredasset.audit_adapter import UnregisteredAssetAuditAdapter
-
-            UnregisteredAssetAuditAdapter.log_delete(
-                unregistered=unregistered, operator_jobcode=operator_jobcode, operator_name=operator_name
-            )
-        except Exception as e:
-            # 【P2-10 修复】审计异常记录日志便于排查,但不影响主流程
-            logger.warning(f"审计日志记录失败(delete): {e}", exc_info=True)
+        _safe_call_audit(
+            "delete", unregistered=unregistered, operator_jobcode=operator_jobcode, operator_name=operator_name
+        )
 
         # 执行软删除
         unregistered.delete()

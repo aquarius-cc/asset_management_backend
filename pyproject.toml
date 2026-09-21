@@ -92,6 +92,7 @@ lint.ignore = [
     "E203",  # 与 black 冲突
     "RUF012",  # mutable class attribute: 项目采用类属性常量/列表设计
     "B904",  # raise from: 存量代码风格, 后续逐步改进
+    "PLR0915",  # 函数行数门禁由 scripts/check_function_length_guard.py (AST, BR-4 语义) 接管, ruff 侧显式关闭防止双轨
     "F405",  # settings: base 通配导入的合法用法
     "F403",  # settings: Django settings 通配导入惯例
     "RUF001",  # 中文全角括号误报（中文项目）

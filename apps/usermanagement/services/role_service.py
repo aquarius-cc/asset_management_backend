@@ -52,32 +52,42 @@ class RoleService:
         """
         为用户分配角色。
 
-        D1: data_scope 继承 Employee 部门(单入口,零漂移),忽略客户端传入。
-        D2: 分配后重算 Employee.role(当前角色 + 活跃 UserRole 最高 role_level),
-            role 变化时由 Employee.save 钩子黑名单 Token(G3 去重)。
-        M3: 自定义角色(role_code ∉ EmployeeRole.values)禁止分配。
+        D1: data_scope 继承 Employee 部门;D2: 分配后重算 Employee.role(role 变化由
+        Employee.save 钩子黑名单 Token);M3: 自定义角色(∉ EmployeeRole.values)禁止分配。
 
         Args:
             user_id: AuthUser 的 auth_id
             role_id: Role 的 id
-            operator_jobcode: 操作者工号(缺省时从请求上下文解析)
-            operator_name: 操作者姓名
-
-        Returns:
-            创建或更新的 UserRole 实例
+            operator_jobcode/operator_name: 操作者(缺省从请求上下文解析)
 
         Raises:
             AppValidationError: 用户/角色不存在,或角色为自定义角色
         """
+        auth_user, role, data_scope = RoleService._resolve_role_assignables(user_id, role_id)
+        return RoleService._commit_role_assignment(
+            auth_user=auth_user,
+            role=role,
+            data_scope=data_scope,
+            user_id=user_id,
+            role_id=role_id,
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+        )
+
+    @staticmethod
+    def _resolve_role_assignables(user_id: int, role_id: int) -> tuple[Any, Role, dict[str, Any]]:
+        """
+        解析角色分配目标:校验用户/角色存在 + M3 自定义校验 + D1 数据范围继承。
+
+        :return: (auth_user, role, data_scope)
+        """
         from apps.authusermanagement.models import AuthUser
 
-        # 校验用户存在
         try:
             auth_user = AuthUser.objects.get(auth_id=user_id)
         except AuthUser.DoesNotExist:
             raise AppValidationError(detail="用户不存在", error_code="USER_NOT_FOUND")
 
-        # 校验角色存在
         try:
             role = Role.objects.get(pk=role_id, is_deleted=False)
         except Role.DoesNotExist:
@@ -92,7 +102,20 @@ class RoleService:
 
         # D1:数据范围继承 Employee 部门(无部门→最严兜底,全局角色→all)
         data_scope = get_effective_data_scope_for_user(auth_user)
+        return auth_user, role, data_scope
 
+    @staticmethod
+    def _commit_role_assignment(
+        *,
+        auth_user: Any,
+        role: Role,
+        data_scope: dict[str, Any],
+        user_id: int,
+        role_id: int,
+        operator_jobcode: str | None,
+        operator_name: str | None,
+    ) -> UserRole:
+        """创建/更新 UserRole + D2 重算 Employee.role + 审计日志(操作者 = 实际请求操作者)"""
         # 创建或更新 UserRole
         user_role, _ = UserRole.objects.update_or_create(
             auth_user=auth_user,
@@ -103,7 +126,6 @@ class RoleService:
         # D2:重算 Employee.role(role 变化时由 Employee.save 钩子黑名单 Token)
         RoleService._recompute_employee_role(auth_user)
 
-        # 审计日志(操作者 = 实际请求操作者)
         op_jobcode, op_name = RoleService._resolve_operator(operator_jobcode, operator_name)
         RoleAuditAdapter.log_assign_role(
             user_id=user_id,

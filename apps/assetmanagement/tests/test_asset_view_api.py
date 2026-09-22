@@ -248,10 +248,13 @@ class TestAssetViewSet:
 
     def test_change_outasset_employee(self, admin_authenticated_client, asset, employee):
         url = reverse("assets-change-outasset-employee", kwargs={"recordcode": asset.recordcode})
+        # jobcode→recordcode 映射: 传 Employee.employee_jobcode, 落库 FK 应为 Employee 实例
         data = {"applicant_jobcode": employee.employee_jobcode, "manager_jobcode": employee.employee_jobcode}
         response = admin_authenticated_client.post(url, data, format="json")
-        # Service bug: assigns string jobcode to FK field — tolerate 500 until service is fixed
-        assert response.status_code in [status.HTTP_200_OK, status.HTTP_500_INTERNAL_SERVER_ERROR]
+        assert response.status_code == status.HTTP_200_OK
+        asset.refresh_from_db()
+        assert asset.asset_applicant_recordcode == employee
+        assert asset.asset_manager_recordcode == employee
 
     def test_combined_details(self, authenticated_client, asset):
         url = reverse("assets-combined-details")

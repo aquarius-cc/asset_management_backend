@@ -19,7 +19,7 @@ from apps.assetmanagement.models import (
 )
 from apps.assetmanagement.services.asset_service import AssetService
 from apps.usermanagement.models import Employee
-from core.exceptions import AppValidationError
+from core.exceptions import AppValidationError, NotFoundError
 
 
 @pytest.mark.django_db
@@ -279,11 +279,11 @@ class TestChangeOutassetEmployee:
             employee_department=user.employee_department,
             employee_phone="13800133001",
         )
-        # change_outasset_employee 通过 FK descriptor 赋值,需传 Employee 实例
+        # jobcode→recordcode 映射: 传 jobcode 字符串, Service 经 EmployeeSelector 解析为 Employee 实例
         result = AssetService.change_outasset_employee(
             asset_code="A001",
-            applicant_jobcode=user,
-            manager_jobcode=manager,
+            applicant_jobcode=user.employee_jobcode,
+            manager_jobcode=manager.employee_jobcode,
             operator_jobcode=admin_auth_user.auth_username,
             operator_name=admin_auth_user.auth_username,
             user=admin_auth_user,
@@ -296,6 +296,15 @@ class TestChangeOutassetEmployee:
         )
         assert log.operator_jobcode == admin_auth_user.auth_username
         assert log.operator_name == admin_auth_user.auth_username
+
+    def test_change_employee_jobcode_not_found(self, asset, admin_auth_user):
+        with pytest.raises(NotFoundError):
+            AssetService.change_outasset_employee(
+                asset_code="A001",
+                applicant_jobcode="U999",
+                manager_jobcode="U002",
+                user=admin_auth_user,
+            )
 
     def test_change_employee_asset_not_found(self, admin_auth_user):
         with pytest.raises(AppValidationError) as exc_info:

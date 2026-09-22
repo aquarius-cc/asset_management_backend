@@ -18,8 +18,9 @@ from apps.assetmanagement.selectors import (
     StorageSelector,
 )
 from apps.assetmanagement.state_machine import AssetFSM, AssetState, InvalidTransitionError
+from apps.usermanagement.selectors import EmployeeSelector
 from core.batch_mixins import BatchOperationMixin
-from core.exceptions import AppValidationError
+from core.exceptions import AppValidationError, NotFoundError
 
 from .asset_lifecycle_mixin import AssetLifecycleMixin
 
@@ -346,8 +347,17 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
         AssetSelector.ensure_asset_visible(asset, user)
         old_applicant = asset.asset_applicant_recordcode
         old_manager = asset.asset_manager_recordcode
-        asset.asset_applicant_recordcode = applicant_jobcode  # type: ignore[assignment]
-        asset.asset_manager_recordcode = manager_jobcode  # type: ignore[assignment]
+        # jobcode→recordcode 解析(EmployeeSelector): 员工不存在→404(NotFoundError),
+        # 避免 FK 可空静默清空或 Django `Cannot assign ... must be a Employee` 500。
+        # 顺序置于 ensure_asset_visible 之后: B12 行级可见性错误优先于员工解析(SPEC isolation 语义)
+        applicant_employee = EmployeeSelector.get_employee_by_jobcode(applicant_jobcode)
+        if applicant_employee is None:
+            raise NotFoundError(detail=f"员工 {applicant_jobcode} 不存在")
+        manager_employee = EmployeeSelector.get_employee_by_jobcode(manager_jobcode)
+        if manager_employee is None:
+            raise NotFoundError(detail=f"员工 {manager_jobcode} 不存在")
+        asset.asset_applicant_recordcode = applicant_employee
+        asset.asset_manager_recordcode = manager_employee
         AuditLogger.log_asset_update(
             asset=asset,
             before_data={"asset_applicant": str(old_applicant), "asset_manager": str(old_manager)},

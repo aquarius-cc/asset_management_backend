@@ -24,10 +24,10 @@ class BrokenLostRepairTransitionsMixin:
     @classmethod
     def mark_broken(cls, asset: "Asset") -> None:
         """
-        标记损坏: (in_store|recycled_pending) → broken
+        标记损坏: (in_store|in_use|recycled_pending) → broken
 
         将资产标记为已损坏状态,直接生效无需审批。
-        支持从在库或待发放状态直接标记。
+        支持从在库、在用或待发放状态直接标记。
         触发时机: 用户主动标记资产损坏。
 
         Args:
@@ -41,10 +41,10 @@ class BrokenLostRepairTransitionsMixin:
     @classmethod
     def mark_lost(cls, asset: "Asset") -> None:
         """
-        标记遗失: (in_store|recycled_pending) → lost
+        标记遗失: (in_store|in_use|recycled_pending) → lost
 
         将资产标记为已遗失状态,直接生效无需审批。
-        支持从在库或待发放状态直接标记。
+        支持从在库、在用或待发放状态直接标记。
         触发时机: 用户主动标记资产遗失。
 
         Args:

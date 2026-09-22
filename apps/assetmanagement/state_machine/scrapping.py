@@ -19,6 +19,11 @@ class ScrappingTransitionsMixin:
 
     # 审批拒绝的合法回退目标(对应各 reject_to_* 方法)
     # 【注意】scrapped(approve)虽然也在 VALID_TRANSITIONS[DAMAGED] 中,但不可作为拒绝目标
+    # 【防误报】按 original_status 经 reject_to_original 回退,5 个目标状态已全量测试锚定
+    # (test_damaged_asset_service.py: test_reject_to_broken / test_reject_to_lost /
+    #  test_reject_returns_to_original_status 参数化 in_use/recycled_pending/repairing)；
+    # reject_to_* 方法为 VALID_TRANSITIONS[DAMAGED] 的具名转换实现面(core._transition 与
+    # reject_to_original 直接赋值、无方法名分派),保留为状态机转换表面,勿判死代码删除
     _REJECT_TARGETS: set[AssetState] = {
         AssetState.BROKEN,
         AssetState.LOST,

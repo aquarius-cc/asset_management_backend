@@ -9,17 +9,16 @@ from typing import Any
 
 from rest_framework import serializers
 
-from core.batch_mixins import BatchDeleteValidationMixin
+from core.batch_mixins import BaseBatchDeleteSerializer
 from core.constants import MAX_BATCH_SIZE as DEFAULT_MAX_BATCH_SIZE
 
 
 # ========== 合同批量操作序列化器 ==========
 
 
-class ContractBatchDeleteSerializer(BatchDeleteValidationMixin, serializers.Serializer):  # type: ignore[type-arg]
+class ContractBatchDeleteSerializer(BaseBatchDeleteSerializer):
     """【P3-优化】批量删除合同请求校验"""
 
-    MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     ids = serializers.ListField(child=serializers.CharField(), required=True, help_text="合同编码列表")
 
 
@@ -82,10 +81,9 @@ class ContractBatchCreateSerializer(serializers.Serializer):  # type: ignore[typ
 # ========== 仓库批量操作序列化器 ==========
 
 
-class StorageBatchDeleteSerializer(BatchDeleteValidationMixin, serializers.Serializer):  # type: ignore[type-arg]
+class StorageBatchDeleteSerializer(BaseBatchDeleteSerializer):
     """批量删除仓库请求校验"""
 
-    MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     ids = serializers.ListField(child=serializers.CharField(), required=True, help_text="仓库编码列表")
 
 
@@ -128,10 +126,9 @@ class StorageBatchCreateSerializer(serializers.Serializer):  # type: ignore[type
 # ========== 资产类型批量操作序列化器 ==========
 
 
-class AssetTypeBatchDeleteSerializer(BatchDeleteValidationMixin, serializers.Serializer):  # type: ignore[type-arg]
+class AssetTypeBatchDeleteSerializer(BaseBatchDeleteSerializer):
     """批量删除资产类型请求校验"""
 
-    MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     ids = serializers.ListField(child=serializers.CharField(), required=True, help_text="资产类型编码列表")
 
 
@@ -218,3 +215,24 @@ class LostAssetBatchCreateSerializer(serializers.Serializer):  # type: ignore[ty
         if len(asset_codes) != len(set(asset_codes)):
             raise serializers.ValidationError("提交记录中存在重复的资产编码")
         return value
+
+
+# ========== 资产生命周期批量删除序列化器(批次②b, BaseBatchDeleteSerializer 收敛) ==========
+
+
+class BrokenAssetBatchDeleteSerializer(BaseBatchDeleteSerializer):
+    """损坏资产记录批量删除请求校验"""
+
+    ids = serializers.ListField(child=serializers.CharField(), required=True, help_text="损坏资产记录编码列表")
+
+
+class LostAssetBatchDeleteSerializer(BaseBatchDeleteSerializer):
+    """遗失资产记录批量删除请求校验"""
+
+    ids = serializers.ListField(child=serializers.CharField(), required=True, help_text="遗失资产记录编码列表")
+
+
+class FoundAssetBatchDeleteSerializer(BaseBatchDeleteSerializer):
+    """找回资产记录批量删除请求校验"""
+
+    ids = serializers.ListField(child=serializers.CharField(), required=True, help_text="找回资产记录编码列表")

@@ -6,8 +6,7 @@ RepairAsset serializers
 from rest_framework import serializers
 
 from apps.assetmanagement.models import Asset, RepairAsset
-from core.batch_mixins import BatchDeleteValidationMixin
-from core.constants import MAX_BATCH_SIZE as DEFAULT_MAX_BATCH_SIZE
+from core.batch_mixins import BaseBatchDeleteSerializer
 
 
 class RepairAssetListSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
@@ -126,8 +125,7 @@ class RepairAssetDetailSerializer(serializers.ModelSerializer):  # type: ignore[
 RepairAssetSerializer = RepairAssetListSerializer
 
 
-class RepairAssetBatchDeleteSerializer(BatchDeleteValidationMixin, serializers.Serializer):  # type: ignore[type-arg]
+class RepairAssetBatchDeleteSerializer(BaseBatchDeleteSerializer):
     """维修资产批量删除请求校验"""
 
-    MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     ids = serializers.ListField(child=serializers.CharField(), required=True, help_text="维修记录编码列表")

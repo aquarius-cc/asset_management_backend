@@ -17,7 +17,7 @@ from rest_framework import serializers
 from apps.assetmanagement.interfaces import get_employee_queryset, get_employee_serializer_class
 from apps.assetmanagement.models import Asset, OutAsset
 from apps.assetmanagement.serializers.base_model_serializers import ContractSerializer
-from core.batch_mixins import BatchDeleteValidationMixin
+from core.batch_mixins import BaseBatchDeleteSerializer
 from core.constants import MAX_BATCH_SIZE as DEFAULT_MAX_BATCH_SIZE
 
 
@@ -261,6 +261,5 @@ class OutAssetBatchCreateSerializer(serializers.Serializer):  # type: ignore[typ
         return value  # type: ignore[no-any-return]
 
 
-class OutAssetBatchDeleteSerializer(BatchDeleteValidationMixin, serializers.Serializer):  # type: ignore[type-arg]
-    MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
+class OutAssetBatchDeleteSerializer(BaseBatchDeleteSerializer):
     ids = serializers.ListField(child=serializers.CharField(), required=True)

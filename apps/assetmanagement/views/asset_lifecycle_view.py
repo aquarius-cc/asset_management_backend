@@ -22,15 +22,18 @@ from apps.assetmanagement.selectors import (
 )
 from apps.assetmanagement.serializers import (
     BrokenAssetBatchCreateSerializer,
+    BrokenAssetBatchDeleteSerializer,
     BrokenAssetCreateSerializer,
     BrokenAssetDetailSerializer,
     BrokenAssetListSerializer,
     BrokenAssetUpdateSerializer,
+    FoundAssetBatchDeleteSerializer,
     FoundAssetCreateSerializer,
     FoundAssetDetailSerializer,
     FoundAssetListSerializer,
     FoundAssetUpdateSerializer,
     LostAssetBatchCreateSerializer,
+    LostAssetBatchDeleteSerializer,
     LostAssetCreateSerializer,
     LostAssetDetailSerializer,
     LostAssetListSerializer,
@@ -53,6 +56,7 @@ class BrokenAssetViewSet(AssetLifecycleViewSetBase):
     update_serializer = BrokenAssetUpdateSerializer  # type: ignore[assignment]
     detail_serializer = BrokenAssetDetailSerializer  # type: ignore[assignment]
     delete_service_method = "delete_broken_asset"
+    batch_delete_serializer = BrokenAssetBatchDeleteSerializer
     search_fields_extra = ("broken_reason",)
     ordering_field = "broken_date"
 
@@ -85,6 +89,7 @@ class LostAssetViewSet(AssetLifecycleViewSetBase):
     update_serializer = LostAssetUpdateSerializer  # type: ignore[assignment]
     detail_serializer = LostAssetDetailSerializer  # type: ignore[assignment]
     delete_service_method = "delete_lost_asset"
+    batch_delete_serializer = LostAssetBatchDeleteSerializer
     search_fields_extra = ("lost_reason",)
     ordering_field = "lost_date"
 
@@ -119,4 +124,5 @@ class FoundAssetViewSet(AssetLifecycleViewSetBase):
     update_serializer = FoundAssetUpdateSerializer  # type: ignore[assignment]
     detail_serializer = FoundAssetDetailSerializer  # type: ignore[assignment]
     delete_service_method = "delete_found_asset"
+    batch_delete_serializer = FoundAssetBatchDeleteSerializer
     ordering_field = "found_date"

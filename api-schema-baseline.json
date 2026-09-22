@@ -2065,7 +2065,7 @@
             },
             "delete": {
                 "operationId": "v1_assets_broken_assets_destroy",
-                "description": "删除资源响应(统一格式)\n\n流程:\n1. 获取资源实例\n2. 调用 perform_destroy 方法删除资源\n3. 返回成功响应",
+                "description": "删除生命周期事件记录(软删, 与批量删除同语义; 镜像 repair_asset_view.destroy)",
                 "parameters": [
                     {
                         "in": "path",
@@ -3857,7 +3857,7 @@
             },
             "delete": {
                 "operationId": "v1_assets_found_assets_destroy",
-                "description": "删除资源响应(统一格式)\n\n流程:\n1. 获取资源实例\n2. 调用 perform_destroy 方法删除资源\n3. 返回成功响应",
+                "description": "删除生命周期事件记录(软删, 与批量删除同语义; 镜像 repair_asset_view.destroy)",
                 "parameters": [
                     {
                         "in": "path",
@@ -4705,7 +4705,7 @@
             },
             "delete": {
                 "operationId": "v1_assets_lost_assets_destroy",
-                "description": "删除资源响应(统一格式)\n\n流程:\n1. 获取资源实例\n2. 调用 perform_destroy 方法删除资源\n3. 返回成功响应",
+                "description": "删除生命周期事件记录(软删, 与批量删除同语义; 镜像 repair_asset_view.destroy)",
                 "parameters": [
                     {
                         "in": "path",

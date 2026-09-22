@@ -7,7 +7,7 @@ from typing import Any
 from rest_framework import serializers
 
 from apps.usermanagement.models import Department, Employee
-from core.batch_mixins import BatchDeleteValidationMixin
+from core.batch_mixins import BaseBatchDeleteSerializer
 from core.constants import MAX_BATCH_SIZE as DEFAULT_MAX_BATCH_SIZE
 
 
@@ -189,8 +189,7 @@ class EmployeeBatchCreateSerializer(serializers.Serializer):  # type: ignore[typ
         return value
 
 
-class EmployeeBatchDeleteSerializer(BatchDeleteValidationMixin, serializers.Serializer):  # type: ignore[type-arg]
+class EmployeeBatchDeleteSerializer(BaseBatchDeleteSerializer):
     """批量删除员工请求校验"""
 
-    MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     ids = serializers.ListField(child=serializers.CharField(), required=True, help_text="员工工号列表")

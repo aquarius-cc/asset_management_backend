@@ -63,6 +63,7 @@ class AssetLifecycleViewSetBase(  # type: ignore[misc]
     update_serializer = None
     detail_serializer = None
     delete_service_method = ""
+    batch_delete_serializer: Any = None
 
     pagination_class = CustomPageNumberPagination
     lookup_field = "recordcode"
@@ -112,12 +113,11 @@ class AssetLifecycleViewSetBase(  # type: ignore[misc]
     @action(detail=False, methods=["post"], url_path="batch-delete")
     def batch_delete(self, request: Any) -> Response:
         """批量删除(三视图集完全一致, 仅 delete_service_method 字符串差异, 编排收敛至 Service)"""
-        ids = request.data.get("ids", [])
-        if not ids:
-            return error_response(message="缺少 ids 参数", status_code=400)
+        serializer = self.batch_delete_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         operator_jobcode, operator_name = resolve_operator(request.user)
         result = AssetLifecycleMixin.batch_delete_lifecycle_asset(
-            ids, self.delete_service_method, operator_jobcode, operator_name,
+            serializer.validated_data["ids"], self.delete_service_method, operator_jobcode, operator_name,
             user=request.user,
         )
         # 【DR-1 收敛】响应组装复用 BatchResponseHelper(键集/失败分类/message 模板逐字段对齐全仓 8 端点)

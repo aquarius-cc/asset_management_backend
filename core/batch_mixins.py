@@ -306,3 +306,16 @@ class BatchDeleteValidationMixin:
         if len(value) != len(set(value)):
             raise serializers.ValidationError("ids 列表中存在重复项")
         return value
+
+
+class BaseBatchDeleteSerializer(BatchDeleteValidationMixin, serializers.Serializer):  # type: ignore[type-arg]
+    """
+    批量删除请求序列化器公共基类(DR-1 收敛, A-15 框架代谢)
+
+    MAX_BATCH_SIZE 上限 + ids 长度/去重校验 + 通用 ids 字段收敛于此。
+    11 个存量子类仅保留各自带业务语义 help_text 的 ids 字段(OpenAPI 描述零回归)；
+    校验行为逐字继承, 子类声明 ids 覆盖即可。
+    """
+
+    MAX_BATCH_SIZE = MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
+    ids = serializers.ListField(child=serializers.CharField(), required=True)

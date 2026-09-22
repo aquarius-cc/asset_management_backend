@@ -14,8 +14,7 @@
 from rest_framework import serializers
 
 from apps.assetmanagement.models import DamagedAsset
-from core.batch_mixins import BatchDeleteValidationMixin
-from core.constants import MAX_BATCH_SIZE as DEFAULT_MAX_BATCH_SIZE
+from core.batch_mixins import BaseBatchDeleteSerializer
 
 
 # ==================== DamagedAsset 序列化器 ====================
@@ -250,8 +249,7 @@ DamagedAssetSerializer = DamagedAssetListSerializer
 
 
 # 【P1-10 修复】为 DamagedAsset 批量删除添加序列化器验证
-class DamagedAssetBatchDeleteSerializer(BatchDeleteValidationMixin, serializers.Serializer):  # type: ignore[type-arg]
+class DamagedAssetBatchDeleteSerializer(BaseBatchDeleteSerializer):
     """待报废资产批量删除请求校验"""
 
-    MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     ids = serializers.ListField(child=serializers.CharField(), required=True, help_text="关联资产 recordcode 列表")

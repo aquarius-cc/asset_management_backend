@@ -140,6 +140,7 @@ class RepairAssetViewSet(  # type: ignore[misc]
             recordcode=obj.recordcode,
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
+            user=request.user,
         )
         return success_response(data={"recordcode": obj.recordcode}, message="删除成功")
 
@@ -181,6 +182,7 @@ class RepairAssetViewSet(  # type: ignore[misc]
             ids=serializer.validated_data["ids"],
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
+            user=request.user,
         )
         # 【DR-1 收敛】编排下沉至 Service, 响应组装复用 BatchResponseHelper(键集/失败分类/message 模板全仓同款)
         return BatchResponseHelper.delete_response(

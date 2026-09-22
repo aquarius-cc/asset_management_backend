@@ -107,6 +107,7 @@ class AssetLifecycleViewSetBase(  # type: ignore[misc]
         operator_jobcode, operator_name = resolve_operator(request.user)
         result = AssetLifecycleMixin.batch_delete_lifecycle_asset(
             ids, self.delete_service_method, operator_jobcode, operator_name,
+            user=request.user,
         )
         # 【DR-1 收敛】响应组装复用 BatchResponseHelper(键集/失败分类/message 模板逐字段对齐全仓 8 端点)
         return BatchResponseHelper.delete_response(

@@ -189,16 +189,22 @@ class AssetLifecycleMixin:
         return asset
 
     @staticmethod
+    # [HALT] 软删除维修记录(仅置 is_deleted=True 留审计; 进行中的记录拒绝)
     @transaction.atomic
     def delete_repair_asset(
         recordcode: str,
         operator_jobcode: str = "",
         operator_name: str = "",
+        user: Any | None = None,
     ) -> dict[str, Any]:
         """软删除维修记录(进行中的记录拒绝,防止资产卡死 repairing)"""
         from apps.assetmanagement.models import RepairAsset
 
         obj = RepairAsset.objects.select_for_update().get(recordcode=recordcode, is_deleted=False)
+
+        # BEQ-02 行级隔离: 删除前校验关联资产在用户可见范围(与 _run_lifecycle_transition 同口径)
+        if user is not None and obj.asset_recordcode is not None:
+            AssetSelector.ensure_asset_visible(obj.asset_recordcode, user)
 
         if obj.repair_status == RepairAsset.RepairStatus.IN_PROGRESS:
             from core.exceptions import AppValidationError
@@ -223,14 +229,20 @@ class AssetLifecycleMixin:
         return {"recordcode": recordcode, "status": "deleted"}
 
     @staticmethod
+    # [HALT] 软删除损坏资产记录(仅置 is_deleted=True 留审计)
     @transaction.atomic
     def delete_broken_asset(
         recordcode: str,
         operator_jobcode: str = "",
         operator_name: str = "",
+        user: Any | None = None,
     ) -> dict[str, Any]:
         """软删除损坏资产记录(事务包裹、逐条校验、审计日志)"""
         obj = BrokenAsset.objects.select_for_update().get(recordcode=recordcode, is_deleted=False)
+
+        # BEQ-02 行级隔离: 删除前校验关联资产在用户可见范围(与 _run_lifecycle_transition 同口径)
+        if user is not None and obj.asset_recordcode is not None:
+            AssetSelector.ensure_asset_visible(obj.asset_recordcode, user)
         obj.is_deleted = True
         obj.save(update_fields=["is_deleted", "updated_at"])
 
@@ -246,14 +258,20 @@ class AssetLifecycleMixin:
         return {"recordcode": recordcode, "status": "deleted"}
 
     @staticmethod
+    # [HALT] 软删除遗失资产记录(仅置 is_deleted=True 留审计)
     @transaction.atomic
     def delete_lost_asset(
         recordcode: str,
         operator_jobcode: str = "",
         operator_name: str = "",
+        user: Any | None = None,
     ) -> dict[str, Any]:
         """软删除遗失资产记录(事务包裹、逐条校验、审计日志)"""
         obj = LostAsset.objects.select_for_update().get(recordcode=recordcode, is_deleted=False)
+
+        # BEQ-02 行级隔离: 删除前校验关联资产在用户可见范围(与 _run_lifecycle_transition 同口径)
+        if user is not None and obj.asset_recordcode is not None:
+            AssetSelector.ensure_asset_visible(obj.asset_recordcode, user)
         obj.is_deleted = True
         obj.save(update_fields=["is_deleted", "updated_at"])
 
@@ -269,14 +287,20 @@ class AssetLifecycleMixin:
         return {"recordcode": recordcode, "status": "deleted"}
 
     @staticmethod
+    # [HALT] 软删除找回资产记录(仅置 is_deleted=True 留审计)
     @transaction.atomic
     def delete_found_asset(
         recordcode: str,
         operator_jobcode: str = "",
         operator_name: str = "",
+        user: Any | None = None,
     ) -> dict[str, Any]:
         """软删除找回资产记录(事务包裹、逐条校验、审计日志)"""
         obj = FoundAsset.objects.select_for_update().get(recordcode=recordcode, is_deleted=False)
+
+        # BEQ-02 行级隔离: 删除前校验关联资产在用户可见范围(与 _run_lifecycle_transition 同口径)
+        if user is not None:
+            AssetSelector.ensure_asset_visible(obj.asset_recordcode, user)
         obj.is_deleted = True
         obj.save(update_fields=["is_deleted", "updated_at"])
 
@@ -346,6 +370,7 @@ class AssetLifecycleMixin:
         delete_service_method: str,
         operator_jobcode: str = "",
         operator_name: str = "",
+        user: Any | None = None,
     ) -> dict[str, Any]:
         """批量删除损坏/遗失/找回记录(子类差异仅 delete_service_method 参数)"""
         from core.batch_mixins import BatchOperationMixin
@@ -357,6 +382,7 @@ class AssetLifecycleMixin:
                     recordcode=recordcode,
                     operator_jobcode=operator_jobcode,
                     operator_name=operator_name,
+                    user=user,
                 )
             except (BrokenAsset.DoesNotExist, LostAsset.DoesNotExist, FoundAsset.DoesNotExist):
                 raise AppValidationError(detail=f"记录 {recordcode} 不存在", error_code="NOT_FOUND") from None
@@ -369,6 +395,7 @@ class AssetLifecycleMixin:
         ids: list[str],
         operator_jobcode: str = "",
         operator_name: str = "",
+        user: Any | None = None,
     ) -> dict[str, Any]:
         """批量删除维修记录"""
         from apps.assetmanagement.models import RepairAsset
@@ -381,6 +408,7 @@ class AssetLifecycleMixin:
                     recordcode=recordcode,
                     operator_jobcode=operator_jobcode,
                     operator_name=operator_name,
+                    user=user,
                 )
             except RepairAsset.DoesNotExist:
                 raise AppValidationError(detail=f"记录 {recordcode} 不存在", error_code="NOT_FOUND") from None

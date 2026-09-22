@@ -68,6 +68,7 @@ def _get_user_role(user: Any) -> str | None:
     is_superuser 直接返回 system_admin,不查数据库。
     部门级角色但无部门 → 返回 None:写权限判定降级为无角色权限,
     与权限码(read-only)与数据范围(空)语义一致(最严兜底)。
+    专项测试见 TestNoDepartmentWriteDegradation(core/tests/test_rbac_edge_cases.py)。
     """
     if getattr(user, "is_superuser", False):
         return _ROLE_SYSTEM_ADMIN

@@ -5,7 +5,7 @@
 
 import pytest
 
-from apps.assetmanagement.models import Asset
+from apps.assetmanagement.models import Asset, RepairAsset
 
 
 @pytest.mark.django_db
@@ -54,3 +54,19 @@ class TestAssetModel:
         )
         assert new_asset.asset_code == "A001"
         assert new_asset.asset_name == "新资产"
+
+
+@pytest.mark.django_db
+class TestRepairAssetSoftDeleteGuard:
+    """#42 护栏:守护 RepairAsset.objects = SoftDeleteManager.from_queryset(RepairAssetQuerySet)() 组合不被破坏"""
+
+    def test_objects_excludes_soft_deleted_record(self):
+        record = RepairAsset.objects.create(
+            repair_date="2026-01-01",
+            repair_status=RepairAsset.RepairStatus.IN_PROGRESS,
+        )
+        record.delete()
+
+        assert RepairAsset.objects.filter(repair_status=RepairAsset.RepairStatus.IN_PROGRESS).count() == 0
+        assert RepairAsset.objects.count() == 0
+        assert RepairAsset.all_objects.count() == 1

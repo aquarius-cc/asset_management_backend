@@ -71,10 +71,20 @@ def custom_exception_handler(exc: Any, context: Any) -> Response:
         elif isinstance(data, list):
             message = data[0] if data else "请求失败"
 
+        errors = data if isinstance(data, dict) and "detail" not in data and "non_field_errors" not in data else None
+        # 【#41】单条响应透传业务 error_code(AppValidationError 等带 error_code 的 APIException),
+        # 并入 data 载荷而不改根 envelope(§3 跨端契约零变化)
+        business_error_code = getattr(exc, "error_code", None)
+        if business_error_code:
+            if isinstance(errors, dict):
+                errors = {**errors, "error_code": business_error_code}
+            else:
+                errors = {"error_code": business_error_code}
+
         return error_response(
             message=message,
             status_code=response.status_code,
-            errors=data if isinstance(data, dict) and "detail" not in data and "non_field_errors" not in data else None,
+            errors=errors,
         )
 
     # 捕获 PermissionError(如 AssetOperationLog 只读保护),返回 403

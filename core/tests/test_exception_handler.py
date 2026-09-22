@@ -30,13 +30,24 @@ def test_app_validation_error_str_detail_returns_400():
     assert response.data["data"] == {}
 
 
-def test_app_validation_error_error_code_not_exposed():
-    """AppValidationError 携带 error_code 时响应体不泄露内部错误码"""
+def test_app_validation_error_error_code_exposed_in_data():
+    """AppValidationError 携带 error_code 时透传至 data.error_code(#41),根 envelope 仍只有 code/message/data"""
     response = _call_handler(AppValidationError(detail="用户不存在", error_code="USER_NOT_FOUND"))
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
-    assert "error_code" not in response.data
     assert response.data["message"] == "用户不存在"
+    assert set(response.data.keys()) == {"code", "message", "data"}
+    assert response.data["data"] == {"error_code": "USER_NOT_FOUND"}
+
+
+def test_app_validation_error_dict_detail_merges_error_code():
+    """字段级 detail + error_code 时,error_code 合并进 data 载荷而非覆盖原始字段错误"""
+    detail = {"field_a": ["格式错误"]}
+    response = _call_handler(AppValidationError(detail=detail, error_code="FIELD_REJECTED"))
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.data["message"] == "参数验证失败"
+    assert response.data["data"] == {**detail, "error_code": "FIELD_REJECTED"}
 
 
 def test_app_validation_error_dict_detail_returns_generic_message_with_errors():

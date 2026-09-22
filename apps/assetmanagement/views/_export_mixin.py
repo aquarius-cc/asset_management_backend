@@ -7,6 +7,7 @@
 
 from typing import Any
 
+from django.conf import settings
 from django.http import HttpResponse
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -50,6 +51,15 @@ class ExportExcelMixin:
         # 获取行级过滤后的 queryset
         queryset = self.get_queryset()  # type: ignore[attr-defined]
 
+        # 【资源防护 #40】超限拒绝导出,防止无界 queryset 全量迭代 OOM
+        total = queryset.count()
+        export_max = settings.EXPORT_MAX_ROWS
+        if total > export_max:
+            return error_response(
+                message=f"导出数据量({total})超过上限{export_max}，请缩小筛选范围",
+                status_code=400,
+            )
+
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = self.export_sheet_name
@@ -65,8 +75,8 @@ class ExportExcelMixin:
             cell.fill = header_fill
             cell.alignment = Alignment(horizontal="center")
 
-        # 写数据
-        for row_idx, obj in enumerate(queryset, 2):
+        # 写数据(流式迭代,行数已受 EXPORT_MAX_ROWS 上限约束)
+        for row_idx, obj in enumerate(queryset.iterator(), 2):
             for col, col_config in enumerate(self.export_columns, 1):
                 field = col_config["field"]
                 value = self._get_nested_value(obj, field)

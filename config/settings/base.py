@@ -56,6 +56,9 @@ else:
 # True:运维显式声明部署在可信反向代理(Nginx/ALB)之后,才解析 X-Forwarded-For 首值。
 TRUST_PROXY_HEADERS = config("TRUST_PROXY_HEADERS", default=False, cast=bool)
 
+# 【资源防护 #40】Excel 导出行数上限,超限拒绝导出(防止无界 queryset 全量迭代 OOM)
+EXPORT_MAX_ROWS = config("EXPORT_MAX_ROWS", default=10000, cast=int)
+
 # 自定义用户模型
 AUTH_USER_MODEL = "authusermanagement.AuthUser"
 

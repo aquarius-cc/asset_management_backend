@@ -214,7 +214,9 @@ REST_FRAMEWORK = {
 # DEFAULTS["SIGNING_KEY"] = settings.SECRET_KEY(运行时), 各环境文件已覆写 SECRET_KEY,
 # 避免 base 加载时快照空值导致全部环境 JWT 用空密钥签名(详见审查报告 #20)。
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=2),
+    # 【BF-010 A2】2h→30min 压缩改密后旧 access 残留窗口(报告原写"10 分钟"有误)；
+    # test 环境单独 pin 5min(config/settings/test.py:110);前端纯 401 单飞刷新,零功能成本
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     # 【修复】JWT 配置统一:启用 refresh token 轮换
     "ROTATE_REFRESH_TOKENS": True,

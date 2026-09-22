@@ -238,8 +238,15 @@ class OutAssetService:
         import copy
 
         def _create_item(idx: int, outasset_data: dict[str, Any]) -> OutAsset:
+            bulk_item = copy.deepcopy(outasset_data)
+            # 键名归一(批量契约适配):批量端点 validated_data 以 outasset_asset(Asset 实例)携带资产,
+            # 单条入口 create_outasset 期望 asset_recordcode;直接调用方已用 asset_recordcode 则透传。
+            # row_number 为批量框架索引元数据,非 OutAsset 模型字段,过滤避免 create() 收到多余键。
+            if "outasset_asset" in bulk_item:
+                bulk_item["asset_recordcode"] = bulk_item.pop("outasset_asset")
+            bulk_item.pop("row_number", None)
             return OutAssetService.create_outasset(
-                outasset_data=copy.deepcopy(outasset_data),
+                outasset_data=bulk_item,
                 operator_jobcode=operator_jobcode,
                 operator_name=operator_name,
             )

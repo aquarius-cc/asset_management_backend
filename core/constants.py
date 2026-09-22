@@ -9,20 +9,6 @@
 """
 
 # ============================
-# 资产状态常量
-# 【P2-6 修复】与 Asset.AssetStatus TextChoices 保持一致(直接引用避免重复定义)
-# 注意:避免循环导入,此处保留独立定义,与 model 的 AssetStatus.choices 值一致
-ASSET_STATUS_CHOICES: list[tuple[str, str]] = [
-    ("in_store", "在库"),
-    ("in_use", "在用"),
-    ("recycled_pending", "已回收待发放"),
-    ("broken", "已损坏"),
-    ("repairing", "维修中"),
-    ("lost", "已遗失"),
-    ("damaged", "待报废"),
-    ("scrapped", "已报废"),
-]
-
 # 资产外观状态
 ASSET_APPEARANCE_CHOICES: list[tuple[str, str]] = [
     ("newly", "新增加资产"),

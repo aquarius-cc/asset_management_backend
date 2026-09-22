@@ -14,6 +14,8 @@ import threading
 import uuid
 from typing import Any
 
+from django.conf import settings
+
 
 _thread_locals = threading.local()
 
@@ -72,11 +74,12 @@ class RequestContextMiddleware:
         """
         从 request 中提取客户端 IP
 
-        信任边界:必须部署在可信反向代理(Nginx/ALB)之后,
-        代理负责覆写/追加 X-Forwarded-For。
-        无代理直连时回退到 REMOTE_ADDR。
+        信任边界:TRUST_PROXY_HEADERS=False(默认)时仅信任 REMOTE_ADDR——
+        直连取真实 IP,代理部署后取代理 IP,Nginx/ALB 不可信时无法伪造；
+        True 时声明部署在可信反向代理之后,才解析 X-Forwarded-For 首值。
         """
-        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-        if x_forwarded_for:
-            return x_forwarded_for.split(",")[0].strip()  # type: ignore[no-any-return]
+        if settings.TRUST_PROXY_HEADERS:
+            x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+            if x_forwarded_for:
+                return x_forwarded_for.split(",")[0].strip()  # type: ignore[no-any-return]
         return request.META.get("REMOTE_ADDR")  # type: ignore[no-any-return]

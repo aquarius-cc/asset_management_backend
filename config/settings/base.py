@@ -51,6 +51,11 @@ if ALLOWED_HOSTS:
 else:
     ALLOWED_HOSTS = []
 
+# 【SC 加固 #35】是否信任反向代理注入的 X-Forwarded-For(请求 IP 溯源)。
+# False(默认):仅使用 REMOTE_ADDR——直连取真实 IP,代理后取代理 IP,攻击者无法伪造审计 IP;
+# True:运维显式声明部署在可信反向代理(Nginx/ALB)之后,才解析 X-Forwarded-For 首值。
+TRUST_PROXY_HEADERS = config("TRUST_PROXY_HEADERS", default=False, cast=bool)
+
 # 自定义用户模型
 AUTH_USER_MODEL = "authusermanagement.AuthUser"
 

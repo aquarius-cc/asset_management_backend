@@ -4,6 +4,7 @@
 提供资产管理的核心业务逻辑,包括资产的创建、更新、删除、状态变更等操作。
 """
 
+import json
 import string
 import uuid
 from datetime import date, datetime, time
@@ -132,8 +133,6 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
             single_data = {**asset_data, "asset_code": code}
             # 自动生成 qr_code 内容(JSON 格式,供前端扫码使用)
             if not single_data.get("qr_code"):
-                import json
-
                 single_data["qr_code"] = json.dumps(
                     {
                         "asset_code": code,

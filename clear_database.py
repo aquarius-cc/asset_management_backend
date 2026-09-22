@@ -124,8 +124,17 @@ def list_all_tables() -> list[str]:
         return [row[0] for row in cursor.fetchall()]
 
 
+def _validate_table_name(table_name: str) -> None:
+    """校验表名是否允许清空(SC-4 白名单硬校验,函数自保证)"""
+    if table_name not in ALLOWED_TABLES:
+        raise RuntimeError(f"表 '{table_name}' 不在白名单中，禁止操作")
+    if table_name in PROTECTED_TABLES:
+        raise RuntimeError(f"表 '{table_name}' 是系统保护表，禁止操作")
+
+
 def get_table_count(table_name: str) -> int:
     """获取指定表的数据行数"""
+    _validate_table_name(table_name)
     with connection.cursor() as cursor:
         cursor.execute(f"SELECT COUNT(*) FROM `{table_name}`")
         return cursor.fetchone()[0]
@@ -188,11 +197,7 @@ def clear_table(table_name: str) -> int:
     Raises:
         RuntimeError: 表不在白名单中或清空失败
     """
-    if table_name not in ALLOWED_TABLES:
-        raise RuntimeError(f"表 '{table_name}' 不在白名单中，禁止清空")
-
-    if table_name in PROTECTED_TABLES:
-        raise RuntimeError(f"表 '{table_name}' 是系统保护表，禁止清空")
+    _validate_table_name(table_name)
 
     get_table_count(table_name)
 

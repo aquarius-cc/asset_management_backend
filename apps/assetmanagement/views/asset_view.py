@@ -30,7 +30,6 @@ from apps.assetmanagement.serializers import (
 )
 from apps.assetmanagement.services import AssetService, RepairAssetService
 from core.batch_mixins import BatchResponseHelper
-from core.constants import ASSET_STATUS_CHOICES
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
 from core.permissions import IsAssetAdminOrAbove, IsSystemAdmin
@@ -41,7 +40,7 @@ from ._export_mixin import ExportExcelMixin
 from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
 
 
-ASSET_STATUS_MAP = dict(ASSET_STATUS_CHOICES)
+ASSET_STATUS_MAP = dict(Asset.ASSET_STATUS_CHOICES)
 
 
 class AssetViewSet(  # type: ignore[misc]

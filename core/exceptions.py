@@ -9,8 +9,9 @@
 - ResourceConflictError: 资源冲突
 """
 
-from typing import Any
+from typing import Any, NoReturn
 
+from django.db import IntegrityError
 from rest_framework import status
 from rest_framework.exceptions import APIException
 
@@ -117,3 +118,26 @@ class ResourceConflictError(APIException):
 # AppValidationError: 自定义异常,error_code 属性用于错误码映射
 # DRF ValidationError: 框架异常,status_code=400,用于序列化器校验
 ValidationError = AppValidationError
+
+
+def re_raise_or_map_integrity_error(
+    exc: IntegrityError,
+    column_token: str,
+    error_code: str,
+    detail: str,
+) -> NoReturn:
+    """唯一约束冲突兜底映射(B-21 收敛,单一实现): 命中列 token → 抛业务异常,未命中 → 原样重抛
+
+    Args:
+        exc: 捕获的 IntegrityError
+        column_token: 目标列名(如 "harddisk_sn_code"),作为 str(exc) 的匹配 token
+        error_code: 命中后抛出的业务错误码
+        detail: 命中后抛出的用户可读消息
+
+    Raises:
+        AppValidationError: 命中 column_token 时抛出(from exc 保留异常链)
+        原异常: 未命中时原样重抛
+    """
+    if column_token in str(exc):
+        raise AppValidationError(detail=detail, error_code=error_code) from exc
+    raise

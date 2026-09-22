@@ -12,7 +12,7 @@ from apps.assetmanagement.audit import AuditLogger
 from apps.assetmanagement.models import Asset, HardDiskSN
 from apps.assetmanagement.selectors import AssetSelector, HardDiskSNSelector
 from core.constants import MAX_BATCH_SIZE
-from core.exceptions import AppValidationError
+from core.exceptions import AppValidationError, re_raise_or_map_integrity_error
 
 
 class HardDiskSNService:
@@ -47,12 +47,9 @@ class HardDiskSNService:
             with transaction.atomic():
                 harddisk = HardDiskSN.objects.create(**data)
         except IntegrityError as exc:
-            if "harddisk_sn_code" in str(exc):
-                raise AppValidationError(
-                    detail=f"序列号 {sn_code} 已存在",
-                    error_code="DUPLICATE_SN_CODE",
-                ) from exc
-            raise
+            re_raise_or_map_integrity_error(
+                exc, "harddisk_sn_code", "DUPLICATE_SN_CODE", f"序列号 {sn_code} 已存在"
+            )
 
         AuditLogger.log_asset_update(
             asset=harddisk.asset_recordcode,
@@ -97,12 +94,12 @@ class HardDiskSNService:
             with transaction.atomic():
                 harddisk.save()
         except IntegrityError as exc:
-            if "harddisk_sn_code" in str(exc):
-                raise AppValidationError(
-                    detail=f"序列号 {new_sn or harddisk.harddisk_sn_code} 已存在",
-                    error_code="DUPLICATE_SN_CODE",
-                ) from exc
-            raise
+            re_raise_or_map_integrity_error(
+                exc,
+                "harddisk_sn_code",
+                "DUPLICATE_SN_CODE",
+                f"序列号 {new_sn or harddisk.harddisk_sn_code} 已存在",
+            )
 
         AuditLogger.log_asset_update(
             asset=harddisk.asset_recordcode,
@@ -152,12 +149,9 @@ class HardDiskSNService:
             with transaction.atomic():
                 created, updated = HardDiskSNService._apply_disks(asset, targets, disks)
         except IntegrityError as exc:
-            if "harddisk_sn_code" in str(exc):
-                raise AppValidationError(
-                    detail="序列号重复,可能已被并发写入,请刷新后重试",
-                    error_code="DUPLICATE_SN_CODE",
-                ) from exc
-            raise
+            re_raise_or_map_integrity_error(
+                exc, "harddisk_sn_code", "DUPLICATE_SN_CODE", "序列号重复,可能已被并发写入,请刷新后重试"
+            )
 
         return {
             "created": created,

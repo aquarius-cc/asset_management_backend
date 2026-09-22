@@ -17,7 +17,7 @@ from apps.assetmanagement.selectors import (
 )
 from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
 from apps.usermanagement.selectors import EmployeeSelector
-from core.exceptions import AppValidationError
+from core.exceptions import AppValidationError, re_raise_or_map_integrity_error
 
 
 class DamagedAssetService:
@@ -61,11 +61,12 @@ class DamagedAssetService:
             with transaction.atomic():
                 damaged_asset = DamagedAsset.objects.create(**damaged_data)
         except IntegrityError as exc:
-            if "asset_recordcode" in str(exc):
-                raise AppValidationError(
-                    detail=f"资产 {asset.asset_code} 已存在待报废记录", error_code="DUPLICATE_DAMAGED_RECORD"
-                ) from exc
-            raise
+            re_raise_or_map_integrity_error(
+                exc,
+                "asset_recordcode",
+                "DUPLICATE_DAMAGED_RECORD",
+                f"资产 {asset.asset_code} 已存在待报废记录",
+            )
 
         # 触发 FSM 状态流转: (recycled_pending|broken|repairing|lost) → damaged
         try:

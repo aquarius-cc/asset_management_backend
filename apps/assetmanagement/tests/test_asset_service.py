@@ -15,7 +15,6 @@ from apps.assetmanagement.models import (
     Asset,
     AssetOperationLog,
     DamagedAsset,
-    Storage,
 )
 from apps.assetmanagement.services.asset_service import AssetService
 from apps.usermanagement.models import Employee
@@ -315,35 +314,6 @@ class TestChangeOutassetEmployee:
                 user=admin_auth_user,
             )
         assert exc_info.value.error_code == "ASSET_NOT_FOUND"
-
-
-@pytest.mark.django_db
-class TestTransferAssetToStorage:
-    """transfer_asset_to_storage 测试(B7 审计 operator 透传)"""
-
-    def test_transfer_to_storage_tracks_operator(self, asset, storage, admin_auth_user):
-        new_storage = Storage.objects.create(
-            storage_code="S002",
-            storage_name="目标仓库",
-            storage_address="测试地点",
-            storage_location="测试地点",
-            storage_capacity=100,
-            sort_order=1,
-        )
-        result = AssetService.transfer_asset_to_storage(
-            asset_code="A001",
-            storage_code=new_storage.storage_code,
-            operator_jobcode=admin_auth_user.auth_username,
-            operator_name=admin_auth_user.auth_username,
-            user=admin_auth_user,
-        )
-        result.refresh_from_db()
-        assert result.asset_storage_recordcode == new_storage
-        log = AssetOperationLog.objects.get(
-            asset_code="A001", operation_type=AssetOperationLog.OperationType.UPDATE
-        )
-        assert log.operator_jobcode == admin_auth_user.auth_username
-        assert log.operator_name == admin_auth_user.auth_username
 
 
 @pytest.mark.django_db

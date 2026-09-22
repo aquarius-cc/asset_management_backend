@@ -13,10 +13,7 @@ from django.db import transaction
 
 from apps.assetmanagement.audit import AuditLogger
 from apps.assetmanagement.models import Asset, DamagedAsset, OutAsset
-from apps.assetmanagement.selectors import (
-    AssetSelector,
-    StorageSelector,
-)
+from apps.assetmanagement.selectors import AssetSelector
 from apps.assetmanagement.state_machine import AssetFSM, AssetState, InvalidTransitionError
 from apps.usermanagement.selectors import EmployeeSelector
 from core.batch_mixins import BatchOperationMixin
@@ -362,37 +359,6 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
             asset=asset,
             before_data={"asset_applicant": str(old_applicant), "asset_manager": str(old_manager)},
             after_data={"asset_applicant": applicant_jobcode, "asset_manager": manager_jobcode},
-            operator_jobcode=operator_jobcode,
-            operator_name=operator_name,
-        )
-        asset.save()
-        return asset
-
-    @staticmethod
-    @transaction.atomic
-    def transfer_asset_to_storage(
-        asset_code: str,
-        storage_code: str,
-        operator_jobcode: str | None = None,
-        operator_name: str | None = None,
-        *,
-        user: Any,
-    ) -> Asset:
-        asset = AssetSelector.get_asset_by_code(asset_code, user=user)
-        if not asset:
-            raise AppValidationError(detail=f"资产 {asset_code} 不存在", error_code="ASSET_NOT_FOUND")
-        asset = Asset.objects.select_for_update().get(pk=asset.pk)
-        # B12 TOCTOU 兜底: 锁内重取快照后再次校验行级可见性
-        AssetSelector.ensure_asset_visible(asset, user)
-        storage = StorageSelector.get_storage_by_code(storage_code)
-        if not storage:
-            raise AppValidationError(detail=f"仓库 {storage_code} 不存在", error_code="STORAGE_NOT_FOUND")
-        old_storage = asset.asset_storage_recordcode
-        asset.asset_storage_recordcode = storage
-        AuditLogger.log_asset_update(
-            asset=asset,
-            before_data={"asset_storage": old_storage.storage_name if old_storage else None},
-            after_data={"asset_storage": storage.storage_name},
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
         )

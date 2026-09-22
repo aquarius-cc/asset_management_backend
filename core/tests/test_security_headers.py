@@ -205,3 +205,27 @@ class TestRedisSecurityHardening:
         assert "REDIS_PASSWORD" in content, (
             "docker-compose.monitoring.yml redis-exporter 缺少 REDIS_PASSWORD"
         )
+
+
+class TestDevSecretKeyBlacklist:
+    """#34 已泄漏的 dev 默认 SECRET_KEY 必须被全环境黑名单拦截"""
+
+    _LEAKED_DEV_KEY = "dev-only-key-!@#$%^&*()_+-=[]{}|;:,.<>?-not-for-production-2026"
+
+    _FILES = ["development.py", "production.py", "test.py"]
+
+    def test_leaked_dev_key_blocked_in_all_environments(self):
+        """旧 dev 默认 key 必须加入 dev/prod/test 三处 _INSECURE_KEYS"""
+        for name in self._FILES:
+            src = (_BACKEND_ROOT / "config" / "settings" / name).read_text(encoding="utf-8")
+            block = src.split("_INSECURE_KEYS")[1].split("})")[0]
+            assert self._LEAKED_DEV_KEY in block, (
+                f"{name} 的 _INSECURE_KEYS 缺少已泄漏的 dev 默认 key"
+            )
+
+    def test_dev_default_key_rotated(self):
+        """开发默认 key 已更换,不再使用已泄漏的旧值"""
+        src = (_BACKEND_ROOT / "config" / "settings" / "development.py").read_text(encoding="utf-8")
+        assert self._LEAKED_DEV_KEY not in src.split("_INSECURE_KEYS")[0], (
+            "development.py 默认 SECRET_KEY 仍是已泄漏的旧值,需轮换"
+        )

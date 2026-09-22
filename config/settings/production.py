@@ -22,6 +22,7 @@ _INSECURE_KEYS = frozenset({
     "your-secret-key-here-change-in-production",
     "change-this-to-a-real-secret-key-before-running",
     "changeme",
+    "dev-only-key-!@#$%^&*()_+-=[]{}|;:,.<>?-not-for-production-2026",
 })
 if SECRET_KEY in _INSECURE_KEYS or len(SECRET_KEY) < 20:
     raise ImproperlyConfigured(

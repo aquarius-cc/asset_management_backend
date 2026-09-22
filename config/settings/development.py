@@ -23,7 +23,7 @@ from .base import *
 
 SECRET_KEY = os.environ.get(
     "SECRET_KEY",
-    "dev-only-key-!@#$%^&*()_+-=[]{}|;:,.<>?-not-for-production-2026",
+    "*4h%+e%qu80vsi0*dsojcc@2g^6wh-g6-l@)20_9^g=kq$1_42",
 )
 
 # C-2: 验证密钥安全性 — 防止 base.py placeholder 泄漏到此环境
@@ -37,6 +37,7 @@ _INSECURE_KEYS = frozenset({
     "your-secret-key-here-change-in-production",
     "change-this-to-a-real-secret-key-before-running",
     "changeme",
+    "dev-only-key-!@#$%^&*()_+-=[]{}|;:,.<>?-not-for-production-2026",
     "",
 })
 if SECRET_KEY in _INSECURE_KEYS:

@@ -32,6 +32,8 @@ _INSECURE_KEYS = frozenset({
     "django-insecure-placeholder-see-env-settings",
     "django-insecure-dev-only-key-change-in-production-1234567890",
     "change-me-in-production",
+    "changeme",
+    "dev-only-key-!@#$%^&*()_+-=[]{}|;:,.<>?-not-for-production-2026",
     "",
 })
 if SECRET_KEY in _INSECURE_KEYS:

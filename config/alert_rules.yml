@@ -153,7 +153,9 @@ groups:
           summary: "关键分区磁盘空间不足"
           description: "挂载点 {{ $labels.mountpoint }} 可用比例 {{ $value | humanizePercentage }} < 10%"
 
-  # M-5C 备份可观测规则: 依赖备份脚本写入共享卷 textfile 指标 (M-5B 完成 textfile 后启用)
+  # M-5C 备份可观测规则: 已启用(2026-09-22, BF-003 收口)。textfile 指标经 backup_status_data
+  # 共享卷由 node_exporter --collector.textfile.directory=/textfile 采集(monitoring compose :72/:77);
+  # 运行态链路验证见 Project_Requirements/03-安全与运维/10-监控告警SOP §6
   - name: asset_mgmt_backup_alerts
     rules:
       - alert: BackupOverdue
@@ -173,6 +175,16 @@ groups:
         annotations:
           summary: "备份执行失败"
           description: "过去 1 小时内备份脚本返回非零退出码"
+
+      # 数据源自活守卫(对齐 N-3): 备份指标缺失 → textfile/共享卷采集链路失效, 防止规则静默休眠
+      - alert: BackupMetricsMissing
+        expr: absent(backup_last_success_timestamp)
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "备份状态指标缺失(textfile 链路未生效)"
+          description: "30 分钟内未采集到 backup_last_success_timestamp, BackupOverdue/BackupFailed 处于静默休眠"
 
   # M-5D 证书到期告警: 依赖 blackbox_exporter (M-5B 完成后部署)
   - name: asset_mgmt_tls_alerts
@@ -197,36 +209,37 @@ groups:
 
 # M-5 执行顺序 (修订版 A→B→C→D)
 # A 阶段: 纯规则增量 (已实施)
-# B 阶段: node_exporter 已部署 (已实施)
-# C 阶段: backup_status.sh + textfile collector (N-2, 已实施)
+# B 阶段: node_exporter 已加入 compose.monitoring.yml 并启用 textfile collector (已实施, 运行态待运维验证)
+# C 阶段: backup_status.sh + textfile collector (N-2, 已实施, 运行态待运维验证)
 # D 阶段: blackbox_exporter 部署 (N-3, 本次部署后启用)
+# 运行态链路验证(拉起 node-exporter + 失败注入 + 告警送达): 待运维执行, 见 10-监控告警SOP §6 [2026-09-22]
 
 # N-3 数据源自活守卫: 探针/采集链路自身故障时报警, 防止"规则静默休眠"复发
-- name: asset_mgmt_probe_health_alerts
-  rules:
-    - alert: BlackboxTargetDown
-      expr: probe_success == 0
-      for: 10m
-      labels:
-        severity: warning
-      annotations:
-        summary: "TLS 健康探针探测失败"
-        description: "{{ $labels.instance }}/health/ 探测非 2xx 或超时超过 10 分钟"
+  - name: asset_mgmt_probe_health_alerts
+    rules:
+      - alert: BlackboxTargetDown
+        expr: probe_success == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "TLS 健康探针探测失败"
+          description: "{{ $labels.instance }}/health/ 探测非 2xx 或超时超过 10 分钟"
 
-    - alert: BlackboxExporterDown
-      expr: up{job="blackbox"} == 0
-      for: 10m
-      labels:
-        severity: warning
-      annotations:
-        summary: "blackbox_exporter 不可用"
-        description: "TLS 证书监控数据源中断"
+      - alert: BlackboxExporterDown
+        expr: up{job="blackbox"} == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "blackbox_exporter 不可用"
+          description: "TLS 证书监控数据源中断"
 
-    - alert: TlsCertMetricMissing
-      expr: absent(probe_ssl_earliest_cert_expiry)
-      for: 30m
-      labels:
-        severity: warning
-      annotations:
-        summary: "证书到期指标缺失（探针链路未生效）"
-        description: "30 分钟内未采集到任何 probe_ssl_earliest_cert_expiry 样本，证书告警处于静默休眠"
+      - alert: TlsCertMetricMissing
+        expr: absent(probe_ssl_earliest_cert_expiry)
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "证书到期指标缺失（探针链路未生效）"
+          description: "30 分钟内未采集到任何 probe_ssl_earliest_cert_expiry 样本，证书告警处于静默休眠"

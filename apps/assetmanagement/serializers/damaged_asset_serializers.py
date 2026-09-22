@@ -254,4 +254,4 @@ class DamagedAssetBatchDeleteSerializer(BatchDeleteValidationMixin, serializers.
     """待报废资产批量删除请求校验"""
 
     MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
-    ids = serializers.ListField(child=serializers.CharField(), required=True, help_text="待报废记录编码列表")
+    ids = serializers.ListField(child=serializers.CharField(), required=True, help_text="关联资产 recordcode 列表")

@@ -13,7 +13,10 @@ from apps.assetmanagement.models import (
 )
 from apps.assetmanagement.selectors.damaged_asset_selector import DamagedAssetSelector
 from apps.assetmanagement.services.damaged_asset_service import DamagedAssetService
+from apps.authusermanagement.models import AuthUser
+from apps.usermanagement.models import Department, Employee, EmployeeRole
 from core.exceptions import AppValidationError
+from core.tests import TEST_PASSWORD
 
 
 @pytest.fixture
@@ -570,3 +573,119 @@ class TestDamagedSlotRelease:
                 {"asset_recordcode": asset_damaged, "damaged_asset_number": 1}
             )
         assert exc_info.value.error_code == "DUPLICATE_DAMAGED_RECORD"
+
+
+@pytest.fixture
+def cross_dept_data(db, storage, asset_type):
+    """跨部门数据: A/B 两部门经理 + B 部门资产及其待报废记录(部门作用域写路径隔离测试)"""
+    dept_a = Department.objects.create(department_code="X-DA", department_name="A部门")
+    dept_b = Department.objects.create(department_code="X-DB", department_name="B部门")
+    _ = Employee.objects.create(
+        employee_jobcode="mgr_a",
+        employee_name="A经理",
+        employee_department=dept_a,
+        role=EmployeeRole.DEPT_MANAGER,
+        employee_phone="13800000001",
+    )
+    _ = Employee.objects.create(
+        employee_jobcode="mgr_b",
+        employee_name="B经理",
+        employee_department=dept_b,
+        role=EmployeeRole.DEPT_MANAGER,
+        employee_phone="13800000002",
+    )
+    _ = Employee.objects.create(
+        employee_jobcode="holder_b",
+        employee_name="B保管",
+        employee_department=dept_b,
+        employee_phone="13800000003",
+    )
+    user_a = AuthUser.objects.create_user(
+        auth_username="mgr_a", password=TEST_PASSWORD, auth_phone="13800000011"
+    )
+    user_b = AuthUser.objects.create_user(
+        auth_username="mgr_b", password=TEST_PASSWORD, auth_phone="13800000012"
+    )
+    asset_b = Asset.objects.create(
+        asset_code="A-DB-01",
+        asset_name="B部门资产",
+        asset_purchase_price=2000.00,
+        asset_purchase_date="2024-02-01",
+        asset_entry_date="2024-02-10",
+        asset_storage_recordcode=storage,
+        asset_type_recordcode=asset_type,
+        asset_manager_recordcode=Employee.objects.get(employee_jobcode="holder_b"),
+        asset_current_status=Asset.AssetStatus.RECYCLED_PENDING,
+    )
+    record = DamagedAssetService.create_damaged_asset(
+        {"asset_recordcode": asset_b, "damaged_asset_number": 1}
+    )
+    asset_b.refresh_from_db()
+    return {"asset_b": asset_b, "record": record, "user_a": user_a, "user_b": user_b}
+
+
+@pytest.mark.django_db
+class TestWritePathDeptScope:
+    """A-29 例外项加固(2026-09-22): batch-delete 等写路径部门作用域收口"""
+
+    def test_batch_delete_cross_dept_blocked(self, cross_dept_data):
+        """A部门经理批量提交 B部门资产 recordcode → fail_item DAMAGED_ASSET_NOT_FOUND,记录与资产状态不动"""
+        data = cross_dept_data
+        result = DamagedAssetService.batch_delete_asset_recordcodes(
+            [data["asset_b"].recordcode],
+            operator_jobcode="mgr_a",
+            operator_name="A经理",
+            user=data["user_a"],
+        )
+        assert result["success_count"] == 0
+        assert result["fail_count"] == 1
+        assert result["fail_items"][0]["error_code"] == "DAMAGED_ASSET_NOT_FOUND"
+        assert DamagedAsset.objects.filter(asset_recordcode=data["asset_b"]).exists() is True
+        data["asset_b"].refresh_from_db()
+        assert data["asset_b"].asset_current_status == Asset.AssetStatus.DAMAGED
+
+    def test_batch_delete_same_dept_success(self, cross_dept_data):
+        """B部门经理批量提交本部门资产 → 正常取消,原状态回退"""
+        data = cross_dept_data
+        result = DamagedAssetService.batch_delete_asset_recordcodes(
+            [data["asset_b"].recordcode],
+            operator_jobcode="mgr_b",
+            operator_name="B经理",
+            user=data["user_b"],
+        )
+        assert result["success_count"] == 1
+        assert result["fail_count"] == 0
+        data["asset_b"].refresh_from_db()
+        assert data["asset_b"].asset_current_status == Asset.AssetStatus.RECYCLED_PENDING
+
+    def test_approve_scoped_dept_manager_no_locking_blocker(self, cross_dept_data):
+        """部门经理同部门 approve(作用域 JOIN 路径 + select_for_update of=self)不抛 NotSupportedError"""
+        data = cross_dept_data
+        result = DamagedAssetService.approve_asset_recordcode(
+            data["asset_b"].recordcode,
+            approver_jobcode="mgr_b",
+            operator_name="B经理",
+            user=data["user_b"],
+        )
+        assert result["damaged_asset"].approval_status == DamagedAsset.ApprovalStatus.APPROVED
+
+    def test_update_cross_dept_blocked(self, cross_dept_data):
+        """A部门经理改 B部门资产待报废记录 → DAMAGED_RECORD_NOT_FOUND"""
+        data = cross_dept_data
+        with pytest.raises(AppValidationError) as exc_info:
+            DamagedAssetService.update_damaged_asset(
+                recordcode=data["record"].recordcode,
+                update_data={"damaged_asset_description": "越权修改"},
+                user=data["user_a"],
+            )
+        assert exc_info.value.error_code == "DAMAGED_RECORD_NOT_FOUND"
+
+    def test_update_same_dept_success_with_user(self, cross_dept_data):
+        """B部门经理改本部门待报废记录 → 成功"""
+        data = cross_dept_data
+        updated = DamagedAssetService.update_damaged_asset(
+            recordcode=data["record"].recordcode,
+            update_data={"damaged_asset_description": "本部门修改"},
+            user=data["user_b"],
+        )
+        assert updated.damaged_asset_description == "本部门修改"

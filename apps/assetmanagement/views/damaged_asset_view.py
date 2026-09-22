@@ -104,6 +104,7 @@ class DamagedAssetViewSet(  # type: ignore[misc]
             asset_recordcode_code=asset_recordcode,
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
+            user=request.user,
         )
         return success_response(message="取消待报废申请成功")
 
@@ -137,6 +138,7 @@ class DamagedAssetViewSet(  # type: ignore[misc]
             update_data=serializer.validated_data,
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
+            user=request.user,
         )
         return success_response(data=DamagedAssetUpdateSerializer(updated).data, message="更新待报废记录成功")
 
@@ -150,6 +152,7 @@ class DamagedAssetViewSet(  # type: ignore[misc]
             update_data=serializer.validated_data,
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
+            user=request.user,
         )
         return success_response(data=DamagedAssetUpdateSerializer(updated).data, message="更新待报废记录成功")
 
@@ -162,7 +165,10 @@ class DamagedAssetViewSet(  # type: ignore[misc]
         approver_jobcode = request.user.auth_username
         operator_name = request.user.auth_username
         result = DamagedAssetService.approve_asset_recordcode(
-            asset_recordcode_code=asset_recordcode, approver_jobcode=approver_jobcode, operator_name=operator_name
+            asset_recordcode_code=asset_recordcode,
+            approver_jobcode=approver_jobcode,
+            operator_name=operator_name,
+            user=request.user,
         )
         return success_response(
             data={
@@ -181,7 +187,10 @@ class DamagedAssetViewSet(  # type: ignore[misc]
         approver_jobcode = request.user.auth_username
         operator_name = request.user.auth_username
         result = DamagedAssetService.reject_asset_recordcode(
-            asset_recordcode_code=asset_recordcode, approver_jobcode=approver_jobcode, operator_name=operator_name
+            asset_recordcode_code=asset_recordcode,
+            approver_jobcode=approver_jobcode,
+            operator_name=operator_name,
+            user=request.user,
         )
         return success_response(data=DamagedAssetDetailSerializer(result).data, message="审批拒绝成功")
 
@@ -219,6 +228,7 @@ class DamagedAssetViewSet(  # type: ignore[misc]
             ids,
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
+            user=request.user,
         )
         return BatchResponseHelper.delete_response(
             result,

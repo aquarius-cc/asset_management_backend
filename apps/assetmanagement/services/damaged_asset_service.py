@@ -92,6 +92,7 @@ class DamagedAssetService:
         update_data: dict[str, Any],
         operator_jobcode: str | None = None,
         operator_name: str | None = None,
+        user: Any | None = None,
     ) -> DamagedAsset:
         """
         更新待报废记录(select_for_update 防并发覆盖)
@@ -105,7 +106,7 @@ class DamagedAssetService:
         Returns:
             更新后的 DamagedAsset
         """
-        damaged_asset = DamagedAssetSelector.get_for_update(recordcode)
+        damaged_asset = DamagedAssetSelector.get_for_update(recordcode, user=user)
         if not damaged_asset:
             raise AppValidationError(detail="待报废记录不存在", error_code="DAMAGED_RECORD_NOT_FOUND")
 
@@ -134,7 +135,7 @@ class DamagedAssetService:
     @staticmethod
     @transaction.atomic
     def approve_asset_recordcode(
-        asset_recordcode_code: str, approver_jobcode: str, operator_name: str
+        asset_recordcode_code: str, approver_jobcode: str, operator_name: str, user: Any | None = None
     ) -> dict[str, Any]:
         """
         审批通过待报废申请
@@ -143,7 +144,7 @@ class DamagedAssetService:
             Dict: 包含damaged_asset和waste_asset的字典
         """
         try:
-            damaged_asset = DamagedAssetSelector.get_asset_recordcode_for_update(asset_recordcode_code)
+            damaged_asset = DamagedAssetSelector.get_asset_recordcode_for_update(asset_recordcode_code, user=user)
         except DamagedAsset.DoesNotExist:
             raise AppValidationError(
                 detail=f"待报废记录 {asset_recordcode_code} 不存在", error_code="DAMAGED_ASSET_NOT_FOUND"
@@ -206,7 +207,9 @@ class DamagedAssetService:
 
     @staticmethod
     @transaction.atomic
-    def reject_asset_recordcode(asset_recordcode_code: str, approver_jobcode: str, operator_name: str) -> DamagedAsset:
+    def reject_asset_recordcode(
+        asset_recordcode_code: str, approver_jobcode: str, operator_name: str, user: Any | None = None
+    ) -> DamagedAsset:
         """
         审批拒绝待报废申请
 
@@ -219,7 +222,7 @@ class DamagedAssetService:
             DamagedAsset: 更新后的待报废记录
         """
         try:
-            damaged_asset = DamagedAssetSelector.get_asset_recordcode_for_update(asset_recordcode_code)
+            damaged_asset = DamagedAssetSelector.get_asset_recordcode_for_update(asset_recordcode_code, user=user)
         except DamagedAsset.DoesNotExist:
             raise AppValidationError(
                 detail=f"待报废记录 {asset_recordcode_code} 不存在", error_code="DAMAGED_ASSET_NOT_FOUND"
@@ -272,7 +275,10 @@ class DamagedAssetService:
     @staticmethod
     @transaction.atomic
     def cancel_asset_recordcode(
-        asset_recordcode_code: str, operator_jobcode: str | None = None, operator_name: str | None = None
+        asset_recordcode_code: str,
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+        user: Any | None = None,
     ) -> None:
         """
         取消待报废申请
@@ -283,7 +289,7 @@ class DamagedAssetService:
             operator_name: 操作人姓名
         """
         try:
-            damaged_asset = DamagedAssetSelector.get_asset_recordcode_for_update(asset_recordcode_code)
+            damaged_asset = DamagedAssetSelector.get_asset_recordcode_for_update(asset_recordcode_code, user=user)
         except DamagedAsset.DoesNotExist:
             raise AppValidationError(
                 detail=f"待报废记录 {asset_recordcode_code} 不存在", error_code="DAMAGED_ASSET_NOT_FOUND"
@@ -315,7 +321,12 @@ class DamagedAssetService:
         )
 
     @staticmethod
-    def batch_delete_asset_recordcodes(asset_recordcodes: list[str], operator_jobcode: str | None, operator_name: str | None) -> dict[str, Any]:
+    def batch_delete_asset_recordcodes(
+        asset_recordcodes: list[str],
+        operator_jobcode: str | None,
+        operator_name: str | None,
+        user: Any | None = None,
+    ) -> dict[str, Any]:
         """
         批量取消待报废申请(DR-1 收敛: 循环框架复用 BatchOperationMixin)
 
@@ -330,6 +341,7 @@ class DamagedAssetService:
                 asset_recordcode_code,
                 operator_jobcode=operator_jobcode,
                 operator_name=operator_name,
+                user=user,
             )
 
         return BatchOperationMixin.batch_delete_execute(asset_recordcodes, _delete_one)

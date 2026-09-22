@@ -9667,7 +9667,7 @@
         "/api/v1/unregisteredassets/unregistered-assets/batch-delete/": {
             "post": {
                 "operationId": "v1_unregisteredassets_unregistered_assets_batch_delete_create",
-                "description": "【新增】批量删除未登记资产(软删除)\n\n接收前端提交的未登记资产编码列表,逐条删除。\n仅允许删除待审批状态的记录。\n\n请求格式:\n    POST /api/unregisteredassets/unregistered-assets/batch-delete/\n    {\n        \"ids\": [\"UNR-20260601-ABC123\", \"UNR-20260602-DEF456\"]\n    }\n\n响应格式:\n    {\n        \"code\": 200,\n        \"message\": \"批量删除成功\",\n        \"data\": {\n            \"total\": 2,\n            \"success_count\": 1,\n            \"fail_count\": 1,\n            \"success_ids\": [\"UNR-20260601-ABC123\"],\n            \"fail_items\": [{\"id\": \"UNR-20260602-DEF456\", \"error_code\": \"...\", \"error_message\": \"...\"}]\n        }\n    }",
+                "description": "批量删除未登记资产(软删除,仅待审批)\n\n【分层收敛】逻辑下沉至 UnregisteredAssetService.batch_delete_unregistered\n(复用 batch_delete_execute 逐条事务包裹,失败结构 NOT_FOUND /\nSTATUS_NOT_ALLOWED / VALIDATION_ERROR / INTERNAL_ERROR), View 仅校验\nids 非空与批量上限后透传 Service。\n\nArgs:\n    request: 请求,body 含 ids(未登记资产编码列表)\n\nReturns:\n    Response: 批量删除结果(total/success_count/fail_count/\n        success_ids/fail_items)",
                 "tags": [
                     "v1"
                 ],
@@ -17513,6 +17513,20 @@
                         "type": "string",
                         "writeOnly": true,
                         "nullable": true
+                    },
+                    "outasset_applicant": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "员工工号",
+                        "writeOnly": true,
+                        "nullable": true
+                    },
+                    "outasset_manager": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "员工工号",
+                        "writeOnly": true,
+                        "nullable": true
                     }
                 },
                 "required": [
@@ -17936,6 +17950,20 @@
                         "nullable": true,
                         "title": "归还日期",
                         "description": "借用资产的预计或实际归还日期"
+                    },
+                    "outasset_applicant": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "员工工号",
+                        "writeOnly": true,
+                        "nullable": true
+                    },
+                    "outasset_manager": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "员工工号",
+                        "writeOnly": true,
+                        "nullable": true
                     }
                 }
             },
@@ -19758,6 +19786,20 @@
                         "nullable": true,
                         "title": "归还日期",
                         "description": "借用资产的预计或实际归还日期"
+                    },
+                    "outasset_applicant": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "员工工号",
+                        "writeOnly": true,
+                        "nullable": true
+                    },
+                    "outasset_manager": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "员工工号",
+                        "writeOnly": true,
+                        "nullable": true
                     }
                 }
             },

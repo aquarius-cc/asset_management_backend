@@ -176,6 +176,10 @@ class TestBatchOutAssetService:
         assert result["success_count"] == 1
         assert result["fail_count"] == 1
         assert result["fail_items"][0]["error_code"] == "ILLEGAL_OUTASSET"
+        valid.refresh_from_db()
+        illegal.refresh_from_db()
+        assert valid.asset_current_status == "in_use"  # 首条成功:批量独立性
+        assert illegal.asset_current_status == "in_use"  # 失败条保持原状
 
     def test_batch_delete_fail_items_structure(self, storage, asset_type, employee):
         result = OutAssetService.batch_delete_outasset(["OUT-NOT-EXIST-123"], operator_jobcode=employee.employee_jobcode)

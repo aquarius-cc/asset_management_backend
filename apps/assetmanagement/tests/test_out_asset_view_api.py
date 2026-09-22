@@ -17,7 +17,7 @@ import pytest
 from django.urls import reverse
 from rest_framework import status
 
-from apps.assetmanagement.models import OutAsset
+from apps.assetmanagement.models import Asset, OutAsset
 from apps.assetmanagement.views.out_asset_view import OutAssetViewSet
 
 
@@ -33,6 +33,21 @@ def admin_authenticated_client(api_client, admin_auth_user):
     """管理员用户客户端"""
     api_client.force_authenticate(user=admin_auth_user)
     return api_client
+
+
+@pytest.fixture
+def asset2(db, storage, asset_type):
+    """第二条独立 in_store 资产(批量创建成功用例需两条不同资产)"""
+    return Asset.objects.create(
+        asset_code="A002",
+        asset_name="测试资产2",
+        asset_purchase_price=1000.00,
+        asset_purchase_date="2024-01-01",
+        asset_entry_date="2024-01-15",
+        asset_storage_recordcode=storage,
+        asset_type_recordcode=asset_type,
+        asset_current_status="in_store",
+    )
 
 
 @pytest.mark.django_db
@@ -219,8 +234,8 @@ class TestOutAssetViewSet:
         assert data["count"] >= 0
         assert isinstance(data["results"], list)
 
-    def test_batch_create(self, admin_authenticated_client, asset, employee, user):
-        """测试批量创建出库记录"""
+    def test_batch_create(self, admin_authenticated_client, asset, asset2, employee, user):
+        """批量创建:outasset_asset 键名归一 → 两条全成功,FK 落库 + Asset 主表联动 IN_USE"""
         url = reverse("out-assets-batch-create")
         data = {
             "items": [
@@ -230,20 +245,57 @@ class TestOutAssetViewSet:
                     "outasset_type": "receive",
                     "outasset_applicant": user.employee_jobcode,
                     "outasset_manager": employee.employee_jobcode,
-                    "outasset_using_location": "使用地点",
+                    "outasset_using_location": "使用地点A",
+                },
+                {
+                    "outasset_asset": asset2.asset_code,
+                    "outasset_date": "2024-06-02",
+                    "outasset_type": "receive",
+                    "outasset_applicant": user.employee_jobcode,
+                    "outasset_manager": employee.employee_jobcode,
+                    "outasset_using_location": "使用地点B",
                 },
             ]
         }
-        # Batch serializer/service field mismatch (Asset object not JSON serializable) — accept error
-        try:
-            response = admin_authenticated_client.post(url, data, format="json")
-            assert response.status_code in [
-                status.HTTP_200_OK,
-                status.HTTP_400_BAD_REQUEST,
-                status.HTTP_500_INTERNAL_SERVER_ERROR,
+        response = admin_authenticated_client.post(url, data, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["code"] == 0
+        assert response.data["data"]["success_count"] == 2
+        assert response.data["data"]["fail_count"] == 0
+        assert response.data["data"]["fail_items"] == []
+        records = OutAsset.objects.filter(asset_recordcode__in=[asset, asset2])
+        assert records.count() == 2
+        assert records.get(asset_recordcode=asset).outasset_applicant_recordcode == user
+        assert records.get(asset_recordcode=asset2).outasset_manager_recordcode == employee
+        asset.refresh_from_db()
+        asset2.refresh_from_db()
+        assert asset.asset_current_status == Asset.AssetStatus.IN_USE
+        assert asset2.asset_current_status == Asset.AssetStatus.IN_USE
+
+    def test_batch_create_duplicate_asset_rejected(self, admin_authenticated_client, asset, employee, user):
+        """同资产重复提交 → serializer 层 400(validate_items 去重,不落到 Service)"""
+        url = reverse("out-assets-batch-create")
+        data = {
+            "items": [
+                {
+                    "outasset_asset": asset.asset_code,
+                    "outasset_type": "receive",
+                    "outasset_applicant": user.employee_jobcode,
+                    "outasset_manager": employee.employee_jobcode,
+                    "outasset_using_location": "使用地点A",
+                },
+                {
+                    "outasset_asset": asset.asset_code,
+                    "outasset_type": "receive",
+                    "outasset_applicant": user.employee_jobcode,
+                    "outasset_manager": employee.employee_jobcode,
+                    "outasset_using_location": "使用地点B",
+                },
             ]
-        except Exception:
-            pass  # Server-side 500 raised by test client — expected for this known bug
+        }
+        response = admin_authenticated_client.post(url, data, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "存在重复的资产编码" in str(response.data)
 
     def test_batch_delete(self, admin_authenticated_client, outasset):
         """测试批量删除出库记录"""

@@ -169,7 +169,7 @@ class OutAssetViewSet(  # type: ignore[misc]
             return self.get_paginated_response(serializer.data)
 
         serializer = self.get_serializer(queryset, many=True)
-        return success_response(data=serializer.data)
+        return success_response(data={"count": queryset.count(), "results": serializer.data})
 
     def list(self, request: Any, *args: Any, **kwargs: Any) -> Any:
         queryset = self.filter_queryset(self.get_queryset())

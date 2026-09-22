@@ -24,7 +24,7 @@ class CustomPageNumberPagination(PageNumberPagination):
     特性:
     - 默认每页 20 条
     - 前端可通过 page_size 参数自定义(最大 100,与 constants.py 保持一致)
-    - 无分页参数时返回全部数据(不分页)
+    - 无分页参数时返回第一页(强制分页,防止大数据量内存溢出)
 
     【修复 H8】使用 constants.py 中的常量,确保配置一致性
     """

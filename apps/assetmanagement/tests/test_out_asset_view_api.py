@@ -11,11 +11,14 @@
 - 自定义 actions: recyclable, batch_create, batch_delete, by_asset, by_applicant, cancel_outasset, statistics
 """
 
+from unittest import mock
+
 import pytest
 from django.urls import reverse
 from rest_framework import status
 
 from apps.assetmanagement.models import OutAsset
+from apps.assetmanagement.views.out_asset_view import OutAssetViewSet
 
 
 @pytest.fixture
@@ -131,11 +134,28 @@ class TestOutAssetViewSet:
         assert not OutAsset.objects.filter(recordcode=outasset.recordcode).exists()
 
     def test_recyclable(self, authenticated_client, outasset):
-        """测试获取可回收出库记录"""
+        """测试获取可回收出库记录——契约锁：无分页参数时强制返回第一页的分页 envelope（#30 回归护栏）"""
         url = reverse("out-assets-recyclable")
         response = authenticated_client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data["code"] == 0
+        data = response.data["data"]
+        assert isinstance(data, dict)
+        assert "count" in data and "results" in data
+        assert isinstance(data["count"], int)
+        assert isinstance(data["results"], list)
+
+    def test_recyclable_unpaginated_branch_returns_envelope(self, authenticated_client, outasset):
+        """#30 分支对称：paginate_queryset 返回 None（无分页）时，recyclable 与 list 一致返回 {count, results}"""
+        url = reverse("out-assets-recyclable")
+        with mock.patch.object(OutAssetViewSet, "paginate_queryset", return_value=None):
+            response = authenticated_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["code"] == 0
+        data = response.data["data"]
+        assert isinstance(data, dict)
+        assert data["count"] >= 0
+        assert isinstance(data["results"], list)
 
     def test_batch_create(self, admin_authenticated_client, asset, employee, user):
         """测试批量创建出库记录"""

@@ -828,8 +828,9 @@ Content-Type: application/json
               <td>ASSET_IN_USE</td>
               <td>资产正在使用中，不允许删除</td>
             </tr>
+            <!-- 2026-09-22: 错误码随 #9 收敛定案同步为 ASSET_HAS_OUTASSET（原 HAS_OUTASSET_RECORDS；原 A-21"历史快照未改写"决策经 A-29 反转，方案文档随现行契约更新） -->
             <tr>
-              <td>HAS_OUTASSET_RECORDS</td>
+              <td>ASSET_HAS_OUTASSET</td>
               <td>资产存在关联出库记录</td>
             </tr>
             <tr>
@@ -896,7 +897,7 @@ def batch_delete_asset(
             ).exists():
                 fail_items.append({
                     "id": asset_code,
-                    "error_code": "HAS_OUTASSET_RECORDS",
+                    "error_code": "ASSET_HAS_OUTASSET",
                     "error_message": "资产存在关联出库记录，不允许删除"
                 })
                 continue

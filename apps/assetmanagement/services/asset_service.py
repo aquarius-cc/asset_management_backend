@@ -20,7 +20,7 @@ from apps.assetmanagement.selectors import (
     AssetSelector,
     StorageSelector,
 )
-from apps.assetmanagement.state_machine import AssetFSM
+from apps.assetmanagement.state_machine import AssetFSM, AssetState, InvalidTransitionError
 from core.batch_mixins import BatchOperationMixin
 from core.exceptions import AppValidationError
 
@@ -43,6 +43,18 @@ ASSET_UPDATE_IMMUTABLE_FIELDS = frozenset(
         "asset_current_status",
     ]
 )
+
+
+def _run_manual_transition(asset: Asset, target_state: AssetState) -> None:
+    """手动改状态的 FSM 收口(#38)
+
+    将 FSM 内部的 InvalidTransitionError 映射为业务校验异常,
+    避免裸异常逃逸服务层导致未处理 500。
+    """
+    try:
+        AssetFSM._transition(asset, target_state)
+    except InvalidTransitionError as e:
+        raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION") from None
 
 
 class AssetCodeGenerator:
@@ -315,10 +327,8 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
         # B12 TOCTOU 兜底: 锁内重取快照后再次校验行级可见性
         AssetSelector.ensure_asset_visible(asset, user)
         old_status = asset.asset_current_status
-        from apps.assetmanagement.state_machine import AssetState
-
         target_state = AssetState.from_string(new_status)
-        AssetFSM._transition(asset, target_state)
+        _run_manual_transition(asset, target_state)
         AuditLogger.log_state_change(
             asset=asset,
             from_state=old_status,

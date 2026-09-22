@@ -17,7 +17,6 @@ from apps.assetmanagement.models import (
     Storage,
 )
 from apps.assetmanagement.services.asset_service import AssetService
-from apps.assetmanagement.state_machine import InvalidTransitionError
 from apps.usermanagement.models import Employee
 from core.exceptions import AppValidationError
 
@@ -227,13 +226,14 @@ class TestChangeAssetStatus:
         assert result.asset_current_status == "in_use"
 
     def test_change_status_invalid_transition(self, asset, admin_auth_user):
-        """in_store -> scrapped 是非法转换"""
-        with pytest.raises(InvalidTransitionError):
+        """in_store -> scrapped 是非法转换,FSM 异常映射为业务校验异常(#38)"""
+        with pytest.raises(AppValidationError) as exc_info:
             AssetService.change_asset_status(
                 asset_code="A001",
                 new_status="scrapped",
                 user=admin_auth_user,
             )
+        assert exc_info.value.error_code == "INVALID_STATE_TRANSITION"
 
     def test_change_status_asset_not_found(self, admin_auth_user):
         with pytest.raises(AppValidationError) as exc_info:

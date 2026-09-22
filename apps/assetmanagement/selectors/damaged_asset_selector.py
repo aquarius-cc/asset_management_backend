@@ -8,7 +8,7 @@ from typing import Any
 
 from django.db.models import QuerySet
 
-from apps.assetmanagement.models import DamagedAsset
+from apps.assetmanagement.models import Asset, DamagedAsset
 from core.department_scope import get_asset_linked_queryset_for_user
 
 
@@ -51,6 +51,16 @@ class DamagedAssetSelector:
     @staticmethod
     def exists_by_asset_code(asset_code: str) -> bool:
         return DamagedAsset.objects.filter(asset_recordcode__asset_code=asset_code, is_deleted=False).exists()
+
+    @staticmethod
+    def has_active_record(asset: Asset) -> bool:
+        """删除守卫专用(DR-1 唯一入口):资产是否存在未删除的待报废记录"""
+        return DamagedAsset.objects.filter(asset_recordcode=asset, is_deleted=False).exists()
+
+    @staticmethod
+    def get_for_update(recordcode: str) -> DamagedAsset | None:
+        """锁内按待报废记录编码取记录(保留既有不含 is_deleted 查询形态,行为等价)"""
+        return DamagedAsset.objects.select_for_update().filter(recordcode=recordcode).first()
 
     @staticmethod
     def get_by_asset_code(asset_code: str, user: Any = None) -> QuerySet[DamagedAsset]:

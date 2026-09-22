@@ -316,9 +316,7 @@ class RecycleAssetService:
                     error_code="STATUS_NOT_ALLOWED",
                 )
             # 保存关联的出库记录信息,用于恢复资产字段
-            outasset = OutAsset.objects.filter(
-                recordcode=recycle_asset.outasset_recordcode_id, is_deleted=False
-            ).first()
+            outasset = OutAssetSelector.get_active_outasset(recycle_asset.outasset_recordcode_id)
 
             recycle_asset.delete()
 

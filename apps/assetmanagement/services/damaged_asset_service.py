@@ -105,7 +105,7 @@ class DamagedAssetService:
         Returns:
             更新后的 DamagedAsset
         """
-        damaged_asset = DamagedAsset.objects.select_for_update().filter(recordcode=recordcode).first()
+        damaged_asset = DamagedAssetSelector.get_for_update(recordcode)
         if not damaged_asset:
             raise AppValidationError(detail="待报废记录不存在", error_code="DAMAGED_RECORD_NOT_FOUND")
 

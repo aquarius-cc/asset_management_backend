@@ -12,8 +12,8 @@ from typing import Any
 from django.db import transaction
 
 from apps.assetmanagement.audit import AuditLogger
-from apps.assetmanagement.models import Asset, DamagedAsset, OutAsset
-from apps.assetmanagement.selectors import AssetSelector
+from apps.assetmanagement.models import Asset
+from apps.assetmanagement.selectors import AssetSelector, DamagedAssetSelector, OutAssetSelector
 from apps.assetmanagement.state_machine import AssetFSM, AssetState, InvalidTransitionError
 from apps.usermanagement.selectors import EmployeeSelector
 from core.batch_mixins import BatchOperationMixin
@@ -212,11 +212,11 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
             raise AppValidationError(
                 detail=f"资产当前状态为 {asset.asset_current_status},不允许删除", error_code="ASSET_IN_USE"
             )
-        if OutAsset.objects.filter(asset_recordcode=asset, is_deleted=False).exists():
+        if OutAssetSelector.has_active_outasset(asset):
             raise AppValidationError(
                 detail=f"资产 {asset.asset_code} 存在未完成的出库记录", error_code="ASSET_HAS_OUTASSET"
             )
-        if DamagedAsset.objects.filter(asset_recordcode=asset, is_deleted=False).exists():
+        if DamagedAssetSelector.has_active_record(asset):
             raise AppValidationError(detail="资产存在待报废记录,不允许删除", error_code="HAS_DAMAGED_RECORDS")
         AuditLogger.log_asset_delete(
             asset_code=asset.asset_code,

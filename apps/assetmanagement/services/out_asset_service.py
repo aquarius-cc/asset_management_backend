@@ -273,7 +273,7 @@ class OutAssetService:
 
     @staticmethod
     def _delete_one(recordcode: str, operator_jobcode: str | None = None, operator_name: str | None = None) -> None:
-        outasset = OutAsset.objects.select_for_update().filter(recordcode=recordcode, is_deleted=False).first()
+        outasset = OutAssetSelector.get_outasset_for_update(recordcode)
         if not outasset:
             raise AppValidationError(detail=f"出库记录 {recordcode} 不存在", error_code="NOT_FOUND")
 

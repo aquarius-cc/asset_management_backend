@@ -157,6 +157,21 @@ class OutAssetSelector:
             return None
 
     @staticmethod
+    def has_active_outasset(asset: Asset) -> bool:
+        """删除守卫专用(DR-1 唯一入口):资产是否存在未删除的出库记录"""
+        return OutAsset.objects.filter(asset_recordcode=asset, is_deleted=False).exists()
+
+    @staticmethod
+    def get_active_outasset(recordcode: str) -> OutAsset | None:
+        """按出库单编码取未删除记录(轻量,无关联预加载)"""
+        return OutAsset.objects.filter(recordcode=recordcode, is_deleted=False).first()
+
+    @staticmethod
+    def get_outasset_for_update(recordcode: str) -> OutAsset | None:
+        """锁内按出库单编码取未删除记录(批量删除守卫专用)"""
+        return OutAsset.objects.select_for_update().filter(recordcode=recordcode, is_deleted=False).first()
+
+    @staticmethod
     def get_outassets_by_applicant(applicant_jobcode: str, user: Any = None) -> QuerySet[OutAsset]:
         qs: QuerySet[OutAsset] = (
             OutAsset.objects.filter(

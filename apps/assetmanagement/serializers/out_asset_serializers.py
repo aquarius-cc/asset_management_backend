@@ -87,6 +87,12 @@ class OutAssetCreateSerializer(serializers.ModelSerializer[OutAsset]):
     )
     recordcode = serializers.CharField(read_only=True)
     outasset_using_location = serializers.CharField(required=False, write_only=True, allow_blank=True, allow_null=True)
+    outasset_applicant = serializers.SlugRelatedField(
+        slug_field="employee_jobcode", queryset=get_employee_queryset(), required=False, write_only=True, allow_null=True
+    )
+    outasset_manager = serializers.SlugRelatedField(
+        slug_field="employee_jobcode", queryset=get_employee_queryset(), required=False, write_only=True, allow_null=True
+    )
 
     class Meta:
         model = OutAsset
@@ -99,6 +105,8 @@ class OutAssetCreateSerializer(serializers.ModelSerializer[OutAsset]):
             "outasset_description",
             "return_date",
             "outasset_using_location",
+            "outasset_applicant",
+            "outasset_manager",
         ]
         extra_kwargs = {
             "outasset_number": {"required": False, "default": 1},
@@ -107,10 +115,14 @@ class OutAssetCreateSerializer(serializers.ModelSerializer[OutAsset]):
         }
 
     def create(self, validated_data: Any) -> OutAsset:
+        validated_data.pop("outasset_applicant", None)
+        validated_data.pop("outasset_manager", None)
         validated_data.pop("outasset_using_location", None)
         return super().create(validated_data)
 
     def update(self, instance: Any, validated_data: Any) -> OutAsset:
+        validated_data.pop("outasset_applicant", None)
+        validated_data.pop("outasset_manager", None)
         validated_data.pop("outasset_using_location", None)
         return super().update(instance, validated_data)
 
@@ -173,6 +185,12 @@ class OutAssetUpdateSerializer(serializers.ModelSerializer[OutAsset]):
 
     recordcode = serializers.CharField(read_only=True)
     asset_recordcode = serializers.CharField(read_only=True)
+    outasset_applicant = serializers.SlugRelatedField(
+        slug_field="employee_jobcode", queryset=get_employee_queryset(), required=False, write_only=True, allow_null=True
+    )
+    outasset_manager = serializers.SlugRelatedField(
+        slug_field="employee_jobcode", queryset=get_employee_queryset(), required=False, write_only=True, allow_null=True
+    )
 
     class Meta:
         model = OutAsset
@@ -185,12 +203,19 @@ class OutAssetUpdateSerializer(serializers.ModelSerializer[OutAsset]):
             "outasset_description",
             "outasset_using_location",
             "return_date",
+            "outasset_applicant",
+            "outasset_manager",
         ]
         extra_kwargs = {
             "outasset_number": {"required": False},
             "outasset_type": {"required": False},
             "outasset_date": {"required": False},
         }
+
+    def update(self, instance: Any, validated_data: Any) -> OutAsset:
+        validated_data.pop("outasset_applicant", None)
+        validated_data.pop("outasset_manager", None)
+        return super().update(instance, validated_data)
 
 
 # ==================== 保持向后兼容 ====================

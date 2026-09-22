@@ -25,6 +25,8 @@ OUTASSET_UPDATE_ALLOWED_FIELDS = frozenset(
         "outasset_using_location",
         "return_date",
         "outasset_date",
+        "outasset_applicant_recordcode",
+        "outasset_manager_recordcode",
     ]
 )
 
@@ -130,6 +132,21 @@ class OutAssetService:
         }
 
     @staticmethod
+    def _build_asset_people_update(asset: Asset, applicant: Any, manager: Any, using_location: Any) -> list[str]:
+        """组装 Asset 主表申请人/保管人/使用地点字段更新(Dynamic update_fields,create/update 共用)"""
+        update_fields: list[str] = []
+        if applicant is not None:
+            asset.asset_applicant_recordcode = applicant
+            update_fields.append("asset_applicant_recordcode")
+        if manager is not None:
+            asset.asset_manager_recordcode = manager
+            update_fields.append("asset_manager_recordcode")
+        if using_location is not None:
+            asset.asset_using_location = using_location
+            update_fields.append("asset_using_location")
+        return update_fields
+
+    @staticmethod
     def _apply_outasset_to_asset(asset: Asset, applicant: Any, manager: Any, using_location: Any) -> Asset:
         """锁行并执行出库:FSM 转换 + 资产字段变化 + 定向 save"""
         asset = Asset.objects.select_for_update().get(pk=asset.pk)
@@ -140,23 +157,8 @@ class OutAssetService:
             raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
 
         asset.asset_storage_recordcode = None
-        if applicant:
-            asset.asset_applicant_recordcode = applicant
-        if manager:
-            asset.asset_manager_recordcode = manager
-        if using_location:
-            asset.asset_using_location = using_location
-
-        update_fields = [
-            "asset_current_status",
-            "asset_storage_recordcode",
-        ]
-        if applicant:
-            update_fields.append("asset_applicant_recordcode")
-        if manager:
-            update_fields.append("asset_manager_recordcode")
-        if using_location:
-            update_fields.append("asset_using_location")
+        update_fields = ["asset_current_status", "asset_storage_recordcode"]
+        update_fields += OutAssetService._build_asset_people_update(asset, applicant, manager, using_location)
         asset.save(update_fields=update_fields)
 
         return asset
@@ -174,7 +176,23 @@ class OutAssetService:
             raise AppValidationError(detail=f"出库记录 {recordcode} 不存在", error_code="OUTASSET_NOT_FOUND")
         outasset = OutAsset.objects.select_for_update().get(pk=outasset.pk)
 
-        before_data = {key: getattr(outasset, key) for key in update_data.keys()}
+        applicant = update_data.pop("outasset_applicant", None)
+        manager = update_data.pop("outasset_manager", None)
+
+        before_data: dict[str, Any] = {}
+        for key in update_data:
+            before_data[key] = getattr(outasset, key)
+        if applicant is not None:
+            current_applicant = getattr(outasset, "outasset_applicant_recordcode", None)
+            before_data["outasset_applicant"] = current_applicant.employee_jobcode if current_applicant else None
+        if manager is not None:
+            current_manager = getattr(outasset, "outasset_manager_recordcode", None)
+            before_data["outasset_manager"] = current_manager.employee_jobcode if current_manager else None
+
+        if applicant is not None:
+            update_data["outasset_applicant_recordcode"] = applicant
+        if manager is not None:
+            update_data["outasset_manager_recordcode"] = manager
 
         for key, value in update_data.items():
             if key in OUTASSET_UPDATE_ALLOWED_FIELDS:
@@ -183,10 +201,27 @@ class OutAssetService:
                 raise AppValidationError(detail=f"不允许修改字段: {key}", error_code="FIELD_NOT_ALLOWED")
 
         outasset.save()
+
+        after_data = dict(update_data)
+        for key in ("outasset_applicant_recordcode", "outasset_manager_recordcode"):
+            if key in after_data:
+                emp = after_data[key]
+                after_data[key] = emp.employee_jobcode if emp else None
+
+        asset = outasset.asset_recordcode
+        if asset is not None:
+            asset = Asset.objects.select_for_update().get(pk=asset.pk)
+            update_fields = OutAssetService._build_asset_people_update(asset, applicant, manager, None)
+            if update_data.get("outasset_using_location") is not None:
+                asset.asset_using_location = update_data["outasset_using_location"]
+                update_fields.append("asset_using_location")
+            if update_fields:
+                asset.save(update_fields=update_fields)
+
         AuditLogger.log_asset_update(
             asset=outasset.asset_recordcode,
             before_data=before_data,
-            after_data=update_data,
+            after_data=after_data,
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
         )

@@ -98,6 +98,17 @@ class AssetLifecycleViewSetBase(  # type: ignore[misc]
             return self.update_serializer
         return self.detail_serializer
 
+    def destroy(self, request: Any, *args: Any, **kwargs: Any) -> Response:
+        """删除生命周期事件记录(软删, 与批量删除同语义; 镜像 repair_asset_view.destroy)"""
+        obj = self.get_object()
+        getattr(AssetLifecycleMixin, self.delete_service_method)(
+            recordcode=obj.recordcode,
+            operator_jobcode=resolve_operator(request.user)[0],
+            operator_name=resolve_operator(request.user)[1],
+            user=request.user,
+        )
+        return success_response(data={"recordcode": obj.recordcode}, message="删除成功")
+
     @action(detail=False, methods=["post"], url_path="batch-delete")
     def batch_delete(self, request: Any) -> Response:
         """批量删除(三视图集完全一致, 仅 delete_service_method 字符串差异, 编排收敛至 Service)"""

@@ -8,7 +8,7 @@ import pytest
 from django.urls import reverse
 from rest_framework import status
 
-from apps.assetmanagement.models import BrokenAsset, FoundAsset, LostAsset, RepairAsset
+from apps.assetmanagement.models import AssetOperationLog, BrokenAsset, FoundAsset, LostAsset, RepairAsset
 
 
 @pytest.fixture
@@ -81,12 +81,19 @@ class TestBrokenAssetViewSet:
         assert response.data["data"]["broken_reason"] == "部分更新后的损坏原因"
 
     def test_destroy_broken_asset(self, admin_authenticated_client, broken_asset):
-        """测试删除损坏资产记录"""
+        """测试删除损坏资产记录(批次②a: 软删而非物理删除, 响应保留 recordcode + 审计落库)"""
         url = reverse("broken-assets-detail", kwargs={"recordcode": broken_asset.recordcode})
         response = admin_authenticated_client.delete(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data["code"] == 0
-        assert not BrokenAsset.objects.filter(recordcode=broken_asset.recordcode).exists()
+        assert response.data["data"]["recordcode"] == broken_asset.recordcode
+        assert BrokenAsset.all_objects.filter(
+            recordcode=broken_asset.recordcode, is_deleted=True
+        ).exists()
+        assert AssetOperationLog.objects.filter(
+            asset_code=broken_asset.asset_recordcode.asset_code,
+            operation_type=AssetOperationLog.OperationType.DELETE,
+        ).exists()
 
     def test_batch_delete(self, admin_authenticated_client, broken_asset):
         """测试批量删除损坏资产记录"""
@@ -155,12 +162,19 @@ class TestLostAssetViewSet:
         assert response.data["data"]["lost_reason"] == "部分更新后的遗失原因"
 
     def test_destroy_lost_asset(self, admin_authenticated_client, lost_asset):
-        """测试删除遗失资产记录"""
+        """测试删除遗失资产记录(批次②a: 软删而非物理删除, 响应保留 recordcode + 审计落库)"""
         url = reverse("lost-assets-detail", kwargs={"recordcode": lost_asset.recordcode})
         response = admin_authenticated_client.delete(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data["code"] == 0
-        assert not LostAsset.objects.filter(recordcode=lost_asset.recordcode).exists()
+        assert response.data["data"]["recordcode"] == lost_asset.recordcode
+        assert LostAsset.all_objects.filter(
+            recordcode=lost_asset.recordcode, is_deleted=True
+        ).exists()
+        assert AssetOperationLog.objects.filter(
+            asset_code=lost_asset.asset_recordcode.asset_code,
+            operation_type=AssetOperationLog.OperationType.DELETE,
+        ).exists()
 
     def test_batch_delete(self, admin_authenticated_client, lost_asset):
         """测试批量删除遗失资产记录"""
@@ -228,12 +242,19 @@ class TestFoundAssetViewSet:
         assert response.data["data"]["found_location"] == "部分更新后的找回位置"
 
     def test_destroy_found_asset(self, admin_authenticated_client, found_asset):
-        """测试删除找回资产记录"""
+        """测试删除找回资产记录(批次②a: 软删而非物理删除, 响应保留 recordcode + 审计落库)"""
         url = reverse("found-assets-detail", kwargs={"recordcode": found_asset.recordcode})
         response = admin_authenticated_client.delete(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data["code"] == 0
-        assert not FoundAsset.objects.filter(recordcode=found_asset.recordcode).exists()
+        assert response.data["data"]["recordcode"] == found_asset.recordcode
+        assert FoundAsset.all_objects.filter(
+            recordcode=found_asset.recordcode, is_deleted=True
+        ).exists()
+        assert AssetOperationLog.objects.filter(
+            asset_code=found_asset.asset_recordcode.asset_code,
+            operation_type=AssetOperationLog.OperationType.DELETE,
+        ).exists()
 
     def test_batch_delete(self, admin_authenticated_client, found_asset):
         """测试批量删除找回资产记录"""

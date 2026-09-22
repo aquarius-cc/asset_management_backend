@@ -7,10 +7,7 @@
 import json
 import string
 import uuid
-from datetime import date, datetime, time
-from decimal import Decimal
 from typing import Any
-from uuid import UUID
 
 from django.db import transaction
 
@@ -177,8 +174,8 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
         - 状态变更(asset_current_status)必须走 FSM 专用入口(CT-3);
         - 标识/系统字段不可经通用更新接口修改。
 
-        validated_data 中 FK 字段为模型实例,审计快照统一 str() 归一化,
-        保证 OperationLog JSON 字段可序列化。
+        validated_data 中 FK 字段为模型实例,审计快照归一委托写入收口
+        OperationLogService._to_json_safe(幂等,DR-1 唯一实现),保证 OperationLog JSON 字段可序列化。
 
         user 必填(B12): 行级隔离,不可见与不存在同义(ASSET_NOT_FOUND)。
         """
@@ -189,27 +186,17 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
         # B12 TOCTOU 兜底: 锁内重取快照后再次校验行级可见性
         AssetSelector.ensure_asset_visible(asset, user)
 
-        def _normalize(value: Any) -> Any:
-            # FK 实例 → 其 recordcode（FK 列真实值，与存量审计日志口径一致）；
-            # 无 recordcode 的兜底取 pk；Decimal/date 等非 JSON 原生类型转 str；
-            # 其余标量原样
-            if hasattr(value, "pk"):
-                return str(getattr(value, "recordcode", value.pk))
-            if isinstance(value, (Decimal, date, datetime, time, UUID)):
-                return str(value)
-            return value
-
         for key in update_data:
             if key in ASSET_UPDATE_IMMUTABLE_FIELDS:
                 raise AppValidationError(detail=f"不允许修改字段: {key}", error_code="FIELD_NOT_ALLOWED")
-        before_data = {key: _normalize(getattr(asset, key)) for key in update_data}
+        before_data = {key: getattr(asset, key) for key in update_data}
         for key, value in update_data.items():
             setattr(asset, key, value)
         asset.save()
         AuditLogger.log_asset_update(
             asset=asset,
             before_data=before_data,
-            after_data={key: _normalize(value) for key, value in update_data.items()},
+            after_data=update_data,
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
         )

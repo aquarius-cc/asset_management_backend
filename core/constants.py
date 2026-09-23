@@ -1,90 +1,9 @@
-# d:\CodeDemo\Python\asset_management_backend\core\constants.py
 """
 项目常量
 
-提供项目中使用的所有常量定义:
-- 资产相关状态常量
-- 用户和部门状态常量
-- 分页配置
+本文件仅存分页/批量尺寸常量（DEFAULT_PAGE_SIZE / MAX_PAGE_SIZE / MAX_BATCH_SIZE，单一来源）。
+一切枚举常量（状态/类型等选项集）必须定义在对应 Model 侧 TextChoices，禁止回流本文件。
 """
-
-# ============================
-# 资产外观状态
-ASSET_APPEARANCE_CHOICES: list[tuple[str, str]] = [
-    ("newly", "新增加资产"),
-    ("used", "已使用资产"),
-    ("damaged", "待报废资产"),
-    ("waste", "已报废资产"),
-]
-
-# 出库类型
-OUTASSET_TYPE_CHOICES: list[tuple[str, str]] = [
-    ("receive", "领用"),
-    ("borrow", "借用"),
-]
-
-# ============================
-# 员工状态常量(与 usermanagement/models.py 保持一致)
-# ============================
-EMPLOYEE_STATUS_CHOICES: list[tuple[str, str]] = [
-    ("active", "在职员工"),
-    ("left", "离职员工"),
-    ("retirement", "退休员工"),
-]
-
-# ============================
-# 部门状态常量
-# ============================
-DEPARTMENT_STATUS_CHOICES: list[tuple[str, str]] = [
-    ("active", "正常"),
-    ("inactive", "停用"),
-]
-
-# ============================
-# 审批状态常量
-# ============================
-APPROVAL_STATUS_CHOICES: list[tuple[str, str]] = [
-    ("pending", "待审批"),
-    ("approved", "已批准"),
-    ("rejected", "已拒绝"),
-]
-
-# ============================
-# 合同类型常量
-# ============================
-CONTRACT_TYPE_CHOICES: list[tuple[str, str]] = [
-    ("tender_procurement", "招标采购合同"),
-    ("service", "服务合同"),
-    ("information_construction", "信息化建设合同"),
-    ("direct_procurement", "直接采购合同"),
-]
-
-CONTRACT_SETTLEMENT_CHOICES: list[tuple[str, str]] = [
-    ("pending", "待结算"),
-    ("settling_up", "结算中"),
-    ("settled", "已结算"),
-]
-
-# ============================
-# 仓库类型常量
-# ============================
-STORAGE_TYPE_CHOICES: list[tuple[str, str]] = [
-    ("newasset", "新货仓库"),
-    ("recycle", "回收仓库"),
-    ("broken", "损坏存放出库"),
-    ("damaged", "待报废仓库"),
-]
-
-# ============================
-# 硬盘状态常量
-# ============================
-HARDDISK_STATUS_CHOICES: list[tuple[str, str]] = [
-    ("active", "正常"),
-    ("repair", "维修"),
-    ("scrap", "报废"),
-    ("lost", "丢失"),
-    ("damaged", "损坏"),
-]
 
 # ============================
 # 分页配置

@@ -159,6 +159,14 @@ class EmployeeRole(models.TextChoices):
     AUDITOR = "auditor", "审计员"
 
 
+class EmployeeStatus(models.TextChoices):
+    """员工状态枚举(DR-1:权威源在 Model)(兼容别名 Employee.EMPLOYEE_STATUS_CHOICES)"""
+
+    ACTIVE = "active", "在职员工"
+    LEFT = "left", "离职员工"
+    RETIREMENT = "retirement", "退休员工"
+
+
 class Employee(BaseModel):
     """
     员工管理表
@@ -167,7 +175,8 @@ class Employee(BaseModel):
     created_at、updated_at、SoftDeleteManager、delete/restore/hard_delete。
     """
 
-    EMPLOYEE_STATUS_CHOICES = [("active", "在职员工"), ("left", "离职员工"), ("retirement", "退休员工")]
+    # 向后兼容
+    EMPLOYEE_STATUS_CHOICES = EmployeeStatus.choices
 
     if TYPE_CHECKING:
         objects: ClassVar[Manager[Any]]
@@ -184,7 +193,7 @@ class Employee(BaseModel):
         help_text="RBAC 角色:system_admin/dept_manager/asset_admin/regular_user/auditor",
     )
     employee_status = models.CharField(
-        max_length=10, choices=EMPLOYEE_STATUS_CHOICES, default="active", verbose_name="员工状态"
+        max_length=10, choices=EmployeeStatus.choices, default=EmployeeStatus.ACTIVE, verbose_name="员工状态"
     )
     employee_department = models.ForeignKey(
         Department,

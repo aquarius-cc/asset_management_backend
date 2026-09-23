@@ -14,17 +14,17 @@
 # 查看 docs/DEPLOYMENT.md 了解生产部署最佳实践
 # =============================================================================
 
-# 开发环境密钥（本地使用，可提交到版本控制）
-# 如需更强密钥，通过环境变量 SECRET_KEY 或 .env 文件覆盖
+# 开发环境密钥（本地使用，不硬编码任何默认值）
+# B1: 运行时生成兜底，仓库零硬编码；可通过环境变量 SECRET_KEY 或 .env 文件固定覆盖
 import os
+
+from decouple import config
+from django.core.management.utils import get_random_secret_key
 
 from .base import *
 
 
-SECRET_KEY = os.environ.get(
-    "SECRET_KEY",
-    "*4h%+e%qu80vsi0*dsojcc@2g^6wh-g6-l@)20_9^g=kq$1_42",
-)
+SECRET_KEY = config("SECRET_KEY", default=get_random_secret_key())
 
 # C-2: 验证密钥安全性 — 防止 base.py placeholder 泄漏到此环境
 from django.core.exceptions import ImproperlyConfigured
@@ -108,7 +108,9 @@ EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 # 【密钥配置说明】
 # =============================================================================
 
-# 【易错点】开发环境使用 base.py 中定义的默认 SECRET_KEY
+# 【B1 收敛】本环境不再硬编码默认密钥,未配置时运行时生成(每次进程启动即新密钥)。
+# 会话/签名在重启后失效属预期,建议开发期通过 .env 或环境变量固定:
+#   复制 .env.example 后,生成并填入: SECRET_KEY=<get_random_secret_key() 输出>
 # 【生产要求】必须通过环境变量设置强随机密钥:
 #   SECRET_KEY=<使用 python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"> 生成
 # =============================================================================

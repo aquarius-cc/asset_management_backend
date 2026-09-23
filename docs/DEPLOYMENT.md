@@ -78,6 +78,8 @@ sudo nano .env
 > - `SECRET_KEY`、`ALLOWED_HOSTS`、`DB_PASSWORD`、`REDIS_URL`
 > - CI/CD 中的 `collectstatic`、`migrate` 等管理命令也需设置这些变量
 >
+> **开发环境（B1）**：`config/settings/development.py` 未配置 `SECRET_KEY` 时自动生成随机密钥（零硬编码），仅限本地调试；建议开发期在 `.env` 中固定覆盖，避免重启后会话失效。
+>
 > **⚠️ init-once 语义**：以下变量**仅在数据卷首次创建时生效**,后续修改 `.env` 不会自动更新：
 > - `DB_PASSWORD` / `DB_USER` / `DB_NAME`（PostgreSQL 初始化脚本仅执行一次）
 > - `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD`（Grafana 首次启动创建管理员,后续不变）

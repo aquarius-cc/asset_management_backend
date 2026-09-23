@@ -164,21 +164,13 @@ class OutAssetService:
         return asset
 
     @staticmethod
-    @transaction.atomic
-    def update_outasset(
-        recordcode: str,
+    def _build_update_audit_snapshot(
+        outasset: OutAsset,
         update_data: dict[str, Any],
-        operator_jobcode: str | None = None,
-        operator_name: str | None = None,
-    ) -> OutAsset:
-        outasset = OutAssetSelector.get_outasset_by_record_code(recordcode)
-        if not outasset:
-            raise AppValidationError(detail=f"出库记录 {recordcode} 不存在", error_code="OUTASSET_NOT_FOUND")
-        outasset = OutAsset.objects.select_for_update().get(pk=outasset.pk)
-
-        applicant = update_data.pop("outasset_applicant", None)
-        manager = update_data.pop("outasset_manager", None)
-
+        applicant: Any,
+        manager: Any,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """组装出库更新审计 before/after 快照(jobcode 口径),并完成 FK 字段名重映射"""
         before_data: dict[str, Any] = {}
         for key in update_data:
             before_data[key] = getattr(outasset, key)
@@ -194,6 +186,33 @@ class OutAssetService:
         if manager is not None:
             update_data["outasset_manager_recordcode"] = manager
 
+        after_data = dict(update_data)
+        for key in ("outasset_applicant_recordcode", "outasset_manager_recordcode"):
+            if key in after_data:
+                emp = after_data[key]
+                after_data[key] = emp.employee_jobcode if emp else None
+        return before_data, after_data
+
+    @staticmethod
+    @transaction.atomic
+    def update_outasset(
+        recordcode: str,
+        update_data: dict[str, Any],
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+    ) -> OutAsset:
+        outasset = OutAssetSelector.get_outasset_by_record_code(recordcode)
+        if not outasset:
+            raise AppValidationError(detail=f"出库记录 {recordcode} 不存在", error_code="OUTASSET_NOT_FOUND")
+        outasset = OutAsset.objects.select_for_update().get(pk=outasset.pk)
+
+        applicant = update_data.pop("outasset_applicant", None)
+        manager = update_data.pop("outasset_manager", None)
+
+        before_data, after_data = OutAssetService._build_update_audit_snapshot(
+            outasset, update_data, applicant, manager
+        )
+
         for key, value in update_data.items():
             if key in OUTASSET_UPDATE_ALLOWED_FIELDS:
                 setattr(outasset, key, value)
@@ -202,19 +221,12 @@ class OutAssetService:
 
         outasset.save()
 
-        after_data = dict(update_data)
-        for key in ("outasset_applicant_recordcode", "outasset_manager_recordcode"):
-            if key in after_data:
-                emp = after_data[key]
-                after_data[key] = emp.employee_jobcode if emp else None
-
         asset = outasset.asset_recordcode
         if asset is not None:
             asset = Asset.objects.select_for_update().get(pk=asset.pk)
-            update_fields = OutAssetService._build_asset_people_update(asset, applicant, manager, None)
-            if update_data.get("outasset_using_location") is not None:
-                asset.asset_using_location = update_data["outasset_using_location"]
-                update_fields.append("asset_using_location")
+            update_fields = OutAssetService._build_asset_people_update(
+                asset, applicant, manager, update_data.get("outasset_using_location")
+            )
             if update_fields:
                 asset.save(update_fields=update_fields)
 

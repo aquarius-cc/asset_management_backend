@@ -24,6 +24,12 @@ class TestAssetStatusChoicesSingleSource:
             "core/constants.py 不得重复定义 ASSET_STATUS_CHOICES(权威源在 Asset 模型)"
         )
 
+    def test_core_constants_no_choice_enum_reflux(self):
+        src = _read("core/constants.py")
+        assert "_CHOICES" not in src, (
+            "core/constants.py 仅存分页/批量尺寸常量,任何 *_CHOICES 枚举都禁止回流(定义在 Model 侧 TextChoices)"
+        )
+
     def test_asset_view_uses_model_choices(self):
         src = _read("apps/assetmanagement/views/asset_view.py")
         assert "ASSET_STATUS_MAP = dict(Asset.ASSET_STATUS_CHOICES)" in src, (

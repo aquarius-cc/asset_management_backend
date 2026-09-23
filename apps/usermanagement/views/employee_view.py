@@ -25,7 +25,7 @@ from apps.usermanagement.serializers import (
 )
 from apps.usermanagement.services import EmployeeService
 from apps.usermanagement.views.employee_auth_mixin import EmployeeAuthMixin
-from core.batch_mixins import BatchResponseHelper
+from core.batch_mixins import BatchDeleteViewMixin, BatchResponseHelper
 from core.mixins import LoggingMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
 from core.permissions import IsSystemAdmin
@@ -41,6 +41,7 @@ if TYPE_CHECKING:
 # LoggingMixin.perform_* 与 DRF Mixin 存根签名存在已知偏差(项目内 mixin, 运行时行为正确)
 class EmployeeViewSet(  # type: ignore[misc]
     EmployeeAuthMixin,
+    BatchDeleteViewMixin,
     LoggingMixin,
     ResponseWrapperMixin,
     viewsets.ModelViewSet,  # type: ignore[type-arg]
@@ -210,18 +211,9 @@ class EmployeeViewSet(  # type: ignore[misc]
             request_items=serializer.initial_data.get("items"),
         )
 
-    @action(detail=False, methods=["post"], url_path="batch-delete")
-    def batch_delete(self, request: "Request") -> "Response":
-        """批量删除员工"""
-        serializer = EmployeeBatchDeleteSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        result = EmployeeService.batch_delete_employee(serializer.validated_data["ids"])
-
-        return BatchResponseHelper.delete_response(
-            result,
-            message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
-        )
+    batch_delete_serializer = EmployeeBatchDeleteSerializer
+    batch_delete_service = EmployeeService.batch_delete_employee
+    batch_delete_passes_operator = False
 
     @extend_schema(
         parameters=[

@@ -28,7 +28,7 @@ from apps.assetmanagement.serializers import (
     WasteAssetDetailSerializer,
 )
 from apps.assetmanagement.services import DamagedAssetService
-from core.batch_mixins import BatchResponseHelper
+from core.batch_mixins import BatchDeleteViewMixin
 from core.constants import APPROVAL_STATUS_CHOICES
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
@@ -45,6 +45,7 @@ class DamagedAssetViewSet(  # type: ignore[misc]
     AdminWritePermissionMixin,
     ExportExcelMixin,
     PaginateAndRespondMixin,
+    BatchDeleteViewMixin,
     LoggingMixin,
     ResponseWrapperMixin,
     viewsets.ModelViewSet[DamagedAsset],
@@ -217,20 +218,6 @@ class DamagedAssetViewSet(  # type: ignore[misc]
         }
         return success_response(data={"total_damaged": total, "by_status": by_status})
 
-    @action(detail=False, methods=["post"], url_path="batch-delete")
-    def batch_delete(self, request: Any) -> Response:
-        serializer = DamagedAssetBatchDeleteSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        ids = serializer.validated_data["ids"]
-        operator_jobcode, operator_name = resolve_operator(request.user)
-        # 【DR-1 收敛】循环下沉至 Service; 错误码透传(原写死 VALIDATION_ERROR 属漂移, 已获前端证据批准修正)
-        result = DamagedAssetService.batch_delete_asset_recordcodes(
-            ids,
-            operator_jobcode=operator_jobcode,
-            operator_name=operator_name,
-            user=request.user,
-        )
-        return BatchResponseHelper.delete_response(
-            result,
-            message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
-        )
+    batch_delete_serializer = DamagedAssetBatchDeleteSerializer
+    batch_delete_service = DamagedAssetService.batch_delete_asset_recordcodes
+    batch_delete_passes_user = True

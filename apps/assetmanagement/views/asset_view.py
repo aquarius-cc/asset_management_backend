@@ -29,7 +29,7 @@ from apps.assetmanagement.serializers import (
     ContractDetailSerializer,
 )
 from apps.assetmanagement.services import AssetService, RepairAssetService
-from core.batch_mixins import BatchResponseHelper
+from core.batch_mixins import BatchDeleteViewMixin, BatchResponseHelper
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
 from core.permissions import IsAssetAdminOrAbove, IsSystemAdmin
@@ -48,6 +48,7 @@ class AssetViewSet(  # type: ignore[misc]
     AdminWritePermissionMixin,
     ExportExcelMixin,
     PaginateAndRespondMixin,
+    BatchDeleteViewMixin,
     LoggingMixin,
     ResponseWrapperMixin,
     viewsets.ModelViewSet[Asset],
@@ -368,31 +369,16 @@ class AssetViewSet(  # type: ignore[misc]
             request_items=serializer.initial_data.get("items"),
         )
 
-    @action(detail=False, methods=["post"], url_path="batch-delete")
-    def batch_delete(self, request: Any) -> Response:
-        serializer = AssetBatchDeleteSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        ids = serializer.validated_data["ids"]
+    batch_delete_serializer = AssetBatchDeleteSerializer
+    batch_delete_service = AssetService.batch_delete_asset
+    batch_delete_passes_user = True
+
+    def batch_delete_prefilter(self, ids: list[str], request: Any) -> list[str]:
+        # RBAC: 越权/不存在资产不进入删除流程(视同不存在)
         scoped_codes = set(
             self.get_queryset().filter(asset_code__in=ids).values_list("asset_code", flat=True)
         )
-        # RBAC: 越权/不存在资产不进入删除流程(视同不存在)
-        result = AssetService.batch_delete_asset(
-            [code for code in ids if code in scoped_codes],
-            operator_jobcode=resolve_operator(request.user)[0],
-            operator_name=resolve_operator(request.user)[1],
-            user=request.user,
-        )
-        return success_response(
-            data={
-                "total": result["total"],
-                "success_count": result["success_count"],
-                "fail_count": result["fail_count"],
-                "success_ids": result["success_ids"],
-                "fail_items": result["fail_items"],
-            },
-            message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
-        )
+        return [code for code in ids if code in scoped_codes]
 
     @action(detail=True, methods=["post"], url_path="mark-broken", permission_classes=[IsAssetAdminOrAbove])
     def mark_broken(self, request: Any, recordcode: Any = None) -> Response:

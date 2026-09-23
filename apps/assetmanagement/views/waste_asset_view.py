@@ -26,12 +26,11 @@ from apps.assetmanagement.serializers import (
     WasteAssetSerializer,
 )
 from apps.assetmanagement.services import WasteAssetService
-from core.batch_mixins import BatchResponseHelper
+from core.batch_mixins import BatchDeleteViewMixin
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
 from core.permissions import IsAssetAdminOrAbove
 from utils.response_utils import error_response, success_response
-from utils.user_utils import resolve_operator
 
 from ._export_mixin import ExportExcelMixin
 from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
@@ -42,6 +41,7 @@ class WasteAssetViewSet(  # type: ignore[misc]
     AdminWritePermissionMixin,
     ExportExcelMixin,
     PaginateAndRespondMixin,
+    BatchDeleteViewMixin,
     LoggingMixin,
     ResponseWrapperMixin,
     viewsets.ModelViewSet[WasteAsset],
@@ -176,19 +176,5 @@ class WasteAssetViewSet(  # type: ignore[misc]
             qs = qs.filter(waste_asset_date__lte=end_date)
         return self._paginate_and_respond(qs)
 
-    @action(detail=False, methods=["post"], url_path="batch-delete")
-    def batch_delete(self, request: Any) -> Response:
-        serializer = WasteAssetBatchDeleteSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        ids = serializer.validated_data["ids"]
-        operator_jobcode, operator_name = resolve_operator(request.user)
-        # 【DR-1 收敛】循环下沉至 Service; WASTE_ASSET_NOT_FOUND 不再被遮蔽为 INTERNAL_ERROR
-        result = WasteAssetService.batch_delete_waste_assets(
-            ids,
-            operator_jobcode=operator_jobcode,
-            operator_name=operator_name,
-        )
-        return BatchResponseHelper.delete_response(
-            result,
-            message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
-        )
+    batch_delete_serializer = WasteAssetBatchDeleteSerializer
+    batch_delete_service = WasteAssetService.batch_delete_waste_assets

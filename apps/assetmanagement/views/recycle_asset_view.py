@@ -26,7 +26,7 @@ from apps.assetmanagement.serializers import (
     RecycleAssetUpdateSerializer,
 )
 from apps.assetmanagement.services import RecycleAssetService
-from core.batch_mixins import BatchResponseHelper
+from core.batch_mixins import BatchDeleteViewMixin, BatchResponseHelper
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
 from core.permissions import IsAssetAdminOrAbove
@@ -43,6 +43,7 @@ class RecycleAssetViewSet(  # type: ignore[misc]
     AdminWritePermissionMixin,
     ExportExcelMixin,
     PaginateAndRespondMixin,
+    BatchDeleteViewMixin,
     LoggingMixin,
     ResponseWrapperMixin,
     viewsets.ModelViewSet[RecycleAsset],
@@ -222,20 +223,8 @@ class RecycleAssetViewSet(  # type: ignore[misc]
             )
         return success_response(message="删除成功")
 
-    @action(detail=False, methods=["post"], url_path="batch-delete")
-    def batch_delete(self, request: Any) -> Response:
-        serializer = RecycleAssetBatchDeleteSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        result = RecycleAssetService.batch_delete_recycle_asset(
-            serializer.validated_data["ids"],
-            operator_jobcode=resolve_operator(request.user)[0],
-            operator_name=resolve_operator(request.user)[1],
-        )
-        # 【DR-1 收敛】响应组装复用 BatchResponseHelper
-        return BatchResponseHelper.delete_response(
-            result,
-            message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
-        )
+    batch_delete_serializer = RecycleAssetBatchDeleteSerializer
+    batch_delete_service = RecycleAssetService.batch_delete_recycle_asset
 
     @action(detail=True, methods=["post"], url_path="cancel", permission_classes=[IsAssetAdminOrAbove])
     def cancel_recycle(self, request: Any, recordcode: Any = None) -> Response:

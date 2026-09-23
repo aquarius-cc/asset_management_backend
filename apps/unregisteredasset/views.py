@@ -34,13 +34,14 @@ from apps.unregisteredasset.models import UnregisteredAsset
 from apps.unregisteredasset.selectors import UnregisteredAssetSelector
 from apps.unregisteredasset.serializers import (
     UnregisteredAssetApproveSerializer,
+    UnregisteredAssetBatchDeleteSerializer,
     UnregisteredAssetCreateSerializer,
     UnregisteredAssetDetailSerializer,
     UnregisteredAssetListSerializer,
     UnregisteredAssetUpdateSerializer,
 )
 from apps.unregisteredasset.services import UnregisteredAssetService
-from core.batch_mixins import BatchResponseHelper
+from core.batch_mixins import BatchDeleteViewMixin, BatchResponseHelper
 from core.constants import MAX_BATCH_SIZE
 from core.mixins import LoggingMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
@@ -49,7 +50,7 @@ from utils.response_utils import error_response, success_response
 from utils.user_utils import resolve_operator
 
 
-class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet[UnregisteredAsset]):  # type: ignore[misc]
+class UnregisteredAssetViewSet(BatchDeleteViewMixin, LoggingMixin, ResponseWrapperMixin, ModelViewSet[UnregisteredAsset]):  # type: ignore[misc]
     """
     未登记资产视图集
 
@@ -267,38 +268,5 @@ class UnregisteredAssetViewSet(LoggingMixin, ResponseWrapperMixin, ModelViewSet[
             request_items=items,
         )
 
-    @action(detail=False, methods=["post"], url_path="batch-delete")
-    def batch_delete(self, request: Any) -> Response:
-        """批量删除未登记资产(软删除,仅待审批)
-
-        【分层收敛】逻辑下沉至 UnregisteredAssetService.batch_delete_unregistered
-        (复用 batch_delete_execute 逐条事务包裹,失败结构 NOT_FOUND /
-        STATUS_NOT_ALLOWED / VALIDATION_ERROR / INTERNAL_ERROR), View 仅校验
-        ids 非空与批量上限后透传 Service。
-
-        Args:
-            request: 请求,body 含 ids(未登记资产编码列表)
-
-        Returns:
-            Response: 批量删除结果(total/success_count/fail_count/
-                success_ids/fail_items)
-        """
-        ids = request.data.get("ids", [])
-        if not ids:
-            return error_response(message="请提供要删除的 ID 列表", status_code=status.HTTP_400_BAD_REQUEST)
-
-        if len(ids) > MAX_BATCH_SIZE:
-            return error_response(
-                message=f"单次批量删除不能超过 {MAX_BATCH_SIZE} 条", status_code=status.HTTP_400_BAD_REQUEST
-            )
-
-        operator_jobcode, operator_name = resolve_operator(request.user)
-        result = UnregisteredAssetService.batch_delete_unregistered(
-            ids=ids, operator_jobcode=operator_jobcode, operator_name=operator_name
-        )
-
-        # 【DR-1 收敛】响应组装复用 BatchResponseHelper
-        return BatchResponseHelper.delete_response(
-            result,
-            message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
-        )
+    batch_delete_serializer = UnregisteredAssetBatchDeleteSerializer
+    batch_delete_service = UnregisteredAssetService.batch_delete_unregistered

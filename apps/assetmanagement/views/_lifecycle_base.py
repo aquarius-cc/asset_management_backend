@@ -20,7 +20,7 @@ from rest_framework.response import Response
 
 from apps.assetmanagement.selectors.asset_selector import AssetSelector
 from apps.assetmanagement.services.asset_lifecycle_mixin import AssetLifecycleMixin
-from core.batch_mixins import BatchResponseHelper
+from core.batch_mixins import BatchDeleteViewMixin
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
 from core.permissions import IsAssetAdminOrAbove
@@ -36,6 +36,7 @@ class AssetLifecycleViewSetBase(  # type: ignore[misc]
     AdminWritePermissionMixin,
     ExportExcelMixin,
     PaginateAndRespondMixin,
+    BatchDeleteViewMixin,
     LoggingMixin,
     ResponseWrapperMixin,
     viewsets.ModelViewSet[Any],
@@ -64,6 +65,8 @@ class AssetLifecycleViewSetBase(  # type: ignore[misc]
     detail_serializer = None
     delete_service_method = ""
     batch_delete_serializer: Any = None
+    batch_delete_service = AssetLifecycleMixin.batch_delete_lifecycle_asset
+    batch_delete_passes_user = True
 
     pagination_class = CustomPageNumberPagination
     lookup_field = "recordcode"
@@ -110,21 +113,9 @@ class AssetLifecycleViewSetBase(  # type: ignore[misc]
         )
         return success_response(data={"recordcode": obj.recordcode}, message="删除成功")
 
-    @action(detail=False, methods=["post"], url_path="batch-delete")
-    def batch_delete(self, request: Any) -> Response:
-        """批量删除(三视图集完全一致, 仅 delete_service_method 字符串差异, 编排收敛至 Service)"""
-        serializer = self.batch_delete_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        operator_jobcode, operator_name = resolve_operator(request.user)
-        result = AssetLifecycleMixin.batch_delete_lifecycle_asset(
-            serializer.validated_data["ids"], self.delete_service_method, operator_jobcode, operator_name,
-            user=request.user,
-        )
-        # 【DR-1 收敛】响应组装复用 BatchResponseHelper(键集/失败分类/message 模板逐字段对齐全仓 8 端点)
-        return BatchResponseHelper.delete_response(
-            result,
-            message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
-        )
+    def batch_delete_invoke(self, ids: list[str], **kwargs: Any) -> dict[str, Any]:
+        """编排注入: 三子类差异仅 delete_service_method 字符串(子类属性注入)"""
+        return AssetLifecycleMixin.batch_delete_lifecycle_asset(ids, self.delete_service_method, **kwargs)
 
     @action(detail=False, methods=["get"], url_path="by-asset/(?P<asset_code>[^/.]+)")
     def by_asset(self, request: Any, asset_code: Any = None) -> Response:

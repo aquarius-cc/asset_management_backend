@@ -39,10 +39,13 @@ class TestUnregisteredBatchDeleteView:
     def _url(self) -> str:
         return reverse("unregisteredasset:unregisteredasset-batch-delete")
 
-    def test_batch_delete_empty_ids_returns_400(self, admin_client_fixture):
+    def test_batch_delete_empty_ids_returns_noop_200(self, admin_client_fixture):
         resp = admin_client_fixture.post(self._url(), {"ids": []}, format="json")
-        assert resp.status_code == status.HTTP_400_BAD_REQUEST
-        assert resp.data["message"] == "请提供要删除的 ID 列表"
+        assert resp.status_code == status.HTTP_200_OK
+        data = resp.data["data"]
+        assert data["total"] == 0
+        assert data["success_count"] == 0
+        assert data["fail_count"] == 0
 
     def test_batch_delete_success(self, admin_client_fixture, unregistered_asset_s1):
         code = unregistered_asset_s1.unregistered_code

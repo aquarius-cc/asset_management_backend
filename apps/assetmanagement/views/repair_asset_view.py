@@ -31,7 +31,7 @@ from apps.assetmanagement.serializers import (
 )
 from apps.assetmanagement.services.asset_lifecycle_mixin import AssetLifecycleMixin
 from apps.assetmanagement.services.repair_asset_service import RepairAssetService
-from core.batch_mixins import BatchResponseHelper
+from core.batch_mixins import BatchDeleteViewMixin
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
 from core.permissions import IsAssetAdminOrAbove
@@ -73,12 +73,42 @@ from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
         description="删除指定的维修记录(进行中的记录拒绝)",
         tags=["维修记录"],
     ),
+    batch_delete=extend_schema(
+        summary="批量删除维修记录",
+        description="批量删除维修记录(进行中的记录将被跳过并返回失败明细)",
+        operation_id="repair_asset_batch_delete",
+        tags=["维修记录"],
+        request=RepairAssetBatchDeleteSerializer,
+        responses={
+            200: OpenApiResponse(
+                description="批量删除完成",
+                examples=[
+                    OpenApiExample(
+                        "成功",
+                        value={
+                            "code": 0,
+                            "message": "批量删除完成,成功 3 条,失败 0 条",
+                            "data": {
+                                "total": 3,
+                                "success_count": 3,
+                                "fail_count": 0,
+                                "success_ids": ["RP001", "RP002", "RP003"],
+                                "fail_items": [],
+                            },
+                        },
+                    )
+                ],
+            ),
+            400: OpenApiResponse(description="参数错误"),
+        },
+    ),
 )
 class RepairAssetViewSet(  # type: ignore[misc]
     RecordcodeLookupMixin,
     AdminWritePermissionMixin,
     ExportExcelMixin,
     PaginateAndRespondMixin,
+    BatchDeleteViewMixin,
     LoggingMixin,
     ResponseWrapperMixin,
     viewsets.ModelViewSet[RepairAsset],
@@ -144,51 +174,9 @@ class RepairAssetViewSet(  # type: ignore[misc]
         )
         return success_response(data={"recordcode": obj.recordcode}, message="删除成功")
 
-    @extend_schema(
-        summary="批量删除维修记录",
-        description="批量删除维修记录(进行中的记录将被跳过并返回失败明细)",
-        operation_id="repair_asset_batch_delete",
-        tags=["维修记录"],
-        request=RepairAssetBatchDeleteSerializer,
-        responses={
-            200: OpenApiResponse(
-                description="批量删除完成",
-                examples=[
-                    OpenApiExample(
-                        "成功",
-                        value={
-                            "code": 0,
-                            "message": "批量删除完成,成功 3 条,失败 0 条",
-                            "data": {
-                                "total": 3,
-                                "success_count": 3,
-                                "fail_count": 0,
-                                "success_ids": ["RP001", "RP002", "RP003"],
-                                "fail_items": [],
-                            },
-                        },
-                    )
-                ],
-            ),
-            400: OpenApiResponse(description="参数错误"),
-        },
-    )
-    @action(detail=False, methods=["post"], url_path="batch-delete")
-    def batch_delete(self, request: Any) -> Response:
-        serializer = RepairAssetBatchDeleteSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        operator_jobcode, operator_name = resolve_operator(request.user)
-        result = AssetLifecycleMixin.batch_delete_repair_asset(
-            ids=serializer.validated_data["ids"],
-            operator_jobcode=operator_jobcode,
-            operator_name=operator_name,
-            user=request.user,
-        )
-        # 【DR-1 收敛】编排下沉至 Service, 响应组装复用 BatchResponseHelper(键集/失败分类/message 模板全仓同款)
-        return BatchResponseHelper.delete_response(
-            result,
-            message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
-        )
+    batch_delete_serializer = RepairAssetBatchDeleteSerializer
+    batch_delete_service = AssetLifecycleMixin.batch_delete_repair_asset
+    batch_delete_passes_user = True
 
     @action(detail=False, methods=["get"], url_path="by-asset/(?P<asset_code>[^/.]+)")
     def by_asset(self, request: Any, asset_code: Any = None) -> Response:

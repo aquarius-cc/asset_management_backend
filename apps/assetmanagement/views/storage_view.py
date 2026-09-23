@@ -19,7 +19,7 @@ from apps.assetmanagement.serializers import (
     StorageSerializer,
 )
 from apps.assetmanagement.services import StorageService
-from core.batch_mixins import BatchResponseHelper
+from core.batch_mixins import BatchDeleteViewMixin
 from core.constants import STORAGE_TYPE_CHOICES
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
@@ -33,6 +33,7 @@ class StorageViewSet(  # type: ignore[misc]
     RecordcodeLookupMixin,
     AdminWritePermissionMixin,
     PaginateAndRespondMixin,
+    BatchDeleteViewMixin,
     LoggingMixin,
     ResponseWrapperMixin,
     viewsets.ModelViewSet[Storage],
@@ -97,21 +98,8 @@ class StorageViewSet(  # type: ignore[misc]
         )
         return success_response(message="删除成功")
 
-    @action(detail=False, methods=["post"], url_path="batch-delete")
-    def batch_delete(self, request: Any) -> Response:
-        serializer = StorageBatchDeleteSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        operator_jobcode, operator_name = resolve_operator(request.user)
-        result = StorageService.batch_delete_storage(
-            serializer.validated_data["ids"],
-            operator_jobcode=operator_jobcode,
-            operator_name=operator_name,
-        )
-        # 【DR-1 收敛】响应组装复用 BatchResponseHelper
-        return BatchResponseHelper.delete_response(
-            result,
-            message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
-        )
+    batch_delete_serializer = StorageBatchDeleteSerializer
+    batch_delete_service = StorageService.batch_delete_storage
 
     @action(detail=False, methods=["post"], url_path="batch-create")
     def batch_create(self, request: Any) -> Response:

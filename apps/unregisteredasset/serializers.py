@@ -22,6 +22,7 @@ from typing import Any
 from rest_framework import serializers
 
 from apps.unregisteredasset.models import UnregisteredAsset
+from core.batch_mixins import BaseBatchDeleteSerializer
 
 
 class UnregisteredAssetCreateSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
@@ -257,3 +258,9 @@ class UnregisteredAssetDetailSerializer(serializers.ModelSerializer):  # type: i
                 "status": obj.result_asset.asset_current_status,
             }
         return None
+
+
+class UnregisteredAssetBatchDeleteSerializer(BaseBatchDeleteSerializer):
+    """未登记资产批量删除请求校验(批次③收编, 与其他域同骨架)"""
+
+    ids = serializers.ListField(child=serializers.CharField(), required=True, help_text="未登记资产编码列表")

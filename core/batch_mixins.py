@@ -25,14 +25,16 @@
 
 import logging
 from collections.abc import Callable
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from rest_framework import serializers
+from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError
 from utils.response_utils import success_response
+from utils.user_utils import resolve_operator
 
 
 logger = logging.getLogger(__name__)
@@ -319,3 +321,61 @@ class BaseBatchDeleteSerializer(BatchDeleteValidationMixin, serializers.Serializ
 
     MAX_BATCH_SIZE = MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
     ids = serializers.ListField(child=serializers.CharField(), required=True)
+
+
+class BatchDeleteViewMixin:
+    """
+    批量删除视图层公共骨架(DR-1 收敛, 批次③)
+
+    全仓 13 个域的手写 batch_delete action 收敛于此: 序列化器校验 →
+    (可选)ids 预筛 → resolve_operator → Service 编排 → delete_response。
+    子类仅声明差异类属性:
+        batch_delete_serializer          - 批量删除请求序列化器(BaseBatchDeleteSerializer 子类)
+        batch_delete_service             - Service 静态/类方法
+                                         (默认签名 ids, *, operator_jobcode, operator_name, user)
+        batch_delete_passes_operator     - 是否计算并传给 operator(employee/department = False)
+        batch_delete_passes_user         - 是否传 user=request.user(damaged/repair/lifecycle/asset = True)
+
+    【差异钩子】
+        batch_delete_prefilter(ids, request) - ids 预筛,默认恒等(asset 覆写为部门作用域预筛)
+        batch_delete_invoke(ids, **kwargs)   - Service 编排,默认直调 batch_delete_service
+                                             (lifecycle 覆写注入 delete_service_method 字符串)
+    【契约保护】message 模板与响应键集沿用 BatchResponseHelper.delete_response,
+    由 test_b5_baseline_snapshot / test_batch_contract_snapshot 全仓锁定, 改动需先改快照。
+    """
+
+    batch_delete_serializer: Any = None
+    batch_delete_service: Any = None
+    batch_delete_passes_operator = True
+    batch_delete_passes_user = False
+
+    @action(detail=False, methods=["post"], url_path="batch-delete")
+    def batch_delete(self, request: Any) -> Response:
+        """批量删除(全仓统一骨架, 差异仅 serializer/service/operator·user 开关)"""
+        serializer = self.batch_delete_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        ids = self.batch_delete_prefilter(serializer.validated_data["ids"], request)
+        kwargs: dict[str, Any] = {}
+        if self.batch_delete_passes_operator:
+            kwargs["operator_jobcode"], kwargs["operator_name"] = resolve_operator(request.user)
+        if self.batch_delete_passes_user:
+            kwargs["user"] = request.user
+        result = self.batch_delete_invoke(ids, **kwargs)
+        return BatchResponseHelper.delete_response(
+            result,
+            message=f"批量删除完成,成功 {result['success_count']} 条,失败 {result['fail_count']} 条",
+        )
+
+    def batch_delete_prefilter(self, ids: list[str], request: Any) -> list[str]:
+        """ids 预筛钩子(默认恒等); asset 覆写为部门作用域预筛(RBAC 视图层防线)"""
+        return ids
+
+    def batch_delete_invoke(self, ids: list[str], **kwargs: Any) -> dict[str, Any]:
+        """Service 编排钩子(默认直调 batch_delete_service); lifecycle 覆写注入 delete_service_method"""
+        service: Any = self.batch_delete_service
+        if service is None:
+            raise TypeError("batch_delete_service 未配置")
+        # 类属性存普通函数时, 实例访问会被绑定到 ViewSet(self), 解绑还原 Service 静态方法
+        if hasattr(service, "__func__"):
+            service = service.__func__
+        return cast(dict[str, Any], service(ids, **kwargs))

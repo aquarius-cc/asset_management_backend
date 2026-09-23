@@ -359,7 +359,7 @@
         "/api/v1/assets/asset-types/batch-delete/": {
             "post": {
                 "operationId": "v1_assets_asset_types_batch_delete_create",
-                "description": "支持 pk(数字)和 recordcode(字符串)双模式查找的 get_object()。\n\n子类必须设置 lookup_field = \"recordcode\"(或其变体如 \"asset_recordcode__asset_code\")。",
+                "description": "批量删除(全仓统一骨架, 差异仅 serializer/service/operator·user 开关)",
                 "tags": [
                     "v1"
                 ],
@@ -1422,7 +1422,7 @@
         "/api/v1/assets/assets/batch-delete/": {
             "post": {
                 "operationId": "v1_assets_assets_batch_delete_create",
-                "description": "支持 pk(数字)和 recordcode(字符串)双模式查找的 get_object()。\n\n子类必须设置 lookup_field = \"recordcode\"(或其变体如 \"asset_recordcode__asset_code\")。",
+                "description": "批量删除(全仓统一骨架, 差异仅 serializer/service/operator·user 开关)",
                 "tags": [
                     "v1"
                 ],
@@ -2142,7 +2142,7 @@
         "/api/v1/assets/broken-assets/batch-delete/": {
             "post": {
                 "operationId": "v1_assets_broken_assets_batch_delete_create",
-                "description": "批量删除(三视图集完全一致, 仅 delete_service_method 字符串差异, 编排收敛至 Service)",
+                "description": "批量删除(全仓统一骨架, 差异仅 serializer/service/operator·user 开关)",
                 "tags": [
                     "损坏资产"
                 ],
@@ -2766,7 +2766,7 @@
         "/api/v1/assets/contracts/batch-delete/": {
             "post": {
                 "operationId": "v1_assets_contracts_batch_delete_create",
-                "description": "支持 pk(数字)和 recordcode(字符串)双模式查找的 get_object()。\n\n子类必须设置 lookup_field = \"recordcode\"(或其变体如 \"asset_recordcode__asset_code\")。",
+                "description": "批量删除(全仓统一骨架, 差异仅 serializer/service/operator·user 开关)",
                 "tags": [
                     "v1"
                 ],
@@ -3468,7 +3468,7 @@
         "/api/v1/assets/damaged-assets/batch-delete/": {
             "post": {
                 "operationId": "v1_assets_damaged_assets_batch_delete_create",
-                "description": "支持 pk(数字)和 recordcode(字符串)双模式查找的 get_object()。\n\n子类必须设置 lookup_field = \"recordcode\"(或其变体如 \"asset_recordcode__asset_code\")。",
+                "description": "批量删除(全仓统一骨架, 差异仅 serializer/service/operator·user 开关)",
                 "tags": [
                     "v1"
                 ],
@@ -3888,7 +3888,7 @@
         "/api/v1/assets/found-assets/batch-delete/": {
             "post": {
                 "operationId": "v1_assets_found_assets_batch_delete_create",
-                "description": "批量删除(三视图集完全一致, 仅 delete_service_method 字符串差异, 编排收敛至 Service)",
+                "description": "批量删除(全仓统一骨架, 差异仅 serializer/service/operator·user 开关)",
                 "tags": [
                     "找回资产"
                 ],
@@ -4782,7 +4782,7 @@
         "/api/v1/assets/lost-assets/batch-delete/": {
             "post": {
                 "operationId": "v1_assets_lost_assets_batch_delete_create",
-                "description": "批量删除(三视图集完全一致, 仅 delete_service_method 字符串差异, 编排收敛至 Service)",
+                "description": "批量删除(全仓统一骨架, 差异仅 serializer/service/operator·user 开关)",
                 "tags": [
                     "遗失资产"
                 ],
@@ -5544,7 +5544,7 @@
         "/api/v1/assets/out-assets/batch-delete/": {
             "post": {
                 "operationId": "v1_assets_out_assets_batch_delete_create",
-                "description": "操作人上下文 Mixin\n\n从 request.user 提取操作人信息,供 create/update 等操作\n通过 **self.get_operator_context() 写入操作人字段。",
+                "description": "批量删除(全仓统一骨架, 差异仅 serializer/service/operator·user 开关)",
                 "tags": [
                     "出库管理"
                 ],
@@ -6329,7 +6329,7 @@
         "/api/v1/assets/recycle-assets/batch-delete/": {
             "post": {
                 "operationId": "v1_assets_recycle_assets_batch_delete_create",
-                "description": "支持 pk(数字)和 recordcode(字符串)双模式查找的 get_object()。\n\n子类必须设置 lookup_field = \"recordcode\"(或其变体如 \"asset_recordcode__asset_code\")。",
+                "description": "批量删除(全仓统一骨架, 差异仅 serializer/service/operator·user 开关)",
                 "tags": [
                     "回收管理"
                 ],
@@ -7218,7 +7218,7 @@
         "/api/v1/assets/storages/batch-delete/": {
             "post": {
                 "operationId": "v1_assets_storages_batch_delete_create",
-                "description": "支持 pk(数字)和 recordcode(字符串)双模式查找的 get_object()。\n\n子类必须设置 lookup_field = \"recordcode\"(或其变体如 \"asset_recordcode__asset_code\")。",
+                "description": "批量删除(全仓统一骨架, 差异仅 serializer/service/operator·user 开关)",
                 "tags": [
                     "v1"
                 ],
@@ -7584,7 +7584,7 @@
         "/api/v1/assets/waste-assets/batch-delete/": {
             "post": {
                 "operationId": "v1_assets_waste_assets_batch_delete_create",
-                "description": "支持 pk(数字)和 recordcode(字符串)双模式查找的 get_object()。\n\n子类必须设置 lookup_field = \"recordcode\"(或其变体如 \"asset_recordcode__asset_code\")。",
+                "description": "批量删除(全仓统一骨架, 差异仅 serializer/service/operator·user 开关)",
                 "tags": [
                     "v1"
                 ],
@@ -9667,7 +9667,7 @@
         "/api/v1/unregisteredassets/unregistered-assets/batch-delete/": {
             "post": {
                 "operationId": "v1_unregisteredassets_unregistered_assets_batch_delete_create",
-                "description": "批量删除未登记资产(软删除,仅待审批)\n\n【分层收敛】逻辑下沉至 UnregisteredAssetService.batch_delete_unregistered\n(复用 batch_delete_execute 逐条事务包裹,失败结构 NOT_FOUND /\nSTATUS_NOT_ALLOWED / VALIDATION_ERROR / INTERNAL_ERROR), View 仅校验\nids 非空与批量上限后透传 Service。\n\nArgs:\n    request: 请求,body 含 ids(未登记资产编码列表)\n\nReturns:\n    Response: 批量删除结果(total/success_count/fail_count/\n        success_ids/fail_items)",
+                "description": "批量删除(全仓统一骨架, 差异仅 serializer/service/operator·user 开关)",
                 "tags": [
                     "v1"
                 ],
@@ -10483,7 +10483,7 @@
         "/api/v1/users/departments/batch-delete/": {
             "post": {
                 "operationId": "v1_users_departments_batch_delete_create",
-                "description": "批量删除部门",
+                "description": "批量删除(全仓统一骨架, 差异仅 serializer/service/operator·user 开关)",
                 "tags": [
                     "v1"
                 ],
@@ -11217,7 +11217,7 @@
         "/api/v1/users/employees/batch-delete/": {
             "post": {
                 "operationId": "v1_users_employees_batch_delete_create",
-                "description": "批量删除员工",
+                "description": "批量删除(全仓统一骨架, 差异仅 serializer/service/operator·user 开关)",
                 "tags": [
                     "v1"
                 ],

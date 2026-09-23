@@ -9,9 +9,8 @@
 from typing import Any
 
 from django.http import Http404
-from rest_framework import permissions
 
-from core.permissions import IsSystemAdmin
+from core.permissions import IsSystemAdmin, resolve_viewset_permissions
 
 
 class RecordcodeLookupMixin:
@@ -59,9 +58,11 @@ class AdminWritePermissionMixin:
     ]
 
     def get_permissions(self) -> Any:
-        if self.action in self.admin_actions:  # type: ignore[attr-defined]
-            return [IsSystemAdmin()]
-        return [permissions.IsAuthenticated()]
+        return resolve_viewset_permissions(
+            self.action,  # type: ignore[attr-defined]
+            self.admin_actions,
+            IsSystemAdmin,
+        )
 
 
 class OperatorContextMixin:

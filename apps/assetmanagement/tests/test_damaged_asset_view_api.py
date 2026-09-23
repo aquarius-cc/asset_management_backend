@@ -187,3 +187,84 @@ class TestDamagedAssetViewSet:
         assert response.status_code == status.HTTP_200_OK
         # Asset must be in 'damaged_pending' state for cancel — batch may partially fail
         assert response.data["data"]["total"] == 1
+
+
+def _make_role_user(jobcode: str, role: str, department, phone: str):
+    from apps.authusermanagement.models import AuthUser
+    from apps.usermanagement.models import Employee
+    from core.tests import TEST_PASSWORD
+
+    AuthUser.objects.create_user(auth_username=jobcode, password=TEST_PASSWORD, auth_phone=phone[:-1] + "1")
+    Employee.objects.create(
+        employee_jobcode=jobcode,
+        employee_name=jobcode,
+        employee_department=department,
+        role=role,
+        employee_phone=phone,
+    )
+    return AuthUser.objects.get(auth_username=jobcode)
+
+
+@pytest.mark.django_db
+class TestDamagedCreateRBAC:
+    """待报废单条 create 角色矩阵（方案 A / 规则 :142 报废审批行）:
+
+    regular / asset_admin → 403；dept_manager → 201。
+    与规则 :142 修订及本类测试同批落地，拆分则红测无依据。
+    """
+
+    @staticmethod
+    def _prep_visible_asset(asset, employee):
+        """将资产挂到部门员工保管人路径,使 dept_manager 行级可见(ASSET_NOT_VISIBLE 规避)"""
+        asset.asset_manager_recordcode = employee
+        asset.asset_current_status = "recycled_pending"
+        asset.save(update_fields=["asset_manager_recordcode", "asset_current_status"])
+
+    def test_create_denied_for_regular_user(self, api_client, asset, employee, department):
+        """regular_user 创建待报废 → 403（规则 :142 regular ❌）"""
+        user = _make_role_user("dc_ru", "regular_user", department, "13800000501")
+        self._prep_visible_asset(asset, employee)
+        api_client.force_authenticate(user=user)
+        url = reverse("damaged-assets-list")
+        data = {
+            "asset_recordcode": asset.recordcode,
+            "damaged_date": "2024-07-02",
+            "damaged_asset_description": "越权创建",
+            "damaged_asset_number": 1,
+            "approver": employee.employee_jobcode,
+        }
+        resp = api_client.post(url, data, format="json")
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_create_denied_for_asset_admin(self, api_client, asset, employee, department):
+        """asset_admin 创建待报废 → 403（方案 A: 并入报废审批行, asset_admin ❌）"""
+        user = _make_role_user("dc_aa", "asset_admin", department, "13800000502")
+        self._prep_visible_asset(asset, employee)
+        api_client.force_authenticate(user=user)
+        url = reverse("damaged-assets-list")
+        data = {
+            "asset_recordcode": asset.recordcode,
+            "damaged_date": "2024-07-03",
+            "damaged_asset_description": "资产管理员创建",
+            "damaged_asset_number": 1,
+            "approver": employee.employee_jobcode,
+        }
+        resp = api_client.post(url, data, format="json")
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_create_allowed_for_dept_manager(self, api_client, asset, employee, department):
+        """dept_manager 创建待报废 → 201（规则 :142 报废审批 ✅ 本部门+下级）"""
+        user = _make_role_user("dc_dm", "dept_manager", department, "13800000503")
+        self._prep_visible_asset(asset, employee)
+        api_client.force_authenticate(user=user)
+        url = reverse("damaged-assets-list")
+        data = {
+            "asset_recordcode": asset.recordcode,
+            "damaged_date": "2024-07-04",
+            "damaged_asset_description": "部门经理创建",
+            "damaged_asset_number": 1,
+            "approver": employee.employee_jobcode,
+        }
+        resp = api_client.post(url, data, format="json")
+        assert resp.status_code == status.HTTP_201_CREATED
+        assert resp.data["code"] == 0

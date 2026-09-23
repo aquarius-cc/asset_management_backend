@@ -20,10 +20,12 @@ from core.department_scope import (
     get_department_codes_for_user,
 )
 from core.permissions import (
+    CanExportExcel,
     IsAssetAdminOrAbove,
     IsAuditorOrAdmin,
     IsDeptManagerOrAbove,
     IsSystemAdmin,
+    resolve_viewset_permissions,
 )
 from core.tests import TEST_PASSWORD
 
@@ -285,6 +287,66 @@ class TestPermissionClasses:
 
     def test_auditor_rejects_regular(self, regular_user):
         assert self._check(IsAuditorOrAdmin, regular_user) is False
+
+    # --- CanExportExcel(矩阵 :148) ---
+    def test_export_allows_admin(self, sys_admin):
+        assert self._check(CanExportExcel, sys_admin) is True
+
+    def test_export_allows_manager(self, dept_manager):
+        assert self._check(CanExportExcel, dept_manager) is True
+
+    def test_export_allows_asset_admin(self, asset_admin):
+        assert self._check(CanExportExcel, asset_admin) is True
+
+    def test_export_allows_auditor(self, auditor):
+        assert self._check(CanExportExcel, auditor) is True
+
+    def test_export_rejects_regular(self, regular_user):
+        assert self._check(CanExportExcel, regular_user) is False
+
+    def test_export_rejects_anonymous(self, db):
+        request = RequestFactory().get("/api/test/")
+        request.user = type("U", (), {"is_authenticated": False})()
+        assert CanExportExcel().has_permission(request, None) is False
+
+    def test_export_rejects_user_without_employee(self, db):
+        """已登录但无 Employee → role None → 拒绝(最严兜底)"""
+        orphan = User.objects.create_user(auth_username="noemp_exp", password=TEST_PASSWORD)
+        assert self._check(CanExportExcel, orphan) is False
+
+
+class TestResolveViewsetPermissions:
+    """resolve_viewset_permissions 分支解析(DR-1 唯一实现)"""
+
+    def test_export_excel_uses_can_export(self):
+        perms = resolve_viewset_permissions("export_excel", ["create"], IsSystemAdmin)
+        assert len(perms) == 1
+        assert isinstance(perms[0], CanExportExcel)
+
+    def test_action_overrides_wins_over_admin_actions(self):
+        perms = resolve_viewset_permissions(
+            "change_status",
+            ["change_status", "create"],
+            IsAssetAdminOrAbove,
+            action_overrides={"change_status": IsSystemAdmin},
+        )
+        assert isinstance(perms[0], IsSystemAdmin)
+
+    def test_admin_action_uses_admin_permission(self):
+        perms = resolve_viewset_permissions("create", ["create", "update"], IsDeptManagerOrAbove)
+        assert isinstance(perms[0], IsDeptManagerOrAbove)
+
+    def test_default_is_authenticated(self):
+        from rest_framework.permissions import IsAuthenticated
+
+        perms = resolve_viewset_permissions("list", ["create"], IsSystemAdmin)
+        assert isinstance(perms[0], IsAuthenticated)
+
+    def test_none_action_defaults(self):
+        from rest_framework.permissions import IsAuthenticated
+
+        perms = resolve_viewset_permissions(None, ["create"], IsSystemAdmin)
+        assert isinstance(perms[0], IsAuthenticated)
 
 
 # =====================================================================

@@ -10,7 +10,6 @@ from typing import Any
 from django.conf import settings
 from django.http import HttpResponse
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from utils.response_utils import error_response
@@ -30,13 +29,17 @@ class ExportExcelMixin:
     ```
 
     导出 URL: /api/v1/{basename}/export/
+    权限: 经类级 get_permissions → resolve_viewset_permissions → CanExportExcel(矩阵 :148)。
     """
 
     export_columns: list[dict[str, Any]] = []
     export_filename: str = "export.xlsx"
     export_sheet_name: str = "数据导出"
 
-    @action(detail=False, methods=["get"], url_path="export", permission_classes=[IsAuthenticated])
+    # DRF: QuerySet.iterator() 在 prefetch_related 后必须提供 chunk_size
+    _EXPORT_ITER_CHUNK_SIZE = 1000
+
+    @action(detail=False, methods=["get"], url_path="export")
     def export_excel(self, request: Any) -> HttpResponse | Response:
         """导出当前列表数据为 Excel"""
         try:
@@ -69,26 +72,26 @@ class ExportExcelMixin:
         header_fill = PatternFill(start_color="409EFF", end_color="409EFF", fill_type="solid")
 
         # 写表头
-        for col, col_config in enumerate(self.export_columns, 1):
-            cell = ws.cell(row=1, column=col, value=col_config["header"])
+        for header_idx, col_config in enumerate(self.export_columns, 1):
+            cell = ws.cell(row=1, column=header_idx, value=col_config["header"])
             cell.font = header_font
             cell.fill = header_fill
             cell.alignment = Alignment(horizontal="center")
 
         # 写数据(流式迭代,行数已受 EXPORT_MAX_ROWS 上限约束)
-        for row_idx, obj in enumerate(queryset.iterator(), 2):
-            for col, col_config in enumerate(self.export_columns, 1):
+        for row_idx, obj in enumerate(queryset.iterator(chunk_size=self._EXPORT_ITER_CHUNK_SIZE), 2):
+            for header_idx, col_config in enumerate(self.export_columns, 1):
                 field = col_config["field"]
                 value = self._get_nested_value(obj, field)
                 display_map = col_config.get("display_map")
                 if display_map and value in display_map:
                     value = display_map[value]
-                ws.cell(row=row_idx, column=col, value=value or "")
+                ws.cell(row=row_idx, column=header_idx, value=value or "")
 
         # 自动调整列宽
-        for col in ws.columns:
-            max_length = max(len(str(cell.value or "")) for cell in col)
-            ws.column_dimensions[col[0].column_letter].width = min(max_length + 4, 40)
+        for column_group in ws.columns:
+            max_length = max(len(str(cell.value or "")) for cell in column_group)
+            ws.column_dimensions[column_group[0].column_letter].width = min(max_length + 4, 40)
 
         response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         response["Content-Disposition"] = f'attachment; filename="{self.export_filename}"'

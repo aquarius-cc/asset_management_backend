@@ -13,7 +13,7 @@ test_batch_contract_snapshot.py 与 test_lifecycle_view_api.py 锁定,
 from typing import Any
 
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import permissions, viewsets
+from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
@@ -23,7 +23,7 @@ from apps.assetmanagement.services.asset_lifecycle_mixin import AssetLifecycleMi
 from core.batch_mixins import BatchDeleteViewMixin
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
-from core.permissions import IsAssetAdminOrAbove
+from core.permissions import IsAssetAdminOrAbove, resolve_viewset_permissions
 from utils.response_utils import error_response, success_response
 from utils.user_utils import resolve_operator
 
@@ -70,8 +70,16 @@ class AssetLifecycleViewSetBase(  # type: ignore[misc]
 
     pagination_class = CustomPageNumberPagination
     lookup_field = "recordcode"
+    admin_actions = [
+        "create",
+        "update",
+        "partial_update",
+        "destroy",
+        "batch_create",
+        "batch_delete",
+    ]
 
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
 
     @property
     def search_fields(self) -> list[str]:
@@ -86,9 +94,8 @@ class AssetLifecycleViewSetBase(  # type: ignore[misc]
         return [f"-{self.ordering_field}"]  # type: ignore[attr-defined]
 
     def get_permissions(self) -> Any:
-        if self.action in ("create", "update", "partial_update", "destroy", "batch_delete"):
-            return [IsAssetAdminOrAbove()]
-        return [permissions.IsAuthenticated()]
+        """RBAC: 写操作(含 batch_create)需 asset_admin+,读操作需认证"""
+        return resolve_viewset_permissions(self.action, self.admin_actions, IsAssetAdminOrAbove)
 
     def get_queryset(self) -> Any:
         return self.selector.get_queryset_for_user(self.request.user)  # type: ignore[attr-defined]

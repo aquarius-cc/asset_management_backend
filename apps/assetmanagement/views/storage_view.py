@@ -20,7 +20,6 @@ from apps.assetmanagement.serializers import (
 )
 from apps.assetmanagement.services import StorageService
 from core.batch_mixins import BatchDeleteViewMixin
-from core.constants import STORAGE_TYPE_CHOICES
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
 from utils.response_utils import success_response
@@ -43,6 +42,16 @@ class StorageViewSet(  # type: ignore[misc]
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = CustomPageNumberPagination
     lookup_field = "recordcode"
+    admin_actions = [
+        "create",
+        "update",
+        "partial_update",
+        "destroy",
+        "change_status",
+        "change_outasset_employee",
+        "batch_create",
+        "batch_delete",
+    ]
 
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ["storage_type"]
@@ -81,7 +90,7 @@ class StorageViewSet(  # type: ignore[misc]
         queryset = self._base_queryset()
         total = queryset.count()
         type_stats_qs = queryset.values("storage_type").annotate(count=Count("id")).order_by("storage_type")
-        type_dict = dict(STORAGE_TYPE_CHOICES)
+        type_dict = dict(Storage.StorageType.choices)
         type_stats = {}
         for item in type_stats_qs:
             code = item["storage_type"] or ""

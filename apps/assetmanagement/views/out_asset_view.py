@@ -9,7 +9,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.openapi import OpenApiParameter  # type: ignore[attr-defined]
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
-from rest_framework import permissions, status, viewsets
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
@@ -28,7 +28,7 @@ from apps.assetmanagement.services import OutAssetService
 from core.batch_mixins import BatchDeleteViewMixin, BatchResponseHelper
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
-from core.permissions import IsAssetAdminOrAbove
+from core.permissions import IsAssetAdminOrAbove, resolve_viewset_permissions
 from utils.response_utils import error_response, success_response
 from utils.user_utils import resolve_operator
 
@@ -82,9 +82,7 @@ class OutAssetViewSet(  # type: ignore[misc]
 
     def get_permissions(self) -> Any:
         """RBAC: 写操作需 asset_admin+,读操作需认证"""
-        if self.action in self.admin_actions:
-            return [IsAssetAdminOrAbove()]
-        return [permissions.IsAuthenticated()]
+        return resolve_viewset_permissions(self.action, self.admin_actions, IsAssetAdminOrAbove)
 
     def get_queryset(self) -> QuerySet[OutAsset]:
         """RBAC 行级过滤 + 关键词搜索"""

@@ -24,7 +24,7 @@ class _FakeQueryset:
     def count(self):
         return len(self._rows)
 
-    def iterator(self):
+    def iterator(self, chunk_size=None):
         return iter(self._rows)
 
     def __iter__(self):

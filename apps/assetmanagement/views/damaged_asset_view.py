@@ -10,7 +10,7 @@ from typing import Any
 from django.db.models import Count
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import permissions, status, viewsets
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
@@ -29,10 +29,9 @@ from apps.assetmanagement.serializers import (
 )
 from apps.assetmanagement.services import DamagedAssetService
 from core.batch_mixins import BatchDeleteViewMixin
-from core.constants import APPROVAL_STATUS_CHOICES
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
-from core.permissions import IsDeptManagerOrAbove
+from core.permissions import IsDeptManagerOrAbove, resolve_viewset_permissions
 from utils.response_utils import error_response, success_response
 from utils.user_utils import resolve_operator
 
@@ -55,7 +54,8 @@ class DamagedAssetViewSet(  # type: ignore[misc]
     serializer_class = DamagedAssetSerializer
     pagination_class = CustomPageNumberPagination
     lookup_field = "recordcode"
-    admin_actions = ["update", "partial_update", "destroy", "approve", "reject", "batch_delete"]
+    # 报废审批行(规则 :142): 单条 create 与 batch_delete/审批同权, asset_admin ❌(方案 A / BF-037)
+    admin_actions = ["create", "update", "partial_update", "destroy", "approve", "reject", "batch_delete"]
 
     # 导出配置
     export_columns = [
@@ -70,10 +70,8 @@ class DamagedAssetViewSet(  # type: ignore[misc]
     export_sheet_name = "待报废资产"
 
     def get_permissions(self) -> Any:
-        """RBAC: 写操作需 IsDeptManagerOrAbove+,读操作需认证"""
-        if self.action in self.admin_actions:
-            return [IsDeptManagerOrAbove()]
-        return [permissions.IsAuthenticated()]
+        """RBAC: 写操作(含单条 create)需 IsDeptManagerOrAbove+,读操作需认证"""
+        return resolve_viewset_permissions(self.action, self.admin_actions, IsDeptManagerOrAbove)
 
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ["approval_status"]
@@ -208,7 +206,7 @@ class DamagedAssetViewSet(  # type: ignore[misc]
         queryset = self.get_queryset()
         total = queryset.count()
         status_stats = queryset.values("approval_status").annotate(count=Count("id")).order_by("approval_status")
-        status_dict = dict(APPROVAL_STATUS_CHOICES)
+        status_dict = dict(DamagedAsset.ApprovalStatus.choices)
         by_status = {
             item["approval_status"]: {
                 "name": status_dict.get(item["approval_status"], item["approval_status"]),

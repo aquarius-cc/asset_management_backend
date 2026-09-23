@@ -14,7 +14,7 @@ from typing import Any
 
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema, extend_schema_view
-from rest_framework import permissions, status, viewsets
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
@@ -34,7 +34,7 @@ from apps.assetmanagement.services.repair_asset_service import RepairAssetServic
 from core.batch_mixins import BatchDeleteViewMixin
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
-from core.permissions import IsAssetAdminOrAbove
+from core.permissions import IsAssetAdminOrAbove, resolve_viewset_permissions
 from utils.response_utils import error_response, success_response
 from utils.user_utils import resolve_operator
 
@@ -117,6 +117,8 @@ class RepairAssetViewSet(  # type: ignore[misc]
     queryset = RepairAssetSelector.get_repair_assets_for_list()
     pagination_class = CustomPageNumberPagination
     lookup_field = "recordcode"
+    # 与原内联元组逐项等价: 漏项即权限放宽(BF-037 校验锚)
+    admin_actions = ["create", "update", "partial_update", "destroy", "batch_delete"]
 
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     search_fields = ["asset_recordcode__asset_name", "repair_reason"]
@@ -124,9 +126,7 @@ class RepairAssetViewSet(  # type: ignore[misc]
     ordering = ["-repair_date"]
 
     def get_permissions(self) -> Any:
-        if self.action in ("create", "update", "partial_update", "destroy", "batch_delete"):
-            return [IsAssetAdminOrAbove()]
-        return [permissions.IsAuthenticated()]
+        return resolve_viewset_permissions(self.action, self.admin_actions, IsAssetAdminOrAbove)
 
     def get_queryset(self) -> Any:
         return RepairAssetSelector.get_queryset_for_user(self.request.user)

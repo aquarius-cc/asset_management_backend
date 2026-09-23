@@ -18,7 +18,7 @@ from apps.assetmanagement.serializers import (
 )
 from apps.assetmanagement.services import HardDiskSNService
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
-from core.permissions import IsAssetAdminOrAbove
+from core.permissions import IsAssetAdminOrAbove, resolve_viewset_permissions
 from utils.response_utils import error_response, success_response
 from utils.user_utils import resolve_operator
 
@@ -56,9 +56,7 @@ class HardDiskSNViewSet(  # type: ignore[misc]
 
     def get_permissions(self) -> Any:
         """RBAC: 写操作需 IsAssetAdminOrAbove+,读操作需认证"""
-        if self.action in self.admin_actions:
-            return [IsAssetAdminOrAbove()]
-        return [permissions.IsAuthenticated()]
+        return resolve_viewset_permissions(self.action, self.admin_actions, IsAssetAdminOrAbove)
 
     def create(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         serializer = self.get_serializer(data=request.data)

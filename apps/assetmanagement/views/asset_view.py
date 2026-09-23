@@ -32,7 +32,7 @@ from apps.assetmanagement.services import AssetService, RepairAssetService
 from core.batch_mixins import BatchDeleteViewMixin, BatchResponseHelper
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
-from core.permissions import IsAssetAdminOrAbove, IsSystemAdmin
+from core.permissions import IsAssetAdminOrAbove, IsSystemAdmin, resolve_viewset_permissions
 from utils.response_utils import error_response, success_response
 from utils.user_utils import resolve_operator
 
@@ -69,6 +69,8 @@ class AssetViewSet(  # type: ignore[misc]
         "repair",
         "repair_done",
         "repair_failed",
+        "mark_broken",
+        "mark_lost",
     ]
 
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -94,11 +96,12 @@ class AssetViewSet(  # type: ignore[misc]
 
     def get_permissions(self) -> Any:
         """RBAC: 写操作需 asset_admin+,读操作需认证;change_status 为废弃数据修复端点为 system_admin 专属"""
-        if self.action == "change_status":
-            return [IsSystemAdmin()]
-        if self.action in self.admin_actions:
-            return [IsAssetAdminOrAbove()]
-        return [permissions.IsAuthenticated()]
+        return resolve_viewset_permissions(
+            self.action,
+            self.admin_actions,
+            IsAssetAdminOrAbove,
+            action_overrides={"change_status": IsSystemAdmin},
+        )
 
     def get_serializer_class(self) -> type:
         if self.action == "create":
@@ -380,7 +383,7 @@ class AssetViewSet(  # type: ignore[misc]
         )
         return [code for code in ids if code in scoped_codes]
 
-    @action(detail=True, methods=["post"], url_path="mark-broken", permission_classes=[IsAssetAdminOrAbove])
+    @action(detail=True, methods=["post"], url_path="mark-broken")
     def mark_broken(self, request: Any, recordcode: Any = None) -> Response:
         """POST /assets/{recordcode}/mark-broken/ — 标记资产损坏"""
         asset = self.get_object()
@@ -393,7 +396,7 @@ class AssetViewSet(  # type: ignore[misc]
         )
         return success_response(data=AssetDetailSerializer(broken_record.asset_recordcode).data, message="资产已标记为损坏")
 
-    @action(detail=True, methods=["post"], url_path="mark-lost", permission_classes=[IsAssetAdminOrAbove])
+    @action(detail=True, methods=["post"], url_path="mark-lost")
     def mark_lost(self, request: Any, recordcode: Any = None) -> Response:
         """POST /assets/{recordcode}/mark-lost/ — 标记资产遗失"""
         asset = self.get_object()

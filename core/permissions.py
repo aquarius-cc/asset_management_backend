@@ -9,13 +9,17 @@
 - IsDeptManagerOrAbove: 部门经理及以上(RBAC)
 - IsAssetAdminOrAbove: 资产管理员及以上(RBAC)
 - IsAuditorOrAdmin: 审计员或管理员(RBAC,只读全量数据)
+- CanExportExcel: 导出 Excel(矩阵 :148: 四角色可导,regular ❌)
+- resolve_viewset_permissions: ViewSet get_permissions 统一解析入口(DR-1)
 
 注意:使用延迟导入避免循环依赖(core → usermanagement → core)。
 """
 
+from collections.abc import Collection, Mapping
 from typing import Any
 
 from rest_framework import permissions
+from rest_framework.permissions import BasePermission
 
 
 class IsOwnerOrReadOnly(permissions.BasePermission):
@@ -134,3 +138,49 @@ class IsAuditorOrAdmin(permissions.BasePermission):
             return False
         role = _get_user_role(request.user)
         return role in (_ROLE_SYSTEM_ADMIN, _ROLE_AUDITOR)
+
+
+# 矩阵 :148「导出 Excel」行: system / dept_manager / asset_admin / auditor ✅, regular ❌
+_EXPORT_EXCEL_ROLES = (
+    _ROLE_SYSTEM_ADMIN,
+    _ROLE_DEPT_MANAGER,
+    _ROLE_ASSET_ADMIN,
+    _ROLE_AUDITOR,
+)
+
+
+class CanExportExcel(permissions.BasePermission):
+    """
+    导出 Excel 权限(矩阵 :148): 四角色可导,regular_user 禁止。
+
+    适用场景: ExportExcelMixin.export_excel 及所有带导出能力的 ViewSet。
+    """
+
+    message = "无导出权限: 仅资产管理员及以上或审计员可导出"
+
+    def has_permission(self, request: Any, view: Any) -> bool:
+        if not (request.user and request.user.is_authenticated):
+            return False
+        role = _get_user_role(request.user)
+        return role in _EXPORT_EXCEL_ROLES
+
+
+def resolve_viewset_permissions(
+    action: str | None,
+    admin_actions: Collection[str],
+    admin_permission: type[BasePermission],
+    *,
+    action_overrides: Mapping[str, type[BasePermission]] | None = None,
+) -> list[BasePermission]:
+    """
+    ViewSet.get_permissions 统一解析(DR-1: 权限分支唯一实现)。
+
+    优先级: export_excel → action_overrides → admin_actions → 默认 IsAuthenticated。
+    """
+    if action == "export_excel":
+        return [CanExportExcel()]
+    if action_overrides is not None and action is not None and action in action_overrides:
+        return [action_overrides[action]()]
+    if action is not None and action in admin_actions:
+        return [admin_permission()]
+    return [permissions.IsAuthenticated()]

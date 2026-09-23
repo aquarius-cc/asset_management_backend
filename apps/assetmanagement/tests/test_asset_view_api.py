@@ -353,3 +353,126 @@ class TestAssetViewSet:
         response = authenticated_client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert response["Content-Type"] == "image/png"
+
+
+@pytest.mark.django_db
+class TestMarkBrokenLostRBAC:
+    """mark-broken / mark-lost 角色矩阵(F-P1-1):regular/auditor 403,asset_admin 200"""
+
+    @staticmethod
+    def _make_role_user(jobcode: str, role: str, department, phone: str):
+        from apps.authusermanagement.models import AuthUser
+        from apps.usermanagement.models import Employee
+        from core.tests import TEST_PASSWORD
+
+        AuthUser.objects.create_user(auth_username=jobcode, password=TEST_PASSWORD, auth_phone=phone[:-1] + "1")
+        Employee.objects.create(
+            employee_jobcode=jobcode,
+            employee_name=jobcode,
+            employee_department=department,
+            role=role,
+            employee_phone=phone,
+        )
+        return AuthUser.objects.get(auth_username=jobcode)
+
+    def test_mark_broken_denied_for_regular_user(self, api_client, asset, department):
+        """regular_user 对本部门资产标记损坏 → 403(矩阵 :141 regular ❌)"""
+        from apps.usermanagement.models import Employee
+
+        user = self._make_role_user("mk_ru", "regular_user", department, "13800000201")
+        manager = Employee.objects.create(
+            employee_jobcode="mk_ru_mgr",
+            employee_name="保管人",
+            employee_department=department,
+            employee_phone="13800000211",
+        )
+        asset.asset_manager_recordcode = manager
+        asset.save(update_fields=["asset_manager_recordcode"])
+        api_client.force_authenticate(user=user)
+        url = reverse("assets-mark-broken", kwargs={"recordcode": asset.recordcode})
+        resp = api_client.post(url, {"broken_reason": "越权", "broken_description": "x"}, format="json")
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_mark_lost_denied_for_regular_user(self, api_client, asset, department):
+        """regular_user 对本部门资产标记遗失 → 403(矩阵 :141 regular ❌)"""
+        user = self._make_role_user("mk_ru2", "regular_user", department, "13800000202")
+        from apps.usermanagement.models import Employee
+
+        manager = Employee.objects.create(
+            employee_jobcode="mk_ru2_mgr",
+            employee_name="保管人2",
+            employee_department=department,
+            employee_phone="13800000212",
+        )
+        asset.asset_manager_recordcode = manager
+        asset.save(update_fields=["asset_manager_recordcode"])
+        api_client.force_authenticate(user=user)
+        url = reverse("assets-mark-lost", kwargs={"recordcode": asset.recordcode})
+        resp = api_client.post(
+            url,
+            {"lost_reason": "越权", "last_known_location": "x", "lost_description": "y"},
+            format="json",
+        )
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_mark_broken_denied_for_auditor(self, api_client, asset, department):
+        """auditor 标记损坏 → 403(矩阵 :141 auditor ❌)"""
+        user = self._make_role_user("mk_au", "auditor", department, "13800000203")
+        api_client.force_authenticate(user=user)
+        url = reverse("assets-mark-broken", kwargs={"recordcode": asset.recordcode})
+        resp = api_client.post(url, {"broken_reason": "越权", "broken_description": "x"}, format="json")
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_mark_lost_denied_for_auditor(self, api_client, asset, department):
+        """auditor 标记遗失 → 403(矩阵 :141 auditor ❌)"""
+        user = self._make_role_user("mk_au2", "auditor", department, "13800000204")
+        api_client.force_authenticate(user=user)
+        url = reverse("assets-mark-lost", kwargs={"recordcode": asset.recordcode})
+        resp = api_client.post(
+            url,
+            {"lost_reason": "越权", "last_known_location": "x", "lost_description": "y"},
+            format="json",
+        )
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_mark_broken_allowed_for_asset_admin(self, api_client, asset, department):
+        """asset_admin 对本部门资产标记损坏 → 200(矩阵 :141 asset_admin ✅)"""
+        user = self._make_role_user("mk_aa", "asset_admin", department, "13800000205")
+        from apps.usermanagement.models import Employee
+
+        manager = Employee.objects.create(
+            employee_jobcode="mk_aa_mgr",
+            employee_name="保管人3",
+            employee_department=department,
+            employee_phone="13800000213",
+        )
+        asset.asset_manager_recordcode = manager
+        asset.save(update_fields=["asset_manager_recordcode"])
+        api_client.force_authenticate(user=user)
+        url = reverse("assets-mark-broken", kwargs={"recordcode": asset.recordcode})
+        resp = api_client.post(url, {"broken_reason": "正常损坏", "broken_description": "硬件故障"}, format="json")
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["code"] == 0
+
+    def test_mark_lost_allowed_for_asset_admin(self, api_client, asset, department):
+        """asset_admin 对本部门资产标记遗失 → 200(矩阵 :141 asset_admin ✅)"""
+        user = self._make_role_user("mk_aa2", "asset_admin", department, "13800000206")
+        from apps.usermanagement.models import Employee
+
+        manager = Employee.objects.create(
+            employee_jobcode="mk_aa2_mgr",
+            employee_name="保管人4",
+            employee_department=department,
+            employee_phone="13800000214",
+        )
+        asset.asset_manager_recordcode = manager
+        asset.save(update_fields=["asset_manager_recordcode"])
+        api_client.force_authenticate(user=user)
+        url = reverse("assets-mark-lost", kwargs={"recordcode": asset.recordcode})
+        resp = api_client.post(
+            url,
+            {"lost_reason": "正常遗失", "last_known_location": "仓库", "lost_description": "丢失"},
+            format="json",
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["code"] == 0

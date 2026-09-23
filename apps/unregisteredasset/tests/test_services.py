@@ -49,6 +49,47 @@ class TestUnregisteredAssetService:
         assert asset.approval_status == "pending"
         assert asset.unregistered_code.startswith("UNR-")
 
+    def test_create_discovery_person_decoupled_from_operator(self, employee, admin_employee, storage, asset_type):
+        """
+        F-P1-6 语义5: discovery_person_jobcode 与 operator 解耦 —
+        代录时发现人=目标工号, 审计 operator 仍为当前操作人。
+        """
+        data = {
+            "scenario_type": "s1_no_record",
+            "discovery_date": date(2024, 6, 1),
+            "discovery_location": "会议室A",
+            "asset_name": "代录资产",
+            "unregistered_asset_type": asset_type,
+            "unregistered_asset_storage": storage,
+        }
+
+        asset = UnregisteredAssetService.create(
+            data=data,
+            operator_jobcode=admin_employee.employee_jobcode,
+            discovery_person_jobcode=employee.employee_jobcode,
+        )
+
+        assert asset.discovery_person == employee
+
+    def test_create_unknown_discovery_person_fails(self, admin_employee, storage, asset_type):
+        """F-P1-6: 代录目标工号不存在 → AppValidationError(400)"""
+        data = {
+            "scenario_type": "s1_no_record",
+            "discovery_date": date(2024, 6, 1),
+            "discovery_location": "会议室A",
+            "asset_name": "非法代录",
+            "unregistered_asset_storage": storage,
+        }
+
+        with pytest.raises(AppValidationError) as exc_info:
+            UnregisteredAssetService.create(
+                data=data,
+                operator_jobcode=admin_employee.employee_jobcode,
+                discovery_person_jobcode="NO-SUCH-JOBCODE",
+            )
+
+        assert "不存在" in str(exc_info.value.detail)
+
     def test_batch_create_success(self, employee):
         """
         【D-1 回归】批量创建成功路径: 条目级序列化校验通过后全量落库,

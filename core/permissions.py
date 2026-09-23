@@ -2,14 +2,16 @@
 自定义权限类
 
 提供项目统一的权限控制:
-- IsOwnerOrReadOnly: 资源所有者可修改,其他用户只读
-- IsAdminUser: 仅管理员可访问(兼容旧代码)
-- IsAuthenticatedUser: 仅登录用户可访问
+- IsOwnerOrReadOnly: 资源所有者才能修改,其他用户只读
+- IsAdminUser: 仅管理员才能访问(兼容旧代码)
+- IsAuthenticatedUser: 仅登录才能访问
 - IsSystemAdmin: 系统管理员(RBAC)
 - IsDeptManagerOrAbove: 部门经理及以上(RBAC)
 - IsAssetAdminOrAbove: 资产管理员及以上(RBAC)
+- IsSystemAdminOrAssetAdmin: 系统管理员或资产管理员(RBAC, 4.5 矩阵提交/编辑/删除角色面)
 - IsAuditorOrAdmin: 审计员或管理员(RBAC,只读全量数据)
 - CanExportExcel: 导出 Excel(矩阵 :148: 四角色可导,regular ❌)
+- get_user_role / is_system_admin: 角色解析公开入口(代录白名单等 View 层复用, DR-1)
 - resolve_viewset_permissions: ViewSet get_permissions 统一解析入口(DR-1)
 
 注意:使用延迟导入避免循环依赖(core → usermanagement → core)。
@@ -64,9 +66,9 @@ _ROLE_ASSET_ADMIN = "asset_admin"
 _ROLE_AUDITOR = "auditor"
 
 
-def _get_user_role(user: Any) -> str | None:
+def get_user_role(user: Any) -> str | None:
     """
-    获取用户角色。
+    获取用户角色(公开入口,供 View 层代录白名单等场景复用, DR-1)。
 
     延迟导入避免循环依赖。
     is_superuser 直接返回 system_admin,不查数据库。
@@ -85,6 +87,13 @@ def _get_user_role(user: Any) -> str | None:
     return employee.role if employee else None
 
 
+def is_system_admin(user: Any) -> bool:
+    """当前用户是否系统管理员(is_superuser 或 role=system_admin)。"""
+    if not (getattr(user, "is_authenticated", False)):
+        return False
+    return get_user_role(user) == _ROLE_SYSTEM_ADMIN
+
+
 class IsSystemAdmin(permissions.BasePermission):
     """
     系统管理员:is_superuser 或 role=system_admin
@@ -95,7 +104,7 @@ class IsSystemAdmin(permissions.BasePermission):
     def has_permission(self, request: Any, view: Any) -> bool:
         if not (request.user and request.user.is_authenticated):
             return False
-        return _get_user_role(request.user) == _ROLE_SYSTEM_ADMIN
+        return get_user_role(request.user) == _ROLE_SYSTEM_ADMIN
 
 
 class IsDeptManagerOrAbove(permissions.BasePermission):
@@ -108,7 +117,7 @@ class IsDeptManagerOrAbove(permissions.BasePermission):
     def has_permission(self, request: Any, view: Any) -> bool:
         if not (request.user and request.user.is_authenticated):
             return False
-        role = _get_user_role(request.user)
+        role = get_user_role(request.user)
         return role in (_ROLE_SYSTEM_ADMIN, _ROLE_DEPT_MANAGER)
 
 
@@ -116,14 +125,29 @@ class IsAssetAdminOrAbove(permissions.BasePermission):
     """
     资产管理员及以上:system_admin / dept_manager / asset_admin
 
-    适用场景:资产增删改、出库/回收、损坏/遗失登记
+    适用场景:资产增删改、出库/回收、损坏/遗失登记、未登记资产查看(4.5 矩阵 :190)
     """
 
     def has_permission(self, request: Any, view: Any) -> bool:
         if not (request.user and request.user.is_authenticated):
             return False
-        role = _get_user_role(request.user)
+        role = get_user_role(request.user)
         return role in (_ROLE_SYSTEM_ADMIN, _ROLE_DEPT_MANAGER, _ROLE_ASSET_ADMIN)
+
+
+class IsSystemAdminOrAssetAdmin(permissions.BasePermission):
+    """
+    系统管理员或资产管理员:system_admin / asset_admin
+
+    适用场景:未登记资产提交/编辑/删除/批量删除(4.5 矩阵 :189/:191 role 面,
+    dept_manager 编辑删除 ❌ 只读故不纳入)
+    """
+
+    def has_permission(self, request: Any, view: Any) -> bool:
+        if not (request.user and request.user.is_authenticated):
+            return False
+        role = get_user_role(request.user)
+        return role in (_ROLE_SYSTEM_ADMIN, _ROLE_ASSET_ADMIN)
 
 
 class IsAuditorOrAdmin(permissions.BasePermission):
@@ -136,7 +160,7 @@ class IsAuditorOrAdmin(permissions.BasePermission):
     def has_permission(self, request: Any, view: Any) -> bool:
         if not (request.user and request.user.is_authenticated):
             return False
-        role = _get_user_role(request.user)
+        role = get_user_role(request.user)
         return role in (_ROLE_SYSTEM_ADMIN, _ROLE_AUDITOR)
 
 
@@ -161,7 +185,7 @@ class CanExportExcel(permissions.BasePermission):
     def has_permission(self, request: Any, view: Any) -> bool:
         if not (request.user and request.user.is_authenticated):
             return False
-        role = _get_user_role(request.user)
+        role = get_user_role(request.user)
         return role in _EXPORT_EXCEL_ROLES
 
 

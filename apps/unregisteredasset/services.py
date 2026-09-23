@@ -96,9 +96,7 @@ def _safe_call_audit(operation: str, *args: Any, **kwargs: Any) -> None:
         logger.warning(f"审计日志记录失败({operation}): {e}", exc_info=True)
 
 
-def _log_create_audit(
-    unregistered: UnregisteredAsset, operator_jobcode: str, operator_name: str | None = None
-) -> None:
+def _log_create_audit(unregistered: UnregisteredAsset, operator_jobcode: str, operator_name: str | None = None) -> None:
     """记录创建审计日志(委托 _safe_call_audit)"""
     _safe_call_audit(
         "create", unregistered=unregistered, operator_jobcode=operator_jobcode, operator_name=operator_name
@@ -247,34 +245,42 @@ class UnregisteredAssetService:
 
     @staticmethod
     @transaction.atomic
-    def create(data: dict[str, Any], operator_jobcode: str, operator_name: str | None = None) -> UnregisteredAsset:
+    def create(
+        data: dict[str, Any],
+        operator_jobcode: str,
+        operator_name: str | None = None,
+        discovery_person_jobcode: str | None = None,
+    ) -> UnregisteredAsset:
         """创建未登记资产申请
 
         场景契约见 `_validate_create_scenario`, 审批人解析见 `_log_create_audit`。
 
         Args:
             data: 未登记资产数据,包含 scenario_type 等字段
-            operator_jobcode: 操作人工号(发现人)
+            operator_jobcode: 操作人工号(当前操作人,写入审计日志, 语义5 与发现人解耦)
             operator_name: 操作人姓名(可选)
+            discovery_person_jobcode: 发现人工号(可选,默认=操作人;代录白名单
+                (仅 system_admin 可传非本人)在 View 层校验,Service 不重复实现 DR-1)
 
         Raises:
-            AppValidationError: 参数校验失败时抛出
+            AppValidationError: 参数校验失败或发现人工号不存在时抛出
         """
         _validate_create_scenario(data)
 
-        # 设置发现人
+        # 设置发现人(代录时为目标工号,否则=操作人)
         from apps.usermanagement.selectors import EmployeeSelector
 
-        discovery_person = EmployeeSelector.get_employee_by_jobcode(operator_jobcode)
+        target_jobcode = discovery_person_jobcode or operator_jobcode
+        discovery_person = EmployeeSelector.get_employee_by_jobcode(target_jobcode)
         if not discovery_person:
-            raise AppValidationError(detail=f"发现人 {operator_jobcode} 不存在")
+            raise AppValidationError(detail=f"发现人 {target_jobcode} 不存在")
 
         data["discovery_person"] = discovery_person
 
         # 创建记录
         unregistered = UnregisteredAsset.objects.create(**data)
 
-        # 记录审计日志(延迟导入,异常捕获)
+        # 记录审计日志(延迟导入,异常捕获) — operator 恒为当前操作人
         _log_create_audit(unregistered, operator_jobcode, operator_name)
 
         return unregistered  # type: ignore[no-any-return]
@@ -292,7 +298,8 @@ class UnregisteredAssetService:
 
         Args:
             data_list: 待创建的数据条目列表
-            operator_jobcode: 操作人工号(发现人)
+            operator_jobcode: 操作人工号(当前操作人;批量条目不支持代录,
+                发现人恒=操作人, CreateSerializer 不含 discovery_person 字段)
             operator_name: 操作人姓名(可选)
 
         Returns:
@@ -395,9 +402,7 @@ class UnregisteredAssetService:
         Raises:
             AppValidationError: 状态不允许、处理方式不匹配或处理失败时抛出
         """
-        unregistered, approver_employee = _prepare_approval(
-            unregistered_code, handle_type, approver, approval_remark
-        )
+        unregistered, approver_employee = _prepare_approval(unregistered_code, handle_type, approver, approval_remark)
         result = _execute_handle(unregistered, handle_type, approver_employee)
 
         # 记录审计日志(延迟导入,异常捕获)
@@ -444,7 +449,7 @@ class UnregisteredAssetService:
 
     @staticmethod
     def batch_delete_unregistered(
-        ids: list[str], operator_jobcode: str, operator_name: str | None = None
+        ids: list[str], operator_jobcode: str, operator_name: str | None = None, user: Any = None
     ) -> dict[str, Any]:
         """批量删除未登记资产(软删除,仅待审批)
 
@@ -453,10 +458,15 @@ class UnregisteredAssetService:
         AppValidationError(error_code) 抛出,由框架映射为 NOT_FOUND /
         STATUS_NOT_ALLOWED / VALIDATION_ERROR / INTERNAL_ERROR 结构。
 
+        【B14 行级】传入 user 时逐条按行级隔离过滤:越权条目与不存在条目
+        同构返回 NOT_FOUND(4.5 语义4: 不泄露存在性),无权限条目跳过删除。
+
         Args:
             ids: 待删除编码列表
             operator_jobcode: 操作人工号
             operator_name: 操作人姓名(可选)
+            user: 请求用户(HTTP 上下文必传,视图 mixin 经 batch_delete_passes_user
+                注入);仅 Service 直调(无 HTTP 上下文,如单测)时不传,保持无 scope 行为
 
         Returns:
             dict: batch_delete_execute 统一结果(total/success_count/fail_count/
@@ -465,7 +475,12 @@ class UnregisteredAssetService:
         from core.batch_mixins import BatchOperationMixin
 
         def _delete_item(item_id: str) -> None:
-            instance = UnregisteredAssetSelector.get_by_code(item_id)
+            if user is not None:
+                instance = (
+                    UnregisteredAssetSelector.get_queryset_for_user(user).filter(unregistered_code=item_id).first()
+                )
+            else:
+                instance = UnregisteredAssetSelector.get_by_code(item_id)
             if not instance:
                 raise AppValidationError(detail=f"未登记资产 {item_id} 不存在", error_code="NOT_FOUND")
             if not instance.can_delete():
@@ -479,6 +494,4 @@ class UnregisteredAssetService:
                 operator_name=operator_name,
             )
 
-        return BatchOperationMixin.batch_delete_execute(
-            ids=ids, process_fn=_delete_item, max_batch_size=MAX_BATCH_SIZE
-        )
+        return BatchOperationMixin.batch_delete_execute(ids=ids, process_fn=_delete_item, max_batch_size=MAX_BATCH_SIZE)

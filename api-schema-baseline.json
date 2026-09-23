@@ -9340,7 +9340,7 @@
             },
             "post": {
                 "operationId": "v1_unregisteredassets_unregistered_assets_create",
-                "description": "创建未登记资产申请\n\nRequest Body:\n    - scenario_type: 场景类型(必填)\n    - asset_name: 资产名称(必填)\n    - discovery_date: 发现日期(必填)\n    - discovery_location: 发现地点(必填)\n    - discovery_person: 发现人工号(可选,默认为当前用户)\n    - 其他可选字段...\n\nReturns:\n    Response: 创建成功的数据",
+                "description": "创建未登记资产申请\n\nRequest Body:\n    - scenario_type: 场景类型(必填)\n    - asset_name: 资产名称(必填)\n    - discovery_date: 发现日期(必填)\n    - discovery_location: 发现地点(必填)\n    - discovery_person: 发现人工号(可选,默认当前用户;仅 system_admin 可代录)\n    - 其他可选字段...\n\nReturns:\n    Response: 创建成功的数据",
                 "tags": [
                     "v1"
                 ],

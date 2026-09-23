@@ -115,7 +115,7 @@ def is_no_department_dept_scoped(user: Any) -> bool:
     返回 True 时,该用户仅保留查看权限与空数据范围:
     - 权限码: read-only(PermissionService 最严兜底)
     - 数据范围: 空部门范围
-    - 写权限: 所有 RBAC 写权限类一律拒绝(core.permissions._get_user_role 降级为 None)
+    - 写权限: 所有 RBAC 写权限类一律拒绝(core.permissions.get_user_role 降级为 None)
 
     全局角色(system_admin / auditor)不受部门字段缺失影响,返回 False。
     """

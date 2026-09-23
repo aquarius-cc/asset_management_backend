@@ -32,18 +32,29 @@ def authenticated_client(api_client, auth_user):
     return api_client
 
 
+@pytest.fixture
+def admin_client(api_client, admin_auth_user):
+    """系统管理员客户端。
+
+    4.5 矩阵收紧后 auth_user(无 Employee/角色)对 list/create/update 等
+    一律 403,故原 200 路径用例统一切换至 system_admin(全量可见)。
+    """
+    api_client.force_authenticate(user=admin_auth_user)
+    return api_client
+
+
 @pytest.mark.django_db
 class TestUnregisteredAssetAPI:
     """
     未登记资产 API 测试类
     """
 
-    def test_list_unregistered_assets(self, authenticated_client, unregistered_asset_s1):
+    def test_list_unregistered_assets(self, admin_client, unregistered_asset_s1):
         """
-        测试获取未登记资产列表
+        测试获取未登记资产列表(system_admin 全量, 矩阵 :190)
         """
         url = reverse("unregisteredasset:unregisteredasset-list")
-        response = authenticated_client.get(url)
+        response = admin_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data["code"] == 0
@@ -51,19 +62,19 @@ class TestUnregisteredAssetAPI:
         assert "results" in response.data["data"]
         assert len(response.data["data"]["results"]) == 1
 
-    def test_list_with_filters(self, authenticated_client, unregistered_asset_s1, unregistered_asset_s2):
+    def test_list_with_filters(self, admin_client, unregistered_asset_s1, unregistered_asset_s2):
         """
         测试带筛选条件的列表查询
         """
         url = reverse("unregisteredasset:unregisteredasset-list")
-        response = authenticated_client.get(url, {"scenario_type": "s1_no_record"})
+        response = admin_client.get(url, {"scenario_type": "s1_no_record"})
 
         assert response.status_code == status.HTTP_200_OK
         assert "results" in response.data["data"]
         assert len(response.data["data"]["results"]) == 1
         assert response.data["data"]["results"][0]["scenario_type"] == "s1_no_record"
 
-    def test_retrieve_unregistered_asset(self, authenticated_client, unregistered_asset_s1):
+    def test_retrieve_unregistered_asset(self, admin_client, unregistered_asset_s1):
         """
         测试获取未登记资产详情
         """
@@ -71,24 +82,24 @@ class TestUnregisteredAssetAPI:
             "unregisteredasset:unregisteredasset-detail",
             kwargs={"unregistered_code": unregistered_asset_s1.unregistered_code},
         )
-        response = authenticated_client.get(url)
+        response = admin_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data["code"] == 0
         assert response.data["data"]["unregistered_code"] == unregistered_asset_s1.unregistered_code
 
-    def test_retrieve_not_found(self, authenticated_client):
+    def test_retrieve_not_found(self, admin_client):
         """
         测试获取不存在的资产详情
         """
         url = reverse("unregisteredasset:unregisteredasset-detail", kwargs={"unregistered_code": "UNR-NOTEXIST"})
-        response = authenticated_client.get(url)
+        response = admin_client.get(url)
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-    def test_create_unregistered_asset(self, authenticated_client, employee, storage, asset_type):
+    def test_create_unregistered_asset(self, admin_client, employee, storage, asset_type):
         """
-        测试创建未登记资产
+        测试创建未登记资产(system_admin 代录 discovery_person, 语义2)
         """
         url = reverse("unregisteredasset:unregisteredasset-list")
         data = {
@@ -104,13 +115,13 @@ class TestUnregisteredAssetAPI:
             "discovery_person": employee.employee_jobcode,
         }
 
-        response = authenticated_client.post(url, data, format="json")
+        response = admin_client.post(url, data, format="json")
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data["code"] == 0
         assert response.data["data"]["asset_name"] == "新资产"
 
-    def test_create_validation_error(self, authenticated_client, storage):
+    def test_create_validation_error(self, admin_client, storage):
         """
         测试创建时验证错误
         """
@@ -120,20 +131,18 @@ class TestUnregisteredAssetAPI:
             # 缺少必填字段
         }
 
-        response = authenticated_client.post(url, data, format="json")
+        response = admin_client.post(url, data, format="json")
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_batch_create_drf_validation_error_routed(self, authenticated_client):
+    def test_batch_create_drf_validation_error_routed(self, admin_client):
         """
         【D-1 回归】批量创建: 条目级 DRF 校验失败必须路由为 VALIDATION_ERROR
         fail_item(此前落 Exception 分支被吞为 INTERNAL_ERROR), 且契约结构与
         手写版一致(无 row_number 键)——新 Service 内部 pop 剔除。
         """
         url = reverse("unregisteredasset:unregisteredasset-batch-create")
-        response = authenticated_client.post(
-            url, {"items": [{"asset_name": "缺字段条目"}]}, format="json"
-        )
+        response = admin_client.post(url, {"items": [{"asset_name": "缺字段条目"}]}, format="json")
 
         assert response.status_code == status.HTTP_200_OK
         data = response.data["data"]
@@ -144,9 +153,9 @@ class TestUnregisteredAssetAPI:
         assert fail["error_code"] == "VALIDATION_ERROR"
         assert fail["input_data"] == {"asset_name": "缺字段条目"}
 
-    def test_update_unregistered_asset(self, authenticated_client, unregistered_asset_s1):
+    def test_update_unregistered_asset(self, admin_client, unregistered_asset_s1):
         """
-        测试更新未登记资产
+        测试更新未登记资产(system_admin 全量, 矩阵 :191)
         """
         url = reverse(
             "unregisteredasset:unregisteredasset-detail",
@@ -157,20 +166,20 @@ class TestUnregisteredAssetAPI:
             "asset_brand": "更新后的品牌",
         }
 
-        response = authenticated_client.put(url, data, format="json")
+        response = admin_client.put(url, data, format="json")
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data["code"] == 0
         assert response.data["data"]["asset_name"] == "更新后的名称"
 
-    def test_update_not_found(self, authenticated_client):
+    def test_update_not_found(self, admin_client):
         """
         测试更新不存在的资产
         """
         url = reverse("unregisteredasset:unregisteredasset-detail", kwargs={"unregistered_code": "UNR-NOTEXIST"})
         data = {"asset_name": "新名称"}
 
-        response = authenticated_client.put(url, data, format="json")
+        response = admin_client.put(url, data, format="json")
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -208,7 +217,7 @@ class TestUnregisteredAssetAPI:
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_delete_denied_for_dept_manager(self, dept_manager_client, unregistered_asset_s1):
-        """部门经理无删除权限(IsSystemAdmin 门禁)"""
+        """部门经理无删除权限(矩阵 :191 ❌ 只读, IsSystemAdminOrAssetAdmin 门禁)"""
         url = reverse(
             "unregisteredasset:unregisteredasset-detail",
             kwargs={"unregistered_code": unregistered_asset_s1.unregistered_code},
@@ -217,7 +226,7 @@ class TestUnregisteredAssetAPI:
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_delete_denied_for_no_department_asset_admin(self, api_client, unregistered_asset_s1):
-        """无部门 asset_admin 无删除权限(最严兜底 + IsSystemAdmin 门禁)"""
+        """无部门 asset_admin 无删除权限(最严兜底:get_user_role 降级 None → 门禁 403)"""
         from apps.authusermanagement.models import AuthUser
         from apps.usermanagement.models import Employee, EmployeeRole
 
@@ -240,9 +249,7 @@ class TestUnregisteredAssetAPI:
         """遗留 is_staff 但无 RBAC 角色:不再授予删除权限(门禁已迁移到 IsSystemAdmin)"""
         from apps.authusermanagement.models import AuthUser
 
-        user = AuthUser.objects.create_user(
-            auth_username="staff_only", password=TEST_PASSWORD, auth_is_staff=True
-        )
+        user = AuthUser.objects.create_user(auth_username="staff_only", password=TEST_PASSWORD, auth_is_staff=True)
         api_client.force_authenticate(user=user)
         url = reverse(
             "unregisteredasset:unregisteredasset-detail",
@@ -255,6 +262,12 @@ class TestUnregisteredAssetAPI:
         """
         测试审批通过并回收(需要部门经理权限)
         """
+        # 行级隔离: 审批记录 discovery_person 须落入 dept_manager 本部门(4.5 矩阵 :192)
+        from apps.usermanagement.models import Employee
+
+        unregistered_asset_s1.discovery_person = Employee.objects.get(employee_jobcode="dmuser")
+        unregistered_asset_s1.save()
+
         url = reverse(
             "unregisteredasset:unregisteredasset-approve",
             kwargs={"unregistered_code": unregistered_asset_s1.unregistered_code},
@@ -276,6 +289,12 @@ class TestUnregisteredAssetAPI:
         """
         测试审批拒绝(需要部门经理权限)
         """
+        # 行级隔离: 同上, 记录须在 dept_manager 本部门范围
+        from apps.usermanagement.models import Employee
+
+        unregistered_asset_s1.discovery_person = Employee.objects.get(employee_jobcode="dmuser")
+        unregistered_asset_s1.save()
+
         url = reverse(
             "unregisteredasset:unregisteredasset-approve",
             kwargs={"unregistered_code": unregistered_asset_s1.unregistered_code},

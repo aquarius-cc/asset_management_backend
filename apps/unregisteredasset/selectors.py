@@ -24,9 +24,9 @@
     )
 """
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
-from django.db.models import QuerySet
+from django.db.models import Q, QuerySet
 
 
 if TYPE_CHECKING:
@@ -41,7 +41,10 @@ class UnregisteredAssetSelector:
 
     【查询方法】
     - get_by_code(): 根据编码获取单条记录
+    - get_by_code_for_user(): 行级隔离的按编码获取(B12, 越权返回 None → View 转 404)
+    - get_by_code_for_update(): 按编码获取单条记录(行级锁)
     - get_by_id(): 根据 ID 获取单条记录
+    - get_queryset_for_user(): 行级隔离查询集(B12 + 4.5 规则1-4, 唯一实现 DR-3)
     - list_by_filters(): 根据条件筛选列表
     - list_by_discovery_person(): 获取指定发现人的记录
     - list_pending(): 获取待审批记录
@@ -85,6 +88,74 @@ class UnregisteredAssetSelector:
             return UnregisteredAsset.objects.get(unregistered_code=unregistered_code, is_deleted=False)  # type: ignore[no-any-return]
         except UnregisteredAsset.DoesNotExist:
             return None
+
+    @staticmethod
+    def get_queryset_for_user(user: Any) -> QuerySet["UnregisteredAsset"]:
+        """
+        行级隔离查询集(B12 + 4.5 细则「行级隔离」规则1-4, 唯一实现 DR-3)。
+
+        规则落地:
+        1. 角色白名单优先: 仅 system_admin(含 is_superuser)全量;
+           dept_manager/asset_admin 的部门码 None/空一律收敛为空集;
+           regular/auditor/无 Employee 记录 → 空集(矩阵 ❌, 防御纵深)。
+        2. 部门过滤: discovery_person.employee_department.department_code ∈ dept_codes。
+        3. 本人提交例外: discovery_person = 当前用户的记录恒可见(兜底无部门员工与边界场景)。
+
+        注意: 此处按 Employee.role 原始角色分流, 不走 get_user_role 的
+        「无部门降级为 None」写路径语义(读路径空集部门仍应可见本人提交)。
+
+        Args:
+            user: 当前请求用户(AuthUser)
+
+        Returns:
+            QuerySet[UnregisteredAsset]: 已按角色与部门过滤的查询集
+        """
+        from apps.unregisteredasset.models import UnregisteredAsset
+        from apps.usermanagement.models import EmployeeRole
+        from core.department_scope import get_department_codes_for_user, get_employee_for_user
+
+        queryset = UnregisteredAsset.objects.filter(is_deleted=False)
+
+        if getattr(user, "is_superuser", False):
+            return queryset
+
+        employee = get_employee_for_user(user)
+        if not employee:
+            return queryset.none()
+
+        role = employee.role
+        if role == EmployeeRole.SYSTEM_ADMIN:
+            return queryset
+
+        if role in (EmployeeRole.DEPT_MANAGER, EmployeeRole.ASSET_ADMIN):
+            # 规则1: dm/aa 的 None/空部门码收敛为空集(get_department_codes_for_user
+            # 对 dm/aa 返回 list, 此处 `or []` 为规则文本的防御性落地)
+            codes = get_department_codes_for_user(user) or []
+            if codes:
+                scope_q: Q = Q(discovery_person__employee_department__department_code__in=codes)
+            else:
+                scope_q = Q(pk__in=[])
+            # 规则3: 本人提交例外恒可见
+            scope_q |= Q(discovery_person=employee)
+            return queryset.filter(scope_q)
+
+        # regular_user / auditor: 矩阵 ❌ 不可见
+        return queryset.none()
+
+    @staticmethod
+    def get_by_code_for_user(user: Any, unregistered_code: str) -> Optional["UnregisteredAsset"]:
+        """
+        行级隔离的按编码获取(B12)。越权或不存在均返回 None, 由 View 统一转 404
+        (4.5 接口语义4: 越权访问不泄露存在性)。
+
+        Args:
+            user: 当前请求用户
+            unregistered_code: 未登记资产编码
+
+        Returns:
+            UnregisteredAsset | None: 在用户行级范围内的记录, 否则 None
+        """
+        return UnregisteredAssetSelector.get_queryset_for_user(user).filter(unregistered_code=unregistered_code).first()
 
     @staticmethod
     def get_by_code_for_update(unregistered_code: str) -> Optional["UnregisteredAsset"]:

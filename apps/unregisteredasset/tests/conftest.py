@@ -30,6 +30,73 @@ def auth_user(db):
 
 
 @pytest.fixture
+def make_role_user(db):
+    """按角色制造 (AuthUser, Employee) 的工厂(4.5 矩阵/B12 行级测试共用, DR-1)"""
+
+    seq = {"n": 0}
+
+    def _make(username: str, role: str, department=None) -> AuthUser:
+        seq["n"] += 1
+        user = AuthUser.objects.create_user(
+            auth_username=username,
+            password=TEST_PASSWORD,
+            auth_phone=f"136{seq['n']:08d}",  # unique_auth_phone_active: 空串会撞唯一约束
+        )
+        Employee.objects.create(
+            employee_jobcode=username,
+            employee_name=username,
+            employee_department=department,
+            employee_phone=f"139{seq['n']:08d}",
+            employee_location="测试地点",
+            role=role,
+        )
+        return user
+
+    return _make
+
+
+@pytest.fixture
+def make_dept(db):
+    """部门工厂(支持 parent 层级, 矩阵「本部门+下级」测试用, DR-1)"""
+
+    seq = {"n": 0}
+
+    def _make(code: str, parent=None) -> Department:
+        seq["n"] += 1
+        # path 物化路径由 Service 层生成, 测试工厂显式构造(与既有测试模式一致);
+        # get_all_descendants 依赖 path 前缀匹配
+        return Department.objects.create(
+            department_code=code,
+            department_name=code,
+            department_information=f"info-{code}",
+            parent=parent,
+            path=f"{parent.path}/{code}" if parent else f"/{code}",
+            level=(parent.level + 1) if parent else 0,
+        )
+
+    return _make
+
+
+@pytest.fixture
+def make_plain_employee(db):
+    """无 AuthUser 绑定的 Employee 工厂(发现人侧, DR-1)"""
+
+    seq = {"n": 0}
+
+    def _make(jobcode: str, department=None) -> Employee:
+        seq["n"] += 1
+        return Employee.objects.create(
+            employee_jobcode=jobcode,
+            employee_name=jobcode,
+            employee_department=department,
+            employee_phone=f"137{seq['n']:08d}",
+            employee_location="测试地点",
+        )
+
+    return _make
+
+
+@pytest.fixture
 def admin_auth_user(db):
     """
     测试系统管理员认证用户(用于需要管理员权限的API测试)
@@ -37,9 +104,7 @@ def admin_auth_user(db):
     RBAC 系统管理员:Employee.role=system_admin,无部门(全局角色不受无部门兜底影响)。
     删除操作使用 IsSystemAdmin(替代遗留 is_staff 门禁),故夹具不依赖 auth_is_staff。
     """
-    user = AuthUser.objects.create_user(
-        auth_username="adminuser", password=TEST_PASSWORD, auth_phone="13800138001"
-    )
+    user = AuthUser.objects.create_user(auth_username="adminuser", password=TEST_PASSWORD, auth_phone="13800138001")
     Employee.objects.create(
         employee_jobcode="adminuser",
         employee_name="系统管理员",

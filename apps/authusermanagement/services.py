@@ -245,7 +245,19 @@ class AuthService:
         for field in forbidden_fields:
             update_data.pop(field, None)
 
-        # 检查唯一性约束
+        AuthService._validate_unique_constraints(user, update_data)
+
+        for key, value in update_data.items():
+            if hasattr(user, key):
+                setattr(user, key, value)
+
+        user.save()
+
+        return user
+
+    @staticmethod
+    def _validate_unique_constraints(user: AuthUser, update_data: dict[str, Any]) -> None:
+        """校验用户名/邮箱/手机号唯一性约束"""
         if "auth_username" in update_data and update_data["auth_username"] != user.auth_username:
             if AuthUserSelector.exists_by_username(update_data["auth_username"]):
                 raise AppValidationError("用户名已存在")
@@ -257,14 +269,6 @@ class AuthService:
         if "auth_phone" in update_data and update_data["auth_phone"] != user.auth_phone:
             if update_data["auth_phone"] and AuthUserSelector.exists_by_phone(update_data["auth_phone"]):
                 raise AppValidationError("手机号已被使用")
-
-        for key, value in update_data.items():
-            if hasattr(user, key):
-                setattr(user, key, value)
-
-        user.save()
-
-        return user
 
     @staticmethod
     def invalidate_user_refresh_tokens(user: AuthUser) -> None:

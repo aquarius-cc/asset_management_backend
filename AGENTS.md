@@ -26,7 +26,7 @@
 - **格式化与类型检查**：必须通过 `ruff check .` 和 `mypy . --strict`。
 - **导入顺序**：标准库 → 第三方库 → Django → 本地 apps。
 - **敏感操作标注**：涉及删除、批量更新，必须在代码注释中添加 `# [HALT]`。
-- **复杂度门禁**：代码完成后，必须运行 `ruff check . --select C90 --max-complexity 10`，若超标则触发 `[HALT]`。
+- **复杂度门禁**：代码完成后，必须运行 `ruff check . --select C90 --config lint.mccabe.max-complexity=10`，若超标则触发 `[HALT]`。
 - **测试门禁**：代码完成后，**必须**运行 `pytest --cov=. --cov-fail-under=80`，并单独检查 Service 层覆盖率 ≥ 90%。若未通过，触发 `[HALT]` 并补充测试用例。
 - **变异测试**：必须运行 `mutmut run` 并确保通过率 ≥ 80%（参见 T8）。
 - **复用规则索引**：编码前必须检查是否存在可复用的 Selector/Service/Utils，详细复用规范见 `../Rules_Fiels/backend-business-rules.md` 第四节（BR-1 ~ BR-3）。

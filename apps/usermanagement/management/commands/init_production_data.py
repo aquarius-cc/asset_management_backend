@@ -236,18 +236,7 @@ class Command(BaseCommand):
                 self.stdout.write(f"  ⚠ {role_code} — 角色不存在，跳过")
                 continue
 
-            perms_to_add: set[str] = set()
-
-            if perm_config == "all":
-                perms_to_add = set(perm_map.keys())
-            else:
-                for action_key, modules in perm_config.items():  # type: ignore[attr-defined]
-                    if action_key == "read_only":
-                        for mod in modules:
-                            perms_to_add.add(f"{mod}:read")
-                    else:
-                        for mod in modules:
-                            perms_to_add.add(f"{mod}:{action_key}")
+            perms_to_add = self._resolve_perms_to_add(perm_config, perm_map)
 
             existing = set(
                 RolePermission.objects.filter(role=role, is_deleted=False).values_list(
@@ -268,6 +257,21 @@ class Command(BaseCommand):
 
             self.stdout.write(f"  {role_code}: {len(to_create)} 个新关联")
         return count
+
+    def _resolve_perms_to_add(self, perm_config: Any, perm_map: dict[str, Permission]) -> set[str]:
+        """将角色权限配置展开为权限码集合"""
+        if perm_config == "all":
+            return set(perm_map.keys())
+
+        perms_to_add: set[str] = set()
+        for action_key, modules in perm_config.items():
+            if action_key == "read_only":
+                for mod in modules:
+                    perms_to_add.add(f"{mod}:read")
+            else:
+                for mod in modules:
+                    perms_to_add.add(f"{mod}:{action_key}")
+        return perms_to_add
 
     def _create_superuser(self, dry_run: bool) -> bool:
         """通过环境变量创建超级管理员"""

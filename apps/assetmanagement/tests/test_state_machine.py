@@ -309,3 +309,43 @@ class TestMarkLostFromInStore:
         asset = _make_asset(storage, asset_type, "in_store", "A_FSM_LSS")
         AssetFSM.mark_lost(asset)
         assert asset.asset_current_status == "lost"
+
+
+@pytest.mark.django_db
+class TestRepairFailedToDamaged:
+    """CT-3/F-P2-11: repairing → damaged 正向路径(repair_failed,此前零正向覆盖)"""
+
+    def test_repair_failed_to_damaged(self, storage, asset_type):
+        asset = _make_asset(storage, asset_type, "repairing", "A_FSM_RFD")
+        AssetFSM.repair_failed(asset)
+        assert asset.asset_current_status == "damaged"
+
+
+@pytest.mark.django_db
+class TestFoundAndReturnToRecycledPending:
+    """CT-3/F-P2-11: lost → recycled_pending 正向路径(found_and_return,此前零正向覆盖)"""
+
+    def test_found_and_return_to_recycled_pending(self, storage, asset_type):
+        asset = _make_asset(storage, asset_type, "lost", "A_FSM_FAR")
+        AssetFSM.found_and_return(asset)
+        assert asset.asset_current_status == "recycled_pending"
+
+
+@pytest.mark.django_db
+class TestApproveToScrapped:
+    """CT-3/F-P2-11: damaged → scrapped 正向路径(approve,此前零正向覆盖)"""
+
+    def test_approve_to_scrapped(self, storage, asset_type):
+        asset = _make_asset(storage, asset_type, "damaged", "A_FSM_APV")
+        AssetFSM.approve(asset)
+        assert asset.asset_current_status == "scrapped"
+
+
+@pytest.mark.django_db
+class TestRecycleToRecycledPending:
+    """CT-3/F-P2-11: in_use → recycled_pending 正向路径(recycle,此前零正向覆盖)"""
+
+    def test_recycle_to_recycled_pending(self, storage, asset_type):
+        asset = _make_asset(storage, asset_type, "in_use", "A_FSM_RCL")
+        AssetFSM.recycle(asset)
+        assert asset.asset_current_status == "recycled_pending"

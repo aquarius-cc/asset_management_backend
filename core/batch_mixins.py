@@ -32,7 +32,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from core.constants import MAX_BATCH_SIZE
-from core.exceptions import AppValidationError
+from core.exceptions import AppValidationError, ResourceConflictError
 from utils.response_utils import success_response
 from utils.user_utils import resolve_operator
 
@@ -108,44 +108,26 @@ class BatchOperationMixin:
                     result = process_fn(idx, item)
                 success_items.append(result)
             except AppValidationError as e:
-                fail_item = {
-                    item_key: idx if item_key == "index" else (item.get(item_key) if isinstance(item, dict) else item),
-                    "error_code": e.error_code or "VALIDATION_ERROR",
-                    "error_message": str(e.detail),
-                }
-                # 如果 item 是字典,始终记录 row_number 和 input_data(保持与原有行为一致)
-                if isinstance(item, dict):
-                    fail_item["row_number"] = item.get("row_number")
-                    # 【B-8 防御层】validated_data 中 SlugRelatedField 字段是模型实例, 归一化后方可 JSON 序列化
-                    fail_item["input_data"] = cls._normalize_input_data(item)
-                fail_items.append(fail_item)
+                fail_items.append(
+                    cls._make_fail_item(item_key, idx, item, e.error_code or "VALIDATION_ERROR", str(e.detail))
+                )
+            except ResourceConflictError as e:
+                # 【F-P2-8】行锁超时(409)属业务冲突,路由进 fail_items 保留 error_code,
+                # 不落入 INTERNAL_ERROR;结构同 AppValidationError 分支。
+                fail_items.append(
+                    cls._make_fail_item(item_key, idx, item, e.error_code or "RESOURCE_CONFLICT", str(e.detail))
+                )
             except serializers.ValidationError as e:
                 # 【D-1 收敛】process_fn 内执行 serializer.is_valid(raise_exception=True) 时抛出
                 # 的 DRF ValidationError, 此前落入 Exception 分支被吞为 INTERNAL_ERROR;
                 # 现路由为 VALIDATION_ERROR, 与 AppValidationError 分支同构组装。
-                fail_item = {
-                    item_key: idx if item_key == "index" else (item.get(item_key) if isinstance(item, dict) else item),
-                    "error_code": "VALIDATION_ERROR",
-                    "error_message": str(e.detail),
-                }
-                if isinstance(item, dict):
-                    fail_item["row_number"] = item.get("row_number")
-                    # 【B-8 防御层】validated_data 中 SlugRelatedField 字段是模型实例, 归一化后方可 JSON 序列化
-                    fail_item["input_data"] = cls._normalize_input_data(item)
-                fail_items.append(fail_item)
+                fail_items.append(cls._make_fail_item(item_key, idx, item, "VALIDATION_ERROR", str(e.detail)))
             except Exception as e:
                 # 【P1-39 修复】记录异常日志,便于生产环境排查
                 logger.error(f"批量操作第 {idx} 条异常: {e}", exc_info=True)
-                fail_item = {
-                    item_key: idx if item_key == "index" else (item.get(item_key) if isinstance(item, dict) else item),
-                    "error_code": "INTERNAL_ERROR",
-                    "error_message": "服务器内部错误,请稍后重试",
-                }
-                if isinstance(item, dict):
-                    fail_item["row_number"] = item.get("row_number")
-                    # 【B-8 防御层】validated_data 中 SlugRelatedField 字段是模型实例, 归一化后方可 JSON 序列化
-                    fail_item["input_data"] = cls._normalize_input_data(item)
-                fail_items.append(fail_item)
+                fail_items.append(
+                    cls._make_fail_item(item_key, idx, item, "INTERNAL_ERROR", "服务器内部错误,请稍后重试")
+                )
 
         return {
             "total": len(items),
@@ -205,6 +187,15 @@ class BatchOperationMixin:
                 fail_items.append(
                     {"id": item_id, "error_code": e.error_code or "VALIDATION_ERROR", "error_message": str(e.detail)}
                 )
+            except ResourceConflictError as e:
+                # 【F-P2-8】行锁超时(409)属业务冲突,路由进 fail_items 保留 error_code(如 ASSET_LOCKED)
+                fail_items.append(
+                    {
+                        "id": item_id,
+                        "error_code": e.error_code or "RESOURCE_CONFLICT",
+                        "error_message": str(e.detail),
+                    }
+                )
             except Exception as e:
                 # 【P1-39 修复】记录异常日志,便于生产环境排查
                 logger.error(f"批量删除第 {item_id} 条异常: {e}", exc_info=True)
@@ -219,6 +210,31 @@ class BatchOperationMixin:
             "success_ids": success_ids,
             "fail_items": fail_items,
         }
+
+    @staticmethod
+    def _make_fail_item(
+        item_key: str,
+        idx: int,
+        item: Any,
+        error_code: str,
+        error_message: str,
+    ) -> dict[str, Any]:
+        """组装 fail_items 单条失败条目(DR-1 收敛,四个异常分支共用)
+
+        统一处理 item_key 取值、row_number 与 input_data(B-8 防御层归一化),
+        避免各异常分支重复同一段组装逻辑(兼控 batch_execute 圈复杂度)。
+        """
+        fail_item = {
+            item_key: idx if item_key == "index" else (item.get(item_key) if isinstance(item, dict) else item),
+            "error_code": error_code,
+            "error_message": error_message,
+        }
+        # 如果 item 是字典,始终记录 row_number 和 input_data(保持与原有行为一致)
+        if isinstance(item, dict):
+            fail_item["row_number"] = item.get("row_number")
+            # 【B-8 防御层】validated_data 中 SlugRelatedField 字段是模型实例, 归一化后方可 JSON 序列化
+            fail_item["input_data"] = BatchOperationMixin._normalize_input_data(item)
+        return fail_item
 
     @staticmethod
     def _normalize_input_data(value: Any) -> Any:

@@ -26,6 +26,7 @@ from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
 from apps.usermanagement.models import Employee
 from apps.usermanagement.selectors import EmployeeSelector
 from core.exceptions import AppValidationError
+from core.locks import lock_row_or_409
 
 
 logger = logging.getLogger(__name__)
@@ -45,18 +46,8 @@ class RepairAssetService:
         operator_jobcode: str,
     ) -> tuple[Asset, Employee | None]:
         """锁定资产 + 幂等校验 + 获取操作人"""
-        # AC-65: 捕获锁超时,返回 409 Conflict
-        from django.db import OperationalError
-
-        from core.exceptions import ResourceConflictError
-
-        try:
-            asset = Asset.objects.select_for_update().get(asset_code=asset_code)
-        except OperationalError:
-            raise ResourceConflictError(
-                detail="资产被其他用户锁定,请稍后重试",
-                error_code="ASSET_LOCKED",
-            )
+        # AC-65: 捕获锁超时,返回 409 Conflict (DR-1 收敛至 core.locks.lock_row_or_409)
+        asset = lock_row_or_409(Asset.objects.select_for_update(), asset_code=asset_code)
 
         # L1-3 防重复校验:检查是否已有 in_progress 维修记录
         if RepairAsset.objects.filter(
@@ -171,7 +162,8 @@ class RepairAssetService:
         operator_name: str = "",
     ) -> RepairAsset:
         """维修完成: repairing → recycled_pending"""
-        asset = Asset.objects.select_for_update().get(asset_code=asset_code)
+        # F-P2-8: 锁超时收敛至核心助手(行为增强: complete_repair 新增 409 ASSET_LOCKED)
+        asset = lock_row_or_409(Asset.objects.select_for_update(), asset_code=asset_code)
 
         repair_record = RepairAsset.objects.filter(
             asset_recordcode=asset, repair_status=RepairAsset.RepairStatus.IN_PROGRESS
@@ -232,7 +224,8 @@ class RepairAssetService:
         operator_name: str = "",
     ) -> RepairAsset:
         """维修失败: repairing → damaged"""
-        asset = Asset.objects.select_for_update().get(asset_code=asset_code)
+        # F-P2-8: 锁超时收敛至核心助手(行为增强: fail_repair 新增 409 ASSET_LOCKED)
+        asset = lock_row_or_409(Asset.objects.select_for_update(), asset_code=asset_code)
 
         repair_record = RepairAsset.objects.filter(
             asset_recordcode=asset, repair_status=RepairAsset.RepairStatus.IN_PROGRESS

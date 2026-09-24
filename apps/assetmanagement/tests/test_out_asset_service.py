@@ -3,17 +3,21 @@
 
 覆盖审查报告 #14 所列缺口:
 - create_outasset 状态守卫、快照(original_*)构建落库
-- 出库后资产状态流转 in_use、仓库清空
+- 出库后资产状态流转 in_use、仓库清空、usage_type new→used (AC-27 / F-P2-9)
 - 非法源状态 ILLEGAL_OUTASSET
 - 取消出库(batch_delete_outasset)快照恢复契约
 - 批量方法 fail_items 结构
+- 行锁超时 409 ASSET_LOCKED(AC-30/65 / F-P2-8): 单条 create 与 cancel 批量路径
 """
 
+from unittest import mock
+
 import pytest
+from django.db import OperationalError
 
 from apps.assetmanagement.models import Asset
 from apps.assetmanagement.services.out_asset_service import OutAssetService
-from core.exceptions import AppValidationError
+from core.exceptions import AppValidationError, ResourceConflictError
 
 
 def _make_asset(
@@ -101,6 +105,56 @@ class TestCreateOutAssetService:
         with pytest.raises(AppValidationError) as exc_info:
             OutAssetService.create_outasset({})
         assert exc_info.value.error_code == "MISSING_ASSET_CODE"
+
+
+@pytest.mark.django_db
+class TestOutAssetLockAndUsageType:
+    """F-P2-8/F-P2-9: 出库行锁409 + usage_type new→used (AC-27/30/65)"""
+
+    def test_create_outasset_lock_timeout_raises_409(self, storage, asset_type, employee):
+        """AC-30/65: 出库行锁超时 → ResourceConflictError(409) ASSET_LOCKED"""
+        asset = _make_asset(storage, asset_type, "in_store", "OUT_SVC_LK409")
+        with mock.patch.object(
+            type(Asset.objects.select_for_update()),
+            "get",
+            side_effect=OperationalError("database is locked"),
+        ):
+            with pytest.raises(ResourceConflictError) as exc:
+                OutAssetService.create_outasset(
+                    _outasset_payload(asset, applicant=employee),
+                    operator_jobcode=employee.employee_jobcode,
+                )
+        assert exc.value.status_code == 409
+        assert exc.value.error_code == "ASSET_LOCKED"
+
+    def test_create_outasset_flips_usage_type_to_used(self, storage, asset_type, employee):
+        """AC-27: 出库成功后 usage_type new→used (F-P2-9); fresh query 避开 FK 缓存"""
+        asset = _make_asset(storage, asset_type, "in_store", "OUT_SVC_USED")
+        assert asset.usage_type == "new"
+        OutAssetService.create_outasset(
+            _outasset_payload(asset, applicant=employee),
+            operator_jobcode=employee.employee_jobcode,
+        )
+        fresh = Asset.objects.get(asset_code=asset.asset_code)
+        assert fresh.usage_type == "used"
+
+    def test_cancel_outasset_lock_timeout_lands_in_fail_items(self, storage, asset_type, user, employee):
+        """AC-65: cancel 行锁超时 → fail_items ASSET_LOCKED,不落 INTERNAL_ERROR/500"""
+        asset = _make_asset(storage, asset_type, "in_store", "OUT_SVC_CLK")
+        outasset = OutAssetService.create_outasset(
+            _outasset_payload(asset, applicant=employee, manager=employee),
+            operator_jobcode=employee.employee_jobcode,
+        )
+        with mock.patch.object(
+            type(Asset.objects.select_for_update()),
+            "get",
+            side_effect=OperationalError("database is locked"),
+        ):
+            result = OutAssetService.batch_delete_outasset(
+                [outasset.recordcode], operator_jobcode=user.employee_jobcode
+            )
+        assert result["fail_count"] == 1
+        assert result["fail_items"][0]["error_code"] == "ASSET_LOCKED"
 
 
 @pytest.mark.django_db

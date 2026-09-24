@@ -14,6 +14,7 @@ from apps.assetmanagement.selectors import OutAssetSelector
 from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
 from core.batch_mixins import BatchOperationMixin
 from core.exceptions import AppValidationError
+from core.locks import lock_row_or_409
 
 
 # 字段白名单
@@ -147,7 +148,8 @@ class OutAssetService:
     @staticmethod
     def _apply_outasset_to_asset(asset: Asset, applicant: Any, manager: Any, using_location: Any) -> Asset:
         """锁行并执行出库:FSM 转换 + 资产字段变化 + 定向 save"""
-        asset = Asset.objects.select_for_update().get(pk=asset.pk)
+        # F-P2-8: 锁超时收敛至核心助手
+        asset = lock_row_or_409(Asset.objects.select_for_update(), pk=asset.pk)
 
         try:
             AssetFSM.outasset(asset)
@@ -155,7 +157,9 @@ class OutAssetService:
             raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
 
         asset.asset_storage_recordcode = None
-        update_fields = ["asset_current_status", "asset_storage_recordcode"]
+        # F-P2-9 (AC-30): 出库资产 usage_type → used(唯一实现点;删除/取消出库不回退)
+        asset.usage_type = Asset.UsageType.USED
+        update_fields = ["asset_current_status", "asset_storage_recordcode", "usage_type"]
         update_fields += OutAssetService._build_asset_people_update(asset, applicant, manager, using_location)
         asset.save(update_fields=update_fields)
 
@@ -221,7 +225,8 @@ class OutAssetService:
 
         asset = outasset.asset_recordcode
         if asset is not None:
-            asset = Asset.objects.select_for_update().get(pk=asset.pk)
+            # F-P2-8: 锁超时收敛至核心助手(update_outasset 关联资产锁)
+            asset = lock_row_or_409(Asset.objects.select_for_update(), pk=asset.pk)
             update_fields = OutAssetService._build_asset_people_update(
                 asset, applicant, manager, update_data.get("outasset_using_location")
             )
@@ -285,7 +290,10 @@ class OutAssetService:
         if not outasset:
             raise AppValidationError(detail=f"出库记录 {recordcode} 不存在", error_code="NOT_FOUND")
 
-        asset = Asset.objects.select_for_update().get(pk=outasset.asset_recordcode.pk)  # type: ignore[union-attr]
+        # F-P2-8: 锁超时收敛至核心助手(关联资产锁;出库单持有确已存在的关联资产)
+        asset = lock_row_or_409(
+            Asset.objects.select_for_update(), pk=outasset.asset_recordcode.pk  # type: ignore[union-attr]
+        )
         if asset.asset_current_status != Asset.AssetStatus.IN_USE:
             raise AppValidationError(
                 detail=f"关联资产当前状态为 {asset.asset_current_status},不允许删除出库记录",

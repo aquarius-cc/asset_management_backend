@@ -60,7 +60,7 @@ class UnregisteredAssetStateAdapter:
     """
 
     @staticmethod
-    def create_and_recycle(asset: 'Asset') -> None:
+    def create_and_recycle(asset: "Asset") -> None:
         """
         S1场景：创建资产并回收
 
@@ -84,10 +84,11 @@ class UnregisteredAssetStateAdapter:
         """
         # 延迟导入避免循环依赖
         from apps.assetmanagement.state_machine import AssetFSM
+
         AssetFSM.unregistered_create_and_recycle(asset)
 
     @staticmethod
-    def create_and_damaged(asset: 'Asset') -> None:
+    def create_and_damaged(asset: "Asset") -> None:
         """
         S1场景：创建资产并待报废
 
@@ -110,10 +111,11 @@ class UnregisteredAssetStateAdapter:
             'damaged'
         """
         from apps.assetmanagement.state_machine import AssetFSM
+
         AssetFSM.unregistered_create_and_damaged(asset)
 
     @staticmethod
-    def force_recycle(asset: 'Asset') -> None:
+    def force_recycle(asset: "Asset") -> None:
         """
         S2/S3场景：强制回收
 
@@ -145,4 +147,5 @@ class UnregisteredAssetStateAdapter:
             'recycled_pending'
         """
         from apps.assetmanagement.state_machine import AssetFSM
+
         AssetFSM.force_recycle_from_any(asset)

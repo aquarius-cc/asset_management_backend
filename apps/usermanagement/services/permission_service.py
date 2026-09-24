@@ -56,9 +56,7 @@ class PermissionService:
         """
         # 1. superuser:全量权限码
         if getattr(user, "is_superuser", False):
-            return list(
-                Permission.objects.filter(is_deleted=False).values_list("permission_code", flat=True)
-            )
+            return list(Permission.objects.filter(is_deleted=False).values_list("permission_code", flat=True))
 
         # 2. 部门级角色无部门:最严兜底,仅保留查看(read)权限(全局角色不触发)
         if is_no_department_dept_scoped(user):

@@ -337,19 +337,16 @@ class DepartmentService:
         def _delete_one(dept_code: str) -> None:
             department = DepartmentSelector.get_department_by_code(dept_code)
             if not department or department.is_deleted:
-                raise AppValidationError(
-                    detail=f"部门 {dept_code} 不存在或已删除", error_code="NOT_FOUND"
-                )
+                raise AppValidationError(detail=f"部门 {dept_code} 不存在或已删除", error_code="NOT_FOUND")
             # 检查下属员工(SoftDeleteManager 自动排除已删除)
             if Employee.objects.filter(employee_department=department).exists():
                 raise AppValidationError(
-                    detail="部门下存在员工,不允许删除", error_code="DEPT_HAS_EMPLOYEES"  # 4002
+                    detail="部门下存在员工,不允许删除",
+                    error_code="DEPT_HAS_EMPLOYEES",  # 4002
                 )
             # 检查子部门(使用 parent FK)
             if Department.objects.filter(parent=department).exists():
-                raise AppValidationError(
-                    detail="部门下存在子部门,不允许删除", error_code="HAS_CHILD_DEPARTMENTS"
-                )
+                raise AppValidationError(detail="部门下存在子部门,不允许删除", error_code="HAS_CHILD_DEPARTMENTS")
             department.delete()
 
         return BatchOperationMixin.batch_delete_execute(department_codes, _delete_one)

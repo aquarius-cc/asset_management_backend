@@ -2,7 +2,6 @@
 部门服务覆盖率测试
 """
 
-
 import pytest
 
 from apps.usermanagement.models import MAX_DEPARTMENT_LEVEL, Department
@@ -167,9 +166,7 @@ class TestDepartmentServiceExtra:
         assert result["fail_count"] == 0
 
     def test_batch_create_department_exceed_size(self):
-        items = [
-            {"department_code": f"BC{i:03d}", "department_name": f"部门{i}"} for i in range(101)
-        ]
+        items = [{"department_code": f"BC{i:03d}", "department_name": f"部门{i}"} for i in range(101)]
 
         with pytest.raises(ValidationError) as exc_info:
             DepartmentService.batch_create_department(items)

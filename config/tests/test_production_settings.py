@@ -126,10 +126,7 @@ class TestRedisUrlCredentials:
         from config.settings import production
 
         redis_url = production.CHANNEL_LAYERS["default"]["CONFIG"]["hosts"][0]
-        assert "@" in redis_url, (
-            f"REDIS_URL 缺少凭据: {redis_url!r} — "
-            "期望格式 redis://:password@host:port/db"
-        )
+        assert "@" in redis_url, f"REDIS_URL 缺少凭据: {redis_url!r} — 期望格式 redis://:password@host:port/db"
 
     def test_redis_url_uses_redis_host(self):
         """REDIS_URL 必须指向 redis 服务(非 localhost)"""

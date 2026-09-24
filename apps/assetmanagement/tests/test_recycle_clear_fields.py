@@ -1,4 +1,4 @@
-﻿"""
+"""
 回收资产清空字段测试
 
 【P0 修复】验证回收时清空 asset_applicant、asset_manager、asset_using_location
@@ -194,10 +194,14 @@ class TestOutAssetDeleteClearFields(TestCase):
 
         # 【评审点3 修复】验证字段恢复为出库前原值(而非清空、亦非残留出库单目标值)
         self.assertEqual(
-            self.asset.asset_applicant_recordcode, self.original_user, "删除出库记录后 asset_applicant_recordcode 应恢复出库前原值"
+            self.asset.asset_applicant_recordcode,
+            self.original_user,
+            "删除出库记录后 asset_applicant_recordcode 应恢复出库前原值",
         )
         self.assertEqual(
-            self.asset.asset_manager_recordcode, self.original_user, "删除出库记录后 asset_manager_recordcode 应恢复出库前原值"
+            self.asset.asset_manager_recordcode,
+            self.original_user,
+            "删除出库记录后 asset_manager_recordcode 应恢复出库前原值",
         )
         self.assertEqual(
             self.asset.asset_using_location, "原使用地点", "删除出库记录后 asset_using_location 应恢复出库前原值"

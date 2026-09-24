@@ -89,9 +89,7 @@ def _insert_operation_log(
             ip_address=ip_address,
         )
 
-        logger.info(
-            f"【OperationLogService】操作日志记录成功: {asset_code} - {operation_type} - {operator_jobcode}"
-        )
+        logger.info(f"【OperationLogService】操作日志记录成功: {asset_code} - {operation_type} - {operator_jobcode}")
         return log
 
     except Exception as e:

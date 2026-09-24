@@ -90,9 +90,7 @@ class TestEmployeeBatchDeleteView:
             employee_phone=_phone(),
         )
 
-        resp = sys_admin.post(
-            reverse("employees-batch-delete"), {"ids": ["BDV001"]}, format="json"
-        )
+        resp = sys_admin.post(reverse("employees-batch-delete"), {"ids": ["BDV001"]}, format="json")
 
         assert resp.status_code == status.HTTP_200_OK
         assert resp.data["code"] == 0
@@ -123,9 +121,7 @@ class TestEmployeeBatchDeleteView:
             employee_phone=_phone(),
         )
 
-        resp = regular_client.post(
-            reverse("employees-batch-delete"), {"ids": ["BDV002"]}, format="json"
-        )
+        resp = regular_client.post(reverse("employees-batch-delete"), {"ids": ["BDV002"]}, format="json")
 
         assert resp.status_code == status.HTTP_403_FORBIDDEN
 

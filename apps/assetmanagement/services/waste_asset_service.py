@@ -140,7 +140,9 @@ class WasteAssetService:
             )
 
     @staticmethod
-    def batch_delete_waste_assets(waste_asset_codes: list[str], operator_jobcode: str | None, operator_name: str | None) -> dict[str, Any]:
+    def batch_delete_waste_assets(
+        waste_asset_codes: list[str], operator_jobcode: str | None, operator_name: str | None
+    ) -> dict[str, Any]:
         """
         批量删除报废记录(DR-1 收敛)
 
@@ -164,4 +166,3 @@ class WasteAssetService:
                 ) from None
 
         return BatchOperationMixin.batch_delete_execute(waste_asset_codes, _delete_one)
-

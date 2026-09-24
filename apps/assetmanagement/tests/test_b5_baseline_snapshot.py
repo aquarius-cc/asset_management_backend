@@ -24,7 +24,11 @@ def admin_client_fixture(api_client, admin_auth_user):
 def _assert_batch_shape(data, *, success_key: str) -> None:
     """标准五键结构断言"""
     assert set(data.keys()) == {
-        "total", "success_count", "fail_count", success_key, "fail_items",
+        "total",
+        "success_count",
+        "fail_count",
+        success_key,
+        "fail_items",
     }
 
 
@@ -93,17 +97,17 @@ class TestDamagedBaseline:
 
 @pytest.mark.django_db
 class TestWasteBaseline:
-    def test_batch_delete_missing_id_after_dr1(
-        self, admin_client_fixture, storage, asset_type
-    ):
+    def test_batch_delete_missing_id_after_dr1(self, admin_client_fixture, storage, asset_type):
         """[已变更 commit e85b6cf+本次] WASTE_ASSET_NOT_FOUND 不再被遮蔽为 INTERNAL_ERROR"""
         import datetime as _dt
 
         from apps.assetmanagement.models import Asset
 
         Asset.objects.create(
-            asset_code="W_BASE_1", asset_name="基线资产",
-            asset_purchase_price=1, asset_type_recordcode=asset_type,
+            asset_code="W_BASE_1",
+            asset_name="基线资产",
+            asset_purchase_price=1,
+            asset_type_recordcode=asset_type,
             asset_storage_recordcode=storage,
             asset_purchase_date=_dt.date.today(),
             asset_entry_date=_dt.date.today(),

@@ -15,20 +15,22 @@ if not SECRET_KEY:
     raise ImproperlyConfigured("SECRET_KEY environment variable is required in production")
 
 # C-2: 额外验证 — 拒绝已知弱密钥（belt-and-suspenders）
-_INSECURE_KEYS = frozenset({
-    "django-insecure-placeholder-see-env-settings",
-    "django-insecure-dev-only-key-change-in-production-1234567890",
-    "change-me-in-production",
-    "your-secret-key-here-change-in-production",
-    "change-this-to-a-real-secret-key-before-running",
-    "changeme",
-    "dev-only-key-!@#$%^&*()_+-=[]{}|;:,.<>?-not-for-production-2026",
-})
+_INSECURE_KEYS = frozenset(
+    {
+        "django-insecure-placeholder-see-env-settings",
+        "django-insecure-dev-only-key-change-in-production-1234567890",
+        "change-me-in-production",
+        "your-secret-key-here-change-in-production",
+        "change-this-to-a-real-secret-key-before-running",
+        "changeme",
+        "dev-only-key-!@#$%^&*()_+-=[]{}|;:,.<>?-not-for-production-2026",
+    }
+)
 if SECRET_KEY in _INSECURE_KEYS or len(SECRET_KEY) < 20:
     raise ImproperlyConfigured(
         "SECRET_KEY is too weak for production. Must be ≥20 characters.\n"
-        "Generate: python -c \"from django.core.management.utils import "
-        "get_random_secret_key; print(get_random_secret_key())\""
+        'Generate: python -c "from django.core.management.utils import '
+        'get_random_secret_key; print(get_random_secret_key())"'
     )
 
 # 【修复】ALLOWED_HOSTS 缺失时抛出异常
@@ -65,11 +67,11 @@ JWT_AUTH_COOKIE_SECURE = True
 # 【安全头治理】所有安全响应头由 Nginx 边缘层唯一下发
 # 理由: /static/、/media/ 由 Nginx 直接服务(绕过 Django), 只有 Nginx 能全量覆盖
 # 关闭 Django SecurityMiddleware 的安全头发射, 避免双发:
-SECURE_HSTS_SECONDS = 0                      # HSTS 由 Nginx 唯一下发(max-age=63072000)
+SECURE_HSTS_SECONDS = 0  # HSTS 由 Nginx 唯一下发(max-age=63072000)
 SECURE_HSTS_INCLUDE_SUBDOMAINS = False
 SECURE_HSTS_PRELOAD = False
-SECURE_CONTENT_TYPE_NOSNIFF = False          # X-Content-Type-Options 由 Nginx 下发
-SECURE_REFERRER_POLICY = ""                  # Referrer-Policy 由 Nginx 下发
+SECURE_CONTENT_TYPE_NOSNIFF = False  # X-Content-Type-Options 由 Nginx 下发
+SECURE_REFERRER_POLICY = ""  # Referrer-Policy 由 Nginx 下发
 # XFrameOptionsMiddleware 从生产 MIDDLEWARE 中移除(见下方 MIDDLEWARE 覆写)
 # X-Frame-Options 由 Nginx 下发
 

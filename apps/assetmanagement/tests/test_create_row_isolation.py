@@ -191,9 +191,7 @@ class TestLifecycleBatchCreateRowIsolation:
         """regular_user 批量标记损坏(本部门) → 403(矩阵 :141 regular ❌,F-P1-8)"""
         api_client.force_authenticate(user=regular_a_user)
         url = reverse("broken-assets-batch-create")
-        response = api_client.post(
-            url, {"items": [{"asset_code": "A001", "broken_reason": "测试损坏"}]}, format="json"
-        )
+        response = api_client.post(url, {"items": [{"asset_code": "A001", "broken_reason": "测试损坏"}]}, format="json")
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_lost_batch_create_denied_for_regular(
@@ -215,9 +213,7 @@ class TestLifecycleBatchCreateRowIsolation:
         """auditor 批量标记损坏 → 403(矩阵 :141 auditor ❌,F-P1-8)"""
         api_client.force_authenticate(user=auditor_a_user)
         url = reverse("broken-assets-batch-create")
-        response = api_client.post(
-            url, {"items": [{"asset_code": "A001", "broken_reason": "测试损坏"}]}, format="json"
-        )
+        response = api_client.post(url, {"items": [{"asset_code": "A001", "broken_reason": "测试损坏"}]}, format="json")
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_lost_batch_create_denied_for_auditor(
@@ -239,16 +235,12 @@ class TestLifecycleBatchCreateRowIsolation:
         """asset_admin 对乙部门资产批量标记损坏 → 记入 fail_items(行隔离层拒绝)"""
         api_client.force_authenticate(user=asset_admin_a_user)
         url = reverse("broken-assets-batch-create")
-        response = api_client.post(
-            url, {"items": [{"asset_code": "A002", "broken_reason": "测试损坏"}]}, format="json"
-        )
+        response = api_client.post(url, {"items": [{"asset_code": "A002", "broken_reason": "测试损坏"}]}, format="json")
         assert response.status_code == status.HTTP_200_OK
         assert response.data["data"]["success_count"] == 0
         assert response.data["data"]["fail_count"] == 1
 
-    def test_lost_cross_dept_rejected(
-        self, api_client: APIClient, dept_b_asset: Any, asset_admin_a_user: Any
-    ) -> None:
+    def test_lost_cross_dept_rejected(self, api_client: APIClient, dept_b_asset: Any, asset_admin_a_user: Any) -> None:
         """asset_admin 对乙部门资产批量标记遗失 → 记入 fail_items(行隔离层拒绝)"""
         api_client.force_authenticate(user=asset_admin_a_user)
         url = reverse("lost-assets-batch-create")
@@ -267,9 +259,7 @@ class TestLifecycleBatchCreateRowIsolation:
         """asset_admin 对本部门资产批量标记损坏 → 200 success_count=1(矩阵 :141 asset_admin ✅)"""
         api_client.force_authenticate(user=asset_admin_a_user)
         url = reverse("broken-assets-batch-create")
-        response = api_client.post(
-            url, {"items": [{"asset_code": "A001", "broken_reason": "测试损坏"}]}, format="json"
-        )
+        response = api_client.post(url, {"items": [{"asset_code": "A001", "broken_reason": "测试损坏"}]}, format="json")
         assert response.status_code == status.HTTP_200_OK
         assert response.data["data"]["success_count"] == 1
 

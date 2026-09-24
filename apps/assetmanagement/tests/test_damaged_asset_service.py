@@ -119,9 +119,13 @@ class TestCreateDamagedAsset:
         assert exc_info.value.error_code == "MISSING_ASSET_CODE"
 
     def test_create_duplicate_record_raises(self, asset_recycled_pending):
-        DamagedAssetService.create_damaged_asset({"asset_recordcode": asset_recycled_pending, "damaged_asset_number": 1})
+        DamagedAssetService.create_damaged_asset(
+            {"asset_recordcode": asset_recycled_pending, "damaged_asset_number": 1}
+        )
         with pytest.raises(AppValidationError) as exc_info:
-            DamagedAssetService.create_damaged_asset({"asset_recordcode": asset_recycled_pending, "damaged_asset_number": 1})
+            DamagedAssetService.create_damaged_asset(
+                {"asset_recordcode": asset_recycled_pending, "damaged_asset_number": 1}
+            )
         assert exc_info.value.error_code == "DUPLICATE_DAMAGED_RECORD"
 
     def test_create_integrity_error_mapped_to_business_code(self, asset_recycled_pending):
@@ -166,9 +170,7 @@ class TestCreateDamagedAsset:
 
     def test_create_from_broken_success(self, asset_broken):
         """CT-3: broken → damaged Service 层正向路径"""
-        result = DamagedAssetService.create_damaged_asset(
-            {"asset_recordcode": asset_broken, "damaged_asset_number": 1}
-        )
+        result = DamagedAssetService.create_damaged_asset({"asset_recordcode": asset_broken, "damaged_asset_number": 1})
         result.refresh_from_db()
         assert result.original_status == "broken"
         asset_broken.refresh_from_db()
@@ -308,9 +310,7 @@ class TestRejectAssetRecordcode:
             ("in_store", "recycled_pending"),
         ],
     )
-    def test_reject_returns_to_original_status(
-        self, db, storage, asset_type, user, original_status, expected_status
-    ):
+    def test_reject_returns_to_original_status(self, db, storage, asset_type, user, original_status, expected_status):
         """审批拒绝:damaged → 原状态;缺失/非法原状态兜底 recycled_pending"""
         asset = Asset.objects.create(
             asset_code="A_REJ_P",
@@ -569,9 +569,7 @@ class TestDamagedSlotRelease:
         )
         assert DamagedAssetSelector.exists_by_asset_code(asset_damaged.asset_code) is True
         with pytest.raises(AppValidationError) as exc_info:
-            DamagedAssetService.create_damaged_asset(
-                {"asset_recordcode": asset_damaged, "damaged_asset_number": 1}
-            )
+            DamagedAssetService.create_damaged_asset({"asset_recordcode": asset_damaged, "damaged_asset_number": 1})
         assert exc_info.value.error_code == "DUPLICATE_DAMAGED_RECORD"
 
 
@@ -600,12 +598,8 @@ def cross_dept_data(db, storage, asset_type):
         employee_department=dept_b,
         employee_phone="13800000003",
     )
-    user_a = AuthUser.objects.create_user(
-        auth_username="mgr_a", password=TEST_PASSWORD, auth_phone="13800000011"
-    )
-    user_b = AuthUser.objects.create_user(
-        auth_username="mgr_b", password=TEST_PASSWORD, auth_phone="13800000012"
-    )
+    user_a = AuthUser.objects.create_user(auth_username="mgr_a", password=TEST_PASSWORD, auth_phone="13800000011")
+    user_b = AuthUser.objects.create_user(auth_username="mgr_b", password=TEST_PASSWORD, auth_phone="13800000012")
     asset_b = Asset.objects.create(
         asset_code="A-DB-01",
         asset_name="B部门资产",
@@ -617,9 +611,7 @@ def cross_dept_data(db, storage, asset_type):
         asset_manager_recordcode=Employee.objects.get(employee_jobcode="holder_b"),
         asset_current_status=Asset.AssetStatus.RECYCLED_PENDING,
     )
-    record = DamagedAssetService.create_damaged_asset(
-        {"asset_recordcode": asset_b, "damaged_asset_number": 1}
-    )
+    record = DamagedAssetService.create_damaged_asset({"asset_recordcode": asset_b, "damaged_asset_number": 1})
     asset_b.refresh_from_db()
     return {"asset_b": asset_b, "record": record, "user_a": user_a, "user_b": user_b}
 

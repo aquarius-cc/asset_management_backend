@@ -30,21 +30,23 @@ SECRET_KEY = config("SECRET_KEY", default=get_random_secret_key())
 from django.core.exceptions import ImproperlyConfigured
 
 
-_INSECURE_KEYS = frozenset({
-    "django-insecure-placeholder-see-env-settings",
-    "django-insecure-dev-only-key-change-in-production-1234567890",
-    "change-me-in-production",
-    "your-secret-key-here-change-in-production",
-    "change-this-to-a-real-secret-key-before-running",
-    "changeme",
-    "dev-only-key-!@#$%^&*()_+-=[]{}|;:,.<>?-not-for-production-2026",
-    "",
-})
+_INSECURE_KEYS = frozenset(
+    {
+        "django-insecure-placeholder-see-env-settings",
+        "django-insecure-dev-only-key-change-in-production-1234567890",
+        "change-me-in-production",
+        "your-secret-key-here-change-in-production",
+        "change-this-to-a-real-secret-key-before-running",
+        "changeme",
+        "dev-only-key-!@#$%^&*()_+-=[]{}|;:,.<>?-not-for-production-2026",
+        "",
+    }
+)
 if SECRET_KEY in _INSECURE_KEYS:
     raise ImproperlyConfigured(
         "SECRET_KEY is insecure. Set a strong key via env var or .env file.\n"
-        "Generate: python -c \"from django.core.management.utils import "
-        "get_random_secret_key; print(get_random_secret_key())\""
+        'Generate: python -c "from django.core.management.utils import '
+        'get_random_secret_key; print(get_random_secret_key())"'
     )
 
 
@@ -57,7 +59,9 @@ if SECRET_KEY in _INSECURE_KEYS:
 DEBUG = True
 
 # 限制为常见开发主机,可通过 ALLOWED_HOSTS 环境变量覆盖
-ALLOWED_HOSTS = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,0.0.0.0,[::1]").split(",") if h.strip()]
+ALLOWED_HOSTS = [
+    h.strip() for h in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,0.0.0.0,[::1]").split(",") if h.strip()
+]
 
 # CSRF: 开发环境 HTTP 不需要 Secure 标志
 CSRF_COOKIE_SECURE = False

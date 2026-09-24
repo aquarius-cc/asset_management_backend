@@ -320,9 +320,7 @@ class TestNotificationWSThrottle:
             # 验证两条 id 合并为"单次批量写"而非逐条写
             with (
                 mock.patch("apps.notification.consumer.MARK_READ_FLUSH_DELAY", 0.05),
-                mock.patch.object(
-                    NotificationConsumer, "_mark_notifications_read", new=mock.AsyncMock()
-                ) as fake,
+                mock.patch.object(NotificationConsumer, "_mark_notifications_read", new=mock.AsyncMock()) as fake,
             ):
                 await comm.send_json_to({"type": "mark_read", "notification_id": notif_a.id})
                 await comm.send_json_to({"type": "mark_read", "notification_id": notif_b.id})

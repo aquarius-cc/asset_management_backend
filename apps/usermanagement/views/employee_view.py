@@ -382,11 +382,7 @@ class EmployeeViewSet(  # type: ignore[misc]
         - level: 部门层级
         - parent_code: 上级部门编码
         """
-        employee = (
-            EmployeeSelector.get_employee_by_jobcode(employee_jobcode)
-            if employee_jobcode
-            else None
-        )
+        employee = EmployeeSelector.get_employee_by_jobcode(employee_jobcode) if employee_jobcode else None
         if not employee:
             return error_response(message=f"员工 {employee_jobcode} 不存在", status_code=status.HTTP_404_NOT_FOUND)
 
@@ -404,4 +400,3 @@ class EmployeeViewSet(  # type: ignore[misc]
                 "path": dept.path,
             }
         )
-

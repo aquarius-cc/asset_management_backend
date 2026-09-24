@@ -98,6 +98,7 @@ BACKUP_DIR = Path(__file__).resolve().parent / "backups"
 # 工具函数
 # =============================================================================
 
+
 def get_db_info() -> dict:
     """获取当前数据库连接信息"""
     db_settings = connection.settings_dict
@@ -153,9 +154,12 @@ def create_backup() -> Path:
 
     cmd = [
         "mysqldump",
-        "-h", db_info["host"] or "localhost",
-        "-P", str(db_info["port"] or 3306),
-        "-u", db_info["user"] or "root",
+        "-h",
+        db_info["host"] or "localhost",
+        "-P",
+        str(db_info["port"] or 3306),
+        "-u",
+        db_info["user"] or "root",
         "--single-transaction",
         "--routines",
         "--triggers",
@@ -234,22 +238,23 @@ def verify_cleared() -> dict:
 
 def print_summary(results: dict, title: str = "数据汇总") -> None:
     """打印表格数据汇总"""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"  {title}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     total = 0
     for table, count in results.items():
         status = "✓ 已清空" if count == 0 else f"✗ {count} 条"
         print(f"  {table:<40} {status}")
         total += count
-    print(f"{'-'*60}")
+    print(f"{'-' * 60}")
     print(f"  总计: {total} 条数据")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
 
 # =============================================================================
 # 主流程
 # =============================================================================
+
 
 def main():
     print("=" * 70)
@@ -293,9 +298,9 @@ def main():
 
     # 4. 二次确认
     force = len(sys.argv) > 1 and sys.argv[1] == "--force"
-    print(f"\n{'!'*70}")
+    print(f"\n{'!' * 70}")
     print("  ⚠️  警告: 此操作将永久删除上述所有业务数据！")
-    print(f"{'!'*70}")
+    print(f"{'!' * 70}")
     if force:
         print("  [--force 模式] 跳过交互确认")
     else:

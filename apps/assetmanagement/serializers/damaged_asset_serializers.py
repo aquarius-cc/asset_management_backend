@@ -10,7 +10,6 @@
 - DetailSerializer: 详情查询(嵌套对象,只读,完整)
 """
 
-
 from rest_framework import serializers
 
 from apps.assetmanagement.models import DamagedAsset

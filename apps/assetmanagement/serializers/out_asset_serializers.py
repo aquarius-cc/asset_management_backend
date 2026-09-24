@@ -88,10 +88,18 @@ class OutAssetCreateSerializer(serializers.ModelSerializer[OutAsset]):
     recordcode = serializers.CharField(read_only=True)
     outasset_using_location = serializers.CharField(required=False, write_only=True, allow_blank=True, allow_null=True)
     outasset_applicant = serializers.SlugRelatedField(
-        slug_field="employee_jobcode", queryset=get_employee_queryset(), required=False, write_only=True, allow_null=True
+        slug_field="employee_jobcode",
+        queryset=get_employee_queryset(),
+        required=False,
+        write_only=True,
+        allow_null=True,
     )
     outasset_manager = serializers.SlugRelatedField(
-        slug_field="employee_jobcode", queryset=get_employee_queryset(), required=False, write_only=True, allow_null=True
+        slug_field="employee_jobcode",
+        queryset=get_employee_queryset(),
+        required=False,
+        write_only=True,
+        allow_null=True,
     )
 
     class Meta:
@@ -186,10 +194,18 @@ class OutAssetUpdateSerializer(serializers.ModelSerializer[OutAsset]):
     recordcode = serializers.CharField(read_only=True)
     asset_recordcode = serializers.CharField(read_only=True)
     outasset_applicant = serializers.SlugRelatedField(
-        slug_field="employee_jobcode", queryset=get_employee_queryset(), required=False, write_only=True, allow_null=True
+        slug_field="employee_jobcode",
+        queryset=get_employee_queryset(),
+        required=False,
+        write_only=True,
+        allow_null=True,
     )
     outasset_manager = serializers.SlugRelatedField(
-        slug_field="employee_jobcode", queryset=get_employee_queryset(), required=False, write_only=True, allow_null=True
+        slug_field="employee_jobcode",
+        queryset=get_employee_queryset(),
+        required=False,
+        write_only=True,
+        allow_null=True,
     )
 
     class Meta:

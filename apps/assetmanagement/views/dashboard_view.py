@@ -47,9 +47,7 @@ class DashboardViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ViewSet):
         start_date = request.query_params.get("start_date")
         end_date = request.query_params.get("end_date")
         if start_date and end_date:
-            result = DashboardSelector.get_asset_trend(
-                request.user, start_date=start_date, end_date=end_date
-            )
+            result = DashboardSelector.get_asset_trend(request.user, start_date=start_date, end_date=end_date)
         else:
             try:
                 days = min(int(request.query_params.get("days", 30) or 30), 365)

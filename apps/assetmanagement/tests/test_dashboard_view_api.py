@@ -129,9 +129,7 @@ def _create_scoped_auth(jobcode: str, name: str, dept, role: str, phone: str):
     from apps.usermanagement.models import Employee
     from core.tests import TEST_PASSWORD
 
-    AuthUser.objects.create_user(
-        auth_username=jobcode, password=TEST_PASSWORD, auth_phone=phone[:-1] + "1"
-    )
+    AuthUser.objects.create_user(auth_username=jobcode, password=TEST_PASSWORD, auth_phone=phone[:-1] + "1")
     Employee.objects.create(
         employee_jobcode=jobcode,
         employee_name=name,
@@ -228,33 +226,23 @@ class TestDashboardRowIsolation:
         assert response.status_code == status.HTTP_200_OK
         return response.data["data"]["total_assets"]
 
-    def test_regular_user_only_sees_own_department(
-        self, api_client, owned_asset, dept_b_asset, regular_a_user
-    ):
+    def test_regular_user_only_sees_own_department(self, api_client, owned_asset, dept_b_asset, regular_a_user):
         """普通用户仅见本部门资产"""
         assert self._get_overview_total(api_client, regular_a_user) == 1
 
-    def test_regular_user_of_other_department_excluded(
-        self, api_client, owned_asset, dept_b_asset, regular_b_user
-    ):
+    def test_regular_user_of_other_department_excluded(self, api_client, owned_asset, dept_b_asset, regular_b_user):
         """乙部门普通用户仅见乙部门资产"""
         assert self._get_overview_total(api_client, regular_b_user) == 1
 
-    def test_dept_manager_sees_own_department(
-        self, api_client, owned_asset, dept_b_asset, dept_manager_user
-    ):
+    def test_dept_manager_sees_own_department(self, api_client, owned_asset, dept_b_asset, dept_manager_user):
         """部门经理可见本部门(含下级)资产"""
         assert self._get_overview_total(api_client, dept_manager_user) == 1
 
-    def test_empty_department_returns_empty_data(
-        self, api_client, owned_asset, dept_b_asset, empty_dept_user
-    ):
+    def test_empty_department_returns_empty_data(self, api_client, owned_asset, dept_b_asset, empty_dept_user):
         """部门级角色无本部门资产时收敛为空集"""
         assert self._get_overview_total(api_client, empty_dept_user) == 0
 
-    def test_auditor_sees_all_departments(
-        self, api_client, owned_asset, dept_b_asset, auditor_user
-    ):
+    def test_auditor_sees_all_departments(self, api_client, owned_asset, dept_b_asset, auditor_user):
         """审计员为全局只读角色,可见全部资产"""
         assert self._get_overview_total(api_client, auditor_user) == 2
 

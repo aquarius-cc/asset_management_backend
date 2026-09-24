@@ -383,6 +383,7 @@ class AssetOperationLogAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
     date_hierarchy = "operation_time"
     readonly_fields = [f.name for f in AssetOperationLog._meta.get_fields()]  # type: ignore[union-attr,unused-ignore]
 
+
 @admin.register(AssetStateLog)
 class AssetStateLogAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
     def asset_code_display(self, obj: Any) -> str:

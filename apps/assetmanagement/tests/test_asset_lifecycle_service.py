@@ -107,9 +107,7 @@ class TestBatchDeleteRepairAsset:
         )
         assert result["fail_count"] == 1
         assert result["fail_items"][0]["error_code"] == "REPAIR_IN_PROGRESS"
-        assert result["fail_items"][0]["error_message"] == (
-            f"维修记录 {repair_asset.recordcode} 正在进行中,不可删除"
-        )
+        assert result["fail_items"][0]["error_message"] == (f"维修记录 {repair_asset.recordcode} 正在进行中,不可删除")
 
     def test_not_found_classified(self):
         """不存在的维修记录: NOT_FOUND(收敛前落入 INTERNAL_ERROR, 行为变更已登记 #17)"""
@@ -156,12 +154,8 @@ def lifecycle_cross_dept_data(db, storage, asset_type):
         employee_department=dept_b,
         employee_phone="13800000023",
     )
-    user_a = AuthUser.objects.create_user(
-        auth_username="lmgr_a", password=TEST_PASSWORD, auth_phone="13800000031"
-    )
-    user_b = AuthUser.objects.create_user(
-        auth_username="lmgr_b", password=TEST_PASSWORD, auth_phone="13800000032"
-    )
+    user_a = AuthUser.objects.create_user(auth_username="lmgr_a", password=TEST_PASSWORD, auth_phone="13800000031")
+    user_b = AuthUser.objects.create_user(auth_username="lmgr_b", password=TEST_PASSWORD, auth_phone="13800000032")
     asset_b = Asset.objects.create(
         asset_code="A-LB-01",
         asset_name="B部门资产",
@@ -216,9 +210,7 @@ class TestDeleteServiceUserScope:
         assert result["success_count"] == 0
         assert result["fail_count"] == 1
         assert result["fail_items"][0]["error_code"] == "ASSET_NOT_VISIBLE"
-        assert BrokenAsset.objects.filter(
-            recordcode=data["broken_b"].recordcode, is_deleted=False
-        ).exists()
+        assert BrokenAsset.objects.filter(recordcode=data["broken_b"].recordcode, is_deleted=False).exists()
 
     def test_batch_delete_same_dept_success(self, lifecycle_cross_dept_data):
         """B部门经理批量删除本部门损坏记录 → 成功软删 + 审计落库"""
@@ -232,9 +224,7 @@ class TestDeleteServiceUserScope:
         )
         assert result["success_count"] == 1
         assert result["fail_count"] == 0
-        assert BrokenAsset.objects.filter(
-            recordcode=data["broken_b"].recordcode, is_deleted=False
-        ).exists() is False
+        assert BrokenAsset.objects.filter(recordcode=data["broken_b"].recordcode, is_deleted=False).exists() is False
 
     def test_batch_delete_repair_cross_dept_blocked(self, lifecycle_cross_dept_data):
         """A部门经理批量删除 B部门维修记录 → ASSET_NOT_VISIBLE(权限缺失不得误删)"""
@@ -248,9 +238,7 @@ class TestDeleteServiceUserScope:
         assert result["success_count"] == 0
         assert result["fail_count"] == 1
         assert result["fail_items"][0]["error_code"] == "ASSET_NOT_VISIBLE"
-        assert RepairAsset.objects.filter(
-            recordcode=data["repair_b"].recordcode, is_deleted=False
-        ).exists()
+        assert RepairAsset.objects.filter(recordcode=data["repair_b"].recordcode, is_deleted=False).exists()
 
     def test_single_delete_cross_dept_raises(self, lifecycle_cross_dept_data):
         """A部门经理单删 B部门损坏记录 → AppValidationError(ASSET_NOT_VISIBLE), 记录不动"""
@@ -263,9 +251,7 @@ class TestDeleteServiceUserScope:
                 user=data["user_a"],
             )
         assert exc_info.value.error_code == "ASSET_NOT_VISIBLE"
-        assert BrokenAsset.objects.filter(
-            recordcode=data["broken_b"].recordcode, is_deleted=False
-        ).exists()
+        assert BrokenAsset.objects.filter(recordcode=data["broken_b"].recordcode, is_deleted=False).exists()
 
     def test_single_delete_same_dept_success(self, lifecycle_cross_dept_data):
         """B部门经理单删本部门损坏记录 → 软删 + 审计落库"""
@@ -277,9 +263,7 @@ class TestDeleteServiceUserScope:
             user=data["user_b"],
         )
         assert result["status"] == "deleted"
-        assert BrokenAsset.all_objects.filter(
-            recordcode=data["broken_b"].recordcode, is_deleted=True
-        ).exists()
+        assert BrokenAsset.all_objects.filter(recordcode=data["broken_b"].recordcode, is_deleted=True).exists()
         assert AssetOperationLog.objects.filter(
             asset_code=data["asset_b"].asset_code,
             operation_type=AssetOperationLog.OperationType.DELETE,

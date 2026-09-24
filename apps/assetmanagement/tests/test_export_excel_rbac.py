@@ -35,9 +35,7 @@ def _make_role_user(jobcode: str, role: str, department: Any, phone: str) -> Any
 class TestExportExcelRBAC:
     """assets-export 角色矩阵:regular 403,四角色 200,未登录 401"""
 
-    def test_export_denied_for_regular_user(
-        self, api_client: APIClient, department: Any, asset: Any
-    ) -> None:
+    def test_export_denied_for_regular_user(self, api_client: APIClient, department: Any, asset: Any) -> None:
         """regular_user 导出资产 → 403（矩阵 :148 regular ❌）"""
         user = _make_role_user("ex_ru", "regular_user", department, "13800000401")
         api_client.force_authenticate(user=user)
@@ -51,27 +49,21 @@ class TestExportExcelRBAC:
         resp = api_client.get(reverse("assets-export-excel"))
         assert resp.status_code == status.HTTP_200_OK
 
-    def test_export_allowed_for_asset_admin(
-        self, api_client: APIClient, department: Any, asset: Any
-    ) -> None:
+    def test_export_allowed_for_asset_admin(self, api_client: APIClient, department: Any, asset: Any) -> None:
         """asset_admin 导出资产 → 200（矩阵 :148 asset_admin ✅ 本部门）"""
         user = _make_role_user("ex_aa", "asset_admin", department, "13800000403")
         api_client.force_authenticate(user=user)
         resp = api_client.get(reverse("assets-export-excel"))
         assert resp.status_code == status.HTTP_200_OK
 
-    def test_export_allowed_for_dept_manager(
-        self, api_client: APIClient, department: Any, asset: Any
-    ) -> None:
+    def test_export_allowed_for_dept_manager(self, api_client: APIClient, department: Any, asset: Any) -> None:
         """dept_manager 导出资产 → 200（矩阵 :148 dept_manager ✅ 本部门+下级）"""
         user = _make_role_user("ex_dm", "dept_manager", department, "13800000404")
         api_client.force_authenticate(user=user)
         resp = api_client.get(reverse("assets-export-excel"))
         assert resp.status_code == status.HTTP_200_OK
 
-    def test_export_allowed_for_system_admin(
-        self, api_client: APIClient, admin_auth_user: Any, asset: Any
-    ) -> None:
+    def test_export_allowed_for_system_admin(self, api_client: APIClient, admin_auth_user: Any, asset: Any) -> None:
         """system_admin 导出资产 → 200（矩阵 :148 system ✅ 全部）"""
         api_client.force_authenticate(user=admin_auth_user)
         resp = api_client.get(reverse("assets-export-excel"))

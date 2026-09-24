@@ -100,9 +100,7 @@ class OperationLogSelector:
     @staticmethod
     def get_operation_log_by_logging_id(user: Any, logging_id: str) -> AssetOperationLog | None:
         """根据 LoggingId 查询单条操作记录"""
-        queryset = OperationLogSelector._scope_by_user(
-            AssetOperationLog.objects.filter(logging_id=logging_id), user
-        )
+        queryset = OperationLogSelector._scope_by_user(AssetOperationLog.objects.filter(logging_id=logging_id), user)
         try:
             return queryset.get()
         except AssetOperationLog.DoesNotExist:

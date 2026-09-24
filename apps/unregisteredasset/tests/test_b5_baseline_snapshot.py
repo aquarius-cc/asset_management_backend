@@ -48,7 +48,11 @@ class TestUnregisteredBatchBaseline:
         assert resp.status_code == status.HTTP_200_OK
         data = resp.data["data"]
         assert set(data.keys()) == {
-            "total", "success_count", "fail_count", "success_items", "fail_items",
+            "total",
+            "success_count",
+            "fail_count",
+            "success_items",
+            "fail_items",
         }
         assert data["fail_count"] == 1
         fail = data["fail_items"][0]
@@ -58,9 +62,7 @@ class TestUnregisteredBatchBaseline:
 
     def test_batch_delete_missing_id(self, admin_client_fixture):
         """batch_delete: 不存在记录的 fail 结构"""
-        resp = admin_client_fixture.post(
-            self._url("batch-delete"), {"ids": ["UNR-NOTEXIST"]}, format="json"
-        )
+        resp = admin_client_fixture.post(self._url("batch-delete"), {"ids": ["UNR-NOTEXIST"]}, format="json")
         assert resp.status_code == status.HTTP_200_OK
         data = resp.data["data"]
         assert data["fail_count"] == 1

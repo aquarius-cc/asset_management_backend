@@ -21,9 +21,7 @@ class Command(BaseCommand):
         issues = []
 
         # 检查1: broken 状态资产应有进行中维修记录
-        broken_assets = Asset.objects.filter(
-            asset_current_status=Asset.AssetStatus.BROKEN
-        )
+        broken_assets = Asset.objects.filter(asset_current_status=Asset.AssetStatus.BROKEN)
         for asset in broken_assets:
             if not RepairAsset.objects.filter(
                 asset_recordcode=asset,
@@ -33,18 +31,14 @@ class Command(BaseCommand):
                 issues.append(msg)
 
         # 检查2: in_use 状态资产应有出库记录
-        in_use_assets = Asset.objects.filter(
-            asset_current_status=Asset.AssetStatus.IN_USE
-        )
+        in_use_assets = Asset.objects.filter(asset_current_status=Asset.AssetStatus.IN_USE)
         for asset in in_use_assets:
             if not OutAsset.objects.filter(asset_recordcode=asset).exists():
                 msg = f"资产 {asset.asset_code} 状态为 in_use 但无出库记录"
                 issues.append(msg)
 
         # 检查3: in_store 状态资产不应有进行中出库记录
-        in_store_assets = Asset.objects.filter(
-            asset_current_status=Asset.AssetStatus.IN_STORE
-        )
+        in_store_assets = Asset.objects.filter(asset_current_status=Asset.AssetStatus.IN_STORE)
         for asset in in_store_assets:
             if OutAsset.objects.filter(
                 asset_recordcode=asset,

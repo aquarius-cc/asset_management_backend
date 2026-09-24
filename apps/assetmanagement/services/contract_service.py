@@ -326,9 +326,7 @@ class ContractService:
         for p in data["payments"]:
             if p["id"] == payment_id:
                 if p["status"] == "deleted":
-                    raise AppValidationError(
-                        detail="已删除的支付记录不可审核", error_code="PAYMENT_ALREADY_DELETED"
-                    )
+                    raise AppValidationError(detail="已删除的支付记录不可审核", error_code="PAYMENT_ALREADY_DELETED")
                 p["status"] = "approved"
                 break
         else:

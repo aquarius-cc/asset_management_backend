@@ -36,9 +36,7 @@ class TestUpdateAsset:
 
     def test_update_asset_not_found(self, admin_auth_user):
         with pytest.raises(AppValidationError) as exc_info:
-            AssetService.update_asset(
-                asset_code="NOT_EXIST", update_data={"asset_name": "x"}, user=admin_auth_user
-            )
+            AssetService.update_asset(asset_code="NOT_EXIST", update_data={"asset_name": "x"}, user=admin_auth_user)
         assert exc_info.value.error_code == "ASSET_NOT_FOUND"
 
     def test_update_asset_disallowed_field(self, asset, admin_auth_user):
@@ -80,9 +78,7 @@ class TestUpdateAsset:
         result.refresh_from_db()
         assert result.asset_type_recordcode == new_type
         assert result.asset_purchase_price == Decimal("2000.00")
-        log = AssetOperationLog.objects.get(
-            asset_code="A001", operation_type=AssetOperationLog.OperationType.UPDATE
-        )
+        log = AssetOperationLog.objects.get(asset_code="A001", operation_type=AssetOperationLog.OperationType.UPDATE)
         # CT-4 归一化锚点: 快照归一委托 _to_json_safe 收口(幂等),FK 实例→recordcode 字符串、
         # Decimal→str,保证 JSONField 可序列化——与删除流内 _normalize 前行为逐字符一致
         assert log.before_data["asset_type_recordcode"] == str(asset_type.recordcode)
@@ -290,9 +286,7 @@ class TestChangeOutassetEmployee:
         result.refresh_from_db()
         assert result.asset_applicant_recordcode == user
         assert result.asset_manager_recordcode == manager
-        log = AssetOperationLog.objects.get(
-            asset_code="A001", operation_type=AssetOperationLog.OperationType.UPDATE
-        )
+        log = AssetOperationLog.objects.get(asset_code="A001", operation_type=AssetOperationLog.OperationType.UPDATE)
         assert log.operator_jobcode == admin_auth_user.auth_username
         assert log.operator_name == admin_auth_user.auth_username
 

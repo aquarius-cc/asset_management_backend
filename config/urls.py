@@ -75,6 +75,7 @@ def health_check(request: Any) -> JsonResponse:
     # Redis 检查 (WebSocket 通道层关键依赖)
     try:
         import redis
+
         redis_url = os.environ.get("REDIS_URL", "")
         with redis.Redis.from_url(redis_url, socket_timeout=3) as conn:
             conn.ping()
@@ -122,6 +123,7 @@ def ready_check(request: Any) -> JsonResponse:
     # Redis 检查
     try:
         import redis
+
         redis_url = os.environ.get("REDIS_URL", "")
         with redis.Redis.from_url(redis_url, socket_timeout=3) as conn:
             conn.ping()

@@ -264,19 +264,14 @@ class RoleService:
         )
 
         candidate_codes = set(active_codes)
-        if (
-            employee.role
-            and employee.role not in active_codes
-            and employee.role != exclude_role_code
-        ):
+        if employee.role and employee.role not in active_codes and employee.role != exclude_role_code:
             candidate_codes.add(employee.role)
 
         valid_codes = [c for c in candidate_codes if c in EmployeeRole.values]
         new_role = EmployeeRole.REGULAR_USER
         if valid_codes:
             levels = {
-                r.role_code: r.role_level
-                for r in Role.objects.filter(role_code__in=valid_codes, is_deleted=False)
+                r.role_code: r.role_level for r in Role.objects.filter(role_code__in=valid_codes, is_deleted=False)
             }
             winners = [c for c in valid_codes if c in levels]
             if winners:

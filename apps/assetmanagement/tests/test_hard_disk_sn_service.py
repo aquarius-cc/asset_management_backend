@@ -233,7 +233,9 @@ class TestHardDiskSNBatchSave:
             )
         assert exc_info.value.error_code == "DUPLICATE_SN_CODE"
 
-    def test_batch_save_reparent_raises(self, db: Any, asset: Any, storage: Any, asset_type: Any, admin_auth_user) -> None:
+    def test_batch_save_reparent_raises(
+        self, db: Any, asset: Any, storage: Any, asset_type: Any, admin_auth_user
+    ) -> None:
         """以其他资产调用更新他人硬盘须报错(锚定跨资产改挂禁止)"""
         hd = HardDiskSNService.create(
             {

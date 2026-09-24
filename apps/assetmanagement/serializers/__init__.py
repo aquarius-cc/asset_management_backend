@@ -233,5 +233,3 @@ __all__ = [
     "WasteAssetListSerializer",
     "WasteAssetSerializer",
 ]
-
-

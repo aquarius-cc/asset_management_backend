@@ -82,9 +82,7 @@ class TestGetEmployeePermissions:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["code"] == 0
         read_codes = set(
-            Permission.objects.filter(action="read", is_deleted=False).values_list(
-                "permission_code", flat=True
-            )
+            Permission.objects.filter(action="read", is_deleted=False).values_list("permission_code", flat=True)
         )
         assert read_codes
         assert set(response.data["data"]["permissions"]) == read_codes

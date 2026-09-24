@@ -49,11 +49,13 @@ def main():
         user.is_active = True
         user.save()
         refresh = RefreshToken.for_user(user)
-        tokens.append({
-            "username": username,
-            "access": str(refresh.access_token),
-            "refresh": str(refresh),
-        })
+        tokens.append(
+            {
+                "username": username,
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+            }
+        )
 
     out_path = Path(__file__).resolve().parent / "tokens.json"
     out_path.write_text(json.dumps(tokens, indent=2), encoding="utf-8")

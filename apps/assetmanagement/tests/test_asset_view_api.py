@@ -117,7 +117,9 @@ class TestAssetViewSet:
         assert asset.asset_unit == "台"
         assert asset.asset_purchase_price == Decimal("1500.00")
 
-    def test_update_asset_put_full_form(self, admin_authenticated_client, asset, storage, asset_type, contract, employee):
+    def test_update_asset_put_full_form(
+        self, admin_authenticated_client, asset, storage, asset_type, contract, employee
+    ):
         """PUT(partial=False)全表单路径回归护栏（此前 PUT 无任何用例覆盖）"""
         url = reverse("assets-detail", kwargs={"recordcode": asset.recordcode})
         data = {
@@ -135,9 +137,7 @@ class TestAssetViewSet:
     def test_update_asset_rejects_status_field(self, admin_authenticated_client, asset):
         """PATCH asset_current_status → 400:Serializer 未知字段拦截(状态变更只走 FSM 入口,CT-3)"""
         url = reverse("assets-detail", kwargs={"recordcode": asset.recordcode})
-        response = admin_authenticated_client.patch(
-            url, {"asset_current_status": "in_store"}, format="json"
-        )
+        response = admin_authenticated_client.patch(url, {"asset_current_status": "in_store"}, format="json")
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_update_asset_rejects_unknown_field(self, admin_authenticated_client, asset):

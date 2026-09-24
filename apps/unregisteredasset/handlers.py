@@ -145,9 +145,7 @@ def _handle_s1_create_and_recycle(unregistered: UnregisteredAsset, operator_jobc
     from apps.assetmanagement.state_machine import AssetFSM
 
     asset = _create_unregistered_asset(unregistered)
-    outasset = _create_receive_outasset(
-        unregistered, asset, f"不在账资产出库,来源: {unregistered.unregistered_code}"
-    )
+    outasset = _create_receive_outasset(unregistered, asset, f"不在账资产出库,来源: {unregistered.unregistered_code}")
 
     AssetFSM.unregistered_create_and_recycle(asset)
     asset.save(update_fields=["asset_current_status"])
@@ -219,9 +217,7 @@ def _handle_s2_supplement_and_recycle(unregistered: UnregisteredAsset, operator_
     if not asset:
         raise AppValidationError(detail="S2场景必须有关联资产")
 
-    outasset = _create_receive_outasset(
-        unregistered, asset, f"补建出库记录,来源: {unregistered.unregistered_code}"
-    )
+    outasset = _create_receive_outasset(unregistered, asset, f"补建出库记录,来源: {unregistered.unregistered_code}")
     asset, _ = _force_finalize_recycle(unregistered, asset)
 
     recycle = _create_recycle_record(

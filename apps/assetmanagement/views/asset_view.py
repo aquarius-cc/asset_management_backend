@@ -378,9 +378,7 @@ class AssetViewSet(  # type: ignore[misc]
 
     def batch_delete_prefilter(self, ids: list[str], request: Any) -> list[str]:
         # RBAC: 越权/不存在资产不进入删除流程(视同不存在)
-        scoped_codes = set(
-            self.get_queryset().filter(asset_code__in=ids).values_list("asset_code", flat=True)
-        )
+        scoped_codes = set(self.get_queryset().filter(asset_code__in=ids).values_list("asset_code", flat=True))
         return [code for code in ids if code in scoped_codes]
 
     @action(detail=True, methods=["post"], url_path="mark-broken")
@@ -394,7 +392,9 @@ class AssetViewSet(  # type: ignore[misc]
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
         )
-        return success_response(data=AssetDetailSerializer(broken_record.asset_recordcode).data, message="资产已标记为损坏")
+        return success_response(
+            data=AssetDetailSerializer(broken_record.asset_recordcode).data, message="资产已标记为损坏"
+        )
 
     @action(detail=True, methods=["post"], url_path="mark-lost")
     def mark_lost(self, request: Any, recordcode: Any = None) -> Response:
@@ -408,7 +408,9 @@ class AssetViewSet(  # type: ignore[misc]
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
         )
-        return success_response(data=AssetDetailSerializer(lost_record.asset_recordcode).data, message="资产已标记为遗失")
+        return success_response(
+            data=AssetDetailSerializer(lost_record.asset_recordcode).data, message="资产已标记为遗失"
+        )
 
     @action(detail=True, methods=["post"], url_path="found")
     def found_and_return(self, request: Any, recordcode: Any = None) -> Response:
@@ -435,9 +437,7 @@ class AssetViewSet(  # type: ignore[misc]
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
         )
-        return success_response(
-            data=RepairAssetDetailSerializer(repair_record).data, message="Asset sent for repair"
-        )
+        return success_response(data=RepairAssetDetailSerializer(repair_record).data, message="Asset sent for repair")
 
     @action(detail=True, methods=["post"], url_path="repair-done")
     def repair_done(self, request: Any, recordcode: Any = None) -> Response:

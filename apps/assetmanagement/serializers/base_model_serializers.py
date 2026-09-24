@@ -29,9 +29,7 @@ class StrictUnknownFieldMixin:
             return super().to_internal_value(data)  # type: ignore[misc]
         unknown = set(data) - set(self.fields)  # type: ignore[attr-defined]
         if unknown:
-            raise serializers.ValidationError(
-                dict.fromkeys(sorted(unknown), "未知字段，不允许更新")
-            )
+            raise serializers.ValidationError(dict.fromkeys(sorted(unknown), "未知字段，不允许更新"))
         return super().to_internal_value(data)  # type: ignore[misc]
 
 

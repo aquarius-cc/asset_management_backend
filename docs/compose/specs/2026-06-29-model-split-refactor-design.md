@@ -203,18 +203,21 @@ from django.db import models
 from django.utils import timezone
 from core.models import BaseModel, SoftDeleteManager  # 从core导入公共基类
 
+
 class AssetQuerySet(models.QuerySet):
     def for_list(self):
         return self.with_basic_relations().with_person_relations()
+
     # ...
+
 
 class Asset(BaseModel):
     RECORDCODE_PREFIX = "ENTRY"
     ASSET_STATUS_CHOICES = [...]
     # ... 字段定义
-    
+
     objects = SoftDeleteManager.from_queryset(AssetQuerySet)()
-    
+
     class Meta:
         db_table = "am_asset"
 ```
@@ -236,9 +239,19 @@ from apps.assetmanagement.models.found_asset import FoundAsset
 from apps.assetmanagement.models.operation_log import AssetOperationLog
 
 __all__ = [
-    'Storage', 'AssetType', 'Contract', 'Asset', 'OutAsset',
-    'RecycleAsset', 'DamagedAsset', 'WasteAsset', 'HardDiskSN',
-    'BrokenAsset', 'LostAsset', 'FoundAsset', 'AssetOperationLog',
+    "Storage",
+    "AssetType",
+    "Contract",
+    "Asset",
+    "OutAsset",
+    "RecycleAsset",
+    "DamagedAsset",
+    "WasteAsset",
+    "HardDiskSN",
+    "BrokenAsset",
+    "LostAsset",
+    "FoundAsset",
+    "AssetOperationLog",
 ]
 ```
 

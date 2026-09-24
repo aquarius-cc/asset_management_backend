@@ -24,14 +24,14 @@ class Command(BaseCommand):
         if admins.exists():
             admin = admins.first()
             assert admin is not None
-            self.stdout.write(self.style.SUCCESS(
-                f"[PASS] 超管存在：username={admin.get_username()} (id={admin.pk})"
-            ))
+            self.stdout.write(self.style.SUCCESS(f"[PASS] 超管存在：username={admin.get_username()} (id={admin.pk})"))
             return 0
         else:
-            self.stderr.write(self.style.ERROR(
-                "[FAIL] 未发现超级管理员！\n"
-                "  指引：执行 python manage.py createsuperuser --noinput ，"
-                "或在生产容器设置 DJANGO_SUPERUSER_USERNAME / PASSWORD 后重启。"
-            ))
+            self.stderr.write(
+                self.style.ERROR(
+                    "[FAIL] 未发现超级管理员！\n"
+                    "  指引：执行 python manage.py createsuperuser --noinput ，"
+                    "或在生产容器设置 DJANGO_SUPERUSER_USERNAME / PASSWORD 后重启。"
+                )
+            )
             return 2

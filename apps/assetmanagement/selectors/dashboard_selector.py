@@ -38,12 +38,8 @@ class DashboardSelector:
     @staticmethod
     def get_statistics(user: Any) -> dict[str, Any]:
         assets = DashboardSelector._scoped_asset_queryset(user)
-        asset_stats = assets.aggregate(
-            total=Count("id"), total_value=Sum("asset_purchase_price")
-        )
-        status_counts = (
-            assets.values("asset_current_status").annotate(count=Count("id"))
-        )
+        asset_stats = assets.aggregate(total=Count("id"), total_value=Sum("asset_purchase_price"))
+        status_counts = assets.values("asset_current_status").annotate(count=Count("id"))
         status_dict = {item["asset_current_status"]: item["count"] for item in status_counts}
         return {
             "total_assets": asset_stats["total"] or 0,
@@ -65,9 +61,7 @@ class DashboardSelector:
         now = timezone.now()
 
         assets = DashboardSelector._scoped_asset_queryset(user)
-        asset_stats = assets.aggregate(
-            total=Count("id"), total_value=Sum("asset_purchase_price")
-        )
+        asset_stats = assets.aggregate(total=Count("id"), total_value=Sum("asset_purchase_price"))
         contract_stats = Contract.objects.filter(is_deleted=False).aggregate(total=Count("id"))
 
         # 按状态分组（一次查询覆盖全部 8 种状态）
@@ -78,16 +72,13 @@ class DashboardSelector:
         )
 
         status_distribution = {
-            code: {"name": label, "count": status_counts.get(code, 0)}
-            for code, label in Asset.ASSET_STATUS_CHOICES
+            code: {"name": label, "count": status_counts.get(code, 0)} for code, label in Asset.ASSET_STATUS_CHOICES
         }
 
         # 月度 / 累计操作数(与资产同范围隔离)
         scoped_out_qs = get_asset_linked_queryset_for_user(user, OutAsset.objects.filter(is_deleted=False))
         scoped_recycle_qs = get_asset_linked_queryset_for_user(user, RecycleAsset.objects.filter(is_deleted=False))
-        monthly_distributed = scoped_out_qs.filter(
-            outasset_date__year=now.year, outasset_date__month=now.month
-        ).count()
+        monthly_distributed = scoped_out_qs.filter(outasset_date__year=now.year, outasset_date__month=now.month).count()
         monthly_recycled = scoped_recycle_qs.filter(
             recycle_asset_date__year=now.year, recycle_asset_date__month=now.month
         ).count()
@@ -133,14 +124,11 @@ class DashboardSelector:
                 "outasset_date": oa.outasset_date,
                 "outasset_type": oa.outasset_type,
                 "recipient_name": (
-                    oa.outasset_applicant_recordcode.employee_name
-                    if oa.outasset_applicant_recordcode
-                    else None
+                    oa.outasset_applicant_recordcode.employee_name if oa.outasset_applicant_recordcode else None
                 ),
                 "department_name": (
                     oa.outasset_applicant_recordcode.employee_department.department_name
-                    if oa.outasset_applicant_recordcode
-                    and oa.outasset_applicant_recordcode.employee_department
+                    if oa.outasset_applicant_recordcode and oa.outasset_applicant_recordcode.employee_department
                     else None
                 ),
             }
@@ -169,9 +157,7 @@ class DashboardSelector:
                 "asset_code": r.asset_recordcode.asset_code if r.asset_recordcode else None,
                 "asset_name": r.asset_recordcode.asset_name if r.asset_recordcode else None,
                 "recycle_asset_date": r.recycle_asset_date,
-                "returner_name": (
-                    r.operator_employee.employee_name if r.operator_employee else None
-                ),
+                "returner_name": (r.operator_employee.employee_name if r.operator_employee else None),
                 "department_name": (
                     r.operator_employee.employee_department.department_name
                     if r.operator_employee and r.operator_employee.employee_department
@@ -254,9 +240,11 @@ class DashboardSelector:
             dept_stats_qs = dept_stats_qs.filter(
                 asset_manager_recordcode__employee_department__department_code__in=codes
             )
-        dept_stats = dept_stats_qs.values(
-            "asset_manager_recordcode__employee_department__department_name"
-        ).annotate(asset_count=Count("id")).order_by("-asset_count")
+        dept_stats = (
+            dept_stats_qs.values("asset_manager_recordcode__employee_department__department_name")
+            .annotate(asset_count=Count("id"))
+            .order_by("-asset_count")
+        )
 
         total = sum(item["asset_count"] for item in dept_stats) or 1
         return [

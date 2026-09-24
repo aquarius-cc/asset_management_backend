@@ -303,25 +303,19 @@ class TestReferencedEmployeeRecordcodes:
     def test_applicant_hit(self, department, storage, asset_type):
         employee = self._create_employee(department, "REF-EMP-01")
         self._create_asset(storage, asset_type, applicant=employee)
-        assert AssetSelector.referenced_employee_recordcodes([employee.recordcode]) == {
-            employee.recordcode
-        }
+        assert AssetSelector.referenced_employee_recordcodes([employee.recordcode]) == {employee.recordcode}
 
     def test_manager_hit(self, department, storage, asset_type):
         employee = self._create_employee(department, "REF-EMP-02")
         self._create_asset(storage, asset_type, manager=employee)
-        assert AssetSelector.referenced_employee_recordcodes([employee.recordcode]) == {
-            employee.recordcode
-        }
+        assert AssetSelector.referenced_employee_recordcodes([employee.recordcode]) == {employee.recordcode}
 
     def test_both_roles_dedup(self, department, storage, asset_type):
         applicant = self._create_employee(department, "REF-EMP-03")
         manager = self._create_employee(department, "REF-EMP-04")
         self._create_asset(storage, asset_type, applicant=applicant)
         self._create_asset(storage, asset_type, manager=manager)
-        result = AssetSelector.referenced_employee_recordcodes(
-            [applicant.recordcode, manager.recordcode]
-        )
+        result = AssetSelector.referenced_employee_recordcodes([applicant.recordcode, manager.recordcode])
         assert result == {applicant.recordcode, manager.recordcode}
 
     def test_soft_deleted_asset_excluded(self, department, storage, asset_type):
@@ -335,6 +329,6 @@ class TestReferencedEmployeeRecordcodes:
         linked = self._create_employee(department, "REF-EMP-06")
         unrelated = self._create_employee(department, "REF-EMP-07")
         self._create_asset(storage, asset_type, applicant=linked)
-        assert AssetSelector.referenced_employee_recordcodes(
-            [linked.recordcode, unrelated.recordcode]
-        ) == {linked.recordcode}
+        assert AssetSelector.referenced_employee_recordcodes([linked.recordcode, unrelated.recordcode]) == {
+            linked.recordcode
+        }

@@ -87,9 +87,7 @@ class OutAssetService:
             )
 
     @staticmethod
-    def _build_outasset_snapshot(
-        asset: Asset, applicant: Any, manager: Any, using_location: Any
-    ) -> dict[str, Any]:
+    def _build_outasset_snapshot(asset: Asset, applicant: Any, manager: Any, using_location: Any) -> dict[str, Any]:
         """构建 JSON 快照(包含恢复所需的所有字段)
 
         【P0-2 修复】applicant/manager/using_location 为出库单目标值(仅追溯展示);
@@ -278,9 +276,7 @@ class OutAssetService:
 
         return BatchOperationMixin.batch_delete_execute(
             ids=recordcodes,
-            process_fn=lambda recordcode: OutAssetService._delete_one(
-                recordcode, operator_jobcode, operator_name
-            ),
+            process_fn=lambda recordcode: OutAssetService._delete_one(recordcode, operator_jobcode, operator_name),
         )
 
     @staticmethod
@@ -333,9 +329,7 @@ class OutAssetService:
             ("original_applicant", "applicant", "asset_applicant_recordcode"),
             ("original_manager", "manager", "asset_manager_recordcode"),
         ):
-            restore, value = OutAssetService._resolve_snapshot_employee(
-                snapshot, original_key, fallback_key
-            )
+            restore, value = OutAssetService._resolve_snapshot_employee(snapshot, original_key, fallback_key)
             if restore:
                 setattr(asset, field_attr, value)
                 update_fields.append(field_attr)
@@ -359,9 +353,7 @@ class OutAssetService:
         asset.save(update_fields=update_fields)
 
     @staticmethod
-    def _resolve_snapshot_employee(
-        snapshot: dict[str, Any], original_key: str, fallback_key: str
-    ) -> tuple[bool, Any]:
+    def _resolve_snapshot_employee(snapshot: dict[str, Any], original_key: str, fallback_key: str) -> tuple[bool, Any]:
         """解析快照员工:original 键在则必须覆盖(含落空置 None),否则尝试 fallback 定向"""
         if original_key in snapshot:
             original = snapshot[original_key]

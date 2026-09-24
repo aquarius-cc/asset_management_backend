@@ -67,21 +67,35 @@ class RecycleAssetService:
         if is_broken:
             # 回收 → recycled_pending → broken(两次 FSM 转换合并为一次 save)
             RecycleAssetService._finalize_broken_or_lost(
-                asset, storage_obj, recycle_person_obj, recycle_asset,
-                operator_jobcode, operator_name,
-                is_broken=True, reason=broken_reason,
+                asset,
+                storage_obj,
+                recycle_person_obj,
+                recycle_asset,
+                operator_jobcode,
+                operator_name,
+                is_broken=True,
+                reason=broken_reason,
             )
         elif is_lost:
             RecycleAssetService._finalize_broken_or_lost(
-                asset, storage_obj, recycle_person_obj, recycle_asset,
-                operator_jobcode, operator_name,
-                is_broken=False, reason=lost_reason,
+                asset,
+                storage_obj,
+                recycle_person_obj,
+                recycle_asset,
+                operator_jobcode,
+                operator_name,
+                is_broken=False,
+                reason=lost_reason,
             )
         else:
             # 正常回收(无损坏/遗失标记)
             RecycleAssetService._do_recycle_asset_update(
-                asset, storage_obj, recycle_person_obj, recycle_asset,
-                operator_jobcode, operator_name,
+                asset,
+                storage_obj,
+                recycle_person_obj,
+                recycle_asset,
+                operator_jobcode,
+                operator_name,
             )
 
         return recycle_asset  # type: ignore[no-any-return]
@@ -154,8 +168,12 @@ class RecycleAssetService:
     ) -> None:
         """回收时标记损坏/遗失(AC-32/AC-33):公共更新 + 二次 FSM 转换 + 审计 + 子记录"""
         RecycleAssetService._do_recycle_asset_update(
-            asset, storage_obj, recycle_person_obj, recycle_asset,
-            operator_jobcode, operator_name,
+            asset,
+            storage_obj,
+            recycle_person_obj,
+            recycle_asset,
+            operator_jobcode,
+            operator_name,
         )
         try:
             if is_broken:

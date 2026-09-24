@@ -3,6 +3,7 @@
 覆盖: 卡片字段映射(firing/resolved/critical/warning)、加签生成、
 webhook 投递重试策略(429/5xx 退避, 其余 4xx 不重试)、HTTP 入口行为.
 """
+
 import json
 import time
 import unittest
@@ -15,11 +16,13 @@ import app as adapter
 
 class BuildCardTests(unittest.TestCase):
     def test_critical_firing_card(self):
-        card = adapter.build_card({
-            "status": "firing",
-            "labels": {"alertname": "HighErrorRate", "severity": "critical", "instance": "web:8000"},
-            "annotations": {"description": "5xx > 5%"},
-        })
+        card = adapter.build_card(
+            {
+                "status": "firing",
+                "labels": {"alertname": "HighErrorRate", "severity": "critical", "instance": "web:8000"},
+                "annotations": {"description": "5xx > 5%"},
+            }
+        )
         self.assertEqual(card["header"]["template"], "red")
         self.assertIn("🔴", card["header"]["title"]["content"])
         text = json.dumps(card["elements"], ensure_ascii=False)
@@ -28,8 +31,7 @@ class BuildCardTests(unittest.TestCase):
         self.assertIn("5xx > 5%", text)
 
     def test_resolved_card_is_green(self):
-        card = adapter.build_card({"status": "resolved", "labels": {"alertname": "ServiceDown"},
-                                   "annotations": {}})
+        card = adapter.build_card({"status": "resolved", "labels": {"alertname": "ServiceDown"}, "annotations": {}})
         self.assertEqual(card["header"]["template"], "green")
         self.assertIn("🟢", card["header"]["title"]["content"])
 
@@ -52,13 +54,16 @@ class SignTests(unittest.TestCase):
             self.assertEqual(sign, again)
             # 4 字节对齐的合法 base64
             import base64
+
             base64.b64decode(sign)
 
 
 class SendRetryTests(unittest.TestCase):
     def setUp(self):
         # Request 构造函数会校验 URL, 空字符串会在 urlopen 之前就抛异常
-        self._url_patcher = mock.patch.object(adapter, "FEISHU_WEBHOOK_URL", "https://open.feishu.cn/open-apis/bot/v2/hook/test")
+        self._url_patcher = mock.patch.object(
+            adapter, "FEISHU_WEBHOOK_URL", "https://open.feishu.cn/open-apis/bot/v2/hook/test"
+        )
         self._url_patcher.start()
         self.addCleanup(self._url_patcher.stop)
 
@@ -89,8 +94,7 @@ class SendRetryTests(unittest.TestCase):
 
     def test_success_first_try_no_sleep(self):
         fake, calls = self._fake_urlopen_factory([{"code": 0}])
-        with mock.patch.object(adapter.urllib.request, "urlopen", fake), \
-             mock.patch.object(time, "sleep") as fake_sleep:
+        with mock.patch.object(adapter.urllib.request, "urlopen", fake), mock.patch.object(time, "sleep") as fake_sleep:
             ok, err = adapter.send_to_feishu({"header": {}})
             self.assertTrue(ok)
             self.assertEqual(err, "ok")
@@ -99,13 +103,18 @@ class SendRetryTests(unittest.TestCase):
 
     def test_429_then_success_retries_with_backoff(self):
         import urllib.error
-        fake, _calls = self._fake_urlopen_factory([
-            urllib.error.HTTPError("u", 429, "rate", {}, None),
-            {"code": 0},
-        ])
+
+        fake, _calls = self._fake_urlopen_factory(
+            [
+                urllib.error.HTTPError("u", 429, "rate", {}, None),
+                {"code": 0},
+            ]
+        )
         sleeps = []
-        with mock.patch.object(adapter.urllib.request, "urlopen", fake), \
-             mock.patch.object(time, "sleep", lambda s: sleeps.append(s)):
+        with (
+            mock.patch.object(adapter.urllib.request, "urlopen", fake),
+            mock.patch.object(time, "sleep", lambda s: sleeps.append(s)),
+        ):
             ok, _ = adapter.send_to_feishu({})
             self.assertTrue(ok)
             self.assertEqual(len(sleeps), 1)
@@ -113,12 +122,14 @@ class SendRetryTests(unittest.TestCase):
 
     def test_client_error_400_no_retry(self):
         import urllib.error
-        fake, calls = self._fake_urlopen_factory([
-            urllib.error.HTTPError("u", 400, "bad", {}, None),
-            {"code": 0},
-        ])
-        with mock.patch.object(adapter.urllib.request, "urlopen", fake), \
-             mock.patch.object(time, "sleep"):
+
+        fake, calls = self._fake_urlopen_factory(
+            [
+                urllib.error.HTTPError("u", 400, "bad", {}, None),
+                {"code": 0},
+            ]
+        )
+        with mock.patch.object(adapter.urllib.request, "urlopen", fake), mock.patch.object(time, "sleep"):
             ok, err = adapter.send_to_feishu({})
             self.assertFalse(ok)
             self.assertEqual(err, "http 400")
@@ -126,8 +137,7 @@ class SendRetryTests(unittest.TestCase):
 
     def test_feishu_business_code_nonzero_retries(self):
         fake, calls = self._fake_urlopen_factory([{"code": 19024, "msg": "sign match fail"}, {"code": 0}])
-        with mock.patch.object(adapter.urllib.request, "urlopen", fake), \
-             mock.patch.object(time, "sleep"):
+        with mock.patch.object(adapter.urllib.request, "urlopen", fake), mock.patch.object(time, "sleep"):
             ok, _ = adapter.send_to_feishu({})
             self.assertTrue(ok)
             self.assertEqual(calls["n"], 2)
@@ -170,6 +180,7 @@ class HttpEndpointTests(unittest.TestCase):
         cls.server = ThreadingHTTPServer(("127.0.0.1", 0), adapter.AdapterHandler)
         cls.port = cls.server.server_address[1]
         import threading
+
         cls._original_send = adapter.send_to_feishu
         adapter.send_to_feishu = mock.MagicMock(return_value=(True, "ok"))
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
@@ -191,10 +202,13 @@ class HttpEndpointTests(unittest.TestCase):
         return resp.status, data
 
     def test_alertmanager_endpoint_delivers_each_alert(self):
-        status, data = self._post("/alertmanager", {
-            "status": "firing",
-            "alerts": [{"labels": {"alertname": "A"}}, {"labels": {"alertname": "B"}}],
-        })
+        status, data = self._post(
+            "/alertmanager",
+            {
+                "status": "firing",
+                "alerts": [{"labels": {"alertname": "A"}}, {"labels": {"alertname": "B"}}],
+            },
+        )
         self.assertEqual(status, 200)
         self.assertEqual(data["delivered"], 2)
         self.assertEqual(adapter.send_to_feishu.call_count, 2)

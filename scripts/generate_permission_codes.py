@@ -8,6 +8,7 @@ M-6 权限码常量生成器
   python scripts/generate_permission_codes.py --check   # CI 模式：仅校验不写入
   python scripts/generate_permission_codes.py           # 生成并写入
 """
+
 import ast
 import re
 import sys

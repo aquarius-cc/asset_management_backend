@@ -39,9 +39,7 @@ class RepairAssetSelector:
 
     @staticmethod
     def get_by_asset_code(asset_code: str, user: Any = None) -> QuerySet[RepairAsset]:
-        qs = RepairAsset.objects.filter(
-            asset_recordcode__asset_code=asset_code, is_deleted=False
-        ).select_related(
+        qs = RepairAsset.objects.filter(asset_recordcode__asset_code=asset_code, is_deleted=False).select_related(
             "asset_recordcode",
             "asset_recordcode__asset_type_recordcode",
             "asset_recordcode__asset_contract_recordcode",

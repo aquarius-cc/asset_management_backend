@@ -28,40 +28,79 @@ User = get_user_model()
 
 # ── 角色定义 ──────────────────────────────────────────────────────────────
 ROLES = [
-    {"role_code": "system_admin", "role_name": "系统管理员", "role_level": 5, "description": "系统管理员,拥有全部权限", "is_system": True, "sort_order": 1},
-    {"role_code": "dept_manager", "role_name": "部门经理", "role_level": 4, "description": "部门经理,拥有审批权限和部门数据管理权限", "is_system": True, "sort_order": 2},
-    {"role_code": "asset_admin", "role_name": "资产管理员", "role_level": 3, "description": "资产管理员,拥有资产全生命周期管理权限", "is_system": True, "sort_order": 3},
-    {"role_code": "auditor", "role_name": "审计员", "role_level": 2, "description": "审计员,拥有查看和导出权限", "is_system": True, "sort_order": 4},
-    {"role_code": "regular_user", "role_name": "普通用户", "role_level": 1, "description": "普通用户,仅拥有查看权限", "is_system": True, "sort_order": 5},
+    {
+        "role_code": "system_admin",
+        "role_name": "系统管理员",
+        "role_level": 5,
+        "description": "系统管理员,拥有全部权限",
+        "is_system": True,
+        "sort_order": 1,
+    },
+    {
+        "role_code": "dept_manager",
+        "role_name": "部门经理",
+        "role_level": 4,
+        "description": "部门经理,拥有审批权限和部门数据管理权限",
+        "is_system": True,
+        "sort_order": 2,
+    },
+    {
+        "role_code": "asset_admin",
+        "role_name": "资产管理员",
+        "role_level": 3,
+        "description": "资产管理员,拥有资产全生命周期管理权限",
+        "is_system": True,
+        "sort_order": 3,
+    },
+    {
+        "role_code": "auditor",
+        "role_name": "审计员",
+        "role_level": 2,
+        "description": "审计员,拥有查看和导出权限",
+        "is_system": True,
+        "sort_order": 4,
+    },
+    {
+        "role_code": "regular_user",
+        "role_name": "普通用户",
+        "role_level": 1,
+        "description": "普通用户,仅拥有查看权限",
+        "is_system": True,
+        "sort_order": 5,
+    },
 ]
 
 # ── 权限定义（module:action → description）──────────────────────────────
 MODULES_CONFIG = {
-    "asset":         {"actions": ["read", "create", "update", "delete", "export"], "desc_prefix": "资产管理"},
-    "outasset":      {"actions": ["read", "create", "update", "delete", "export"], "desc_prefix": "出库管理"},
-    "recycle":       {"actions": ["read", "create", "update", "delete", "export"], "desc_prefix": "回收管理"},
-    "damaged":       {"actions": ["read", "create", "update", "delete", "approve", "export"], "desc_prefix": "待报废管理"},
-    "waste":         {"actions": ["read", "create", "update", "delete", "export"], "desc_prefix": "已报废管理"},
-    "broken":        {"actions": ["read", "create", "update", "delete", "export"], "desc_prefix": "已损坏管理"},
-    "lost":          {"actions": ["read", "create", "update", "delete", "export"], "desc_prefix": "已遗失管理"},
-    "found":         {"actions": ["read", "create", "update", "delete", "export"], "desc_prefix": "找回管理"},
-    "repair":        {"actions": ["read", "create", "update", "delete", "export"], "desc_prefix": "维修管理"},
-    "contract":      {"actions": ["read", "create", "update", "delete", "export"], "desc_prefix": "合同管理"},
-    "storage":       {"actions": ["read", "create", "update", "delete"], "desc_prefix": "仓库管理"},
-    "assettype":     {"actions": ["read", "create", "update", "delete"], "desc_prefix": "资产类型管理"},
-    "harddisk":      {"actions": ["read", "create", "update", "delete"], "desc_prefix": "硬盘序列号管理"},
-    "employee":      {"actions": ["read", "create", "update", "delete"], "desc_prefix": "员工管理"},
-    "department":    {"actions": ["read", "create", "update", "delete"], "desc_prefix": "部门管理"},
-    "user":          {"actions": ["read", "create", "update", "delete"], "desc_prefix": "用户管理"},
-    "unregistered":  {"actions": ["read", "create", "update", "delete", "approve"], "desc_prefix": "未登记资产管理"},
-    "notification":  {"actions": ["read"], "desc_prefix": "通知管理"},
-    "auditlog":      {"actions": ["read", "export"], "desc_prefix": "审计日志"},
-    "dashboard":     {"actions": ["read"], "desc_prefix": "仪表盘"},
+    "asset": {"actions": ["read", "create", "update", "delete", "export"], "desc_prefix": "资产管理"},
+    "outasset": {"actions": ["read", "create", "update", "delete", "export"], "desc_prefix": "出库管理"},
+    "recycle": {"actions": ["read", "create", "update", "delete", "export"], "desc_prefix": "回收管理"},
+    "damaged": {"actions": ["read", "create", "update", "delete", "approve", "export"], "desc_prefix": "待报废管理"},
+    "waste": {"actions": ["read", "create", "update", "delete", "export"], "desc_prefix": "已报废管理"},
+    "broken": {"actions": ["read", "create", "update", "delete", "export"], "desc_prefix": "已损坏管理"},
+    "lost": {"actions": ["read", "create", "update", "delete", "export"], "desc_prefix": "已遗失管理"},
+    "found": {"actions": ["read", "create", "update", "delete", "export"], "desc_prefix": "找回管理"},
+    "repair": {"actions": ["read", "create", "update", "delete", "export"], "desc_prefix": "维修管理"},
+    "contract": {"actions": ["read", "create", "update", "delete", "export"], "desc_prefix": "合同管理"},
+    "storage": {"actions": ["read", "create", "update", "delete"], "desc_prefix": "仓库管理"},
+    "assettype": {"actions": ["read", "create", "update", "delete"], "desc_prefix": "资产类型管理"},
+    "harddisk": {"actions": ["read", "create", "update", "delete"], "desc_prefix": "硬盘序列号管理"},
+    "employee": {"actions": ["read", "create", "update", "delete"], "desc_prefix": "员工管理"},
+    "department": {"actions": ["read", "create", "update", "delete"], "desc_prefix": "部门管理"},
+    "user": {"actions": ["read", "create", "update", "delete"], "desc_prefix": "用户管理"},
+    "unregistered": {"actions": ["read", "create", "update", "delete", "approve"], "desc_prefix": "未登记资产管理"},
+    "notification": {"actions": ["read"], "desc_prefix": "通知管理"},
+    "auditlog": {"actions": ["read", "export"], "desc_prefix": "审计日志"},
+    "dashboard": {"actions": ["read"], "desc_prefix": "仪表盘"},
 }
 
 ACTION_DESC = {
-    "read": "查看", "create": "创建", "update": "编辑",
-    "delete": "删除", "approve": "审批", "export": "导出",
+    "read": "查看",
+    "create": "创建",
+    "update": "编辑",
+    "delete": "删除",
+    "approve": "审批",
+    "export": "导出",
 }
 
 # ── 角色-权限映射 ──────────────────────────────────────────────────────
@@ -211,8 +250,9 @@ class Command(BaseCommand):
                             perms_to_add.add(f"{mod}:{action_key}")
 
             existing = set(
-                RolePermission.objects.filter(role=role, is_deleted=False)
-                .values_list("permission__permission_code", flat=True)
+                RolePermission.objects.filter(role=role, is_deleted=False).values_list(
+                    "permission__permission_code", flat=True
+                )
             )
             to_create = perms_to_add - existing
 

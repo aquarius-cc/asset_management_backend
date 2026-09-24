@@ -178,9 +178,7 @@ class TestSendNotificationOnCommit:
         mock_asset = MagicMock()
         mock_asset.asset_code = "AST_FAIL"
 
-        with patch(
-            "apps.notification.helpers.notify_dept_managers", side_effect=RuntimeError("notify boom")
-        ):
+        with patch("apps.notification.helpers.notify_dept_managers", side_effect=RuntimeError("notify boom")):
             with caplog.at_level(logging.ERROR, logger="apps.notification.helpers"):
                 with DjangoTestCase.captureOnCommitCallbacks(execute=True):
                     send_notification_on_commit(

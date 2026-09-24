@@ -28,14 +28,16 @@ SECRET_KEY = "test-only-key-not-for-production-use-1234567890!@#$"
 from django.core.exceptions import ImproperlyConfigured
 
 
-_INSECURE_KEYS = frozenset({
-    "django-insecure-placeholder-see-env-settings",
-    "django-insecure-dev-only-key-change-in-production-1234567890",
-    "change-me-in-production",
-    "changeme",
-    "dev-only-key-!@#$%^&*()_+-=[]{}|;:,.<>?-not-for-production-2026",
-    "",
-})
+_INSECURE_KEYS = frozenset(
+    {
+        "django-insecure-placeholder-see-env-settings",
+        "django-insecure-dev-only-key-change-in-production-1234567890",
+        "change-me-in-production",
+        "changeme",
+        "dev-only-key-!@#$%^&*()_+-=[]{}|;:,.<>?-not-for-production-2026",
+        "",
+    }
+)
 if SECRET_KEY in _INSECURE_KEYS:
     raise ImproperlyConfigured("SECRET_KEY is insecure in test environment.")
 

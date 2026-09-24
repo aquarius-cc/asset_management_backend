@@ -2,7 +2,6 @@
 资产管理模型(核心模型)
 """
 
-
 from django.db import models
 
 from apps.assetmanagement.models.asset_type import AssetType

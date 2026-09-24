@@ -133,9 +133,7 @@ class AssetSelector:
         from core.exceptions import AppValidationError
 
         if not AssetSelector.get_queryset_for_user(user).filter(pk=asset.pk).exists():
-            raise AppValidationError(
-                detail=f"资产 {asset.asset_code} 不存在或无权操作", error_code="ASSET_NOT_VISIBLE"
-            )
+            raise AppValidationError(detail=f"资产 {asset.asset_code} 不存在或无权操作", error_code="ASSET_NOT_VISIBLE")
 
     @staticmethod
     def get_all_assets() -> QuerySet[Asset]:
@@ -176,7 +174,8 @@ class AssetSelector:
             QuerySet[Asset]: 可用资产列表
         """
         queryset = Asset.objects.filter(
-            Q(asset_current_status=Asset.AssetStatus.IN_STORE) | Q(asset_current_status=Asset.AssetStatus.RECYCLED_PENDING),
+            Q(asset_current_status=Asset.AssetStatus.IN_STORE)
+            | Q(asset_current_status=Asset.AssetStatus.RECYCLED_PENDING),
             is_deleted=False,
             is_active=True,
         ).select_related("asset_type_recordcode", "asset_storage_recordcode", "asset_contract_recordcode")
@@ -199,9 +198,7 @@ class AssetSelector:
 
     @staticmethod
     def get_assets_by_status(status: str, *, user: Any) -> QuerySet[Asset]:
-        return AssetSelector.apply_user_scope(
-            Asset.objects.filter(asset_current_status=status, is_deleted=False), user
-        )
+        return AssetSelector.apply_user_scope(Asset.objects.filter(asset_current_status=status, is_deleted=False), user)
 
     @staticmethod
     def get_asset_by_code(asset_code: str, *, user: Any) -> Asset | None:
@@ -399,10 +396,7 @@ class AssetSelector:
     @staticmethod
     def get_operation_logs_for_asset(asset: Asset, limit: int = 50) -> QuerySet[AssetOperationLog]:
         """获取资产的操作日志"""
-        return (
-            AssetOperationLog.objects.filter(asset_code=asset.asset_code)
-            .order_by("-operation_time")[:limit]
-        )
+        return AssetOperationLog.objects.filter(asset_code=asset.asset_code).order_by("-operation_time")[:limit]
 
 
 class AssetTypeSelector:

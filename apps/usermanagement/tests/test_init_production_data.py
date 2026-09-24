@@ -36,17 +36,18 @@ class TestInitProductionDataIdempotency:
         out1 = StringIO()
         out2 = StringIO()
 
-        with patch.dict(os.environ, {
-            "DJANGO_SUPERUSER_USERNAME": "",
-            "DJANGO_SUPERUSER_PASSWORD": "",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "DJANGO_SUPERUSER_USERNAME": "",
+                "DJANGO_SUPERUSER_PASSWORD": "",
+            },
+        ):
             call_command("init_production_data", stdout=out1)
             call_command("init_production_data", stdout=out2)
 
         output2 = out2.getvalue()
-        assert "0 个新建" in output2, (
-            f"第二次执行应全部为 0 新建，实际输出:\n{output2}"
-        )
+        assert "0 个新建" in output2, f"第二次执行应全部为 0 新建，实际输出:\n{output2}"
 
     def test_idempotent_with_admin(self):
         """带 admin 连续执行，超管不重复创建"""
@@ -63,9 +64,7 @@ class TestInitProductionDataIdempotency:
             call_command("init_production_data", stdout=out2)
 
         output2 = out2.getvalue()
-        assert "已存在" in output2 or "0 个新建" in output2, (
-            f"第二次执行应跳过已存在的超管，实际输出:\n{output2}"
-        )
+        assert "已存在" in output2 or "0 个新建" in output2, f"第二次执行应跳过已存在的超管，实际输出:\n{output2}"
         assert User.objects.filter(auth_username="idempotent_admin").count() == 1
 
 
@@ -76,10 +75,13 @@ class TestInitProductionDataSmoke:
     def test_creates_all_roles(self):
         """执行后应有 5 个默认角色"""
         out = StringIO()
-        with patch.dict(os.environ, {
-            "DJANGO_SUPERUSER_USERNAME": "",
-            "DJANGO_SUPERUSER_PASSWORD": "",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "DJANGO_SUPERUSER_USERNAME": "",
+                "DJANGO_SUPERUSER_PASSWORD": "",
+            },
+        ):
             call_command("init_production_data", stdout=out)
 
         role_count = Role.objects.filter(is_deleted=False).count()
@@ -88,10 +90,13 @@ class TestInitProductionDataSmoke:
     def test_creates_permissions(self):
         """执行后应有 79+ 个权限点"""
         out = StringIO()
-        with patch.dict(os.environ, {
-            "DJANGO_SUPERUSER_USERNAME": "",
-            "DJANGO_SUPERUSER_PASSWORD": "",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "DJANGO_SUPERUSER_USERNAME": "",
+                "DJANGO_SUPERUSER_PASSWORD": "",
+            },
+        ):
             call_command("init_production_data", stdout=out)
 
         perm_count = Permission.objects.filter(is_deleted=False).count()
@@ -100,10 +105,13 @@ class TestInitProductionDataSmoke:
     def test_creates_role_permissions(self):
         """执行后角色-权限关联数 > 0"""
         out = StringIO()
-        with patch.dict(os.environ, {
-            "DJANGO_SUPERUSER_USERNAME": "",
-            "DJANGO_SUPERUSER_PASSWORD": "",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "DJANGO_SUPERUSER_USERNAME": "",
+                "DJANGO_SUPERUSER_PASSWORD": "",
+            },
+        ):
             call_command("init_production_data", stdout=out)
 
         rp_count = RolePermission.objects.filter(is_deleted=False).count()
@@ -138,10 +146,13 @@ class TestInitProductionDataDryRun:
         initial_roles = Role.objects.filter(is_deleted=False).count()
         initial_perms = Permission.objects.filter(is_deleted=False).count()
 
-        with patch.dict(os.environ, {
-            "DJANGO_SUPERUSER_USERNAME": "",
-            "DJANGO_SUPERUSER_PASSWORD": "",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "DJANGO_SUPERUSER_USERNAME": "",
+                "DJANGO_SUPERUSER_PASSWORD": "",
+            },
+        ):
             call_command("init_production_data", "--dry-run", stdout=out)
 
         assert Role.objects.filter(is_deleted=False).count() == initial_roles
@@ -164,6 +175,4 @@ class TestInitProductionDataSecurity:
             call_command("init_production_data", stdout=out)
 
         output = out.getvalue()
-        assert "SuperSecret999!" not in output, (
-            "密码出现在命令输出中，违反 OC-3"
-        )
+        assert "SuperSecret999!" not in output, "密码出现在命令输出中，违反 OC-3"

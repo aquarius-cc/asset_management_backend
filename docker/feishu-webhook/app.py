@@ -3,6 +3,7 @@
 零第三方依赖(仅 Python 标准库), 由 docker/feishu-webhook/Dockerfile 打包.
 配置全部经环境变量注入(AR-4), 外呼带显式超时与指数退避重试(AR-3).
 """
+
 import base64
 import hashlib
 import hmac
@@ -76,8 +77,13 @@ def build_card(alert: dict[str, Any]) -> dict[str, Any]:
             ],
         },
         {"tag": "hr"},
-        {"tag": "div", "text": {"tag": "lark_md",
-         "content": f"**描述**: {annotations.get('description', annotations.get('summary', '-'))}"}},
+        {
+            "tag": "div",
+            "text": {
+                "tag": "lark_md",
+                "content": f"**描述**: {annotations.get('description', annotations.get('summary', '-'))}",
+            },
+        },
     ]
     return {
         "config": {"wide_screen_mode": True},
@@ -102,7 +108,9 @@ def send_to_feishu(card: dict[str, Any]) -> tuple[bool, str]:
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             request = urllib.request.Request(
-                FEISHU_WEBHOOK_URL, data=data, headers={"Content-Type": "application/json"},
+                FEISHU_WEBHOOK_URL,
+                data=data,
+                headers={"Content-Type": "application/json"},
             )
             with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT) as resp:
                 body = json.loads(resp.read().decode("utf-8"))

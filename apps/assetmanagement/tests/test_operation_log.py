@@ -124,7 +124,9 @@ class TestGetByLoggingIdService:
 
     def test_nonexistent_logging_id(self, query_admin):
         """查询不存在的 logging_id 应返回 None"""
-        result = OperationLogQueryService.get_operation_log_by_logging_id(query_admin, "nonexistent-Log-20250123-A1B2C3D4")
+        result = OperationLogQueryService.get_operation_log_by_logging_id(
+            query_admin, "nonexistent-Log-20250123-A1B2C3D4"
+        )
         assert result is None
 
 

@@ -37,9 +37,7 @@ class TestProductionSecurityHeadersDisabled:
 
     def test_hsts_disabled(self):
         src = _read_production_py()
-        assert "SECURE_HSTS_SECONDS = 0" in src, (
-            "production.py 缺少 SECURE_HSTS_SECONDS = 0"
-        )
+        assert "SECURE_HSTS_SECONDS = 0" in src, "production.py 缺少 SECURE_HSTS_SECONDS = 0"
 
     def test_hsts_subdomains_disabled(self):
         src = _read_production_py()
@@ -51,21 +49,15 @@ class TestProductionSecurityHeadersDisabled:
 
     def test_content_type_nosniff_disabled(self):
         src = _read_production_py()
-        assert "SECURE_CONTENT_TYPE_NOSNIFF = False" in src, (
-            "production.py 缺少 SECURE_CONTENT_TYPE_NOSNIFF = False"
-        )
+        assert "SECURE_CONTENT_TYPE_NOSNIFF = False" in src, "production.py 缺少 SECURE_CONTENT_TYPE_NOSNIFF = False"
 
     def test_referrer_policy_disabled(self):
         src = _read_production_py()
-        assert 'SECURE_REFERRER_POLICY = ""' in src, (
-            "production.py 缺少 SECURE_REFERRER_POLICY = \"\""
-        )
+        assert 'SECURE_REFERRER_POLICY = ""' in src, 'production.py 缺少 SECURE_REFERRER_POLICY = ""'
 
     def test_xframe_options_middleware_removed(self):
         src = _read_production_py()
-        assert "XFrameOptionsMiddleware" in src, (
-            "production.py 中未找到 XFrameOptionsMiddleware 过滤逻辑"
-        )
+        assert "XFrameOptionsMiddleware" in src, "production.py 中未找到 XFrameOptionsMiddleware 过滤逻辑"
         # 验证是通过列表推导移除, 而非注释掉
         assert 'm for m in MIDDLEWARE if m != "django.middleware.clickjacking.XFrameOptionsMiddleware"' in src
 
@@ -88,9 +80,7 @@ class TestNginxSecurityHeaders:
     def test_no_x_xss_protection(self):
         """X-XSS-Protection 已弃用, 必须从 tpl 中完全删除"""
         content = _read_nginx_tpl()
-        assert "X-XSS-Protection" not in content, (
-            "default.conf.tpl 中仍包含已弃用的 X-XSS-Protection, 必须删除"
-        )
+        assert "X-XSS-Protection" not in content, "default.conf.tpl 中仍包含已弃用的 X-XSS-Protection, 必须删除"
 
     def test_server_level_has_all_security_headers(self):
         """server 级必须包含全部 5 个安全头(唯一事实来源)"""
@@ -103,9 +93,7 @@ class TestNginxSecurityHeaders:
             "Permissions-Policy",
         ]
         for header in required:
-            assert f"add_header {header}" in content, (
-                f"server 级缺少 add_header {header}"
-            )
+            assert f"add_header {header}" in content, f"server 级缺少 add_header {header}"
 
     def test_proxy_locations_have_hide_headers(self):
         """所有代理 location 必须有 proxy_hide_header 防御护栏"""
@@ -132,9 +120,7 @@ class TestNginxSecurityHeaders:
                 end = len(content)
             block = content[start:end]
             for header in headers_to_hide:
-                assert f"proxy_hide_header {header}" in block, (
-                    f"location {location} 缺少 proxy_hide_header {header}"
-                )
+                assert f"proxy_hide_header {header}" in block, f"location {location} 缺少 proxy_hide_header {header}"
 
 
 # === Redis 安全加固断言(文件级) ===
@@ -154,23 +140,17 @@ class TestRedisSecurityHardening:
     def test_redis_requirepass_enabled(self):
         """Redis 必须启用 --requirepass"""
         content = _read_compose_main()
-        assert "--requirepass" in content, (
-            "docker-compose.yml Redis 服务缺少 --requirepass"
-        )
+        assert "--requirepass" in content, "docker-compose.yml Redis 服务缺少 --requirepass"
 
     def test_redis_rename_command_flushall(self):
         """Redis 必须禁用 FLUSHALL 命令"""
         content = _read_compose_main()
-        assert 'FLUSHALL ""' in content, (
-            "docker-compose.yml Redis 服务缺少 --rename-command FLUSHALL"
-        )
+        assert 'FLUSHALL ""' in content, "docker-compose.yml Redis 服务缺少 --rename-command FLUSHALL"
 
     def test_redis_rename_command_flushdb(self):
         """Redis 必须禁用 FLUSHDB 命令"""
         content = _read_compose_main()
-        assert 'FLUSHDB ""' in content, (
-            "docker-compose.yml Redis 服务缺少 --rename-command FLUSHDB"
-        )
+        assert 'FLUSHDB ""' in content, "docker-compose.yml Redis 服务缺少 --rename-command FLUSHDB"
 
     def test_redis_healthcheck_uses_password(self):
         """Redis healthcheck 必须使用密码认证"""
@@ -178,16 +158,12 @@ class TestRedisSecurityHardening:
         assert "$$REDIS_PASSWORD" in content or "${REDIS_PASSWORD}" in content, (
             "docker-compose.yml Redis healthcheck 缺少密码认证"
         )
-        assert "redis-cli -a" in content, (
-            "docker-compose.yml Redis healthcheck 缺少 -a 参数"
-        )
+        assert "redis-cli -a" in content, "docker-compose.yml Redis healthcheck 缺少 -a 参数"
 
     def test_web_redis_url_contains_credentials(self):
         """Web 服务 REDIS_URL 必须包含凭据"""
         content = _read_compose_main()
-        assert "${REDIS_PASSWORD}" in content, (
-            "docker-compose.yml web 服务 REDIS_URL 缺少凭据注入"
-        )
+        assert "${REDIS_PASSWORD}" in content, "docker-compose.yml web 服务 REDIS_URL 缺少凭据注入"
 
     def test_prod_compose_has_redis_url(self):
         """生产 compose 必须显式设置 REDIS_URL(覆盖 base)"""
@@ -202,9 +178,7 @@ class TestRedisSecurityHardening:
     def test_monitoring_exporter_has_password(self):
         """monitoring redis-exporter 必须配置 REDIS_PASSWORD"""
         content = _read_compose_monitoring()
-        assert "REDIS_PASSWORD" in content, (
-            "docker-compose.monitoring.yml redis-exporter 缺少 REDIS_PASSWORD"
-        )
+        assert "REDIS_PASSWORD" in content, "docker-compose.monitoring.yml redis-exporter 缺少 REDIS_PASSWORD"
 
 
 class TestDevSecretKeyBlacklist:
@@ -219,9 +193,7 @@ class TestDevSecretKeyBlacklist:
         for name in self._FILES:
             src = (_BACKEND_ROOT / "config" / "settings" / name).read_text(encoding="utf-8")
             block = src.split("_INSECURE_KEYS")[1].split("})")[0]
-            assert self._LEAKED_DEV_KEY in block, (
-                f"{name} 的 _INSECURE_KEYS 缺少已泄漏的 dev 默认 key"
-            )
+            assert self._LEAKED_DEV_KEY in block, f"{name} 的 _INSECURE_KEYS 缺少已泄漏的 dev 默认 key"
 
     def test_dev_default_key_rotated(self):
         """开发默认 key 已更换,不再使用已泄漏的旧值"""

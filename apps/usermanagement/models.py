@@ -296,8 +296,7 @@ class Employee(BaseModel):
                 )
         except Exception:
             logger.error(
-                "角色变更:Token 黑名单操作失败 (employee_jobcode=%s), "
-                "旧 Token 仍可使用直到过期",
+                "角色变更:Token 黑名单操作失败 (employee_jobcode=%s), 旧 Token 仍可使用直到过期",
                 self.employee_jobcode,
                 exc_info=True,
             )

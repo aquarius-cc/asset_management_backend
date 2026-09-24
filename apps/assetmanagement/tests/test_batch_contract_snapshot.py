@@ -42,16 +42,18 @@ class TestLifecycleBatchContract:
     def test_batch_delete_contract(self, admin_authenticated_client, broken_asset):
         """批量删除: 锁定 data 键集、计数语义与 message 文案"""
         url = reverse("broken-assets-batch-delete")
-        response = admin_authenticated_client.post(
-            url, {"ids": [broken_asset.recordcode]}, format="json"
-        )
+        response = admin_authenticated_client.post(url, {"ids": [broken_asset.recordcode]}, format="json")
         assert response.status_code == status.HTTP_200_OK
         assert response.data["code"] == 0
 
         data = response.data["data"]
         # 键集合精确匹配(多键/少键均视为契约破坏)
         assert set(data.keys()) == {
-            "total", "success_count", "fail_count", "success_ids", "fail_items",
+            "total",
+            "success_count",
+            "fail_count",
+            "success_ids",
+            "fail_items",
         }
         assert data["total"] == 1
         assert data["success_count"] == 1
@@ -64,9 +66,7 @@ class TestLifecycleBatchContract:
     def test_batch_delete_not_found_contract(self, admin_authenticated_client):
         """批量删除含不存在记录时 fail_items 条目结构锁定"""
         url = reverse("broken-assets-batch-delete")
-        response = admin_authenticated_client.post(
-            url, {"ids": ["NO_SUCH_RECORDCODE"]}, format="json"
-        )
+        response = admin_authenticated_client.post(url, {"ids": ["NO_SUCH_RECORDCODE"]}, format="json")
         assert response.status_code == status.HTTP_200_OK
         data = response.data["data"]
         assert data["success_count"] == 0
@@ -78,16 +78,12 @@ class TestLifecycleBatchContract:
 
     def test_by_asset_contract(self, admin_authenticated_client, asset, broken_asset):
         """by_asset 查询: 锁定成功与 404 的 message 文案"""
-        url = reverse(
-            "broken-assets-by-asset", kwargs={"asset_code": asset.asset_code}
-        )
+        url = reverse("broken-assets-by-asset", kwargs={"asset_code": asset.asset_code})
         response = admin_authenticated_client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data["message"] == "查询成功"
 
-        missing_url = reverse(
-            "broken-assets-by-asset", kwargs={"asset_code": "NO_SUCH_ASSET"}
-        )
+        missing_url = reverse("broken-assets-by-asset", kwargs={"asset_code": "NO_SUCH_ASSET"})
         missing = admin_authenticated_client.get(missing_url)
         assert missing.status_code == status.HTTP_404_NOT_FOUND
         assert missing.data["message"] == "资产 NO_SUCH_ASSET 不存在"
@@ -108,9 +104,7 @@ class TestEmployeeBatchContract:
         "sort_order": 0,
     }
 
-    def test_batch_create_contract(
-        self, admin_authenticated_client, department, admin_auth_user
-    ):
+    def test_batch_create_contract(self, admin_authenticated_client, department, admin_auth_user):
         """批量创建: 键集合 + 动态 message 文案 + fail_items 结构锁定"""
         item = dict(self.valid_employee_payload)
         item["employee_department_code"] = department.department_code
@@ -121,7 +115,11 @@ class TestEmployeeBatchContract:
 
         data = response.data["data"]
         assert set(data.keys()) == {
-            "total", "success_count", "fail_count", "success_items", "fail_items",
+            "total",
+            "success_count",
+            "fail_count",
+            "success_items",
+            "fail_items",
         }
         assert data["total"] == 1
         assert data["success_count"] == 1
@@ -129,9 +127,7 @@ class TestEmployeeBatchContract:
         # message 为动态文案, 逐字锁定格式
         assert response.data["message"] == "批量创建完成,成功 1 条,失败 0 条"
 
-    def test_batch_create_fail_item_structure(
-        self, admin_authenticated_client, department
-    ):
+    def test_batch_create_fail_item_structure(self, admin_authenticated_client, department):
         """校验失败条目的五字段结构锁定(index/row_number/input_data/error_code/error_message)"""
         # 先创建同工号员工, 触发 DUPLICATE_EMPLOYEE_JOBCODE 失败分支
         from apps.usermanagement.models import Employee
@@ -159,7 +155,11 @@ class TestEmployeeBatchContract:
         assert data["fail_count"] == 1
         fail_item = data["fail_items"][0]
         assert set(fail_item.keys()) == {
-            "index", "row_number", "input_data", "error_code", "error_message",
+            "index",
+            "row_number",
+            "input_data",
+            "error_code",
+            "error_message",
         }
         assert fail_item["error_code"] not in (None, "")
 
@@ -168,9 +168,7 @@ class TestEmployeeBatchContract:
 class TestBatchCreateFailItemEcho:
     """B-8 回归屏障: 失败条目携带关联字段时不得 500, input_data 必须回显用户原始输入"""
 
-    def test_fail_with_department_echoes_original_input(
-        self, admin_authenticated_client, department
-    ):
+    def test_fail_with_department_echoes_original_input(self, admin_authenticated_client, department):
         """失败条目携带合法部门编码(原 B-8 触发条件) → 200 且回显原始提交
 
         场景: 先创建同工号员工, 再批量提交同工号+部门编码的条目。
@@ -208,6 +206,7 @@ class TestBatchCreateFailItemEcho:
         assert fail_item["error_code"] == "DUPLICATE_EMPLOYEE_JOBCODE"
         # input_data 与用户原始输入逐字一致(键名/值)
         assert fail_item["input_data"] == item
+
 
 class TestBatchResponseHelperUnit:
     """BatchResponseHelper.create_response 的 request_items 回写单元测试(无 DB 依赖)"""
@@ -254,7 +253,9 @@ class TestBatchResponseHelperUnit:
             ],
         }
         response = BatchResponseHelper.create_response(
-            result, self._make_serializer(raw_items), message="批量创建完成,成功 0 条,失败 1 条",
+            result,
+            self._make_serializer(raw_items),
+            message="批量创建完成,成功 0 条,失败 1 条",
             request_items=raw_items,
         )
         # 整体可 JSON 序列化(修复前此处抛 TypeError)
@@ -266,11 +267,16 @@ class TestBatchResponseHelperUnit:
         from core.batch_mixins import BatchResponseHelper
 
         result = {
-            "total": 1, "success_count": 0, "fail_count": 1, "success_items": [],
+            "total": 1,
+            "success_count": 0,
+            "fail_count": 1,
+            "success_items": [],
             "fail_items": [{"index": 0, "input_data": {"a": 1}, "error_code": "E", "error_message": "m"}],
         }
         response = BatchResponseHelper.create_response(
-            result, self._make_serializer([]), message="msg",
+            result,
+            self._make_serializer([]),
+            message="msg",
         )
         assert response.data["data"]["fail_items"][0]["input_data"] == {"a": 1}
 
@@ -279,11 +285,16 @@ class TestBatchResponseHelperUnit:
         from core.batch_mixins import BatchResponseHelper
 
         result = {
-            "total": 1, "success_count": 0, "fail_count": 1, "success_items": [],
+            "total": 1,
+            "success_count": 0,
+            "fail_count": 1,
+            "success_items": [],
             "fail_items": [{"index": 99, "input_data": {"keep": True}, "error_code": "E", "error_message": "m"}],
         }
         response = BatchResponseHelper.create_response(
-            result, self._make_serializer([{"a": 1}]), message="msg",
+            result,
+            self._make_serializer([{"a": 1}]),
+            message="msg",
             request_items=[{"a": 1}],
         )
         assert response.data["data"]["fail_items"][0]["input_data"] == {"keep": True}

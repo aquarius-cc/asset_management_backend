@@ -866,13 +866,13 @@ def process_file(path):
     except FileNotFoundError:
         # 创建带默认内容的文件而非失败
         print(f"文件 {path} 未找到，正在创建默认文件")
-        with open(path, 'w') as f:
-            f.write('')
-        return ''
+        with open(path, "w") as f:
+            f.write("")
+        return ""
     except PermissionError:
         # 提供替代方案而非失败
         print(f"无法访问 {path}，使用默认值")
-        return ''
+        return ""
 ```
 
 **差的示例：甩给 Claude**：
@@ -901,7 +901,7 @@ MAX_RETRIES = 3
 
 ```python  theme={null}
 TIMEOUT = 47  # 为什么是 47？
-RETRIES = 5   # 为什么是 5？
+RETRIES = 5  # 为什么是 5？
 ```
 
 ### 提供实用脚本

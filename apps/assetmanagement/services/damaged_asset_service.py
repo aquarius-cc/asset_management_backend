@@ -346,4 +346,3 @@ class DamagedAssetService:
             )
 
         return BatchOperationMixin.batch_delete_execute(asset_recordcodes, _delete_one)
-

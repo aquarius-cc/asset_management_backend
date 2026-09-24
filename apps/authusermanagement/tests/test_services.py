@@ -65,9 +65,7 @@ class TestAuthService:
 
     def test_register_duplicate_phone(self, auth_user):
         """测试注册重复手机号"""
-        AuthUser.objects.create_user(
-            auth_username="phoneuser", password=TEST_PASSWORD, auth_phone="13710010004"
-        )
+        AuthUser.objects.create_user(auth_username="phoneuser", password=TEST_PASSWORD, auth_phone="13710010004")
 
         with pytest.raises(ValidationError):
             AuthService.register_user(
@@ -145,9 +143,7 @@ class TestAuthService:
 
     def test_invalidate_refresh_tokens_blacklists_all(self):
         """改密吊销: 用户全部 refresh token 应进入黑名单且不可再用(BE-02)"""
-        user = AuthUser.objects.create_user(
-            auth_username="bluser", password=TEST_PASSWORD, auth_phone="13710010008"
-        )
+        user = AuthUser.objects.create_user(auth_username="bluser", password=TEST_PASSWORD, auth_phone="13710010008")
         tokens = AuthService.issue_tokens(user)
         refresh_jti = RefreshToken(tokens["refresh"])["jti"]
         assert not BlacklistedToken.objects.filter(token__jti=refresh_jti).exists()
@@ -160,17 +156,13 @@ class TestAuthService:
 
     def test_invalidate_refresh_tokens_no_tokens_is_noop(self):
         """无任何 refresh token 时吊销应为无操作且不抛异常"""
-        user = AuthUser.objects.create_user(
-            auth_username="blnone", password=TEST_PASSWORD, auth_phone="13710010009"
-        )
+        user = AuthUser.objects.create_user(auth_username="blnone", password=TEST_PASSWORD, auth_phone="13710010009")
         AuthService.invalidate_user_refresh_tokens(user)
         assert BlacklistedToken.objects.count() == 0
 
     def test_invalidate_refresh_tokens_error_tolerant(self, monkeypatch):
         """黑名单写入失败时应静默容错, 不中断改密主流程"""
-        user = AuthUser.objects.create_user(
-            auth_username="blerr", password=TEST_PASSWORD, auth_phone="13710010010"
-        )
+        user = AuthUser.objects.create_user(auth_username="blerr", password=TEST_PASSWORD, auth_phone="13710010010")
         AuthService.issue_tokens(user)
 
         def _boom(**kwargs):

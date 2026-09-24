@@ -219,7 +219,11 @@ class EmployeeService:
         employee.save(update_fields=["auth_user", "updated_at"])
 
         EmployeeAuditAdapter.log_replace_auth_user(
-            employee, old_auth_username, new_auth_username, operator_jobcode, operator_name  # type: ignore[arg-type]
+            employee,
+            old_auth_username,
+            new_auth_username,
+            operator_jobcode,
+            operator_name,  # type: ignore[arg-type]
         )
 
         return employee
@@ -343,14 +347,10 @@ class EmployeeService:
         def _delete_one(jobcode: str) -> None:
             employee = existing_employees.get(jobcode)
             if not employee or employee.is_deleted:
-                raise AppValidationError(
-                    detail=f"员工 {jobcode} 不存在或已删除", error_code="NOT_FOUND"
-                )
+                raise AppValidationError(detail=f"员工 {jobcode} 不存在或已删除", error_code="NOT_FOUND")
             # 检查关联资产(通过 recordcode 匹配)
             if employee.recordcode in employees_with_assets:
-                raise AppValidationError(
-                    detail="员工存在关联资产记录,不允许删除", error_code="HAS_RELATED_ASSETS"
-                )
+                raise AppValidationError(detail="员工存在关联资产记录,不允许删除", error_code="HAS_RELATED_ASSETS")
             with transaction.atomic():
                 employee.delete()
             EmployeeAuditAdapter.log_delete(employee.employee_jobcode, employee.employee_name)

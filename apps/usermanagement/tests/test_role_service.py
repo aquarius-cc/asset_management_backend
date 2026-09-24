@@ -46,9 +46,7 @@ def _seed_role(code: str) -> Role:
 
 @pytest.fixture
 def dept(db):
-    return Department.objects.create(
-        department_code="DEPT-ROLE", department_name="角色测试部门", path="/DEPT-ROLE"
-    )
+    return Department.objects.create(department_code="DEPT-ROLE", department_name="角色测试部门", path="/DEPT-ROLE")
 
 
 @pytest.fixture
@@ -126,9 +124,7 @@ class TestAssignRoleM3:
 
     def test_custom_role_rejected(self, dept):
         user = _make_user("m1", role=EmployeeRole.REGULAR_USER, department=dept)
-        custom = Role.objects.create(
-            role_code="custom_op", role_name="自定义角色", role_level=10, is_deleted=False
-        )
+        custom = Role.objects.create(role_code="custom_op", role_name="自定义角色", role_level=10, is_deleted=False)
 
         with pytest.raises(AppValidationError) as exc:
             RoleService.assign_role(user.auth_id, custom.id)
@@ -184,9 +180,7 @@ class TestAssignRoleD2:
     def test_recompute_ignores_custom_role(self, dept):
         """M1:遗留 UserRole 中的自定义角色不参与重算"""
         user = _make_user("d4", role=EmployeeRole.REGULAR_USER, department=dept)
-        custom = Role.objects.create(
-            role_code="custom_legacy", role_name="遗留自定义", role_level=10, is_deleted=False
-        )
+        custom = Role.objects.create(role_code="custom_legacy", role_name="遗留自定义", role_level=10, is_deleted=False)
         UserRole.objects.create(auth_user=user, role=custom, data_scope={})
 
         RoleService._recompute_employee_role(user)

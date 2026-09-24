@@ -1,4 +1,4 @@
-﻿"""
+"""
 双通道认证(Bearer / Cookie)与 CSRF 测试
 
 覆盖(本阶段双通道过渡方案, 对应 CT-3/CT-4 补测):
@@ -38,6 +38,7 @@ XHR = {"HTTP_X_REQUESTED_WITH": "XMLHttpRequest"}
 def api_client():
     """API 测试客户端(清除缓存防止登录锁定累积)"""
     from django.core.cache import cache
+
     cache.clear()
     return APIClient()
 
@@ -161,7 +162,9 @@ class TestServiceRBAC:
         with pytest.raises(AuthUser.DoesNotExist):
             AuthService.refresh_tokens(tokens["refresh"])
 
-    @override_settings(SIMPLE_JWT={**settings.SIMPLE_JWT, "ROTATE_REFRESH_TOKENS": True, "BLACKLIST_AFTER_ROTATION": True})
+    @override_settings(
+        SIMPLE_JWT={**settings.SIMPLE_JWT, "ROTATE_REFRESH_TOKENS": True, "BLACKLIST_AFTER_ROTATION": True}
+    )
     def test_refresh_rotates_and_blacklists_old(self):
         user = _make_user("rot1")
         tokens = AuthService.issue_tokens(user)
@@ -265,7 +268,9 @@ class TestCookieChannelCSRF:
 class TestRefreshDualChannel:
     """Token 刷新双通道"""
 
-    @override_settings(SIMPLE_JWT={**settings.SIMPLE_JWT, "ROTATE_REFRESH_TOKENS": True, "BLACKLIST_AFTER_ROTATION": True})
+    @override_settings(
+        SIMPLE_JWT={**settings.SIMPLE_JWT, "ROTATE_REFRESH_TOKENS": True, "BLACKLIST_AFTER_ROTATION": True}
+    )
     def test_refresh_bearer_rotates_and_blacklists(self, api_client):
         user = _make_user("rf1")
         tokens = AuthService.issue_tokens(user)

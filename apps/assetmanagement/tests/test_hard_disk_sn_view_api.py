@@ -50,18 +50,14 @@ class TestHardDiskSNBatchSaveAPI:
 
     def test_batch_save_update_with_own_sn(self, api_client: APIClient, admin_user: AuthUser, asset: Any) -> None:
         """编辑模式:回传自身 SN 应成功且保留(锚定前端编辑功能修复)"""
-        hd = HardDiskSN.objects.create(
-            asset_recordcode=asset, harddisk_sn_code="API_SN_3", harddisk_type="SSD"
-        )
+        hd = HardDiskSN.objects.create(asset_recordcode=asset, harddisk_sn_code="API_SN_3", harddisk_type="SSD")
         api_client.force_authenticate(user=admin_user)
         url = reverse("harddisk-sn-batch-save")
         response = api_client.post(
             url,
             {
                 "asset_recordcode": asset.recordcode,
-                "disks": [
-                    {"recordcode": hd.recordcode, "harddisk_sn_code": "API_SN_3", "harddisk_type": "NVMe"}
-                ],
+                "disks": [{"recordcode": hd.recordcode, "harddisk_sn_code": "API_SN_3", "harddisk_type": "NVMe"}],
             },
             format="json",
         )

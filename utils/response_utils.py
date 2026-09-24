@@ -20,9 +20,7 @@ class BusinessCode:
     SUCCESS = 0
 
 
-def success_response(
-    data: Any = None, message: str = "操作成功", status_code: int = status.HTTP_200_OK
-) -> Response:
+def success_response(data: Any = None, message: str = "操作成功", status_code: int = status.HTTP_200_OK) -> Response:
     """
     成功响应 - 统一返回格式 {"code": 0, "message": "", "data": {}}
 

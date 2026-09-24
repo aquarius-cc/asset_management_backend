@@ -41,9 +41,7 @@ class LostAssetSelector:
 
     @staticmethod
     def get_by_asset_code(asset_code: str, user: Any = None) -> QuerySet[LostAsset]:
-        qs = LostAsset.objects.filter(
-            asset_recordcode__asset_code=asset_code, is_deleted=False
-        ).select_related(
+        qs = LostAsset.objects.filter(asset_recordcode__asset_code=asset_code, is_deleted=False).select_related(
             "asset_recordcode",
             "asset_recordcode__asset_type_recordcode",
             "asset_recordcode__asset_contract_recordcode",

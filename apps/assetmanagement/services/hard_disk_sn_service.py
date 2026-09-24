@@ -47,9 +47,7 @@ class HardDiskSNService:
             with transaction.atomic():
                 harddisk = HardDiskSN.objects.create(**data)
         except IntegrityError as exc:
-            re_raise_or_map_integrity_error(
-                exc, "harddisk_sn_code", "DUPLICATE_SN_CODE", f"序列号 {sn_code} 已存在"
-            )
+            re_raise_or_map_integrity_error(exc, "harddisk_sn_code", "DUPLICATE_SN_CODE", f"序列号 {sn_code} 已存在")
 
         AuditLogger.log_asset_update(
             asset=harddisk.asset_recordcode,
@@ -232,9 +230,7 @@ class HardDiskSNService:
             )
 
     @staticmethod
-    def _apply_disks(
-        asset: Asset, targets: dict[str, HardDiskSN], disks: list[dict[str, Any]]
-    ) -> tuple[int, int]:
+    def _apply_disks(asset: Asset, targets: dict[str, HardDiskSN], disks: list[dict[str, Any]]) -> tuple[int, int]:
         """执行磁盘写入,返回 (created, updated)"""
         created_count = 0
         updated_count = 0

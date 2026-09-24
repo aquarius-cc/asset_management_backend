@@ -78,10 +78,11 @@
 ```python
 # 示例：ListSerializer 字段精简
 
+
 class AssetListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Asset
-        fields = ['id', 'asset_code', 'asset_name', 'asset_current_status']
+        fields = ["id", "asset_code", "asset_name", "asset_current_status"]
 ```
 
 ### 3.2 前置校验（必须）
@@ -155,6 +156,8 @@ class AssetListSerializer(serializers.ModelSerializer):
 ```python
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
+
+
 class AssetViewSet(ModelViewSet):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -191,6 +194,7 @@ def get_queryset(self):
 
 ```python
 # core/exceptions.py
+
 
 class AssetStatusError(APIException):
     status_code = 400

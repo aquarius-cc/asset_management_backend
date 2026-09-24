@@ -1,4 +1,4 @@
-﻿"""
+"""
 资产读操作 RBAC 回归测试
 
 锚定 AssetViewSet 非 list 动作行级数据隔离(get_queryset 收权 + 自定义动作 _scoped):
@@ -166,7 +166,9 @@ class TestAssetViewReadScope:
     def test_update_by_regular_user_denied(self, api_client: APIClient, user_a: AuthUser, asset_b: Asset) -> None:
         """写动作仅系统管理员可执行,普通用户(即使有部门范围)一律拒绝"""
         api_client.force_authenticate(user=user_a)
-        resp = api_client.patch(f"/api/v1/assets/assets/{asset_b.recordcode}/", {"asset_name": "越权修改"}, format="json")
+        resp = api_client.patch(
+            f"/api/v1/assets/assets/{asset_b.recordcode}/", {"asset_name": "越权修改"}, format="json"
+        )
         assert resp.status_code == status.HTTP_403_FORBIDDEN
 
     def test_destroy_by_regular_user_denied(self, api_client: APIClient, user_a: AuthUser, asset_b: Asset) -> None:

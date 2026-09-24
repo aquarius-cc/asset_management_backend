@@ -30,11 +30,7 @@ class EmployeeSelector:
         Returns:
             员工实例或None
         """
-        employee = (
-            Employee.objects.filter(employee_jobcode=jobcode)
-            .select_related("employee_department")
-            .first()
-        )
+        employee = Employee.objects.filter(employee_jobcode=jobcode).select_related("employee_department").first()
         return cast("Employee | None", employee)
 
     @staticmethod

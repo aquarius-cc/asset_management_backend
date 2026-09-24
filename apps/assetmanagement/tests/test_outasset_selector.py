@@ -63,11 +63,15 @@ class TestOutAssetSelector:
         )
 
         # 创建 AuthUser 并关联 Employee（auth_username 必须匹配 employee_jobcode）
-        auth_user_a = AuthUser.objects.create_user(auth_username="U001", password=TEST_PASSWORD, auth_phone="13700000001")
+        auth_user_a = AuthUser.objects.create_user(
+            auth_username="U001", password=TEST_PASSWORD, auth_phone="13700000001"
+        )
         user.auth_user = auth_user_a
         user.save(update_fields=[])
 
-        auth_user_b = AuthUser.objects.create_user(auth_username="U002", password=TEST_PASSWORD, auth_phone="13700000002")
+        auth_user_b = AuthUser.objects.create_user(
+            auth_username="U002", password=TEST_PASSWORD, auth_phone="13700000002"
+        )
         user_b.auth_user = auth_user_b
         user_b.save(update_fields=[])
 

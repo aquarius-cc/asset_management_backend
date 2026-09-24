@@ -42,9 +42,7 @@ class TestHardDiskSNIntegrityFallback:
         disks = [{"harddisk_sn_code": "SN-DUP-2", "harddisk_type": "SSD"}]
         with patch.object(HardDiskSN.objects, "create", side_effect=_SN_VIOLATION):
             with pytest.raises(AppValidationError) as exc_info:
-                HardDiskSNService.batch_save(
-                    asset_recordcode=asset.recordcode, disks=disks, user=admin_auth_user
-                )
+                HardDiskSNService.batch_save(asset_recordcode=asset.recordcode, disks=disks, user=admin_auth_user)
         assert exc_info.value.error_code == "DUPLICATE_SN_CODE"
 
     def test_non_sn_integrity_error_propagates(self, db: Any, asset: Asset) -> None:

@@ -57,15 +57,9 @@ def _make_user(username, role=None, department=None, is_superuser=False) -> Auth
 def _role_perms(role_code: str) -> list[str]:
     """按角色码查询种子角色的权限码(独立验证用)"""
     role = Role.objects.get(role_code=role_code, is_deleted=False)
-    perm_ids = RolePermission.objects.filter(role_id=role.id, is_deleted=False).values_list(
-        "permission_id", flat=True
-    )
+    perm_ids = RolePermission.objects.filter(role_id=role.id, is_deleted=False).values_list("permission_id", flat=True)
     return list(
-        set(
-            Permission.objects.filter(id__in=perm_ids, is_deleted=False).values_list(
-                "permission_code", flat=True
-            )
-        )
+        set(Permission.objects.filter(id__in=perm_ids, is_deleted=False).values_list("permission_code", flat=True))
     )
 
 
@@ -99,9 +93,7 @@ class TestEffectiveDataScope:
         assert get_effective_data_scope_for_user(user) == {"scope_type": "all"}
 
     def test_dept_manager_scope_includes_children(self):
-        dept = Department.objects.create(
-            department_code="DEPT-A", department_name="A部门", path="/DEPT-A"
-        )
+        dept = Department.objects.create(department_code="DEPT-A", department_name="A部门", path="/DEPT-A")
         Department.objects.create(
             department_code="DEPT-A1", department_name="A1子部门", parent=dept, path="/DEPT-A/DEPT-A1"
         )
@@ -129,9 +121,7 @@ class TestEffectivePermissions:
     def test_superuser_all_permissions(self):
         user = _make_user("su2", is_superuser=True)
         perms = PermissionService.get_effective_permissions_for_user(user)
-        all_codes = list(
-            Permission.objects.filter(is_deleted=False).values_list("permission_code", flat=True)
-        )
+        all_codes = list(Permission.objects.filter(is_deleted=False).values_list("permission_code", flat=True))
         assert set(perms) == set(all_codes)
 
     def test_userrole_union(self):
@@ -162,13 +152,9 @@ class TestEffectivePermissions:
         user = _make_user("nodept2", role=EmployeeRole.ASSET_ADMIN)
         perms = PermissionService.get_effective_permissions_for_user(user)
         read_codes = set(
-            Permission.objects.filter(action="read", is_deleted=False).values_list(
-                "permission_code", flat=True
-            )
+            Permission.objects.filter(action="read", is_deleted=False).values_list("permission_code", flat=True)
         )
-        all_codes = set(
-            Permission.objects.filter(is_deleted=False).values_list("permission_code", flat=True)
-        )
+        all_codes = set(Permission.objects.filter(is_deleted=False).values_list("permission_code", flat=True))
         assert set(perms) == read_codes
         assert len(read_codes) > 0
         assert read_codes < all_codes
@@ -221,8 +207,6 @@ class TestMyPermissionsAPI:
         resp = client.get("/api/v1/auth/my-permissions/")
         assert resp.status_code == 200
         data = resp.data.get("data", {})
-        all_codes = set(
-            Permission.objects.filter(is_deleted=False).values_list("permission_code", flat=True)
-        )
+        all_codes = set(Permission.objects.filter(is_deleted=False).values_list("permission_code", flat=True))
         assert set(data["permissions"]) == all_codes
         assert data["data_scope"] == {"scope_type": "all"}

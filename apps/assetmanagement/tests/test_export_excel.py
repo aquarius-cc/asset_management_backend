@@ -45,9 +45,7 @@ class _FakeView(ExportExcelMixin):
 
 
 def _make_rows(n):
-    return [
-        SimpleNamespace(asset_code=f"A{i:03d}", asset_current_status="in_store") for i in range(n)
-    ]
+    return [SimpleNamespace(asset_code=f"A{i:03d}", asset_current_status="in_store") for i in range(n)]
 
 
 @pytest.mark.parametrize("rows,limit", [(0, 2), (2, 2), (10, 10000)])

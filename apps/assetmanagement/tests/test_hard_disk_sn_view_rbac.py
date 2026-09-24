@@ -1,4 +1,4 @@
-﻿"""
+"""
 硬盘序列号读操作 RBAC 回归测试
 
 锚定 search_by_serial_number / by-asset 端点行级数据隔离:
@@ -83,15 +83,11 @@ class TestHardDiskSNReadScope:
 
     @pytest.fixture
     def disk_a(self, db: Any, asset_a: Asset) -> HardDiskSN:
-        return HardDiskSN.objects.create(
-            asset_recordcode=asset_a, harddisk_sn_code="SN-RB-A1", harddisk_type="SSD"
-        )
+        return HardDiskSN.objects.create(asset_recordcode=asset_a, harddisk_sn_code="SN-RB-A1", harddisk_type="SSD")
 
     @pytest.fixture
     def disk_b(self, db: Any, asset_b: Asset) -> HardDiskSN:
-        return HardDiskSN.objects.create(
-            asset_recordcode=asset_b, harddisk_sn_code="SN-RB-B1", harddisk_type="SSD"
-        )
+        return HardDiskSN.objects.create(asset_recordcode=asset_b, harddisk_sn_code="SN-RB-B1", harddisk_type="SSD")
 
     def test_search_in_scope(self, api_client: APIClient, user_a: AuthUser, disk_a: HardDiskSN) -> None:
         api_client.force_authenticate(user=user_a)

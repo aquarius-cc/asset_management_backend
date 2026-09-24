@@ -2,7 +2,6 @@
 RepairAsset serializers
 """
 
-
 from rest_framework import serializers
 
 from apps.assetmanagement.models import Asset, RepairAsset

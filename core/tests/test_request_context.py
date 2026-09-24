@@ -38,9 +38,7 @@ class TestDefaultTrustsProxyHeadersDisabled:
 
     def test_ignores_xff_when_no_remote_addr(self):
         with override_settings(TRUST_PROXY_HEADERS=False):
-            ip = RequestContextMiddleware._get_client_ip(
-                _req(HTTP_X_FORWARDED_FOR="203.0.113.9")
-            )
+            ip = RequestContextMiddleware._get_client_ip(_req(HTTP_X_FORWARDED_FOR="203.0.113.9"))
         assert ip is None
 
     def test_falls_back_to_remote_addr(self):

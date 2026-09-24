@@ -87,9 +87,7 @@ class TestBrokenAssetViewSet:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["code"] == 0
         assert response.data["data"]["recordcode"] == broken_asset.recordcode
-        assert BrokenAsset.all_objects.filter(
-            recordcode=broken_asset.recordcode, is_deleted=True
-        ).exists()
+        assert BrokenAsset.all_objects.filter(recordcode=broken_asset.recordcode, is_deleted=True).exists()
         assert AssetOperationLog.objects.filter(
             asset_code=broken_asset.asset_recordcode.asset_code,
             operation_type=AssetOperationLog.OperationType.DELETE,
@@ -168,9 +166,7 @@ class TestLostAssetViewSet:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["code"] == 0
         assert response.data["data"]["recordcode"] == lost_asset.recordcode
-        assert LostAsset.all_objects.filter(
-            recordcode=lost_asset.recordcode, is_deleted=True
-        ).exists()
+        assert LostAsset.all_objects.filter(recordcode=lost_asset.recordcode, is_deleted=True).exists()
         assert AssetOperationLog.objects.filter(
             asset_code=lost_asset.asset_recordcode.asset_code,
             operation_type=AssetOperationLog.OperationType.DELETE,
@@ -248,9 +244,7 @@ class TestFoundAssetViewSet:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["code"] == 0
         assert response.data["data"]["recordcode"] == found_asset.recordcode
-        assert FoundAsset.all_objects.filter(
-            recordcode=found_asset.recordcode, is_deleted=True
-        ).exists()
+        assert FoundAsset.all_objects.filter(recordcode=found_asset.recordcode, is_deleted=True).exists()
         assert AssetOperationLog.objects.filter(
             asset_code=found_asset.asset_recordcode.asset_code,
             operation_type=AssetOperationLog.OperationType.DELETE,

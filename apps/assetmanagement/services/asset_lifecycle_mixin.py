@@ -121,22 +121,25 @@ class AssetLifecycleMixin:
         user: Any | None = None,
     ) -> LostAsset:
         """标记资产为已遗失, 返回创建的 LostAsset 记录(batch 响应按该记录序列化)"""
-        return cast(LostAsset, _run_lifecycle_transition(
-            asset_code=asset_code,
-            target_status=Asset.AssetStatus.LOST,
-            fsm_method=AssetFSM.mark_lost,
-            record_model=LostAsset,
-            record_kwargs={
-                "last_known_location": last_known_location,
-                "lost_reason": lost_reason,
-                "lost_description": lost_description,
-            },
-            operation_type=AssetOperationLog.OperationType.LOST,
-            audit_description=f"资产标记为已遗失: {lost_reason}",
-            operator_jobcode=operator_jobcode,
-            operator_name=operator_name,
-            user=user,
-        ))
+        return cast(
+            LostAsset,
+            _run_lifecycle_transition(
+                asset_code=asset_code,
+                target_status=Asset.AssetStatus.LOST,
+                fsm_method=AssetFSM.mark_lost,
+                record_model=LostAsset,
+                record_kwargs={
+                    "last_known_location": last_known_location,
+                    "lost_reason": lost_reason,
+                    "lost_description": lost_description,
+                },
+                operation_type=AssetOperationLog.OperationType.LOST,
+                audit_description=f"资产标记为已遗失: {lost_reason}",
+                operator_jobcode=operator_jobcode,
+                operator_name=operator_name,
+                user=user,
+            ),
+        )
 
     @staticmethod
     @transaction.atomic
@@ -336,7 +339,10 @@ class AssetLifecycleMixin:
             )
 
         return BatchOperationMixin.batch_execute(
-            items=items, process_fn=_create_one, max_batch_size=100, use_transaction=False,
+            items=items,
+            process_fn=_create_one,
+            max_batch_size=100,
+            use_transaction=False,
         )
 
     @staticmethod
@@ -360,7 +366,10 @@ class AssetLifecycleMixin:
             )
 
         return BatchOperationMixin.batch_execute(
-            items=items, process_fn=_create_one, max_batch_size=100, use_transaction=False,
+            items=items,
+            process_fn=_create_one,
+            max_batch_size=100,
+            use_transaction=False,
         )
 
     @staticmethod

@@ -108,9 +108,28 @@ CORS_ALLOW_ALL_ORIGINS = True
 # 【覆盖 base.py 中的 JWT 配置 - 测试专用】
 # =============================================================================
 # 使用更短的 token 有效期,方便测试
+# 必须 merge 而非整替: 整替会丢掉 base 的 USER_ID_FIELD=auth_id,
+# simplejwt 回落默认 id -> AuthUser 无 id 字段 -> issue_tokens 崩溃。
 SIMPLE_JWT = {
+    **SIMPLE_JWT,
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
     "REFRESH_TOKEN_LIFETIME": timedelta(hours=1),
     "ROTATE_REFRESH_TOKENS": False,
     "BLACKLIST_AFTER_ROTATION": False,
+}
+
+# =============================================================================
+# 【DRF 覆盖 - 测试专用】
+# =============================================================================
+# 关闭默认限流类: 全量 suite / mutmut 反复跑会撞 anon 20/minute 触发 429 假红。
+# 保留 rates: 带 throttle_scope 的 View(如 public scan)仍查 rates, 空 dict 会 ImproperlyConfigured。
+REST_FRAMEWORK = {
+    **REST_FRAMEWORK,
+    "DEFAULT_THROTTLE_CLASSES": [],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "10000000/minute",
+        "user": "10000000/minute",
+        "register": "10000000/minute",
+        "login": "10000000/minute",
+    },
 }

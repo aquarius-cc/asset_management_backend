@@ -11,7 +11,7 @@
 
 from typing import TYPE_CHECKING, Any
 
-from django.contrib.auth.hashers import check_password, make_password
+from django.contrib.auth.hashers import check_password, identify_hasher, make_password
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 
@@ -209,8 +209,13 @@ class AuthUser(AbstractBaseUser, PermissionsMixin):
         # 原因:多个激活用户的 email="" 会触发唯一约束冲突,null 值不受唯一约束限制
         if self.email == "":
             self.email = None
-        if self.password and not str(self.password).startswith("pbkdf2_sha256$"):
-            self.password = make_password(self.password)
+        # 仅当 password 仍是明文时才哈希; 已编码哈希(md5$/pbkdf2_*/argon2 等)直接保留,
+        # 否则 MD5 测试哈希会被二次 make_password 变成 check_password 失败。
+        if self.password:
+            try:
+                identify_hasher(str(self.password))
+            except ValueError:
+                self.password = make_password(self.password)
         super().save(*args, **kwargs)
 
     @property

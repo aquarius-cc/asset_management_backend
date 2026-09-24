@@ -71,5 +71,6 @@ class TestSigningKeyFallback:
         user = _make_user(None)
         token = str(RefreshToken.for_user(user).access_token)
 
-        with pytest.raises(jwt.InvalidSignatureError):
+        # PyJWT>=2.4 对空 HMAC key 抛 InvalidKeyError, 旧版才是 InvalidSignatureError
+        with pytest.raises((jwt.InvalidSignatureError, jwt.InvalidKeyError)):
             jwt.decode(token, key="", algorithms=["HS256"])

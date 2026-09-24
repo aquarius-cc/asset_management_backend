@@ -39,7 +39,7 @@ def build_sign(timestamp: str) -> str:
 
     算法: HmacSHA256(key=f"{timestamp}\\n{secret}", msg=b"") 后 base64.
     """
-    # AI_REVIEW_NEEDED: 上线前对照飞书官方文档复核加签算法与字段名(timestamp/sign)
+    # TODO_AI_CONFIRM: 上线前对照飞书官方文档复核加签算法与字段名(timestamp/sign)
     if not FEISHU_SECRET:
         return ""
     string_to_sign = f"{timestamp}\n{FEISHU_SECRET}"

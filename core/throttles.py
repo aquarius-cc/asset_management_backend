@@ -29,7 +29,6 @@ def _extract_login_username(request: Any, owner: str) -> str:
         if hasattr(request, "data"):
             username = request.data.get("auth_username", "")
     except Exception as exc:
-        # AI_REVIEW_NEEDED: silent except 为存量模式, 本次仅原样搬移未改变行为
         logger.warning("%s: 无法读取请求数据: %s", owner, exc)
     return username or "anonymous"
 

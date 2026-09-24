@@ -56,7 +56,7 @@ class AssetLifecycleViewSetBase(  # type: ignore[misc]
         search_fields_extra          - 额外搜索字段元组
     """
 
-    # AI_REVIEW_NEEDED: 子类差异点以类属性注入, 新增子类时必须逐项核对以下声明
+    # 子类差异点以类属性注入, 新增子类时须逐项核对上方 docstring 声明清单
     model = None
     selector = None
     list_serializer = None

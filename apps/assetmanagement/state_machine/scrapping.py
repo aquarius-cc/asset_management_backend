@@ -132,7 +132,7 @@ class ScrappingTransitionsMixin:
 
         asset.asset_current_status = target.value
 
-    # AI_REVIEW_NEEDED: 该路径业务流程不可达(damaged 入边不含 in_use),仅为保留未来业务扩展
+    # 防御性方法: 业务不可达(damaged 入边不含 in_use), 详见下方 docstring
     @classmethod
     def reject_to_in_use(cls, asset: "Asset") -> None:
         """

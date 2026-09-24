@@ -98,7 +98,7 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             logger.warning("WS rejected: missing token", extra={"ws_jobcode": self.jobcode})
             return None
         try:
-            return await database_sync_to_async(_validate_token)(raw_token)  # type: ignore[no-any-return]
+            return await database_sync_to_async(_validate_token)(raw_token)
         except (TokenError, AuthenticationFailed):
             logger.warning("WS rejected: invalid token", extra={"ws_jobcode": self.jobcode})
             return None
@@ -112,7 +112,7 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         protocols = [p.strip().decode("utf-8") for p in protocol_raw.split(b",") if p.strip()]
         for p in protocols:
             if p.count(".") == 2 and len(p) > 20:
-                return p  # type: ignore[no-any-return]
+                return p
         return None
 
     async def disconnect(self, close_code: int) -> None:
@@ -141,8 +141,10 @@ class NotificationConsumer(AsyncWebsocketConsumer):
                 logger.exception("WS in-flight flush failed", extra={"ws_jobcode": self.jobcode})
         await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
-    async def receive(self, text_data: str) -> None:
+    async def receive(self, text_data: str | None = None, bytes_data: bytes | None = None) -> None:
         """接收客户端消息(ping 节流限流, mark_read 合并批量写, R5-02)"""
+        if text_data is None:
+            return
         try:
             data = json.loads(text_data)
         except json.JSONDecodeError:

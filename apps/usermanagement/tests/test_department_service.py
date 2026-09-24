@@ -63,6 +63,18 @@ class TestDepartmentServiceExtra:
             DepartmentService.move_department(department.department_code, department.department_code)
         assert exc_info.value.error_code == "CIRCULAR_REFERENCE"
 
+    def test_department_clean_self_parent_rejected(self, department):
+        """【CT-4 真缺陷锚】parent FK 指向 recordcode,自引用校验须比对 recordcode 而非 pk。
+
+        修复前 parent_id(str) == pk(int) 恒 False,该校验从未生效。
+        """
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        department.parent = department
+        with pytest.raises(DjangoValidationError) as exc_info:
+            department.clean()
+        assert "不能将自己设为上级部门" in str(exc_info.value)
+
     def test_move_department_level_exceeded(self, db):
         root = Department.objects.create(
             department_code="LROOT", department_name="根", department_information="", level=0, path="/LROOT"

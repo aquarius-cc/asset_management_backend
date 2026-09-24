@@ -46,6 +46,8 @@ def send_notification_sync(
 
     try:
         channel_layer = get_channel_layer()
+        if channel_layer is None:
+            raise RuntimeError("channel layer 未配置")
         async_to_sync(channel_layer.group_send)(
             f"notifications_{recipient_jobcode}",
             {
@@ -92,6 +94,8 @@ async def send_notification(
 
     try:
         channel_layer = get_channel_layer()
+        if channel_layer is None:
+            raise RuntimeError("channel layer 未配置")
         await channel_layer.group_send(
             f"notifications_{recipient_jobcode}",
             {
@@ -111,7 +115,7 @@ async def send_notification(
     except Exception as e:
         logger.warning(f"WebSocket 推送失败(通知已持久化): {e}")
 
-    return notification  # type: ignore[no-any-return]
+    return notification
 
 
 @database_sync_to_async

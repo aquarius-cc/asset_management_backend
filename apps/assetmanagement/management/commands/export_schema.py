@@ -29,8 +29,9 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args: Any, **options: Any) -> None:
-        generator = SchemaGenerator()
-        schema = generator.get_schema()
+        # drf-spectacular 未发布 py.typed,strict 下 SchemaGenerator/get_schema 视为 untyped
+        generator = SchemaGenerator()  # type: ignore[no-untyped-call]
+        schema = generator.get_schema()  # type: ignore[no-untyped-call]
 
         format_type = options["format"]
         output_file = options["output"]

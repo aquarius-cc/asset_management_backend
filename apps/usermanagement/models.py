@@ -119,9 +119,10 @@ class Department(BaseModel):
             raise DjangoValidationError({"level": "部门层级不能为负数"})
 
         if self.parent:
-            if self.parent_id == self.pk:
+            # parent FK 指向 recordcode(to_field),parent_id 存的是 str;不可与 int pk 比较
+            if self.parent_id == self.recordcode:
                 raise DjangoValidationError({"parent": "不能将自己设为上级部门"})
-            if not Department.objects.filter(pk=self.parent_id).exists():
+            if not Department.objects.filter(recordcode=self.parent_id).exists():
                 raise DjangoValidationError({"parent": "上级部门不存在"})
 
     def get_children(self) -> "models.QuerySet[Department]":

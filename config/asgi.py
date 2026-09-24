@@ -22,6 +22,7 @@ from apps.notification.routing import websocket_urlpatterns  # noqa: E402
 application = ProtocolTypeRouter(
     {
         "http": django_asgi_app,
-        "websocket": AuthMiddlewareStack(URLRouter(websocket_urlpatterns)),
+        # django-stubs 的 URLRouter 路由类型与 channels re_path URLPattern 桩不完全兼容
+        "websocket": AuthMiddlewareStack(URLRouter(websocket_urlpatterns)),  # type: ignore[arg-type]
     }
 )

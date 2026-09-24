@@ -223,7 +223,7 @@ class EmployeeService:
             old_auth_username,
             new_auth_username,
             operator_jobcode,
-            operator_name,  # type: ignore[arg-type]
+            operator_name,
         )
 
         return employee

@@ -136,7 +136,7 @@ class EmployeeAuditAdapter:
     @staticmethod
     def log_replace_auth_user(
         employee: Any,
-        old_auth_username: str,
+        old_auth_username: str | None,
         new_auth_username: str,
         operator_jobcode: str | None = None,
         operator_name: str | None = None,

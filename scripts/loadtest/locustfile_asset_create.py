@@ -4,14 +4,15 @@ Locust 压测基线 — 资产创建（POST /api/v1/assets/）
 注意：仅在预发独立 DB 使用 loadtest_user_*；每次写入生成唯一 asset_code，避免唯一约束冲突
 """
 
+import json
 import random
 import uuid
 from pathlib import Path
 
 from locust import HttpUser, between, task
 
+
 TOKENS_PATH = Path(__file__).resolve().parent / "tokens.json"
-import json
 TOKENS = json.loads(TOKENS_PATH.read_text(encoding="utf-8")) if TOKENS_PATH.exists() else []
 
 

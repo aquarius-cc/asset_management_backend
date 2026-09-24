@@ -5,7 +5,6 @@ channels/db.py), 与 pytest-django 默认事务包装在 PostgreSQL 上存在连
 故此处使用 transaction=True(autocommit) 并保证每个测试使用唯一用户名/手机号。
 """
 
-import asyncio
 import itertools
 from datetime import timedelta
 from unittest import mock

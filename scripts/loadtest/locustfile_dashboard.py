@@ -3,14 +3,14 @@ Locust 压测基线 — Dashboard 聚合（GET /api/v1/dashboard/overview/ 等�
 场景：高频读取聚合指标，验证聚合查询性能基线
 """
 
+import json
 import random
 from pathlib import Path
 
 from locust import HttpUser, between, task
 
-TOKENS_PATH = Path(__file__).resolve().parent / "tokens.json"
 
-import json
+TOKENS_PATH = Path(__file__).resolve().parent / "tokens.json"
 TOKENS = json.loads(TOKENS_PATH.read_text(encoding="utf-8")) if TOKENS_PATH.exists() else []
 
 

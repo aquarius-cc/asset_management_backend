@@ -15,7 +15,8 @@ from unittest import mock
 import pytest
 from django.db import OperationalError
 
-from apps.assetmanagement.models import Asset
+from apps.assetmanagement.models import Asset, OutAsset
+from apps.assetmanagement.selectors.out_asset_selector import OutAssetSelector
 from apps.assetmanagement.services.out_asset_service import OutAssetService
 from core.exceptions import AppValidationError, ResourceConflictError
 
@@ -156,6 +157,93 @@ class TestOutAssetLockAndUsageType:
         assert result["fail_count"] == 1
         assert result["fail_items"][0]["error_code"] == "ASSET_LOCKED"
 
+    def test_update_outasset_lock_timeout_raises_409(self, storage, asset_type, user, employee):
+        """F-P2-8 续:update 单条路径 OutAsset 行锁超时 → 真 409 ASSET_LOCKED(select_for_update().get 经 guard)"""
+        asset = _make_asset(storage, asset_type, "in_store", "OUT_SVC_UP_409")
+        outasset = OutAssetService.create_outasset(
+            _outasset_payload(asset, applicant=employee, manager=employee),
+            operator_jobcode=employee.employee_jobcode,
+        )
+        qs_type = type(OutAsset.objects.select_for_update())
+        orig_get = qs_type.get
+        error = OperationalError("database is locked")
+
+        def fake_get(self, *args, **kwargs):
+            if getattr(self.query, "select_for_update", False):
+                raise error
+            return orig_get(self, *args, **kwargs)
+
+        with mock.patch.object(qs_type, "get", autospec=True, side_effect=fake_get):
+            with pytest.raises(ResourceConflictError) as exc:
+                OutAssetService.update_outasset(outasset.recordcode, {"outasset_using_location": "更新地点"})
+        assert exc.value.status_code == 409
+        assert exc.value.error_code == "ASSET_LOCKED"
+
+    def test_batch_delete_guard_lock_timeout_raises_409(self, storage, asset_type, user, employee):
+        """F-P2-8 续:批量删除守卫(get_outasset_for_update)锁超时 → Selector 抛 409 ASSET_LOCKED"""
+        asset = _make_asset(storage, asset_type, "in_store", "OUT_SVC_GUARD409")
+        outasset = OutAssetService.create_outasset(
+            _outasset_payload(asset, applicant=employee, manager=employee),
+            operator_jobcode=employee.employee_jobcode,
+        )
+        with mock.patch.object(
+            type(OutAsset.objects.select_for_update()),
+            "first",
+            side_effect=OperationalError("database is locked"),
+        ):
+            with pytest.raises(ResourceConflictError) as exc:
+                OutAssetSelector.get_outasset_for_update(outasset.recordcode)
+        assert exc.value.status_code == 409
+        assert exc.value.error_code == "ASSET_LOCKED"
+
+    def test_batch_delete_mixed_guard_conflict_routes_to_fail_items(self, storage, asset_type, user, employee):
+        """F-P2-8 续:批量删除混合批——一条关联资产锁超时→fail_items ASSET_LOCKED,其余正常取消"""
+        ok_asset = _make_asset(storage, asset_type, "in_store", "OUT_SVC_MIX_OK")
+        boom_asset = _make_asset(storage, asset_type, "in_store", "OUT_SVC_MIX_BM")
+        ok_out = OutAssetService.create_outasset(
+            _outasset_payload(ok_asset, applicant=employee, manager=employee),
+            operator_jobcode=employee.employee_jobcode,
+        )
+        boom_out = OutAssetService.create_outasset(
+            _outasset_payload(boom_asset, applicant=employee, manager=employee),
+            operator_jobcode=employee.employee_jobcode,
+        )
+        qs_type = type(Asset.objects.select_for_update())
+        orig_get = qs_type.get
+        error = OperationalError("database is locked")
+
+        def fake_get(self, *args, **kwargs):
+            if getattr(self.query, "select_for_update", False) and kwargs.get("pk") == boom_asset.pk:
+                raise error
+            return orig_get(self, *args, **kwargs)
+
+        with mock.patch.object(qs_type, "get", autospec=True, side_effect=fake_get):
+            result = OutAssetService.batch_delete_outasset(
+                [ok_out.recordcode, boom_out.recordcode], operator_jobcode=user.employee_jobcode
+            )
+        assert result["success_count"] == 1
+        assert result["fail_count"] == 1
+        assert result["fail_items"][0]["error_code"] == "ASSET_LOCKED"
+
+        ok_asset.refresh_from_db()
+        boom_asset.refresh_from_db()
+        assert ok_asset.asset_current_status == "in_store"
+        assert boom_asset.asset_current_status == "in_use"
+
+    def test_guard_reraises_non_lock_operational_error(self, storage, asset_type, employee):
+        """F-P2-8 续:非锁类 OperationalError(不含 lock)不被吞,原样 re-raise"""
+        asset = _make_asset(storage, asset_type, "in_store", "OUT_SVC_RELK")
+        with mock.patch.object(
+            type(Asset.objects.select_for_update()),
+            "get",
+            side_effect=OperationalError("connection reset by peer"),
+        ):
+            with pytest.raises(OperationalError):
+                OutAssetService.create_outasset(
+                    _outasset_payload(asset, applicant=employee),
+                    operator_jobcode=employee.employee_jobcode,
+                )
+
 
 @pytest.mark.django_db
 class TestCancelOutAssetService:
@@ -190,6 +278,7 @@ class TestCancelOutAssetService:
         assert asset.asset_applicant_recordcode == user
         assert asset.asset_manager_recordcode == user
         assert asset.asset_using_location == "原地点"
+        assert asset.usage_type == "used"  # F-P2-9 回归锚:取消出库不还原 usage_type
 
     def test_cancel_from_recycled_pending_not_restore_storage(self, storage, asset_type, user, employee):
         asset = _make_asset(
@@ -244,3 +333,31 @@ class TestBatchOutAssetService:
         assert result["fail_count"] == 1
         assert result["fail_items"][0]["id"] == "OUT-NOT-EXIST-123"
         assert result["fail_items"][0]["error_code"] == "NOT_FOUND"
+
+    def test_batch_create_lock_timeout_lands_in_fail_items(self, storage, asset_type, employee):
+        """F-P2-8 续:批量创建混合批——一条资产锁超时→fail_items ASSET_LOCKED,其余成功"""
+        ok = _make_asset(storage, asset_type, "in_store", "OUT_SVC_BCLK_OK")
+        boom = _make_asset(storage, asset_type, "in_store", "OUT_SVC_BCLK_BM")
+        qs_type = type(Asset.objects.select_for_update())
+        orig_get = qs_type.get
+        error = OperationalError("database is locked")
+
+        def fake_get(self, *args, **kwargs):
+            if getattr(self.query, "select_for_update", False) and kwargs.get("pk") == boom.pk:
+                raise error
+            return orig_get(self, *args, **kwargs)
+
+        with mock.patch.object(qs_type, "get", autospec=True, side_effect=fake_get):
+            result = OutAssetService.batch_create_outasset(
+                [
+                    _outasset_payload(ok, applicant=employee),
+                    _outasset_payload(boom, applicant=employee),
+                ]
+            )
+        assert result["success_count"] == 1
+        assert result["fail_count"] == 1
+        assert result["fail_items"][0]["error_code"] == "ASSET_LOCKED"
+        ok.refresh_from_db()
+        boom.refresh_from_db()
+        assert ok.asset_current_status == "in_use"
+        assert boom.asset_current_status == "in_store"

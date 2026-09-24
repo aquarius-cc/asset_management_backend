@@ -13,6 +13,7 @@ from django.db.models import Q, QuerySet
 
 from apps.assetmanagement.models import Asset, OutAsset, RecycleAsset
 from core.department_scope import get_asset_linked_queryset_for_user
+from core.locks import guard_lock_conflict
 
 
 class OutAssetSelector:
@@ -168,8 +169,14 @@ class OutAssetSelector:
 
     @staticmethod
     def get_outasset_for_update(recordcode: str) -> OutAsset | None:
-        """锁内按出库单编码取未删除记录(批量删除守卫专用)"""
-        return OutAsset.objects.select_for_update().filter(recordcode=recordcode, is_deleted=False).first()
+        """锁内按出库单编码取未删除记录(批量删除守卫专用)
+
+        F-P2-8 续:锁超时经 guard_lock_conflict 映射为 409 ASSET_LOCKED,
+        由 batch_delete_execute 捕获路由 fail_items(语义同 .get 锁点)。
+        """
+        return guard_lock_conflict(
+            lambda: OutAsset.objects.select_for_update().filter(recordcode=recordcode, is_deleted=False).first()
+        )
 
     @staticmethod
     def get_outassets_by_applicant(applicant_jobcode: str, user: Any = None) -> QuerySet[OutAsset]:

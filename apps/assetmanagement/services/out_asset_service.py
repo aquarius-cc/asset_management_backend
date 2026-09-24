@@ -206,7 +206,7 @@ class OutAssetService:
         outasset = OutAssetSelector.get_outasset_by_record_code(recordcode)
         if not outasset:
             raise AppValidationError(detail=f"出库记录 {recordcode} 不存在", error_code="OUTASSET_NOT_FOUND")
-        outasset = OutAsset.objects.select_for_update().get(pk=outasset.pk)
+        outasset = lock_row_or_409(OutAsset.objects.select_for_update(), pk=outasset.pk)
 
         applicant = update_data.pop("outasset_applicant", None)
         manager = update_data.pop("outasset_manager", None)
@@ -292,7 +292,8 @@ class OutAssetService:
 
         # F-P2-8: 锁超时收敛至核心助手(关联资产锁;出库单持有确已存在的关联资产)
         asset = lock_row_or_409(
-            Asset.objects.select_for_update(), pk=outasset.asset_recordcode.pk  # type: ignore[union-attr]
+            Asset.objects.select_for_update(),
+            pk=outasset.asset_recordcode.pk,  # type: ignore[union-attr]
         )
         if asset.asset_current_status != Asset.AssetStatus.IN_USE:
             raise AppValidationError(

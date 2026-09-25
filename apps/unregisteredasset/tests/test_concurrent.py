@@ -11,13 +11,23 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
-from django.db import transaction
+from django.db import connection, transaction
 
 from apps.assetmanagement.models import Asset, AssetType, RecycleAsset, Storage
 from apps.unregisteredasset.models import UnregisteredAsset
 from apps.unregisteredasset.services import UnregisteredAssetService
 from apps.usermanagement.models import Employee
 from core.exceptions import AppValidationError
+
+
+# 【Q-05】真并发用例守卫：SQLite 不支持 select_for_update 行级锁，多线程写入产生库级写锁
+# 争用，导致「恰好一个成功」等断言随机抖动。CI 的 backend-test job 使用 postgres:16
+# （.github/workflows/ci.yml），该守卫在 CI 不生效，4 个并发用例照常执行；
+# 仅本地 SQLite 跑法跳过。串行语义用例（test_approve_then_approve_fails）不受影响。
+requires_row_lock = pytest.mark.skipif(
+    connection.vendor == "sqlite",
+    reason="SQLite 不支持 select_for_update 行级锁，跳过真并发用例（CI 为 Postgres，不受影响）",
+)
 
 
 @pytest.fixture
@@ -70,6 +80,7 @@ def pending_unregistered(concurrent_fixtures):
 class TestConcurrentApprove:
     """并发审批场景测试"""
 
+    @requires_row_lock
     def test_concurrent_approve_only_one_succeeds(self, pending_unregistered, concurrent_fixtures):
         """两个并发审批请求,只有一个应该成功创建资产"""
         _, admin, _, _ = concurrent_fixtures
@@ -154,6 +165,7 @@ class TestConcurrentApprove:
 class TestConcurrentDelete:
     """并发删除场景测试"""
 
+    @requires_row_lock
     def test_concurrent_delete_only_one_succeeds(self, pending_unregistered, concurrent_fixtures):
         """两个并发删除请求,只有一个应该成功"""
         _, admin, _, _ = concurrent_fixtures
@@ -202,6 +214,7 @@ class TestConcurrentDelete:
 class TestConcurrentApproveAndDelete:
     """并发审批和删除场景测试"""
 
+    @requires_row_lock
     def test_approve_and_delete_cannot_both_succeed(self, pending_unregistered, concurrent_fixtures):
         """并发审批和删除不能同时成功"""
         _, admin, _, _ = concurrent_fixtures
@@ -264,6 +277,7 @@ class TestConcurrentApproveAndDelete:
 class TestConcurrentUpdateAndApprove:
     """并发更新和审批场景测试"""
 
+    @requires_row_lock
     def test_update_and_approve_cannot_both_succeed(self, pending_unregistered, concurrent_fixtures):
         """并发更新和审批不能同时成功修改同一记录"""
         _, admin, _, _ = concurrent_fixtures

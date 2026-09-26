@@ -63,9 +63,11 @@ class RecycleAssetService:
 
         asset = Asset.objects.select_for_update().get(pk=asset.pk)
 
-        # AC-32/AC-33: 回收时标记损坏/遗失
-        if is_broken:
-            # 回收 → recycled_pending → broken(两次 FSM 转换合并为一次 save)
+        # AC-32/AC-33: 回收时标记损坏/遗失。损坏/遗失两条路径的全部差异都收敛在
+        # _finalize_broken_or_lost 内部(由 is_broken 标志驱动, DR-1), 此处只负责
+        # 选择「标记」还是「正常回收」, 不重复实现分支语义。
+        if is_broken or is_lost:
+            # 回收 → recycled_pending → broken/lost(两次 FSM 转换合并为一次 save)
             RecycleAssetService._finalize_broken_or_lost(
                 asset,
                 storage_obj,
@@ -73,19 +75,8 @@ class RecycleAssetService:
                 recycle_asset,
                 operator_jobcode,
                 operator_name,
-                is_broken=True,
-                reason=broken_reason,
-            )
-        elif is_lost:
-            RecycleAssetService._finalize_broken_or_lost(
-                asset,
-                storage_obj,
-                recycle_person_obj,
-                recycle_asset,
-                operator_jobcode,
-                operator_name,
-                is_broken=False,
-                reason=lost_reason,
+                is_broken=is_broken,
+                reason=broken_reason if is_broken else lost_reason,
             )
         else:
             # 正常回收(无损坏/遗失标记)
@@ -195,6 +186,28 @@ class RecycleAssetService:
             operator_name=operator_name or "",
         )
 
+        RecycleAssetService._create_broken_or_lost_record(
+            asset,
+            recycle_asset,
+            recycle_person_obj,
+            is_broken=is_broken,
+            reason=reason,
+        )
+
+    @staticmethod
+    def _create_broken_or_lost_record(
+        asset: Asset,
+        recycle_asset: RecycleAsset,
+        recycle_person_obj: "Employee | None",
+        *,
+        is_broken: bool,
+        reason: str,
+    ) -> None:
+        """回收入参带损坏/遗失标记时的子记录落库(损坏/遗失两分支的唯一实现, DR-1)
+
+        抽取缘由: BR-4 —— 该分支块使 _finalize_broken_or_lost 逻辑行 53 > 50,
+        由 210cfa7 全量 ruff format 展开行数导致(e4e97a6 B1 拆分时为 49)。
+        """
         if is_broken:
             BrokenAsset.objects.create(
                 asset_recordcode=asset,

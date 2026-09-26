@@ -1558,7 +1558,7 @@
         "/api/v1/assets/assets/export/": {
             "get": {
                 "operationId": "v1_assets_assets_export_retrieve",
-                "description": "导出当前列表数据为 Excel。\n\n可见性由 ``self.get_queryset()`` 决定，与列表接口完全一致——\n导出不会放大列表接口的可见范围（此不变量由各 app 的导出测试锁定）。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
+                "description": "导出当前列表数据为 Excel。\n\n取行口径由 ``self.get_export_queryset()`` 决定，默认与列表接口\n完全一致；子类可覆写该钩子以对齐自身的列表口径。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
                 "summary": "导出当前列表数据为 Excel",
                 "parameters": [
                     {
@@ -2250,7 +2250,7 @@
         "/api/v1/assets/broken-assets/export/": {
             "get": {
                 "operationId": "v1_assets_broken_assets_export_retrieve",
-                "description": "导出当前列表数据为 Excel。\n\n可见性由 ``self.get_queryset()`` 决定，与列表接口完全一致——\n导出不会放大列表接口的可见范围（此不变量由各 app 的导出测试锁定）。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
+                "description": "导出当前列表数据为 Excel。\n\n取行口径由 ``self.get_export_queryset()`` 决定，默认与列表接口\n完全一致；子类可覆写该钩子以对齐自身的列表口径。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
                 "summary": "导出当前列表数据为 Excel",
                 "parameters": [
                     {
@@ -2844,7 +2844,7 @@
         "/api/v1/assets/contracts/export/": {
             "get": {
                 "operationId": "v1_assets_contracts_export_retrieve",
-                "description": "导出当前列表数据为 Excel。\n\n可见性由 ``self.get_queryset()`` 决定，与列表接口完全一致——\n导出不会放大列表接口的可见范围（此不变量由各 app 的导出测试锁定）。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
+                "description": "导出当前列表数据为 Excel。\n\n取行口径由 ``self.get_export_queryset()`` 决定，默认与列表接口\n完全一致；子类可覆写该钩子以对齐自身的列表口径。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
                 "summary": "导出当前列表数据为 Excel",
                 "parameters": [
                     {
@@ -3629,7 +3629,7 @@
         "/api/v1/assets/damaged-assets/export/": {
             "get": {
                 "operationId": "v1_assets_damaged_assets_export_retrieve",
-                "description": "导出当前列表数据为 Excel。\n\n可见性由 ``self.get_queryset()`` 决定，与列表接口完全一致——\n导出不会放大列表接口的可见范围（此不变量由各 app 的导出测试锁定）。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
+                "description": "导出当前列表数据为 Excel。\n\n取行口径由 ``self.get_export_queryset()`` 决定，默认与列表接口\n完全一致；子类可覆写该钩子以对齐自身的列表口径。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
                 "summary": "导出当前列表数据为 Excel",
                 "parameters": [
                     {
@@ -4074,7 +4074,7 @@
         "/api/v1/assets/found-assets/export/": {
             "get": {
                 "operationId": "v1_assets_found_assets_export_retrieve",
-                "description": "导出当前列表数据为 Excel。\n\n可见性由 ``self.get_queryset()`` 决定，与列表接口完全一致——\n导出不会放大列表接口的可见范围（此不变量由各 app 的导出测试锁定）。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
+                "description": "导出当前列表数据为 Excel。\n\n取行口径由 ``self.get_export_queryset()`` 决定，默认与列表接口\n完全一致；子类可覆写该钩子以对齐自身的列表口径。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
                 "summary": "导出当前列表数据为 Excel",
                 "parameters": [
                     {
@@ -4994,7 +4994,7 @@
         "/api/v1/assets/lost-assets/export/": {
             "get": {
                 "operationId": "v1_assets_lost_assets_export_retrieve",
-                "description": "导出当前列表数据为 Excel。\n\n可见性由 ``self.get_queryset()`` 决定，与列表接口完全一致——\n导出不会放大列表接口的可见范围（此不变量由各 app 的导出测试锁定）。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
+                "description": "导出当前列表数据为 Excel。\n\n取行口径由 ``self.get_export_queryset()`` 决定，默认与列表接口\n完全一致；子类可覆写该钩子以对齐自身的列表口径。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
                 "summary": "导出当前列表数据为 Excel",
                 "parameters": [
                     {
@@ -6000,7 +6000,7 @@
         "/api/v1/assets/out-assets/export/": {
             "get": {
                 "operationId": "v1_assets_out_assets_export_retrieve",
-                "description": "导出当前列表数据为 Excel。\n\n可见性由 ``self.get_queryset()`` 决定，与列表接口完全一致——\n导出不会放大列表接口的可见范围（此不变量由各 app 的导出测试锁定）。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
+                "description": "导出当前列表数据为 Excel。\n\n取行口径由 ``self.get_export_queryset()`` 决定，默认与列表接口\n完全一致；子类可覆写该钩子以对齐自身的列表口径。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
                 "summary": "导出当前列表数据为 Excel",
                 "parameters": [
                     {
@@ -6729,7 +6729,7 @@
         "/api/v1/assets/recycle-assets/export/": {
             "get": {
                 "operationId": "v1_assets_recycle_assets_export_retrieve",
-                "description": "导出当前列表数据为 Excel。\n\n可见性由 ``self.get_queryset()`` 决定，与列表接口完全一致——\n导出不会放大列表接口的可见范围（此不变量由各 app 的导出测试锁定）。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
+                "description": "导出当前列表数据为 Excel。\n\n取行口径由 ``self.get_export_queryset()`` 决定，默认与列表接口\n完全一致；子类可覆写该钩子以对齐自身的列表口径。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
                 "summary": "导出当前列表数据为 Excel",
                 "parameters": [
                     {
@@ -7152,7 +7152,7 @@
         "/api/v1/assets/repair-assets/export/": {
             "get": {
                 "operationId": "v1_assets_repair_assets_export_retrieve",
-                "description": "导出当前列表数据为 Excel。\n\n可见性由 ``self.get_queryset()`` 决定，与列表接口完全一致——\n导出不会放大列表接口的可见范围（此不变量由各 app 的导出测试锁定）。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
+                "description": "导出当前列表数据为 Excel。\n\n取行口径由 ``self.get_export_queryset()`` 决定，默认与列表接口\n完全一致；子类可覆写该钩子以对齐自身的列表口径。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
                 "summary": "导出当前列表数据为 Excel",
                 "parameters": [
                     {
@@ -8092,7 +8092,7 @@
         "/api/v1/assets/waste-assets/export/": {
             "get": {
                 "operationId": "v1_assets_waste_assets_export_retrieve",
-                "description": "导出当前列表数据为 Excel。\n\n可见性由 ``self.get_queryset()`` 决定，与列表接口完全一致——\n导出不会放大列表接口的可见范围（此不变量由各 app 的导出测试锁定）。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
+                "description": "导出当前列表数据为 Excel。\n\n取行口径由 ``self.get_export_queryset()`` 决定，默认与列表接口\n完全一致；子类可覆写该钩子以对齐自身的列表口径。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
                 "summary": "导出当前列表数据为 Excel",
                 "parameters": [
                     {
@@ -10956,6 +10956,13 @@
                 "parameters": [
                     {
                         "in": "query",
+                        "name": "department_code",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
                         "name": "employee_department__department_code",
                         "schema": {
                             "type": "string"
@@ -11525,7 +11532,7 @@
         "/api/v1/users/employees/active_employees/": {
             "get": {
                 "operationId": "v1_users_employees_active_employees_retrieve",
-                "description": "获取所有在职员工列表(统一格式)",
+                "description": "获取在职员工列表(统一格式)\n\n【BF-048 收窄 2026-09-26】口径由「所有在职员工」改为「调用者部门范围内的\n在职员工」,与 list/retrieve 同口径(前端无消费方,收窄零破坏面)。",
                 "tags": [
                     "v1"
                 ],
@@ -11678,7 +11685,7 @@
         "/api/v1/users/employees/export/": {
             "get": {
                 "operationId": "v1_users_employees_export_retrieve",
-                "description": "导出当前列表数据为 Excel。\n\n可见性由 ``self.get_queryset()`` 决定，与列表接口完全一致——\n导出不会放大列表接口的可见范围（此不变量由各 app 的导出测试锁定）。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
+                "description": "导出当前列表数据为 Excel。\n\n取行口径由 ``self.get_export_queryset()`` 决定，默认与列表接口\n完全一致；子类可覆写该钩子以对齐自身的列表口径。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
                 "summary": "导出当前列表数据为 Excel",
                 "parameters": [
                     {
@@ -11730,9 +11737,16 @@
         "/api/v1/users/employees/search/": {
             "get": {
                 "operationId": "v1_users_employees_search_list",
-                "description": "在员工姓名、工号、手机号、部门名称等关键字段中进行不区分大小写的模糊搜索。\n✅ 支持中文/英文/数字混合搜索 | ✅ 自动去重 | ✅ 分页返回",
+                "description": "在员工姓名、工号、手机号、部门名称等关键字段中进行不区分大小写的模糊搜索。\n✅ 支持中文/英文/数字混合搜索 | ✅ 自动去重 | ✅ 分页返回\n本端点与列表共享取行口径：可叠加 employee_status / department_code 收窄结果。",
                 "summary": "全局模糊搜索员工",
                 "parameters": [
+                    {
+                        "in": "query",
+                        "name": "department_code",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
                     {
                         "in": "query",
                         "name": "employee_department__department_code",
@@ -11851,8 +11865,15 @@
         "/api/v1/users/employees/statistics/": {
             "get": {
                 "operationId": "v1_users_employees_statistics_list",
-                "description": "获取员工统计信息(统一格式)",
+                "description": "获取员工统计信息(统一格式)\n\n【口径统一 2026-09-26】统计 = 列表当前可见范围的聚合，故传入\n``filter_queryset`` 后的 queryset；此前固定统计全量，导致 OpenAPI\n已声明的 ``employee_status`` / ``department_code`` 在本端点形同虚设。",
                 "parameters": [
+                    {
+                        "in": "query",
+                        "name": "department_code",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
                     {
                         "in": "query",
                         "name": "employee_department__department_code",

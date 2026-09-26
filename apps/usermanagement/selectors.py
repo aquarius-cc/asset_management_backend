@@ -7,6 +7,7 @@ from typing import Any, cast
 from django.db.models import Count, Q, QuerySet
 
 from apps.usermanagement.models import Department, Employee
+from core.department_scope import get_employee_scoped_queryset_for_user
 
 
 class EmployeeSelector:
@@ -50,7 +51,10 @@ class EmployeeSelector:
         )
 
     @staticmethod
-    def search_employees(keyword: str | None = None) -> QuerySet[Employee]:
+    def search_employees(
+        keyword: str | None = None,
+        base: QuerySet[Employee] | None = None,
+    ) -> QuerySet[Employee]:
         """
         搜索员工(支持文本字段模糊匹配 + 状态别名映射)
 
@@ -64,11 +68,14 @@ class EmployeeSelector:
 
         Args:
             keyword: 搜索关键词
+            base: 行级基准 queryset(通常为列表 queryset)。传入时在其上叠加
+                搜索条件,使调用方的行基准与 select_related 集合得以保持唯一
+                (DR-1/DR-3);为 None 时回落到本 Selector 自带基准。
 
         Returns:
             员工查询集(已 select_related employee_department,已 distinct)
         """
-        queryset = Employee.objects.select_related("employee_department")
+        queryset = base if base is not None else Employee.objects.select_related("employee_department")
 
         if keyword:
             search_conditions = Q()
@@ -104,13 +111,32 @@ class EmployeeSelector:
         """
         获取带认证账号绑定状态的员工查询集
 
-        【EmployeeViewSet】queryset 使用,预加载 auth_user 与部门,
-        供列表接口展示绑定状态,避免 N+1 查询。
+        【EmployeeViewSet】queryset 使用,预加载 auth_user 与部门,避免 N+1。
+        【订正 2026-09-26】原 docstring 称"供列表接口展示绑定状态"不准确:
+        列表序列化器 EmployeeSerializer 无 auth_user 字段(见
+        employee_serializers.py fields),绑定关系实际由
+        EmployeeDetailSerializer(fields="__all__") 的详情/retrieve 路径消费。
 
         Returns:
             员工查询集(已 select_related employee_department、auth_user)
         """
         return Employee.objects.select_related("employee_department", "auth_user")
+
+    @staticmethod
+    def get_queryset_for_user(user: Any) -> QuerySet[Employee]:
+        """员工域行级隔离(BF-048):按调用者部门范围收窄,供 EmployeeViewSet.get_queryset 统一入口。
+
+        【与 UnregisteredAssetSelector.get_queryset_for_user 同型】View 层只调本方法,
+        范围规则集中于 core.department_scope(DR-1),故 list / retrieve / search /
+        statistics / export 五条路径自动同口径,任一路径单独实现即构成分叉。
+
+        Args:
+            user: 请求用户(AuthUser)
+
+        Returns:
+            带绑定状态的员工查询集 + 行级部门收窄(None 不限 / [] 空集 / 非空按部门)
+        """
+        return get_employee_scoped_queryset_for_user(user, EmployeeSelector.get_queryset_with_bind_status())
 
     @staticmethod
     def get_employees_by_department_instance(department: Department) -> QuerySet[Employee]:
@@ -142,7 +168,7 @@ class EmployeeSelector:
         return Employee.objects.filter(employee_status="active").select_related("employee_department")
 
     @staticmethod
-    def get_employee_statistics() -> dict[str, Any]:
+    def get_employee_statistics(queryset: QuerySet[Employee] | None = None) -> dict[str, Any]:
         """
         获取员工统计信息
 
@@ -151,6 +177,19 @@ class EmployeeSelector:
 
         【性能优化】使用 aggregate + annotate 替代循环逐条查询,避免 N+1 问题
 
+        【语义】统计 = **列表当前可见范围的聚合**。传入 queryset 时在其上
+        聚合,使统计与列表/搜索/导出四条路径口径一致(DR-1/DR-3);为 None
+        时统计全量,与历史行为等价。
+
+        【Django 行为前提】(1) ``aggregate()`` 在非 distinct 查询上会清除
+        继承的 order_by,故调用方注入的排序不影响聚合值;(2) 两处
+        ``values().annotate()`` 的显式 ``order_by()`` 替换继承序且目标字段
+        均在 values() 内,不会把额外字段拉进 GROUP BY。**若调用方的
+        ordering 增列多值关系字段(reverse FK/M2M),上述前提失效,需重新验证。**
+
+        Args:
+            queryset: 行级基准查询集(通常为已筛选的列表 queryset)
+
         Returns:
             dict: 包含以下键:
                 - total_employees: 员工总数
@@ -158,16 +197,14 @@ class EmployeeSelector:
                 - by_status: 按状态分组的统计 {status_code: {'name': status_name, 'count': count}}
                 - by_department: 按部门分组的统计 {department_name: count}
         """
-        from django.db.models import Q
+        base = queryset if queryset is not None else Employee.objects.all()
 
         # 使用 aggregate 一次查询获取总数和在职数
-        stats = Employee.objects.aggregate(total=Count("id"), active=Count("id", filter=Q(employee_status="active")))
+        stats = base.aggregate(total=Count("id"), active=Count("id", filter=Q(employee_status="active")))
 
         # 使用 annotate 按状态分组,一次查询完成
         status_stats = {}
-        status_counts = (
-            Employee.objects.values("employee_status").annotate(count=Count("id")).order_by("employee_status")
-        )
+        status_counts = base.values("employee_status").annotate(count=Count("id")).order_by("employee_status")
         status_name_map = dict(Employee.EMPLOYEE_STATUS_CHOICES)
         for item in status_counts:
             code = item["employee_status"]
@@ -176,7 +213,7 @@ class EmployeeSelector:
         # 使用 annotate 按部门分组,一次查询完成
         department_stats = {}
         dept_counts = (
-            Employee.objects.filter(employee_department__isnull=False)
+            base.filter(employee_department__isnull=False)
             .values("employee_department__department_name")
             .annotate(count=Count("id"))
             .order_by("employee_department__department_name")

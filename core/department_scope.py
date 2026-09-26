@@ -236,3 +236,22 @@ def get_asset_linked_queryset_for_user(user: Any, queryset: QuerySet[Any, Any]) 
     if dept_codes is None:
         return queryset
     return queryset.filter(build_asset_department_q(dept_codes))
+
+
+def get_employee_scoped_queryset_for_user(user: Any, queryset: QuerySet[Any, Any]) -> QuerySet[Any, Any]:
+    """
+    通用行级过滤:员工域按调用者部门范围收窄(BF-048)。
+
+    完全委托 get_department_codes_for_user + filter_queryset_by_department,
+    不新增任何范围规则(DR-1),语义与 OperationLogSelector._scope_by_user 一致:
+    - None(无限制): superuser / system_admin / auditor / 无 Employee 记录
+    - 空列表(无数据): 部门级角色但无部门,最严兜底
+    - 非空列表: dept_manager = 本部门 + 所有下级部门; asset_admin/regular_user = 仅本部门
+
+    Employee 的部门归属字段是 employee_department(部门挂在员工上,与资产的三路径
+    归属不同),故直接用 filter_queryset_by_department 的通用实现。
+
+    用法(EmployeeViewSet.get_queryset —— list/retrieve/search/statistics/export 统一入口):
+        qs = get_employee_scoped_queryset_for_user(request.user, Employee.objects.all())
+    """
+    return filter_queryset_by_department(queryset, get_department_codes_for_user(user), "employee_department")

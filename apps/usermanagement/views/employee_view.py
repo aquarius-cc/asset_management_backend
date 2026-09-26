@@ -4,6 +4,7 @@
 
 from typing import TYPE_CHECKING, Any
 
+from django.db.models import QuerySet
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.types import OpenApiTypes
@@ -12,6 +13,7 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 
+from apps.usermanagement.employee_filters import EmployeeFilterSet
 from apps.usermanagement.models import Employee, EmployeeRole, EmployeeStatus
 from apps.usermanagement.selectors import EmployeeSelector
 from apps.usermanagement.serializers import (
@@ -26,6 +28,7 @@ from apps.usermanagement.serializers import (
 from apps.usermanagement.services import EmployeeService
 from apps.usermanagement.views.employee_auth_mixin import EmployeeAuthMixin
 from core.batch_mixins import BatchDeleteViewMixin, BatchResponseHelper
+from core.department_scope import get_employee_scoped_queryset_for_user
 from core.excel_export import ExportExcelMixin
 from core.mixins import LoggingMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
@@ -111,7 +114,11 @@ class EmployeeViewSet(  # type: ignore[misc]
         return [permission() for permission in permission_classes]
 
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ["employee_status", "employee_department__department_code"]
+    #: 【DR-1 收敛】显式 FilterSet 而非 filterset_fields：员工部门编码挂在关联对象上，
+    #: 声明式 filterset_fields 无法把对外参数名 department_code 映射到
+    #: employee_department__department_code。filterset_class 会**取代**
+    #: filterset_fields，新增筛选维度必须在 employee_filters.py 声明，否则静默失效。
+    filterset_class = EmployeeFilterSet
     search_fields = ["employee_name", "employee_jobcode", "employee_phone"]
     ordering_fields = [
         "employee_jobcode",
@@ -129,6 +136,56 @@ class EmployeeViewSet(  # type: ignore[misc]
         "employee_jobcode",
     ]
     lookup_field = "employee_jobcode"
+
+    # ---------- 取行口径单一入口（DR-1 / DR-3） ----------
+
+    def get_queryset(self) -> QuerySet[Employee]:
+        """员工域行级隔离单一入口(BF-048)：按调用者部门范围收窄。
+
+        覆写 DRF 默认 ``get_queryset()`` 而非只改 ``_filtered_employee_queryset``,
+        因为 ``get_object()`` 内部即 ``filter_queryset(get_queryset())`` —— 挂在这里
+        可一次覆盖 list / retrieve / search / statistics / export 五条读路径,
+        含 ``retrieve``(工号可枚举)这一原先无任何收窄的旁路。
+
+        范围规则集中在 ``core.department_scope``(DR-1),与
+        ``OperationLogSelector._scope_by_user`` 同语义：dept_manager 见本部门+下级,
+        asset_admin/regular_user 见本部门,system_admin/auditor/superuser 不限,
+        部门级角色但无部门则空集。
+        """
+        return EmployeeSelector.get_queryset_for_user(self.request.user)
+
+    def _filtered_employee_queryset(self, keyword: str = "") -> QuerySet[Employee]:
+        """员工域取行口径唯一实现，供 list / search / statistics / export 共用。
+
+        步骤固定为「列表同源基准 -> search_employees 搜索语义 -> DRF 声明式筛选」，
+        任一路径单独实现即构成口径分叉（BF-047 的成因）。
+
+        Args:
+            keyword: 搜索关键词。**列表口径**的搜索（与 ``/search/`` 端点同源）；
+                空串表示不启用搜索。DRF ``SearchFilter`` 的 ``?search=`` 是另一套
+                更窄的语义（``search_fields`` 不含部门名、无状态别名映射），
+                前端只应使用 ``keyword``。
+
+        Returns:
+            员工查询集（已按声明式筛选与 ordering 收窄）
+        """
+        base = self.get_queryset()
+        keyword = keyword.strip()
+        if keyword:
+            base = EmployeeSelector.search_employees(keyword, base=base)
+        return self.filter_queryset(base)
+
+    def get_export_queryset(self) -> QuerySet[Employee]:
+        """导出取行口径：与列表同源（含 ``keyword`` 与声明式筛选）。
+
+        覆写 :meth:`core.excel_export.ExportExcelMixin.get_export_queryset` 的默认
+        实现，使导出的行集合等于用户在列表上看到的行集合。
+
+        注意 ``?search=`` 走 DRF SearchFilter 的窄口径，与列表的 ``keyword``
+        语义不同（见 :meth:`_filtered_employee_queryset` 说明）。
+        """
+        keyword = str(self.request.query_params.get("keyword", ""))
+        return self._filtered_employee_queryset(keyword)
 
     def update(self, request: "Request", *args: Any, **kwargs: Any) -> "Response":
         """更新员工(含审计日志)"""
@@ -196,20 +253,29 @@ class EmployeeViewSet(  # type: ignore[misc]
     @action(detail=False, methods=["get"], url_path="by-auth-user/(?P<auth_id>[^/.]+)")
     def by_auth_user(self, request: "Request", auth_id: str | None = None) -> "Response":
         """根据 AuthUser ID 查询绑定的 Employee"""
-        try:
-            employee = Employee.objects.select_related("employee_department", "auth_user").get(auth_user_id=auth_id)
-            serializer = EmployeeDetailSerializer(employee)
-            return success_response(data=serializer.data)
-        except Employee.DoesNotExist:
+        # 【BF-048】经 get_queryset() 收窄，避免绕过取行口径直连 Employee.objects。
+        # auth_id 来自 URL 捕获组（str），AuthUser 主键是整数：先校验再转换。
+        # 不可在转换失败时回落为 None —— filter(auth_user_id=None) 会去匹配
+        # 「未绑定账号的员工」而误返 200（由 test_by_auth_user_with_malformed_id
+        # _returns_404 锚定）；畸形 ID 一律 404，原实现是 ValueError -> 500。
+        if auth_id is None or not auth_id.isdigit():
             return error_response(
                 message="未找到绑定的员工",
                 status_code=status.HTTP_404_NOT_FOUND,
             )
+        employee = self.get_queryset().filter(auth_user_id=int(auth_id)).first()
+        if employee is None:
+            return error_response(
+                message="未找到绑定的员工",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+        return success_response(data=EmployeeDetailSerializer(employee).data)
 
     @action(detail=False, methods=["get"], url_path="employees/(?P<employee_jobcode>[^/.]+)")
     def get_employee_by_jobcode(self, request: "Request", employee_jobcode: str | None = None) -> "Response":
         """根据工号查询员工(统一格式)"""
-        employee = get_object_or_404(self.queryset, employee_jobcode=employee_jobcode)
+        # 【BF-048】原用 self.queryset(未收窄),工号可枚举越权读;改走 get_queryset()
+        employee = get_object_or_404(self.get_queryset(), employee_jobcode=employee_jobcode)
         serializer = EmployeeDetailSerializer(employee)
         return success_response(data=serializer.data)
 
@@ -249,18 +315,27 @@ class EmployeeViewSet(  # type: ignore[misc]
     )
     @action(detail=False, methods=["get"], url_path="statistics")
     def statistics(self, request: "Request") -> "Response":
-        """获取员工统计信息(统一格式)"""
+        """获取员工统计信息(统一格式)
+
+        【口径统一 2026-09-26】统计 = 列表当前可见范围的聚合，故传入
+        ``filter_queryset`` 后的 queryset；此前固定统计全量，导致 OpenAPI
+        已声明的 ``employee_status`` / ``department_code`` 在本端点形同虚设。
+        """
         # 【AGENTS 规范 - P1-10】统计逻辑迁移到 EmployeeSelector.get_employee_statistics()
-        stats = EmployeeSelector.get_employee_statistics()
+        stats = EmployeeSelector.get_employee_statistics(self.filter_queryset(self.get_queryset()))
         return success_response(data=stats)
 
     # 显式指定 url_path 后,后端实际路径以 url_path 值为准。
     # @action 装饰器未指定 url_path,会默认使用方法名 active_employees
     @action(detail=False, methods=["get"], url_path="active_employees")
     def active_employees(self, request: "Request") -> "Response":
-        """获取所有在职员工列表(统一格式)"""
+        """获取在职员工列表(统一格式)
+
+        【BF-048 收窄 2026-09-26】口径由「所有在职员工」改为「调用者部门范围内的
+        在职员工」,与 list/retrieve 同口径(前端无消费方,收窄零破坏面)。
+        """
         # 【AGENTS 规范 - P1-10】使用 EmployeeSelector.get_active_employees() 替代直接 ORM 调用
-        queryset = EmployeeSelector.get_active_employees()
+        queryset = get_employee_scoped_queryset_for_user(request.user, EmployeeSelector.get_active_employees())
 
         page = self.paginate_queryset(queryset)
         if page is not None:
@@ -301,7 +376,8 @@ class EmployeeViewSet(  # type: ignore[misc]
         summary="全局模糊搜索员工",
         description=(
             "在员工姓名、工号、手机号、部门名称等关键字段中进行不区分大小写的模糊搜索。\n"
-            "✅ 支持中文/英文/数字混合搜索 | ✅ 自动去重 | ✅ 分页返回"
+            "✅ 支持中文/英文/数字混合搜索 | ✅ 自动去重 | ✅ 分页返回\n"
+            "本端点与列表共享取行口径：可叠加 employee_status / department_code 收窄结果。"
         ),
         parameters=[
             OpenApiParameter(
@@ -311,6 +387,11 @@ class EmployeeViewSet(  # type: ignore[misc]
                 description="搜索关键词",
                 required=True,
             ),
+            # 【不要重复声明筛选参数】employee_status / department_code（含
+            # employee_department__department_code 别名）由 EmployeeFilterSet
+            # 自动注入到本 action。drf-spectacular 对同名参数是「手工覆盖自动」
+            # 而非合并：手工写一遍会削平自动注入的 enum / title / 选项说明
+            # （BF-047 回归）。新增筛选维度请改 employee_filters.py。
             OpenApiParameter(name="page", type=OpenApiTypes.INT, location=OpenApiParameter.QUERY),
             OpenApiParameter(name="page_size", type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, default=20),
         ],
@@ -323,13 +404,17 @@ class EmployeeViewSet(  # type: ignore[misc]
 
         【AGENTS 规范 - P3-29】搜索逻辑(含状态别名映射)已迁移到
         EmployeeSelector.search_employees(),视图层仅负责调用 Selector 和分页。
+
+        【口径统一 2026-09-26】改用 :meth:`_filtered_employee_queryset`,使
+        department_code / employee_status 在搜索路径上真正生效（此前
+        ContactsView 搜索分支传部门筛选却被静默忽略）。
         """
         keyword = request.query_params.get("keyword", "").strip()
         if not keyword:
             return error_response(message="请提供搜索关键词")
 
         # 【AGENTS 规范 - P3-29】使用 EmployeeSelector 替代视图层手写 Q 条件
-        queryset = EmployeeSelector.search_employees(keyword)
+        queryset = self._filtered_employee_queryset(keyword)
 
         page = self.paginate_queryset(queryset)
         if page is not None:

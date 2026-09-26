@@ -55,6 +55,19 @@ class ExportExcelMixin:
     # DRF: QuerySet.iterator() 在 prefetch_related 后必须提供 chunk_size
     _EXPORT_ITER_CHUNK_SIZE = DEFAULT_ITER_CHUNK_SIZE
 
+    def get_export_queryset(self) -> Any:
+        """导出取行口径钩子（默认与列表同源）。
+
+        【不变量】导出行集合 = ``self.get_queryset()``，故导出不会放大
+        列表接口的可见范围（各 app 的导出测试锁定此性质）。
+
+        子类若列表口径与 ``get_queryset()`` 不同（如 ``EmployeeViewSet``
+        的列表走 ``search_employees`` 语义），覆写本方法对齐自身列表口径，
+        **不得**直接改本方法的默认实现——11 个导出端点的默认行为由此保持
+        字节级不变（DR-1）。
+        """
+        return self.get_queryset()  # type: ignore[attr-defined]
+
     @extend_schema(
         summary="导出当前列表数据为 Excel",
         parameters=EXPORT_PAGINATION_PARAMETERS,
@@ -64,15 +77,15 @@ class ExportExcelMixin:
     def export_excel(self, request: Any) -> HttpResponseBase | Response:
         """导出当前列表数据为 Excel。
 
-        可见性由 ``self.get_queryset()`` 决定，与列表接口完全一致——
-        导出不会放大列表接口的可见范围（此不变量由各 app 的导出测试锁定）。
+        取行口径由 ``self.get_export_queryset()`` 决定，默认与列表接口
+        完全一致；子类可覆写该钩子以对齐自身的列表口径。
 
         支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受
         ``EXPORT_MAX_ROWS`` 兜底保护。
         """
         try:
             return build_excel_export_response(
-                rows=self.get_queryset(),  # type: ignore[attr-defined]
+                rows=self.get_export_queryset(),
                 columns=self.export_columns,
                 filename=self.export_filename,
                 sheet_name=self.export_sheet_name,

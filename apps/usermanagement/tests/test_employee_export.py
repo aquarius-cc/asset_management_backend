@@ -1,14 +1,17 @@
-"""员工导出测试：权限矩阵 + 可见性一致性 + 分批参数。
+"""员工导出测试：权限矩阵 + 可见性一致性 + 筛选口径 + 分批参数。
 
 【锁定的不变量】
 1. **可见性一致**：导出内容必须与列表接口可见的员工集合完全一致。
-   ``ExportExcelMixin`` 复用 ``self.get_queryset()``，与列表同源，
-   因此结构上不可能偏移；本文件把该性质锁死，防将来给列表加过滤而
-   遗漏导出。
+   ``EmployeeViewSet`` 覆写 ``get_export_queryset()``，与列表共用
+   ``_filtered_employee_queryset()``，因此结构上不可能偏移；本文件把该性质
+   锁死，防将来给列表加过滤而遗漏导出。
 2. **导出须走权限矩阵**：``EmployeeViewSet`` 有自定义 ``get_permissions``，
    若 ``export_excel`` 落入 ``else`` 分支则只校验 ``IsAuthenticated``，
    任意登录用户即可导出全量员工档案。故必须有显式 ``CanExportExcel`` 分支。
 3. **最小化 PII**：导出列不含 ``employee_phone``。
+4. **筛选口径（BF-047）**：导出必须同时尊重 ``keyword``（列表搜索口径）与
+   ``employee_status`` / ``department_code``（声明式筛选），不得出现"导出行 ⊋
+   列表可见行"。另见 ``test_employee_filters.py``（列表/搜索/统计同源断言）。
 """
 
 import io
@@ -19,7 +22,7 @@ from django.urls import reverse
 from openpyxl import load_workbook
 from rest_framework.test import APIRequestFactory, force_authenticate
 
-from apps.usermanagement.models import Department, Employee, EmployeeRole
+from apps.usermanagement.models import Department, Employee, EmployeeRole, EmployeeStatus
 from apps.usermanagement.views import EmployeeViewSet
 
 
@@ -28,6 +31,7 @@ User = get_user_model()
 TEST_PASSWORD = "Test@12345"
 EXPORT_URL = reverse("employees-export-excel")
 LIST_URL = reverse("employees-list")
+SEARCH_URL = reverse("employees-global-search")
 SHEET_NAME = "员工列表"
 
 #: 与 operation_log 导出测试同因：response.close() 触发 request_finished，
@@ -59,9 +63,7 @@ def _make_user(username, role, department=None):
 
 @pytest.fixture
 def department():
-    return Department.objects.create(
-        department_code="DEPT-EXP", department_name="导出测试部"
-    )
+    return Department.objects.create(department_code="DEPT-EXP", department_name="导出测试部")
 
 
 @pytest.fixture
@@ -98,14 +100,18 @@ def _headers(sheet):
     return [cell.value for cell in next(sheet.iter_rows(min_row=1, max_row=1))]
 
 
+def _exported_jobcodes(user, query=""):
+    """导出内容中的工码集合（排除表头与空尾行）。"""
+    rows = _export_sheet(user, query).iter_rows(min_row=2, max_col=1, values_only=True)
+    return {row[0] for row in rows if row[0]}
+
+
 # --------------------------------------------------------------------------
 # 权限矩阵
 # --------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize(
-    "role", [EmployeeRole.SYSTEM_ADMIN, EmployeeRole.ASSET_ADMIN, EmployeeRole.AUDITOR]
-)
+@pytest.mark.parametrize("role", [EmployeeRole.SYSTEM_ADMIN, EmployeeRole.ASSET_ADMIN, EmployeeRole.AUDITOR])
 def test_export_allowed_for_export_roles(employees, department, role):
     user = _make_user(f"emp-exp-{role}", role, department)
     assert _export(user).status_code == 200
@@ -135,11 +141,7 @@ def test_export_denied_for_anonymous(employees):
 def test_export_matches_list_visibility(employees, department):
     """导出内容必须与列表接口可见集合一致。"""
     user = _make_user("emp-vis", EmployeeRole.ASSET_ADMIN, department)
-    listed = set(
-        Employee.objects.filter(employee_department=department).values_list(
-            "employee_jobcode", flat=True
-        )
-    )
+    listed = set(Employee.objects.filter(employee_department=department).values_list("employee_jobcode", flat=True))
     sheet = _export_sheet(user)
     exported = {row[0] for row in sheet.iter_rows(min_row=2, max_col=1, values_only=True)}
     assert exported == listed
@@ -156,6 +158,99 @@ def test_export_does_not_leak_phone(employees, department):
 
 
 # --------------------------------------------------------------------------
+# 筛选口径（BF-047 回归屏障）
+# --------------------------------------------------------------------------
+
+
+#: 三名筛选夹具员工共有的搜索词（走 employee_description 通道）
+FILTER_KEYWORD = "花名册在册"
+
+
+@pytest.fixture
+def filter_scenario(db):
+    """导出筛选测试专用数据（不复用 employees，避免污染既有行数断言）。
+
+    DEPT-F1：EXP-ACTIVE / EXP-LEFT（同名不同状态）
+    DEPT-F2：EXP-OTHER（不匹配 keyword 的对照组）
+    """
+    dept_f1 = Department.objects.create(department_code="DEPT-F1", department_name="筛选甲部")
+    dept_f2 = Department.objects.create(department_code="DEPT-F2", department_name="筛选乙部")
+    for index, (code, dept, status_value) in enumerate(
+        [
+            ("EXP-ACTIVE", dept_f1, EmployeeStatus.ACTIVE),
+            ("EXP-LEFT", dept_f1, EmployeeStatus.LEFT),
+            ("EXP-OTHER", dept_f2, EmployeeStatus.ACTIVE),
+        ]
+    ):
+        Employee.objects.create(
+            employee_jobcode=code,
+            employee_name=f"导出筛选{index}",
+            employee_department=dept,
+            employee_status=status_value,
+            employee_phone=_phone(),
+            employee_description=FILTER_KEYWORD,
+        )
+    return {"dept_f1": dept_f1, "dept_f2": dept_f2}
+
+
+def test_export_respects_keyword(filter_scenario):
+    """BF-047 核心：搜索态导出必须只含搜索结果行（此前导出全量）。
+
+    与 ``/search/`` 端点逐行比对，确保导出与用户所见的搜索列表同集合。
+
+    【BF-048 2026-09-26 订正】调用方是 DEPT-F1 的 asset_admin，故 EXP-OTHER
+    （DEPT-F2）已被行级收窄排除，不再属于「搜索可见集」。收窄语义的三态断言在
+    ``test_employee_rbac_scope.py``，本用例只守「导出 == 搜索可见集」这一条。
+    """
+    from rest_framework.test import APIClient
+
+    user = _make_user("exp-kw", EmployeeRole.ASSET_ADMIN, filter_scenario["dept_f1"])
+    client = APIClient()
+    client.force_authenticate(user=user)
+    payload = client.get(SEARCH_URL, {"keyword": FILTER_KEYWORD, "page_size": 100}).data["data"]
+    visible = {row["employee_jobcode"] for row in payload["results"]}
+
+    assert visible == {"EXP-ACTIVE", "EXP-LEFT"}
+    assert _exported_jobcodes(user, f"?keyword={FILTER_KEYWORD}") == visible
+
+
+def test_export_keyword_narrows_below_search_result(filter_scenario):
+    """keyword 与部门叠加：导出 ⊆ 搜索结果，二者取交集。"""
+    user = _make_user("exp-kw-dept", EmployeeRole.ASSET_ADMIN, filter_scenario["dept_f1"])
+    assert _exported_jobcodes(user, f"?keyword={FILTER_KEYWORD}&department_code=DEPT-F1") == {
+        "EXP-ACTIVE",
+        "EXP-LEFT",
+    }
+
+
+def test_export_respects_employee_status(filter_scenario):
+    user = _make_user("exp-status", EmployeeRole.ASSET_ADMIN, filter_scenario["dept_f1"])
+    assert _exported_jobcodes(user, f"?employee_status={EmployeeStatus.LEFT}") == {"EXP-LEFT"}
+
+
+def test_export_respects_department_code(filter_scenario):
+    """部门筛选生效：不得导出 DEPT-F2 的行（_make_user 自身属 DEPT-F1）。"""
+    user = _make_user("exp-dept", EmployeeRole.ASSET_ADMIN, filter_scenario["dept_f1"])
+    assert _exported_jobcodes(user, "?department_code=DEPT-F1") == {"EXP-ACTIVE", "EXP-LEFT", "exp-dept"}
+
+
+def test_export_department_alias_equivalence(filter_scenario):
+    """双名兼容：历史别名与业务名导出行集合必须一致。"""
+    user = _make_user("exp-alias", EmployeeRole.ASSET_ADMIN, filter_scenario["dept_f1"])
+    expected = {"EXP-ACTIVE", "EXP-LEFT", "exp-alias"}
+    by_name = _exported_jobcodes(user, "?department_code=DEPT-F1")
+    by_alias = _exported_jobcodes(user, "?employee_department__department_code=DEPT-F1")
+    assert by_name == by_alias == expected
+
+
+def test_export_ignores_blank_keyword(filter_scenario):
+    """空 keyword 不得把结果清空（前端切回普通列表会带空串）。"""
+    user = _make_user("exp-blank", EmployeeRole.ASSET_ADMIN, filter_scenario["dept_f1"])
+    assert _exported_jobcodes(user, "?keyword=") == _exported_jobcodes(user, "")
+    assert _exported_jobcodes(user, "?keyword=%20%20") == _exported_jobcodes(user, "")
+
+
+# --------------------------------------------------------------------------
 # 分批参数
 # --------------------------------------------------------------------------
 
@@ -168,9 +263,7 @@ def test_export_limit_offset(employees, department):
     assert len(rows) == 2
     tail = [
         r
-        for r in _export_sheet(user, f"?limit=2&offset={total - 1}").iter_rows(
-            min_row=2, max_col=1, values_only=True
-        )
+        for r in _export_sheet(user, f"?limit=2&offset={total - 1}").iter_rows(min_row=2, max_col=1, values_only=True)
         if r[0]
     ]
     assert len(tail) == 1

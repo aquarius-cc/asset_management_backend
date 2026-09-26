@@ -23,7 +23,7 @@ from rest_framework.response import Response
 
 from utils.response_utils import error_response
 
-from .schema import EXPORT_PAGINATION_PARAMETERS, XLSX_EXPORT_RESPONSES
+from .schema import EXPORT_ACTION_SCHEMA
 from .streaming import (
     ExportPaginationError,
     ExportTooLargeError,
@@ -68,11 +68,7 @@ class ExportExcelMixin:
         """
         return self.get_queryset()  # type: ignore[attr-defined]
 
-    @extend_schema(
-        summary="导出当前列表数据为 Excel",
-        parameters=EXPORT_PAGINATION_PARAMETERS,
-        responses=XLSX_EXPORT_RESPONSES,
-    )
+    @extend_schema(**EXPORT_ACTION_SCHEMA)
     @action(detail=False, methods=["get"], url_path="export")
     def export_excel(self, request: Any) -> HttpResponseBase | Response:
         """导出当前列表数据为 Excel。

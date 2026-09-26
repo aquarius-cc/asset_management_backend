@@ -13,6 +13,8 @@ drf-spectacular 0.29 的 ``responses`` 字典中，tuple 键 ``(code, media_type
 ``SchemaValidationError``。故此处写字面 schema 字典。
 """
 
+from typing import Any
+
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse
 
@@ -20,6 +22,7 @@ from .streaming import XLSX_CONTENT_TYPE
 
 
 __all__ = [
+    "EXPORT_ACTION_SCHEMA",
     "EXPORT_PAGINATION_PARAMETERS",
     "XLSX_EXPORT_RESPONSES",
 ]
@@ -50,4 +53,17 @@ XLSX_EXPORT_RESPONSES = {
     (200, XLSX_CONTENT_TYPE): XLSX_BINARY_SCHEMA,
     400: OpenApiResponse(description="参数错误或超出导出行数上限"),
     403: OpenApiResponse(description="无导出权限"),
+}
+
+#: Mixin 上 ``export_excel`` action 的 ``@extend_schema`` 参数集合（DR-1 单一来源）。
+#: 抽成字典而非让每个 ViewSet 手写 ``summary`` / ``responses``：子类若需**重声明同一
+#: action**（如 ``EmployeeViewSet`` 为追加 ``keyword`` 而局部覆盖，见 BF-049），
+#: 必须复用同一份声明，否则 Mixin 与子类会漂移。
+#: 注意：xlsx 二进制响应会让 drf-spectacular 的 ``_is_list_view()`` 关闭筛选参数
+#: 自动发现（见 ``core/schema.py``），故 ``parameters`` 里的 limit/offset 是
+#: 显式声明而非冗余。
+EXPORT_ACTION_SCHEMA: dict[str, Any] = {
+    "summary": "导出当前列表数据为 Excel",
+    "parameters": EXPORT_PAGINATION_PARAMETERS,
+    "responses": XLSX_EXPORT_RESPONSES,
 }

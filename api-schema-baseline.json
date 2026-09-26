@@ -11685,9 +11685,45 @@
         "/api/v1/users/employees/export/": {
             "get": {
                 "operationId": "v1_users_employees_export_retrieve",
-                "description": "导出当前列表数据为 Excel。\n\n取行口径由 ``self.get_export_queryset()`` 决定，默认与列表接口\n完全一致；子类可覆写该钩子以对齐自身的列表口径。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
+                "description": "导出员工(统一格式)。实现见 :meth:`core.excel_export.ExportExcelMixin.export_excel`。",
                 "summary": "导出当前列表数据为 Excel",
                 "parameters": [
+                    {
+                        "in": "query",
+                        "name": "department_code",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "employee_department__department_code",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "employee_status",
+                        "schema": {
+                            "type": "string",
+                            "title": "员工状态",
+                            "enum": [
+                                "active",
+                                "left",
+                                "retirement"
+                            ]
+                        },
+                        "description": "* `active` - 在职员工\n* `left` - 离职员工\n* `retirement` - 退休员工"
+                    },
+                    {
+                        "in": "query",
+                        "name": "keyword",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "与 /employees/search/ 同源的搜索关键词"
+                    },
                     {
                         "in": "query",
                         "name": "limit",
@@ -11703,6 +11739,24 @@
                             "type": "integer"
                         },
                         "description": "跳过前 N 条(缺省为全量)"
+                    },
+                    {
+                        "name": "ordering",
+                        "required": false,
+                        "in": "query",
+                        "description": "Which field to use when ordering the results.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "search",
+                        "required": false,
+                        "in": "query",
+                        "description": "A search term.",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "tags": [
@@ -11864,8 +11918,9 @@
         },
         "/api/v1/users/employees/statistics/": {
             "get": {
-                "operationId": "v1_users_employees_statistics_list",
-                "description": "获取员工统计信息(统一格式)\n\n【口径统一 2026-09-26】统计 = 列表当前可见范围的聚合，故传入\n``filter_queryset`` 后的 queryset；此前固定统计全量，导致 OpenAPI\n已声明的 ``employee_status`` / ``department_code`` 在本端点形同虚设。",
+                "operationId": "v1_users_employees_statistics_retrieve",
+                "description": "获取员工统计信息(统一格式)\n\n【口径统一 2026-09-26】统计 = 列表当前可见范围的聚合，故传入\n``filter_queryset`` 后的 queryset；此前固定统计全量，导致 OpenAPI\n已声明的 ``employee_status`` / ``department_code`` 在本端点形同虚设。\n\n【BF-048】可见范围含行级权限收窄，故本端点各聚合数值随调用者部门范围变化。",
+                "summary": "员工统计（按当前可见范围聚合）",
                 "parameters": [
                     {
                         "in": "query",
@@ -11896,36 +11951,12 @@
                         "description": "* `active` - 在职员工\n* `left` - 离职员工\n* `retirement` - 退休员工"
                     },
                     {
-                        "in": "path",
-                        "name": "name",
-                        "schema": {
-                            "type": "string"
-                        },
-                        "description": "员工名称",
-                        "required": true
-                    },
-                    {
                         "name": "ordering",
                         "required": false,
                         "in": "query",
                         "description": "Which field to use when ordering the results.",
                         "schema": {
                             "type": "string"
-                        }
-                    },
-                    {
-                        "in": "query",
-                        "name": "page",
-                        "schema": {
-                            "type": "integer"
-                        }
-                    },
-                    {
-                        "in": "query",
-                        "name": "page_size",
-                        "schema": {
-                            "type": "integer",
-                            "default": 20
                         }
                     },
                     {
@@ -11951,7 +11982,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/PaginatedEmployeeDetailList"
+                                    "$ref": "#/components/schemas/EmployeeStatistics"
                                 }
                             }
                         },
@@ -16590,6 +16621,37 @@
                     "updated_at"
                 ]
             },
+            "EmployeeStatistics": {
+                "type": "object",
+                "properties": {
+                    "total_employees": {
+                        "type": "integer",
+                        "description": "可见范围内员工总数"
+                    },
+                    "active_employees": {
+                        "type": "integer",
+                        "description": "可见范围内在职（active）员工数"
+                    },
+                    "by_status": {
+                        "type": "object",
+                        "additionalProperties": {},
+                        "description": "按员工状态分组：{\"状态码\": {\"name\": 状态名, \"count\": 数量}}"
+                    },
+                    "by_department": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "integer"
+                        },
+                        "description": "按部门名称分组：{\"部门名\": 数量}（未分配部门的员工不计入）"
+                    }
+                },
+                "required": [
+                    "active_employees",
+                    "by_department",
+                    "by_status",
+                    "total_employees"
+                ]
+            },
             "EmployeeUpdate": {
                 "type": "object",
                 "description": "员工更新序列化器",
@@ -18852,56 +18914,6 @@
                                 "type": "array",
                                 "items": {
                                     "$ref": "#/components/schemas/Department"
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "PaginatedEmployeeDetailList": {
-                "type": "object",
-                "properties": {
-                    "code": {
-                        "type": "integer",
-                        "example": 0
-                    },
-                    "message": {
-                        "type": "string",
-                        "example": "查询成功"
-                    },
-                    "data": {
-                        "type": "object",
-                        "properties": {
-                            "count": {
-                                "type": "integer",
-                                "example": 100
-                            },
-                            "total_pages": {
-                                "type": "integer",
-                                "example": 5
-                            },
-                            "page": {
-                                "type": "integer",
-                                "example": 1
-                            },
-                            "page_size": {
-                                "type": "integer",
-                                "example": 20
-                            },
-                            "next": {
-                                "type": "string",
-                                "nullable": true,
-                                "example": "http://api.example.com/users/?page=2&page_size=20"
-                            },
-                            "previous": {
-                                "type": "string",
-                                "nullable": true,
-                                "example": null
-                            },
-                            "results": {
-                                "type": "array",
-                                "items": {
-                                    "$ref": "#/components/schemas/EmployeeDetail"
                                 }
                             }
                         }

@@ -10,21 +10,37 @@
 3. 统一响应格式(使用 CustomPageNumberPagination + success_response/error_response)
 """
 
-from datetime import datetime, timedelta
 from typing import Any
 
-from django.utils import timezone
-from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema  # type: ignore[attr-defined]
+from django.http import HttpResponseBase
+from drf_spectacular.utils import (  # type: ignore[attr-defined]
+    OpenApiParameter,
+    OpenApiTypes,
+    extend_schema,
+)
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.assetmanagement.models import AssetOperationLog
+from apps.assetmanagement.operation_log_filters import (
+    OPERATION_TYPE_DISPLAY_MAP,
+    InvalidOperationLogFilters,
+    parse_operation_log_filters,
+)
 from apps.assetmanagement.serializers import AssetOperationLogSerializer
 from apps.assetmanagement.services.operation_log_service import OperationLogQueryService
+from core.excel_export import (
+    EXPORT_PAGINATION_PARAMETERS,
+    XLSX_EXPORT_RESPONSES,
+    ExportPaginationError,
+    ExportTooLargeError,
+    build_excel_export_response,
+    resolve_max_rows,
+)
 from core.mixins import ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
+from core.permissions import CanExportExcel
 from utils.response_utils import error_response, success_response
 
 
@@ -103,56 +119,16 @@ class AssetOperationLogListView(ResponseWrapperMixin, APIView):
         """获取操作记录列表"""
         # 【AGENTS 规范 - P1-09】View 仅负责参数解析(含校验)和响应格式化,
         # 查询逻辑全部委托给 OperationLogQueryService。
-
-        # 获取查询参数
-        asset_code = request.query_params.get("asset_code")
-        operation_type = request.query_params.get("operation_type")
-        operator_jobcode = request.query_params.get("operator_jobcode")
-        start_date = request.query_params.get("start_date")
-        end_date = request.query_params.get("end_date")
-        days = request.query_params.get("days")
-
-        # 参数校验:操作类型合法性
-        if operation_type:
-            valid_types = [choice[0] for choice in AssetOperationLog.OPERATION_TYPE_CHOICES]
-            if operation_type not in valid_types:
-                return error_response(message=f"无效的操作类型: {operation_type}. 必须是以下之一: {valid_types}")
-
-        # 参数校验与转换:时间条件
-        start_time = None
-        end_time = None
-
-        if days:
-            try:
-                days_int = int(days)
-                start_time = timezone.now() - timedelta(days=days_int)
-            except ValueError:
-                return error_response(message="days 参数必须是整数")
-        else:
-            if start_date:
-                try:
-                    start_time = timezone.make_aware(datetime.strptime(start_date, "%Y-%m-%d"))
-                except ValueError:
-                    return error_response(message="start_date 格式错误,应为 YYYY-MM-DD")
-
-            if end_date:
-                try:
-                    end_time = timezone.make_aware(datetime.strptime(end_date, "%Y-%m-%d"))
-                    # 设置为当天的最后一秒
-                    end_time = end_time.replace(hour=23, minute=59, second=59)
-                except ValueError:
-                    return error_response(message="end_date 格式错误,应为 YYYY-MM-DD")
+        try:
+            filters = parse_operation_log_filters(request.query_params)
+        except InvalidOperationLogFilters as exc:
+            return error_response(message=str(exc))
 
         # 【AGENTS 规范 - P1-09】调用 Service 层执行查询,View 不直接操作 ORM
         logs = OperationLogQueryService.query_operation_logs(
             user=request.user,
-            asset_code=asset_code,
-            operation_type=operation_type,
-            operator_jobcode=operator_jobcode,
-            start_time=start_time,
-            end_time=end_time,
+            **filters.as_selector_kwargs(),
         )
-
         # 使用 CustomPageNumberPagination 统一分页格式
         paginator = CustomPageNumberPagination()
         page = paginator.paginate_queryset(logs, request)
@@ -163,6 +139,82 @@ class AssetOperationLogListView(ResponseWrapperMixin, APIView):
 
         serializer = AssetOperationLogSerializer(logs, many=True)
         return success_response(data=serializer.data)
+
+
+class AssetOperationLogExportView(ResponseWrapperMixin, APIView):
+    """资产操作记录导出API（服务端流式 xlsx）。
+
+    【安全 - 行级可见性】导出与列表共用
+    ``OperationLogSelector.build_operation_logs_queryset``，该方法**强制**
+    套用 ``_scope_by_user``，因此导出可见范围恒等于列表可见范围，不会
+    因新增端点而放大（此不变量由 ``test_operation_log_export_scope`` 锁定）。
+
+    【分批导出】缺省 ``limit``/``offset`` 时为全量导出，受服务端
+    ``EXPORT_MAX_ROWS`` 兜底保护；调用方可显式传参分批拉取。
+    """
+
+    permission_classes = [IsAuthenticated, CanExportExcel]
+
+    export_columns: list[dict[str, Any]] = [
+        {"header": "资产编码", "field": "asset_code"},
+        {"header": "资产名称", "field": "asset_name"},
+        {"header": "操作类型", "field": "operation_type", "display_map": OPERATION_TYPE_DISPLAY_MAP},
+        {"header": "操作时间", "field": "operation_time"},
+        {"header": "操作人工号", "field": "operator_jobcode"},
+        {"header": "操作人姓名", "field": "operator_name"},
+        {"header": "操作描述", "field": "description"},
+    ]
+    export_filename = "operation_logs.xlsx"
+    export_sheet_name = "操作记录"
+
+    @extend_schema(
+        summary="导出操作记录",
+        description=(
+            "按与列表接口相同的过滤条件导出操作记录 Excel。"
+            f"单次最多导出 {resolve_max_rows()} 条；"
+            "超出请缩小筛选范围，或使用 limit/offset 分批导出。"
+        ),
+        parameters=[
+            OpenApiParameter(
+                name=name,
+                type=param_type,
+                location=OpenApiParameter.QUERY,
+                description=description,
+                required=False,
+            )
+            for name, param_type, description in (
+                ("asset_code", OpenApiTypes.STR, "资产编码(精确匹配)"),
+                ("operation_type", OpenApiTypes.STR, "操作类型"),
+                ("operator_jobcode", OpenApiTypes.STR, "操作人工号"),
+                ("start_date", OpenApiTypes.STR, "开始日期(YYYY-MM-DD)"),
+                ("end_date", OpenApiTypes.STR, "结束日期(YYYY-MM-DD)"),
+                ("days", OpenApiTypes.INT, "最近N天(与日期范围互斥)"),
+            )
+        ]
+        + EXPORT_PAGINATION_PARAMETERS,
+        responses=XLSX_EXPORT_RESPONSES,
+    )
+    def get(self, request: Any) -> HttpResponseBase:
+        """导出操作记录为 Excel"""
+        try:
+            filters = parse_operation_log_filters(request.query_params)
+        except InvalidOperationLogFilters as exc:
+            return error_response(message=str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+
+        rows = OperationLogQueryService.query_operation_logs_queryset(
+            user=request.user,
+            **filters.as_selector_kwargs(),
+        )
+        try:
+            return build_excel_export_response(
+                rows=rows,
+                columns=self.export_columns,
+                filename=self.export_filename,
+                sheet_name=self.export_sheet_name,
+                params=request.query_params,
+            )
+        except (ExportPaginationError, ExportTooLargeError) as exc:
+            return error_response(message=exc.message, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class AssetOperationLogDetailView(ResponseWrapperMixin, APIView):

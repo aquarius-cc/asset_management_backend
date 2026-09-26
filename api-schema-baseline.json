@@ -1558,7 +1558,26 @@
         "/api/v1/assets/assets/export/": {
             "get": {
                 "operationId": "v1_assets_assets_export_retrieve",
-                "description": "导出当前列表数据为 Excel",
+                "description": "导出当前列表数据为 Excel。\n\n可见性由 ``self.get_queryset()`` 决定，与列表接口完全一致——\n导出不会放大列表接口的可见范围（此不变量由各 app 的导出测试锁定）。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
+                "summary": "导出当前列表数据为 Excel",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "单批条数上限(缺省为全量)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "offset",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "跳过前 N 条(缺省为全量)"
+                    }
+                ],
                 "tags": [
                     "v1"
                 ],
@@ -1570,13 +1589,20 @@
                 "responses": {
                     "200": {
                         "content": {
-                            "application/json": {
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/AssetDetail"
+                                    "type": "string",
+                                    "format": "binary"
                                 }
                             }
                         },
                         "description": ""
+                    },
+                    "400": {
+                        "description": "参数错误或超出导出行数上限"
+                    },
+                    "403": {
+                        "description": "无导出权限"
                     }
                 }
             }
@@ -2224,7 +2250,26 @@
         "/api/v1/assets/broken-assets/export/": {
             "get": {
                 "operationId": "v1_assets_broken_assets_export_retrieve",
-                "description": "导出当前列表数据为 Excel",
+                "description": "导出当前列表数据为 Excel。\n\n可见性由 ``self.get_queryset()`` 决定，与列表接口完全一致——\n导出不会放大列表接口的可见范围（此不变量由各 app 的导出测试锁定）。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
+                "summary": "导出当前列表数据为 Excel",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "单批条数上限(缺省为全量)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "offset",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "跳过前 N 条(缺省为全量)"
+                    }
+                ],
                 "tags": [
                     "损坏资产"
                 ],
@@ -2236,13 +2281,20 @@
                 "responses": {
                     "200": {
                         "content": {
-                            "application/json": {
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/BrokenAssetDetail"
+                                    "type": "string",
+                                    "format": "binary"
                                 }
                             }
                         },
                         "description": ""
+                    },
+                    "400": {
+                        "description": "参数错误或超出导出行数上限"
+                    },
+                    "403": {
+                        "description": "无导出权限"
                     }
                 }
             }
@@ -2792,7 +2844,26 @@
         "/api/v1/assets/contracts/export/": {
             "get": {
                 "operationId": "v1_assets_contracts_export_retrieve",
-                "description": "导出当前列表数据为 Excel",
+                "description": "导出当前列表数据为 Excel。\n\n可见性由 ``self.get_queryset()`` 决定，与列表接口完全一致——\n导出不会放大列表接口的可见范围（此不变量由各 app 的导出测试锁定）。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
+                "summary": "导出当前列表数据为 Excel",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "单批条数上限(缺省为全量)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "offset",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "跳过前 N 条(缺省为全量)"
+                    }
+                ],
                 "tags": [
                     "v1"
                 ],
@@ -2804,13 +2875,20 @@
                 "responses": {
                     "200": {
                         "content": {
-                            "application/json": {
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/ContractDetail"
+                                    "type": "string",
+                                    "format": "binary"
                                 }
                             }
                         },
                         "description": ""
+                    },
+                    "400": {
+                        "description": "参数错误或超出导出行数上限"
+                    },
+                    "403": {
+                        "description": "无导出权限"
                     }
                 }
             }
@@ -3551,7 +3629,26 @@
         "/api/v1/assets/damaged-assets/export/": {
             "get": {
                 "operationId": "v1_assets_damaged_assets_export_retrieve",
-                "description": "导出当前列表数据为 Excel",
+                "description": "导出当前列表数据为 Excel。\n\n可见性由 ``self.get_queryset()`` 决定，与列表接口完全一致——\n导出不会放大列表接口的可见范围（此不变量由各 app 的导出测试锁定）。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
+                "summary": "导出当前列表数据为 Excel",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "单批条数上限(缺省为全量)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "offset",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "跳过前 N 条(缺省为全量)"
+                    }
+                ],
                 "tags": [
                     "v1"
                 ],
@@ -3563,13 +3660,20 @@
                 "responses": {
                     "200": {
                         "content": {
-                            "application/json": {
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/DamagedAssetDetail"
+                                    "type": "string",
+                                    "format": "binary"
                                 }
                             }
                         },
                         "description": ""
+                    },
+                    "400": {
+                        "description": "参数错误或超出导出行数上限"
+                    },
+                    "403": {
+                        "description": "无导出权限"
                     }
                 }
             }
@@ -3970,7 +4074,26 @@
         "/api/v1/assets/found-assets/export/": {
             "get": {
                 "operationId": "v1_assets_found_assets_export_retrieve",
-                "description": "导出当前列表数据为 Excel",
+                "description": "导出当前列表数据为 Excel。\n\n可见性由 ``self.get_queryset()`` 决定，与列表接口完全一致——\n导出不会放大列表接口的可见范围（此不变量由各 app 的导出测试锁定）。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
+                "summary": "导出当前列表数据为 Excel",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "单批条数上限(缺省为全量)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "offset",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "跳过前 N 条(缺省为全量)"
+                    }
+                ],
                 "tags": [
                     "找回资产"
                 ],
@@ -3982,13 +4105,20 @@
                 "responses": {
                     "200": {
                         "content": {
-                            "application/json": {
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/FoundAssetDetail"
+                                    "type": "string",
+                                    "format": "binary"
                                 }
                             }
                         },
                         "description": ""
+                    },
+                    "400": {
+                        "description": "参数错误或超出导出行数上限"
+                    },
+                    "403": {
+                        "description": "无导出权限"
                     }
                 }
             }
@@ -4864,7 +4994,26 @@
         "/api/v1/assets/lost-assets/export/": {
             "get": {
                 "operationId": "v1_assets_lost_assets_export_retrieve",
-                "description": "导出当前列表数据为 Excel",
+                "description": "导出当前列表数据为 Excel。\n\n可见性由 ``self.get_queryset()`` 决定，与列表接口完全一致——\n导出不会放大列表接口的可见范围（此不变量由各 app 的导出测试锁定）。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
+                "summary": "导出当前列表数据为 Excel",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "单批条数上限(缺省为全量)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "offset",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "跳过前 N 条(缺省为全量)"
+                    }
+                ],
                 "tags": [
                     "遗失资产"
                 ],
@@ -4876,13 +5025,20 @@
                 "responses": {
                     "200": {
                         "content": {
-                            "application/json": {
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/LostAssetDetail"
+                                    "type": "string",
+                                    "format": "binary"
                                 }
                             }
                         },
                         "description": ""
+                    },
+                    "400": {
+                        "description": "参数错误或超出导出行数上限"
+                    },
+                    "403": {
+                        "description": "无导出权限"
                     }
                 }
             }
@@ -5081,6 +5237,106 @@
                             }
                         },
                         "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/assets/operation-logs/export/": {
+            "get": {
+                "operationId": "v1_assets_operation_logs_export_retrieve",
+                "description": "按与列表接口相同的过滤条件导出操作记录 Excel。单次最多导出 10000 条；超出请缩小筛选范围，或使用 limit/offset 分批导出。",
+                "summary": "导出操作记录",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "asset_code",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "资产编码(精确匹配)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "days",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "最近N天(与日期范围互斥)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "end_date",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "结束日期(YYYY-MM-DD)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "单批条数上限(缺省为全量)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "offset",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "跳过前 N 条(缺省为全量)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "operation_type",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "操作类型"
+                    },
+                    {
+                        "in": "query",
+                        "name": "operator_jobcode",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "操作人工号"
+                    },
+                    {
+                        "in": "query",
+                        "name": "start_date",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "开始日期(YYYY-MM-DD)"
+                    }
+                ],
+                "tags": [
+                    "v1"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "400": {
+                        "description": "参数错误或超出导出行数上限"
+                    },
+                    "403": {
+                        "description": "无导出权限"
                     }
                 }
             }
@@ -5744,7 +6000,26 @@
         "/api/v1/assets/out-assets/export/": {
             "get": {
                 "operationId": "v1_assets_out_assets_export_retrieve",
-                "description": "导出当前列表数据为 Excel",
+                "description": "导出当前列表数据为 Excel。\n\n可见性由 ``self.get_queryset()`` 决定，与列表接口完全一致——\n导出不会放大列表接口的可见范围（此不变量由各 app 的导出测试锁定）。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
+                "summary": "导出当前列表数据为 Excel",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "单批条数上限(缺省为全量)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "offset",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "跳过前 N 条(缺省为全量)"
+                    }
+                ],
                 "tags": [
                     "出库管理"
                 ],
@@ -5756,13 +6031,20 @@
                 "responses": {
                     "200": {
                         "content": {
-                            "application/json": {
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/OutAssetDetail"
+                                    "type": "string",
+                                    "format": "binary"
                                 }
                             }
                         },
                         "description": ""
+                    },
+                    "400": {
+                        "description": "参数错误或超出导出行数上限"
+                    },
+                    "403": {
+                        "description": "无导出权限"
                     }
                 }
             }
@@ -6447,7 +6729,26 @@
         "/api/v1/assets/recycle-assets/export/": {
             "get": {
                 "operationId": "v1_assets_recycle_assets_export_retrieve",
-                "description": "导出当前列表数据为 Excel",
+                "description": "导出当前列表数据为 Excel。\n\n可见性由 ``self.get_queryset()`` 决定，与列表接口完全一致——\n导出不会放大列表接口的可见范围（此不变量由各 app 的导出测试锁定）。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
+                "summary": "导出当前列表数据为 Excel",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "单批条数上限(缺省为全量)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "offset",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "跳过前 N 条(缺省为全量)"
+                    }
+                ],
                 "tags": [
                     "回收管理"
                 ],
@@ -6459,13 +6760,20 @@
                 "responses": {
                     "200": {
                         "content": {
-                            "application/json": {
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/RecycleAssetDetail"
+                                    "type": "string",
+                                    "format": "binary"
                                 }
                             }
                         },
                         "description": ""
+                    },
+                    "400": {
+                        "description": "参数错误或超出导出行数上限"
+                    },
+                    "403": {
+                        "description": "无导出权限"
                     }
                 }
             }
@@ -6844,7 +7152,26 @@
         "/api/v1/assets/repair-assets/export/": {
             "get": {
                 "operationId": "v1_assets_repair_assets_export_retrieve",
-                "description": "导出当前列表数据为 Excel",
+                "description": "导出当前列表数据为 Excel。\n\n可见性由 ``self.get_queryset()`` 决定，与列表接口完全一致——\n导出不会放大列表接口的可见范围（此不变量由各 app 的导出测试锁定）。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
+                "summary": "导出当前列表数据为 Excel",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "单批条数上限(缺省为全量)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "offset",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "跳过前 N 条(缺省为全量)"
+                    }
+                ],
                 "tags": [
                     "v1"
                 ],
@@ -6856,13 +7183,20 @@
                 "responses": {
                     "200": {
                         "content": {
-                            "application/json": {
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/RepairAssetDetail"
+                                    "type": "string",
+                                    "format": "binary"
                                 }
                             }
                         },
                         "description": ""
+                    },
+                    "400": {
+                        "description": "参数错误或超出导出行数上限"
+                    },
+                    "403": {
+                        "description": "无导出权限"
                     }
                 }
             }
@@ -7758,7 +8092,26 @@
         "/api/v1/assets/waste-assets/export/": {
             "get": {
                 "operationId": "v1_assets_waste_assets_export_retrieve",
-                "description": "导出当前列表数据为 Excel",
+                "description": "导出当前列表数据为 Excel。\n\n可见性由 ``self.get_queryset()`` 决定，与列表接口完全一致——\n导出不会放大列表接口的可见范围（此不变量由各 app 的导出测试锁定）。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
+                "summary": "导出当前列表数据为 Excel",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "单批条数上限(缺省为全量)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "offset",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "跳过前 N 条(缺省为全量)"
+                    }
+                ],
                 "tags": [
                     "v1"
                 ],
@@ -7770,13 +8123,20 @@
                 "responses": {
                     "200": {
                         "content": {
-                            "application/json": {
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/WasteAssetDetail"
+                                    "type": "string",
+                                    "format": "binary"
                                 }
                             }
                         },
                         "description": ""
+                    },
+                    "400": {
+                        "description": "参数错误或超出导出行数上限"
+                    },
+                    "403": {
+                        "description": "无导出权限"
                     }
                 }
             }
@@ -9477,7 +9837,7 @@
             },
             "patch": {
                 "operationId": "v1_unregisteredassets_unregistered_assets_partial_update",
-                "description": "未登记资产视图集\n\n提供未登记资产的 CRUD 和审批操作。\n\n【权限控制】\n- 列表/详情:认证用户可访问\n- 创建:认证用户\n- 更新:认证用户\n- 删除/批量删除:系统管理员(IsSystemAdmin,替代遗留 is_staff 门禁)\n- 审批:部门经理及以上\n\n【序列化器映射】\n- list: UnregisteredAssetListSerializer\n- retrieve: UnregisteredAssetDetailSerializer\n- create: UnregisteredAssetCreateSerializer\n- update: UnregisteredAssetUpdateSerializer\n- approve: UnregisteredAssetApproveSerializer",
+                "description": "未登记资产视图集\n\n提供未登记资产的 CRUD 和审批操作。\n\n【权限控制】(4.5 矩阵 backend-business-rules.md:187-193, 经 _ACTION_PERMISSION_OVERRIDES 分发)\n- 列表/详情:资产管理员及以上(asset_admin/dept_manager/system_admin; regular/auditor 403)\n- 创建/更新/删除/批量删除:系统管理员或资产管理员(dept_manager 403 只读)\n- 审批:部门经理及以上(system_admin/dept_manager)\n- 行级隔离:Selector.get_queryset_for_user(部门+下级+本人例外; 越权 404)\n- 创建代录 discovery_person:默认=本人,仅 system_admin 可代录(否则 403)\n- 审批 approver:服务端强制=当前审批人(传入值被忽略)\n\n【序列化器映射】\n- list: UnregisteredAssetListSerializer\n- retrieve: UnregisteredAssetDetailSerializer\n- create: UnregisteredAssetCreateSerializer\n- update: UnregisteredAssetUpdateSerializer\n- approve: UnregisteredAssetApproveSerializer",
                 "parameters": [
                     {
                         "in": "path",
@@ -11311,6 +11671,58 @@
                             }
                         },
                         "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/users/employees/export/": {
+            "get": {
+                "operationId": "v1_users_employees_export_retrieve",
+                "description": "导出当前列表数据为 Excel。\n\n可见性由 ``self.get_queryset()`` 决定，与列表接口完全一致——\n导出不会放大列表接口的可见范围（此不变量由各 app 的导出测试锁定）。\n\n支持 ``?limit=`` / ``?offset=`` 分批导出；缺省为全量，仍受\n``EXPORT_MAX_ROWS`` 兜底保护。",
+                "summary": "导出当前列表数据为 Excel",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "单批条数上限(缺省为全量)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "offset",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "跳过前 N 条(缺省为全量)"
+                    }
+                ],
+                "tags": [
+                    "v1"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "400": {
+                        "description": "参数错误或超出导出行数上限"
+                    },
+                    "403": {
+                        "description": "无导出权限"
                     }
                 }
             }

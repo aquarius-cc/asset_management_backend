@@ -464,6 +464,29 @@ class OperationLogQueryService:
         return OperationLogSelector.get_operation_log_by_pk(user, pk)
 
     @staticmethod
+    def query_operation_logs_queryset(
+        user: Any,
+        asset_code: str | None = None,
+        operation_type: str | None = None,
+        operator_jobcode: str | None = None,
+        start_time: Any | None = None,
+        end_time: Any | None = None,
+    ) -> Any:
+        """【AGENTS 规范 - P1-09】返回**未物化**的操作日志 queryset。
+
+        供流式导出使用（避免一次性物化全量日志导致内存膨胀）。
+        行级安全由 Selector 层的 ``_scope_by_user`` 保证，``user`` 必传。
+        """
+        return OperationLogSelector.build_operation_logs_queryset(
+            user,
+            asset_code=asset_code,
+            operation_type=operation_type,
+            operator_jobcode=operator_jobcode,
+            start_time=start_time,
+            end_time=end_time,
+        )
+
+    @staticmethod
     def query_operation_logs(
         user: Any,
         asset_code: str | None = None,
@@ -473,11 +496,13 @@ class OperationLogQueryService:
         end_time: Any | None = None,
     ) -> list[AssetOperationLog]:
         """【AGENTS 规范 - P1-09】多条件组合查询操作记录"""
-        return OperationLogSelector.query_operation_logs(
-            user,
-            asset_code=asset_code,
-            operation_type=operation_type,
-            operator_jobcode=operator_jobcode,
-            start_time=start_time,
-            end_time=end_time,
+        return list(
+            OperationLogQueryService.query_operation_logs_queryset(
+                user,
+                asset_code=asset_code,
+                operation_type=operation_type,
+                operator_jobcode=operator_jobcode,
+                start_time=start_time,
+                end_time=end_time,
+            )
         )

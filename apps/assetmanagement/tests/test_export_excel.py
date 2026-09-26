@@ -12,7 +12,7 @@ from types import SimpleNamespace
 import pytest
 from django.test import override_settings
 
-from apps.assetmanagement.views._export_mixin import ExportExcelMixin
+from core.excel_export import ExportExcelMixin
 
 
 class _FakeQueryset:

@@ -116,15 +116,28 @@ class OperationLogSelector:
             return None
 
     @staticmethod
-    def query_operation_logs(
+    def build_operation_logs_queryset(
         user: Any,
         asset_code: str | None = None,
         operation_type: str | None = None,
         operator_jobcode: str | None = None,
         start_time: Any | None = None,
         end_time: Any | None = None,
-    ) -> list[AssetOperationLog]:
-        """多条件组合查询操作记录"""
+    ) -> QuerySet[AssetOperationLog]:
+        """构建操作日志 queryset（**未物化**），供列表分页与流式导出复用。
+
+        【安全 - 不可省略 user】本方法内**强制**套用 :meth:`_scope_by_user`，
+        因此不存在"传入裸 queryset 即可跨部门读取"的路径。行级过滤是
+        导出链路的硬约束：漏掉即等同 P1-3 级数据泄露。
+
+        Args:
+            user: 请求用户，驱动 ``_scope_by_user`` 的三态判定
+                （None 不限 / 空列表零行 / 部门列表过滤）。
+            其余参数语义同 :meth:`query_operation_logs`。
+
+        Returns:
+            按 ``-operation_time`` 排序、已按用户部门范围过滤的惰性 queryset。
+        """
         queryset = AssetOperationLog.objects.all()
 
         if asset_code:
@@ -138,4 +151,25 @@ class OperationLogSelector:
         if end_time:
             queryset = queryset.filter(operation_time__lte=end_time)
 
-        return list(OperationLogSelector._scope_by_user(queryset, user).order_by("-operation_time"))
+        return OperationLogSelector._scope_by_user(queryset, user).order_by("-operation_time")
+
+    @staticmethod
+    def query_operation_logs(
+        user: Any,
+        asset_code: str | None = None,
+        operation_type: str | None = None,
+        operator_jobcode: str | None = None,
+        start_time: Any | None = None,
+        end_time: Any | None = None,
+    ) -> list[AssetOperationLog]:
+        """多条件组合查询操作记录（物化为 list）"""
+        return list(
+            OperationLogSelector.build_operation_logs_queryset(
+                user,
+                asset_code=asset_code,
+                operation_type=operation_type,
+                operator_jobcode=operator_jobcode,
+                start_time=start_time,
+                end_time=end_time,
+            )
+        )

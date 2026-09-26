@@ -269,6 +269,15 @@ else:
 
 CORS_ALLOW_CREDENTIALS = True
 
+# 【新增】导出接口自定义响应头。默认同源部署(vite proxy / 反向代理)下浏览器已可
+# 读取 X-Export-*；此处显式暴露以支持前后端跨源部署的场景。
+# 取值与 core.excel_export.streaming.HEADER_* 常量保持一致。
+CORS_EXPOSE_HEADERS = [
+    "X-Export-Max-Rows",
+    "X-Export-Total-Count",
+    "Content-Disposition",
+]
+
 # 【新增】前端基础URL, 用于生成二维码扫码链路
 FRONTEND_BASE_URL = config("FRONTEND_BASE_URL", default="http://localhost:5173")
 

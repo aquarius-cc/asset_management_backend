@@ -12,7 +12,7 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 
-from apps.usermanagement.models import Employee
+from apps.usermanagement.models import Employee, EmployeeRole, EmployeeStatus
 from apps.usermanagement.selectors import EmployeeSelector
 from apps.usermanagement.serializers import (
     EmployeeBatchCreateSerializer,
@@ -26,9 +26,10 @@ from apps.usermanagement.serializers import (
 from apps.usermanagement.services import EmployeeService
 from apps.usermanagement.views.employee_auth_mixin import EmployeeAuthMixin
 from core.batch_mixins import BatchDeleteViewMixin, BatchResponseHelper
+from core.excel_export import ExportExcelMixin
 from core.mixins import LoggingMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
-from core.permissions import IsSystemAdmin
+from core.permissions import CanExportExcel, IsSystemAdmin
 from utils.response_utils import error_response, success_response
 
 
@@ -42,6 +43,7 @@ if TYPE_CHECKING:
 class EmployeeViewSet(  # type: ignore[misc]
     EmployeeAuthMixin,
     BatchDeleteViewMixin,
+    ExportExcelMixin,
     LoggingMixin,
     ResponseWrapperMixin,
     viewsets.ModelViewSet,  # type: ignore[type-arg]
@@ -65,13 +67,29 @@ class EmployeeViewSet(  # type: ignore[misc]
     serializer_class = EmployeeSerializer
     pagination_class = CustomPageNumberPagination
 
+    #: 员工导出列。不含 employee_phone：导出属批量落盘行为，最小化 PII 外泄面。
+    export_columns: list[dict[str, Any]] = [
+        {"header": "员工工号", "field": "employee_jobcode"},
+        {"header": "员工名称", "field": "employee_name"},
+        {"header": "系统角色", "field": "role", "display_map": dict(EmployeeRole.choices)},
+        {"header": "员工状态", "field": "employee_status", "display_map": dict(EmployeeStatus.choices)},
+        {"header": "所属部门", "field": "employee_department__department_name"},
+        {"header": "员工位置", "field": "employee_location"},
+    ]
+    export_filename = "employees.xlsx"
+    export_sheet_name = "员工列表"
+
     def get_permissions(self) -> list[permissions.BasePermission]:
         permission_classes: list[type[permissions.BasePermission]]
         """
         自定义权限:管理员可管理员工,普通用户只能查看
         """
         # H2 修复:绑定/解绑操作使用 IsSystemAdmin 而非 IsAdminUser
-        if self.action in [
+        if self.action == "export_excel":
+            # 导出为批量落盘行为,须走导出权限矩阵。
+            # 不可落入下方 else 的 IsAuthenticated(否则任意登录用户可导出全量员工档案)。
+            permission_classes = [CanExportExcel]
+        elif self.action in [
             "bind_auth_user",
             "unbind_auth_user",
             "replace_auth_user",

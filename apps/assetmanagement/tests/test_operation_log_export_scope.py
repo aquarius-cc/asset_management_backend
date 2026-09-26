@@ -138,11 +138,7 @@ def _export_asset_codes(user, query=""):
     finally:
         response.close()
     sheet = load_workbook(io.BytesIO(payload))["操作记录"]
-    return {
-        row[0]
-        for row in sheet.iter_rows(min_row=2, max_col=1, values_only=True)
-        if row[0] is not None
-    }
+    return {row[0] for row in sheet.iter_rows(min_row=2, max_col=1, values_only=True) if row[0] is not None}
 
 
 # --------------------------------------------------------------------------

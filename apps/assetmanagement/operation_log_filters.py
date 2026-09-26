@@ -128,9 +128,7 @@ def parse_operation_log_filters(params: Mapping[str, Any]) -> OperationLogFilter
     if error:
         raise InvalidOperationLogFilters(error)
 
-    start_time, end_time, error = parse_time_range(
-        params.get("days"), params.get("start_date"), params.get("end_date")
-    )
+    start_time, end_time, error = parse_time_range(params.get("days"), params.get("start_date"), params.get("end_date"))
     if error:
         raise InvalidOperationLogFilters(error)
 

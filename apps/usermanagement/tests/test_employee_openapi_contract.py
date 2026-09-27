@@ -25,8 +25,9 @@ from apps.usermanagement.models import EmployeeStatus
 EXPORT_URL = "/api/v1/users/employees/export/"
 STATS_URL = "/api/v1/users/employees/statistics/"
 
-# 11 个走 Mixin 默认 get_export_queryset()（不跑 filter_queryset）的资产导出端点，
+# 10 个走 Mixin 默认 get_export_queryset()（不跑 filter_queryset）的资产导出端点，
 # 只声明 limit/offset 是如实的。operation-logs 导出自带业务参数 override，不属此类。
+# 全基线共 12 个 export 路径 = 员工 1 + operation-logs 1 + 本集合 10。
 BARE_ASSET_EXPORTS = {
     "/api/v1/assets/assets/export/",
     "/api/v1/assets/broken-assets/export/",

@@ -350,14 +350,12 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "资产管理系统接口文档(支持 JWT 认证、资产/合同/仓库等模块)",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
-    "SECURITY_SCHEMES": {
-        "BearerAuth": {
-            "type": "http",
-            "scheme": "bearer",
-            "bearerFormat": "JWT",
-            "description": "格式:Bearer {access_token}(注意 Bearer 后有空格)",
-        }
-    },
+    # 【BF-051】原此处有 "SECURITY_SCHEMES" 配置块，已删除：drf-spectacular 0.29
+    # **没有 SECURITY_SCHEMES 这个设置项**，未知键被静默忽略，导致
+    # components.securitySchemes 整体缺失、而下方 "SECURITY" 注入的 BearerAuth
+    # 引用在全部 267 个 operation 上悬空。scheme 定义现由
+    # apps/authusermanagement/schema.py::JWTCookieAuthenticationExtension 物化
+    # （单一口径，DR-4）。
     "SECURITY": [{"BearerAuth": []}],
     "SWAGGER_UI_DIST": "SIDECAR",
     "SWAGGER_UI_FAVICON_HREF": "SIDECAR",

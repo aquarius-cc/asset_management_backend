@@ -3,9 +3,26 @@
 """
 
 import pytest
+from drf_spectacular.generators import SchemaGenerator
 from rest_framework.test import APIClient
 
 from apps.usermanagement.models import Department, Employee
+
+
+@pytest.fixture(scope="session")
+def api_schema():
+    """整份 OpenAPI schema，**全 session 只生成一次**。
+
+    提到 conftest 且放宽到 session 级的原因：``SchemaGenerator().get_schema()`` 会
+    introspect 全量视图，成本高；BF-051 的护栏需要看**全量 operation** 的 security
+    引用（不止员工域），与员工护栏消费的是同一份产物，重复生成纯属浪费（DR-1）。
+
+    session 级安全前提：schema 生成不查库、不读模块级可变状态，且当前两个消费方
+    （``test_employee_openapi_contract`` / ``test_openapi_security_schema``）都不
+    改动 schema 相关 settings。若将来出现会改 ``SPECTACULAR_SETTINGS`` 的用例，
+    需把本 fixture 降回 module 级。
+    """
+    return SchemaGenerator().get_schema(request=None, public=True)
 
 
 @pytest.fixture

@@ -23309,6 +23309,19 @@
                     "waste_asset_specification"
                 ]
             }
+        },
+        "securitySchemes": {
+            "BearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT"
+            },
+            "cookieJWT": {
+                "type": "apiKey",
+                "in": "cookie",
+                "name": "asset_access_token",
+                "description": "JWT access Cookie（HttpOnly，浏览器同源场景）。Cookie 名取自 settings.JWT_AUTH_COOKIE_ACCESS，当前为 asset_access_token。与 Bearer 通道任一即可（Bearer 优先）。"
+            }
         }
     }
 }

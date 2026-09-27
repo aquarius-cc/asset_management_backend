@@ -17,7 +17,6 @@ BF-050 的三处错误（错误响应结构 / 无处可填的 path 参数 / 虚�
 """
 
 import pytest
-from drf_spectacular.generators import SchemaGenerator
 
 from apps.usermanagement.models import EmployeeStatus
 
@@ -43,9 +42,13 @@ BARE_ASSET_EXPORTS = {
 
 
 @pytest.fixture(scope="module")
-def employee_schema():
-    """整份 schema 只生成一次（module 级，避免每个用例重复 introspect 全量视图）。"""
-    return SchemaGenerator().get_schema(request=None, public=True)
+def employee_schema(api_schema):
+    """委托给 session 级共享 fixture（BF-051 起上提至 conftest，全 session 只生成一次）。
+
+    保留本别名是为让既有 6 处 ``employee_schema`` 参数零改动——本文件是 C 批已提交的
+    护栏，不因本次重构而改动其断言正文。
+    """
+    return api_schema
 
 
 def _param_names(schema, url, method="get"):

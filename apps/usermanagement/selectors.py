@@ -10,6 +10,44 @@ from apps.usermanagement.models import Department, Employee
 from core.department_scope import get_employee_scoped_queryset_for_user
 
 
+#: ``EmployeeSelector.search_employees`` 匹配的文本字段。
+#: **同时是 OpenAPI ``?keyword=`` 参数说明的权威源**（DR-1）：文档字段清单必须由
+#: 本常量派生,不得在视图/Schema/文档里各写一份——各写一份就会随实现改动而失真
+#: （这正是 BF-052 遗留③ 要修的病）。
+SEARCH_TEXT_FIELDS: tuple[str, ...] = (
+    "employee_name",
+    "employee_jobcode",
+    "employee_phone",
+    "employee_description",
+)
+
+#: 部门名称经关联对象参与匹配,故单列常量（Employee 上无 department_name 字段）
+SEARCH_DEPARTMENT_FIELD = "employee_department__department_name"
+
+#: ``?search=``（DRF ``SearchFilter``）匹配的字段——**窄口径**。
+#: 权威源放在本模块而非视图：文案侧（``employee_search``）与运行时侧
+#: （``EmployeeViewSet.search_fields``）都要引用它，而文案模块位于 Selector 层，
+#: 反向 import View 会违反五层架构（§1.2 禁止跨层反向依赖）。
+SEARCH_NARROW_FIELDS: tuple[str, ...] = (
+    "employee_name",
+    "employee_jobcode",
+    "employee_phone",
+)
+
+#: 宽口径相对窄口径**多出**的文本字段。由两个常量求差得出而非手写，
+#: 这样任一侧增删字段时「差异说明」自动跟随,不会分叉。
+SEARCH_WIDE_ONLY_TEXT_FIELDS: tuple[str, ...] = tuple(
+    field for field in SEARCH_TEXT_FIELDS if field not in SEARCH_NARROW_FIELDS
+)
+
+#: 中文状态别名 -> 状态码。**OpenAPI 说明同样引用此映射**,避免文档与实现分叉。
+SEARCH_STATUS_ALIASES: dict[str, tuple[str, ...]] = {
+    "active": ("在职", "活动", "激活", "活跃", "在职员工"),
+    "left": ("离职", "离开", "已离职"),
+    "retirement": ("退休", "已退休"),
+}
+
+
 class EmployeeSelector:
     """
     员工查询选择器
@@ -80,22 +118,16 @@ class EmployeeSelector:
         if keyword:
             search_conditions = Q()
 
-            # 文本字段模糊匹配
-            text_fields = ["employee_name", "employee_jobcode", "employee_phone", "employee_description"]
-            for field in text_fields:
+            # 文本字段模糊匹配（字段清单取权威常量，DR-1）
+            for field in SEARCH_TEXT_FIELDS:
                 search_conditions |= Q(**{f"{field}__icontains": keyword})
 
             # 关联部门名称模糊匹配
-            search_conditions |= Q(employee_department__department_name__icontains=keyword)
+            search_conditions |= Q(**{f"{SEARCH_DEPARTMENT_FIELD}__icontains": keyword})
 
             # 【AGENTS 规范 - P3-29】状态别名映射:将中文状态关键词映射为英文状态码
-            status_mapping = {
-                "active": ["在职", "活动", "激活", "活跃", "在职员工"],
-                "left": ["离职", "离开", "已离职"],
-                "retirement": ["退休", "已退休"],
-            }
             matched_codes = {
-                code for code, aliases in status_mapping.items() if any(alias in keyword for alias in aliases)
+                code for code, aliases in SEARCH_STATUS_ALIASES.items() if any(alias in keyword for alias in aliases)
             }
             if matched_codes:
                 search_conditions |= Q(employee_status__in=list(matched_codes))

@@ -14,8 +14,9 @@ from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 
 from apps.usermanagement.employee_filters import EmployeeFilterSet
+from apps.usermanagement.employee_search import keyword_param_description, search_param_note
 from apps.usermanagement.models import Employee, EmployeeRole, EmployeeStatus
-from apps.usermanagement.selectors import EmployeeSelector
+from apps.usermanagement.selectors import SEARCH_NARROW_FIELDS, EmployeeSelector
 from apps.usermanagement.serializers import (
     EmployeeBatchCreateSerializer,
     EmployeeBatchDeleteSerializer,
@@ -126,7 +127,7 @@ class EmployeeViewSet(  # type: ignore[misc]
     #: employee_department__department_code。filterset_class 会**取代**
     #: filterset_fields，新增筛选维度必须在 employee_filters.py 声明，否则静默失效。
     filterset_class = EmployeeFilterSet
-    search_fields = ["employee_name", "employee_jobcode", "employee_phone"]
+    search_fields = list(SEARCH_NARROW_FIELDS)
     ordering_fields = [
         "employee_jobcode",
         "employee_name",
@@ -152,6 +153,15 @@ class EmployeeViewSet(  # type: ignore[misc]
     # 不是 url_path：``export_excel`` 而非 ``export``。
     schema = ForceFilterDiscoverySchema()
     force_filter_discovery_actions = frozenset({"export_excel", "statistics"})
+    # 【BF-052 遗留③】``?search=`` 自动产出的描述只有泛化英文 "A search term."，
+    # 不说明字段集、也不说明与 ``?keyword=`` 的差异。给这 4 个 action 补说明。
+    # 名单即「运行时真正暴露 search 的 action」——override 对每个 operation 无条件
+    # 生效，不限定就会把 search 注入 retrieve/update/bind-auth-user 等 7 个不读它的
+    # 路由，制造「文档有、运行时无」的反向失真。漏登记由护栏测试
+    # test_search_param_not_leaked_to_non_search_routes 抓出。
+    # 名单里是 **action 方法名**（同 force_filter_discovery_actions）。
+    search_param_description_actions = frozenset({"list", "global_search", "export_excel", "statistics"})
+    search_param_note = search_param_note()
 
     # ---------- 取行口径单一入口（DR-1 / DR-3） ----------
 
@@ -277,7 +287,7 @@ class EmployeeViewSet(  # type: ignore[misc]
                     name="keyword",
                     type=OpenApiTypes.STR,
                     location=OpenApiParameter.QUERY,
-                    description="与 /employees/search/ 同源的搜索关键词",
+                    description=keyword_param_description(),
                     required=False,
                 ),
             ],

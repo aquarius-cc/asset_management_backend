@@ -27,6 +27,7 @@ from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_sche
 from rest_framework import permissions, serializers, status
 from rest_framework.decorators import action
 
+from apps.usermanagement.employee_search import keyword_param_description
 from apps.usermanagement.selectors import EmployeeSelector
 from apps.usermanagement.serializers import EmployeeDetailSerializer, EmployeeSerializer
 from core.department_scope import get_employee_scoped_queryset_for_user
@@ -183,7 +184,7 @@ class EmployeeQueryActionsMixin:
                 name="keyword",
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.QUERY,
-                description="搜索关键词",
+                description=keyword_param_description(),
                 required=True,
             ),
             # 【不要重复声明筛选参数】employee_status / department_code（含

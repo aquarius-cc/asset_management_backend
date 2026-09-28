@@ -11,9 +11,18 @@
 ``?keyword=`` 宽：4 文本字段 + 部门名称 + 中文状态别名       ``EmployeeSelector.search_employees``
 ============  ==========================================  ==========================
 
-同一词换参数结果不同,例如 ``?search=技术部`` 命中 0 条（部门名不在 ``search_fields``）,
-而 ``?keyword=技术部`` 有结果；``?search=在职`` 命中 0 条,``?keyword=在职`` 命中全部
-在职员工。二者在 ``/search/`` 与 ``/export/`` 上**同传为 AND（交集）**,而非 OR。
+同一词换参数结果不同,例如在 ``/employees/search/`` 与 ``/employees/export/`` 上,
+``?search=技术部`` 命中 0 条(部门名不在 ``search_fields``),而 ``?keyword=技术部`` 有结果；
+``?search=在职`` 命中 0 条,``?keyword=在职`` 命中全部在职员工。二者在这两个端点上
+**同传为 AND(交集)**,而非 OR。
+
+【作用域不同,勿跨端点套用】
+``?search=`` 由 DRF ``SearchFilter`` 覆盖 4 条路由(``/employees/``、``/employees/search/``、
+``/employees/export/``、``/employees/statistics/``);而 ``?keyword=`` 只有
+``/employees/search/`` 与 ``/employees/export/`` **真的读取**它。``/employees/`` 与
+``/employees/statistics/`` 上传 ``keyword`` 不会生效,故不为其声明该参数
+(声明了就是「文档超前于运行时」的反向失真)。因此上面的对比示例只在
+``/search/`` 与 ``/export/`` 成立,AND 交集语义同理。
 
 【为什么文案由代码派生而非手写】
 本模块**从 :mod:`apps.usermanagement.selectors` 的权威常量派生**字段清单。手写文案
@@ -52,7 +61,8 @@ def keyword_param_description() -> str:
     （声明了就是「文档超前于运行时」的反向失真）。
     """
     return (
-        f"搜索关键词（宽口径）：匹配 {'、'.join(SEARCH_TEXT_FIELDS)} 四个文本字段、"
+        f"搜索关键词（宽口径）：匹配 {len(SEARCH_TEXT_FIELDS)} 个文本字段"
+        f"（{'、'.join(SEARCH_TEXT_FIELDS)}）、"
         f"关联部门名称（{SEARCH_DEPARTMENT_FIELD}）、"
         f"以及中文状态别名（如 {_STATUS_ALIAS_SAMPLES}）。"
         f"同端点的 search 为窄口径（仅 {'、'.join(SEARCH_NARROW_FIELDS)}，"

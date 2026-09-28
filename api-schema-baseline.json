@@ -11722,7 +11722,7 @@
                         "schema": {
                             "type": "string"
                         },
-                        "description": "搜索关键词（宽口径）：匹配 employee_name、employee_jobcode、employee_phone、employee_description 四个文本字段、关联部门名称（employee_department__department_name）、以及中文状态别名（如 在职、离职、退休）。同端点的 search 为窄口径（仅 employee_name、employee_jobcode、employee_phone，不含部门名称与状态别名）。两者同传为 AND（交集）,而非 OR。"
+                        "description": "搜索关键词（宽口径）：匹配 4 个文本字段（employee_name、employee_jobcode、employee_phone、employee_description）、关联部门名称（employee_department__department_name）、以及中文状态别名（如 在职、离职、退休）。同端点的 search 为窄口径（仅 employee_name、employee_jobcode、employee_phone，不含部门名称与状态别名）。两者同传为 AND（交集）,而非 OR。"
                     },
                     {
                         "in": "query",
@@ -11828,7 +11828,7 @@
                         "schema": {
                             "type": "string"
                         },
-                        "description": "搜索关键词（宽口径）：匹配 employee_name、employee_jobcode、employee_phone、employee_description 四个文本字段、关联部门名称（employee_department__department_name）、以及中文状态别名（如 在职、离职、退休）。同端点的 search 为窄口径（仅 employee_name、employee_jobcode、employee_phone，不含部门名称与状态别名）。两者同传为 AND（交集）,而非 OR。",
+                        "description": "搜索关键词（宽口径）：匹配 4 个文本字段（employee_name、employee_jobcode、employee_phone、employee_description）、关联部门名称（employee_department__department_name）、以及中文状态别名（如 在职、离职、退休）。同端点的 search 为窄口径（仅 employee_name、employee_jobcode、employee_phone，不含部门名称与状态别名）。两者同传为 AND（交集）,而非 OR。",
                         "required": true
                     },
                     {

@@ -153,7 +153,7 @@ class EmployeeViewSet(  # type: ignore[misc]
     # 不是 url_path：``export_excel`` 而非 ``export``。
     schema = ForceFilterDiscoverySchema()
     force_filter_discovery_actions = frozenset({"export_excel", "statistics"})
-    # 【BF-052 遗留③】``?search=`` 自动产出的描述只有泛化英文 "A search term."，
+    # 【A-44 遗留③】``?search=`` 自动产出的描述只有泛化英文 "A search term."，
     # 不说明字段集、也不说明与 ``?keyword=`` 的差异。给这 4 个 action 补说明。
     # 名单即「运行时真正暴露 search 的 action」——override 对每个 operation 无条件
     # 生效，不限定就会把 search 注入 retrieve/update/bind-auth-user 等 7 个不读它的

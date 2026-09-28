@@ -6,7 +6,7 @@
 1. ``ForceFilterDiscoverySchema.get_filter_backends()`` —— 补 ``_is_list_view()``
    启发式缺口（BF-049），见下文背景。
 2. ``ForceFilterDiscoverySchema._get_filter_parameters()`` —— 给 ``?search=``
-   补字段集说明（BF-052 遗留③），见下文「窄口径搜索」。
+   补字段集说明（A-44 遗留③），见下文「窄口径搜索」。
 
 【背景：drf-spectacular 0.29 的 ``_is_list_view()`` 启发式缺口】
 ``AutoSchema.get_filter_backends()`` 的实现是::
@@ -79,7 +79,10 @@ class ForceFilterDiscoverySchema(AutoSchema):
         class MyViewSet(ModelViewSet):
             schema = ForceFilterDiscoverySchema
             force_filter_discovery_actions = frozenset({"export", "statistics"})
-            search_param_description_actions = frozenset({"list"})
+            # 只登记「该端点确实同时暴露 search 与 keyword」的 action。
+            # 若所列端点并不暴露 keyword,下面这句窄/宽对比就是错的描述,
+            # 故不要无脑照抄本例的名单。
+            search_param_description_actions = frozenset({"search", "export"})
             search_param_note = "本参数为窄口径；同端点 keyword 为宽口径，两者同传为 AND。"
     """
 
@@ -114,7 +117,14 @@ class ForceFilterDiscoverySchema(AutoSchema):
         ① ``required: false`` 及未来 ``SearchFilter`` 新增的任何属性都**原样保留**；
         ② **只改写已发现的参数、绝不注入**——若某 action 运行时/启发式上不暴露
         ``search``，这里找不到就什么都不做，从根上排除了「文档有、运行时无」的
-        反向失真（这是按 action 限定白名单的根本原因）。
+        反向失真。
+
+        【白名单守的不是防泄漏,而是语义正确性】
+        防泄漏由上面 ②「只改写已存在参数」保证,与白名单无关。白名单
+        ``search_param_description_actions`` 守的是另一件事：``search_param_note``
+        断言「同端点存在 keyword 宽口径,两者同传为 AND」,若某 action 暴露
+        ``search`` 却不暴露 ``keyword``,这段对比在该端点就是**错的**。名单把
+        「该端点是否适用窄/宽对比」变成显式决定,详见本模块 docstring。
 
         代价：``_get_filter_parameters`` 是库私有方法。本模块已按 drf-spectacular
         0.29 锁定行为，升级库时需重跑 ``test_employee_search_contract`` 护栏。

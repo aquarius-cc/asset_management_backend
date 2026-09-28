@@ -13,7 +13,7 @@ from core.department_scope import get_employee_scoped_queryset_for_user
 #: ``EmployeeSelector.search_employees`` 匹配的文本字段。
 #: **同时是 OpenAPI ``?keyword=`` 参数说明的权威源**（DR-1）：文档字段清单必须由
 #: 本常量派生,不得在视图/Schema/文档里各写一份——各写一份就会随实现改动而失真
-#: （这正是 BF-052 遗留③ 要修的病）。
+#: （这正是 A-44 遗留③ 要修的病）。
 SEARCH_TEXT_FIELDS: tuple[str, ...] = (
     "employee_name",
     "employee_jobcode",

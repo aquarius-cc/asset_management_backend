@@ -28,6 +28,12 @@ class ContractBatchCreateItemSerializer(serializers.Serializer):  # type: ignore
     row_number = serializers.IntegerField(required=False, help_text="Excel 行号")
     contract_code = serializers.CharField(required=True, max_length=20, help_text="合同编码")
     contract_name = serializers.CharField(required=True, max_length=100, help_text="合同名称")
+    # 【BF-055】前端 contractBatchImport.config.ts 一直构造该键,但本序列化器此前未声明,
+    # DRF 对未声明键静默丢弃 —— 导入模板的「已付金额」列填了不落库。补上后由
+    # ContractService.create_contract 规范化为一条 approved 期初付款记录。
+    amount_paid = serializers.DecimalField(
+        max_digits=12, decimal_places=2, required=False, help_text="期初已付金额(保存时转为一条已通过的付款记录)"
+    )
     contract_type = serializers.ChoiceField(
         choices=[
             ("tender_procurement", "招标采购合同"),
@@ -75,6 +81,40 @@ class ContractBatchCreateSerializer(serializers.Serializer):  # type: ignore[typ
         codes = [item.get("contract_code") for item in value if item.get("contract_code")]
         if len(codes) != len(set(codes)):
             raise serializers.ValidationError("提交记录中存在重复的合同编码")
+        return value
+
+
+class ContractBatchPaymentRecordItemSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    """单条历史付款回填数据校验(BF-054)
+
+    【决策 Q-C】不开放 status 字段:回填条目一律由 Service 内部 add → approve 落到
+    approved,保持「approved 仅由 approve_payment_record 产生」这一状态机单一入口。
+    payment_method 为自由文本(仅存于 paid_record 明细,不参与查询),故不设 ChoiceField。
+    """
+
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2, required=True, help_text="付款金额")
+    description = serializers.CharField(required=False, allow_blank=True, default="", help_text="付款说明")
+    payment_date = serializers.DateField(required=False, help_text="付款发生日期(YYYY-MM-DD),缺省取当天")
+    payment_method = serializers.CharField(
+        required=False, default="bank_transfer", help_text="支付方式(自由文本,如 bank_transfer/cash/check)"
+    )
+
+
+class ContractBatchPaymentRecordSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    """【新增】批量回填历史付款记录请求校验(BF-054)
+
+    形态与 ContractBatchCreateSerializer 同构(items + validate_items 长度/去重),
+    供上传已执行合同时一次性录入其历史付款,替代「每笔发 add + approve 两次请求」。
+    """
+
+    MAX_BATCH_SIZE = DEFAULT_MAX_BATCH_SIZE  # DR-1: 常量单一来源(core/constants.py)
+    items = ContractBatchPaymentRecordItemSerializer(many=True, required=True)
+
+    def validate_items(self, value: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        if len(value) > self.MAX_BATCH_SIZE:
+            raise serializers.ValidationError(f"单次批量回填不能超过 {self.MAX_BATCH_SIZE} 条")
+        if len(value) == 0:
+            raise serializers.ValidationError("回填条目不能为空")
         return value
 
 

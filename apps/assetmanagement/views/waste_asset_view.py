@@ -11,8 +11,12 @@ from typing import Any
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.openapi import OpenApiParameter  # type: ignore[attr-defined]
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema
-from rest_framework import status, viewsets
+from drf_spectacular.utils import (
+    OpenApiResponse,
+    extend_schema,
+    inline_serializer,
+)
+from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
@@ -34,6 +38,22 @@ from core.permissions import IsAssetAdminOrAbove, resolve_viewset_permissions
 from utils.response_utils import error_response, success_response
 
 from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
+
+
+# 已报废统计的响应结构。聚合字典由本模块 statistics() 直接构造，故用
+# inline_serializer 声明文档结构，不新增运行时 Serializer（避免第二处
+# 结构定义）。键与 statistics() 的 success_response 逐一对应。
+WasteAssetStatisticsDataSchema = inline_serializer(
+    name="WasteAssetStatistics",
+    fields={
+        "total_waste": serializers.IntegerField(help_text="已报废总数"),
+        "current_year_count": serializers.IntegerField(help_text="本年度报废数量"),
+        "monthly_distribution": serializers.DictField(
+            child=serializers.IntegerField(),
+            help_text='本年度每月报废数量：{"月份": 数量}',
+        ),
+    },
+)
 
 
 class WasteAssetViewSet(  # type: ignore[misc]
@@ -111,6 +131,13 @@ class WasteAssetViewSet(  # type: ignore[misc]
         records = WasteAssetSelector.get_by_asset_code(asset_recordcode, user=request.user)
         return self._paginate_and_respond(records)
 
+    @extend_schema(
+        summary="已报废统计",
+        # statistics 返回聚合字典，不是分页实体列表（BF-050 同型）。字段集与
+        # 本方法内 success_response 的键逐一对应；drf-spectacular 对手工声明
+        # 不做校正，写错即进基线，故用 inline_serializer 显式声明而非依赖推断。
+        responses={200: OpenApiResponse(response=WasteAssetStatisticsDataSchema)},
+    )
     @action(detail=False, methods=["get"])
     def statistics(self, request: Any) -> Response:
         from django.db.models import Count

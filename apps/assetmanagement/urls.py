@@ -73,7 +73,7 @@ urlpatterns: list[URLResolver | URLPattern] = [
         AssetOperationLogExportView.as_view(),
         name="operation-log-export",
     ),
-    path("operation-logs/<int:pk>/", AssetOperationLogDetailView.as_view(), name="operation-log-detail"),
+    path("operation-logs/<int:id>/", AssetOperationLogDetailView.as_view(), name="operation-log-detail"),
     path("operation-logs/recent/", RecentOperationsView.as_view(), name="operation-log-recent"),
     path("operation-logs/user/<str:operator_jobcode>/", UserOperationsView.as_view(), name="operation-log-user"),
     path("assets/<str:asset_code>/history/", AssetHistoryView.as_view(), name="asset-history"),

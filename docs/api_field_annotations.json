@@ -1,0 +1,1781 @@
+{
+  "version": 1,
+  "endpoints": {
+    "GET /api/v1/assets/asset-types": {
+      "query": [
+        {
+          "field": "page",
+          "note": "页码"
+        },
+        {
+          "field": "page_size",
+          "note": "每页数量"
+        },
+        {
+          "field": "search",
+          "note": "搜索关键词（匹配 asset_type_secondary、asset_type_code）"
+        },
+        {
+          "field": "ordering",
+          "note": "排序字段（asset_type_code、asset_type_secondary）"
+        },
+        {
+          "field": "type_code",
+          "note": "资产类型唯一编码(用于树形结构标识)"
+        },
+        {
+          "field": "type_name",
+          "note": "资产类型的显示名称"
+        },
+        {
+          "field": "level",
+          "note": "资产类型在树形结构中的层级，顶级为0"
+        }
+      ]
+    },
+    "GET /api/v1/assets/asset-types/{}": {
+      "path": [
+        {
+          "field": "recordcode",
+          "note": "类型编码"
+        }
+      ]
+    },
+    "GET /api/v1/assets/assets": {
+      "query": [
+        {
+          "field": "page",
+          "note": "页码"
+        },
+        {
+          "field": "page_size",
+          "note": "每页数量"
+        },
+        {
+          "field": "asset_current_status",
+          "note": "资产状态（in_store/recycled_pending/in_use/damaged/scrapped）"
+        },
+        {
+          "field": "ordering",
+          "note": "排序字段（asset_code、asset_entry_date、asset_purchase_price、asset_name）"
+        },
+        {
+          "field": "asset_storage_recordcode",
+          "note": "资产当前所在仓库(通过 recordcode 关联)"
+        },
+        {
+          "field": "asset_type_recordcode",
+          "note": "关联的资产类型(通过 recordcode 关联)"
+        },
+        {
+          "field": "search",
+          "note": "模糊搜索关键字"
+        }
+      ]
+    },
+    "GET /api/v1/assets/assets/combined_details": {
+      "query": [
+        {
+          "field": "asset_code",
+          "note": "资产编码"
+        }
+      ]
+    },
+    "GET /api/v1/assets/assets/contract_by_asset/{}": {
+      "path": [
+        {
+          "field": "asset_code",
+          "note": "资产编码"
+        }
+      ]
+    },
+    "GET /api/v1/assets/assets/get_asset_by_name/{}": {
+      "path": [
+        {
+          "field": "name",
+          "note": "资产名称（模糊匹配）"
+        }
+      ]
+    },
+    "GET /api/v1/assets/assets/get_asset_by_recordcode/{}": {
+      "path": [
+        {
+          "field": "recordcode",
+          "note": "入库记录编码"
+        }
+      ]
+    },
+    "GET /api/v1/assets/assets/{}": {
+      "path": [
+        {
+          "field": "recordcode",
+          "note": "资产编码"
+        }
+      ]
+    },
+    "GET /api/v1/assets/assets/{}/history": {
+      "path": [
+        {
+          "field": "asset_code",
+          "note": "资产编码"
+        }
+      ]
+    },
+    "GET /api/v1/assets/assets/{}/timeline": {
+      "path": [
+        {
+          "field": "asset_code",
+          "note": "资产编码"
+        }
+      ]
+    },
+    "GET /api/v1/assets/contracts": {
+      "query": [
+        {
+          "field": "page",
+          "note": "页码"
+        },
+        {
+          "field": "page_size",
+          "note": "每页数量"
+        },
+        {
+          "field": "contract_type",
+          "note": "合同类型"
+        },
+        {
+          "field": "ordering",
+          "note": "排序字段（contract_code、contract_signing_date、contract_price）"
+        },
+        {
+          "field": "contract_status",
+          "note": "合同状态:供货中/供货完成/到货验收/初步验收/结算中/结算完成/最终验收/项目结束"
+        },
+        {
+          "field": "search",
+          "note": "模糊搜索关键字"
+        }
+      ]
+    },
+    "GET /api/v1/assets/contracts/get_contract_by_name/{}": {
+      "path": [
+        {
+          "field": "name",
+          "note": "合同名称（模糊匹配）"
+        }
+      ]
+    },
+    "GET /api/v1/assets/contracts/search": {
+      "query": [
+        {
+          "field": "keyword",
+          "note": "搜索关键词"
+        },
+        {
+          "field": "page",
+          "note": "页码"
+        },
+        {
+          "field": "page_size",
+          "note": "每页数量"
+        },
+        {
+          "field": "contract_status",
+          "note": "合同状态:供货中/供货完成/到货验收/初步验收/结算中/结算完成/最终验收/项目结束"
+        },
+        {
+          "field": "contract_type",
+          "note": "合同类型:招标采购/服务/信息化建设/直接采购"
+        },
+        {
+          "field": "ordering",
+          "note": "排序字段，形如 `field` 或 `-field`"
+        },
+        {
+          "field": "search",
+          "note": "模糊搜索关键字"
+        }
+      ]
+    },
+    "GET /api/v1/assets/contracts/{}": {
+      "path": [
+        {
+          "field": "recordcode",
+          "note": "合同编码"
+        }
+      ]
+    },
+    "GET /api/v1/assets/damaged-assets": {
+      "query": [
+        {
+          "field": "page",
+          "note": "页码"
+        },
+        {
+          "field": "page_size",
+          "note": "每页数量"
+        },
+        {
+          "field": "approval_status",
+          "note": "审批状态（pending/approved/rejected）"
+        },
+        {
+          "field": "search",
+          "note": "搜索关键词（匹配资产名称）"
+        },
+        {
+          "field": "ordering",
+          "note": "排序字段，形如 `field` 或 `-field`"
+        }
+      ]
+    },
+    "GET /api/v1/assets/damaged-assets/by-asset/{}": {
+      "path": [
+        {
+          "field": "asset_recordcode",
+          "note": "资产编码"
+        }
+      ]
+    },
+    "GET /api/v1/assets/damaged-assets/{}": {
+      "path": [
+        {
+          "field": "recordcode",
+          "note": "资产编码"
+        }
+      ]
+    },
+    "GET /api/v1/assets/harddisk-sn": {
+      "query": [
+        {
+          "field": "page",
+          "note": "页码"
+        },
+        {
+          "field": "page_size",
+          "note": "每页数量"
+        },
+        {
+          "field": "harddisk_status",
+          "note": "硬盘状态（active/repair/scrap/lost/damaged）"
+        },
+        {
+          "field": "search",
+          "note": "搜索关键词（匹配 harddisk_sn_code、harddisk_sn_description）"
+        },
+        {
+          "field": "ordering",
+          "note": "排序字段（id、harddisk_number）"
+        },
+        {
+          "field": "harddisk_type",
+          "note": "硬盘类型:HDD/SSD/NVMe/Other"
+        },
+        {
+          "field": "asset_recordcode",
+          "note": "关联的资产唯一标识码（通过 recordcode 关联）"
+        }
+      ]
+    },
+    "GET /api/v1/assets/harddisk-sn/by-asset/{}": {
+      "path": [
+        {
+          "field": "asset_code",
+          "note": "资产编码"
+        }
+      ]
+    },
+    "GET /api/v1/assets/harddisk-sn/{}": {
+      "path": [
+        {
+          "field": "recordcode",
+          "note": "资产编码"
+        }
+      ]
+    },
+    "GET /api/v1/assets/operation-logs": {
+      "query": [
+        {
+          "field": "asset_code",
+          "note": "资产编码（精确匹配）"
+        },
+        {
+          "field": "operation_type",
+          "note": "操作类型（create/update/delete/out/recycle/damaged/waste/approve/transfer）"
+        },
+        {
+          "field": "operator_jobcode",
+          "note": "操作人工号"
+        },
+        {
+          "field": "start_date",
+          "note": "开始日期（YYYY-MM-DD）"
+        },
+        {
+          "field": "end_date",
+          "note": "结束日期（YYYY-MM-DD）"
+        },
+        {
+          "field": "days",
+          "note": "最近 N 天（与日期范围互斥）"
+        }
+      ]
+    },
+    "GET /api/v1/assets/operation-logs/by-logging-id/{}": {
+      "path": [
+        {
+          "field": "logging_id",
+          "note": "LoggingId"
+        }
+      ]
+    },
+    "GET /api/v1/assets/operation-logs/recent": {
+      "query": [
+        {
+          "field": "days",
+          "note": "最近 N 天（范围 1-365）"
+        }
+      ]
+    },
+    "GET /api/v1/assets/operation-logs/user/{}": {
+      "path": [
+        {
+          "field": "operator_jobcode",
+          "note": "操作人工号"
+        }
+      ]
+    },
+    "GET /api/v1/assets/operation-logs/{}": {
+      "path": [
+        {
+          "field": "id",
+          "note": "操作记录主键 ID"
+        }
+      ]
+    },
+    "GET /api/v1/assets/out-assets": {
+      "query": [
+        {
+          "field": "page",
+          "note": "页码"
+        },
+        {
+          "field": "page_size",
+          "note": "每页数量"
+        },
+        {
+          "field": "outasset_type",
+          "note": "出库类型（receive/borrow）"
+        },
+        {
+          "field": "ordering",
+          "note": "排序字段"
+        },
+        {
+          "field": "search",
+          "note": "模糊搜索关键字"
+        }
+      ]
+    },
+    "GET /api/v1/assets/out-assets/by-applicant/{}": {
+      "path": [
+        {
+          "field": "applicant_jobcode",
+          "note": "申请人工号"
+        }
+      ]
+    },
+    "GET /api/v1/assets/out-assets/by-asset/{}": {
+      "path": [
+        {
+          "field": "asset_code",
+          "note": "资产编码"
+        }
+      ]
+    },
+    "GET /api/v1/assets/out-assets/recyclable": {
+      "query": [
+        {
+          "field": "asset_brand",
+          "note": "资产品牌"
+        },
+        {
+          "field": "asset_code",
+          "note": "资产编码"
+        },
+        {
+          "field": "asset_name",
+          "note": "资产名称"
+        },
+        {
+          "field": "asset_specification",
+          "note": "资产规格"
+        },
+        {
+          "field": "department",
+          "note": "部门名称"
+        },
+        {
+          "field": "department_code",
+          "note": "部门编码"
+        },
+        {
+          "field": "employee_jobcode",
+          "note": "员工工号"
+        },
+        {
+          "field": "ordering",
+          "note": "排序字段，形如 `field` 或 `-field`"
+        },
+        {
+          "field": "outasset_applicant_name",
+          "note": "申请人姓名"
+        },
+        {
+          "field": "outasset_manager_name",
+          "note": "管理人姓名"
+        },
+        {
+          "field": "page",
+          "note": "页码"
+        },
+        {
+          "field": "page_size",
+          "note": "每页条数"
+        },
+        {
+          "field": "search",
+          "note": "模糊搜索关键字"
+        },
+        {
+          "field": "searchType",
+          "note": "搜索范围：all / asset / department 等"
+        },
+        {
+          "field": "years",
+          "note": "出库年份"
+        }
+      ]
+    },
+    "GET /api/v1/assets/out-assets/{}": {
+      "path": [
+        {
+          "field": "recordcode",
+          "note": "出库记录编码"
+        }
+      ]
+    },
+    "GET /api/v1/assets/recycle-assets": {
+      "query": [
+        {
+          "field": "page",
+          "note": "页码"
+        },
+        {
+          "field": "page_size",
+          "note": "每页数量"
+        },
+        {
+          "field": "search",
+          "note": "搜索关键词（匹配资产名称、仓库名称）"
+        },
+        {
+          "field": "outasset_recordcode",
+          "note": "关联的出库记录的资产唯一标识码"
+        },
+        {
+          "field": "ordering",
+          "note": "排序字段，形如 `field` 或 `-field`"
+        },
+        {
+          "field": "asset_recordcode",
+          "note": "关联的资产唯一标识码（通过 recordcode 关联）"
+        },
+        {
+          "field": "operator_employee",
+          "note": "办理回收操作的人员工号（通过 recordcode 关联）"
+        }
+      ]
+    },
+    "GET /api/v1/assets/recycle-assets/by-asset/{}": {
+      "path": [
+        {
+          "field": "asset_recordcode_code",
+          "note": "资产编码"
+        }
+      ]
+    },
+    "GET /api/v1/assets/recycle-assets/by-outasset/{}": {
+      "path": [
+        {
+          "field": "recordcode",
+          "note": "出库记录编码"
+        }
+      ]
+    },
+    "GET /api/v1/assets/recycle-assets/{}": {
+      "path": [
+        {
+          "field": "recordcode",
+          "note": "出库记录编码"
+        }
+      ]
+    },
+    "GET /api/v1/assets/storages": {
+      "query": [
+        {
+          "field": "page",
+          "note": "页码"
+        },
+        {
+          "field": "page_size",
+          "note": "每页数量"
+        },
+        {
+          "field": "storage_type",
+          "note": "仓库类型：newasset/recycle/damaged"
+        },
+        {
+          "field": "ordering",
+          "note": "排序字段（storage_code、storage_name）"
+        },
+        {
+          "field": "search",
+          "note": "模糊搜索关键字"
+        }
+      ]
+    },
+    "GET /api/v1/assets/storages/statistics": {
+      "response": [
+        {
+          "field": "total_storages",
+          "note": "仓库总数"
+        },
+        {
+          "field": "by_type",
+          "note": "按类型分组统计"
+        }
+      ]
+    },
+    "GET /api/v1/assets/storages/{}": {
+      "path": [
+        {
+          "field": "recordcode",
+          "note": "仓库编码"
+        }
+      ]
+    },
+    "GET /api/v1/assets/waste-assets": {
+      "query": [
+        {
+          "field": "page",
+          "note": "页码"
+        },
+        {
+          "field": "page_size",
+          "note": "每页数量"
+        },
+        {
+          "field": "waste_asset_date",
+          "note": "报废日期"
+        },
+        {
+          "field": "search",
+          "note": "搜索关键词（匹配资产名称、资产编码）"
+        },
+        {
+          "field": "ordering",
+          "note": "排序字段，形如 `field` 或 `-field`"
+        }
+      ]
+    },
+    "GET /api/v1/assets/waste-assets/by-date-range": {
+      "query": [
+        {
+          "field": "start_date",
+          "note": "起始日期（格式：YYYY-MM-DD）"
+        },
+        {
+          "field": "end_date",
+          "note": "结束日期（格式：YYYY-MM-DD）"
+        },
+        {
+          "field": "waste_asset_date",
+          "note": "完成报废的日期"
+        },
+        {
+          "field": "ordering",
+          "note": "排序字段，形如 `field` 或 `-field`"
+        },
+        {
+          "field": "page",
+          "note": "页码"
+        },
+        {
+          "field": "page_size",
+          "note": "每页条数"
+        },
+        {
+          "field": "search",
+          "note": "模糊搜索关键字"
+        }
+      ]
+    },
+    "GET /api/v1/assets/waste-assets/statistics": {
+      "response": [
+        {
+          "field": "total_waste",
+          "note": "已报废总数"
+        },
+        {
+          "field": "current_year_count",
+          "note": "本年度报废数量"
+        },
+        {
+          "field": "monthly_distribution",
+          "note": "本年度每月报废数量：{\"月份\": 数量}"
+        }
+      ]
+    },
+    "GET /api/v1/assets/waste-assets/{}": {
+      "path": [
+        {
+          "field": "asset_recordcode__asset_code",
+          "note": "资产编码（View.lookup_field 派生自 asset_recordcode__asset_code）"
+        }
+      ]
+    },
+    "GET /api/v1/dashboard/overview": {
+      "response": [
+        {
+          "field": "total_assets",
+          "note": "资产总数"
+        },
+        {
+          "field": "active_assets",
+          "note": "在用资产数"
+        },
+        {
+          "field": "in_stock_assets",
+          "note": "在库资产数"
+        },
+        {
+          "field": "monthly_distributed",
+          "note": "本月出库数"
+        },
+        {
+          "field": "monthly_recycled",
+          "note": "本月回收数"
+        },
+        {
+          "field": "pending_waste",
+          "note": "待报废数"
+        },
+        {
+          "field": "wasted_assets",
+          "note": "已报废数"
+        },
+        {
+          "field": "total_recycled",
+          "note": "累计回收数"
+        },
+        {
+          "field": "total_distributed",
+          "note": "累计出库数"
+        },
+        {
+          "field": "timestamp",
+          "note": "数据时间戳"
+        },
+        {
+          "field": "total_value",
+          "note": "资产总价值"
+        },
+        {
+          "field": "total_contracts",
+          "note": "合同总数"
+        },
+        {
+          "field": "status_distribution",
+          "note": "各资产状态的数量分布"
+        }
+      ]
+    },
+    "GET /api/v1/dashboard/recent_out_assets": {
+      "query": [
+        {
+          "field": "limit",
+          "note": "返回数量（最大 100）"
+        }
+      ]
+    },
+    "GET /api/v1/dashboard/recent_recycle_assets": {
+      "query": [
+        {
+          "field": "limit",
+          "note": "返回数量（最大 100）"
+        }
+      ]
+    },
+    "GET /api/v1/unregisteredassets/unregistered-assets": {
+      "query": [
+        {
+          "field": "page",
+          "note": "页码"
+        },
+        {
+          "field": "page_size",
+          "note": "每页数量"
+        },
+        {
+          "field": "approval_status",
+          "note": "审批状态（pending/approved/rejected）"
+        },
+        {
+          "field": "search",
+          "note": "搜索关键词"
+        },
+        {
+          "field": "discovery_person",
+          "note": "发现资产的人员工号(通过 recordcode 关联)"
+        },
+        {
+          "field": "related_asset",
+          "note": "系统中已存在的资产(S2/S3场景必填,通过 recordcode 关联)"
+        },
+        {
+          "field": "scenario_type",
+          "note": "不在账资产的具体场景:S1实物有系统无/S2系统有无出库/S3状态异常"
+        },
+        {
+          "field": "ordering",
+          "note": "排序字段，形如 `field` 或 `-field`"
+        }
+      ]
+    },
+    "GET /api/v1/unregisteredassets/unregistered-assets/{}": {
+      "path": [
+        {
+          "field": "unregistered_code",
+          "note": "未登记资产编码"
+        }
+      ]
+    },
+    "GET /api/v1/users/departments": {
+      "query": [
+        {
+          "field": "page",
+          "note": "页码"
+        },
+        {
+          "field": "page_size",
+          "note": "每页数量（最大 100）"
+        },
+        {
+          "field": "search",
+          "note": "搜索关键词（匹配 department_name、department_code）"
+        },
+        {
+          "field": "ordering",
+          "note": "排序字段（department_code、department_name），前缀 `-` 降序"
+        }
+      ]
+    },
+    "GET /api/v1/users/departments/{}": {
+      "path": [
+        {
+          "field": "department_code",
+          "note": "部门编码"
+        }
+      ]
+    },
+    "GET /api/v1/users/departments/{}/children": {
+      "path": [
+        {
+          "field": "department_code",
+          "note": "部门编码"
+        }
+      ]
+    },
+    "GET /api/v1/users/departments/{}/descendants": {
+      "path": [
+        {
+          "field": "department_code",
+          "note": "部门编码"
+        }
+      ]
+    },
+    "GET /api/v1/users/departments/{}/employees": {
+      "path": [
+        {
+          "field": "department_code",
+          "note": "部门编码"
+        }
+      ]
+    },
+    "GET /api/v1/users/departments/{}/path": {
+      "path": [
+        {
+          "field": "department_code",
+          "note": "部门编码"
+        }
+      ]
+    },
+    "GET /api/v1/users/employees": {
+      "query": [
+        {
+          "field": "page",
+          "note": "页码"
+        },
+        {
+          "field": "page_size",
+          "note": "每页数量（最大 100）"
+        },
+        {
+          "field": "employee_status",
+          "note": "员工状态：active/left/retirement"
+        },
+        {
+          "field": "search",
+          "note": "搜索关键词（匹配 employee_name、employee_jobcode、employee_phone）"
+        },
+        {
+          "field": "ordering",
+          "note": "排序字段（employee_jobcode、employee_name），前缀 `-` 降序"
+        },
+        {
+          "field": "department_code",
+          "note": "部门唯一标识编码"
+        }
+      ]
+    },
+    "GET /api/v1/users/employees/search": {
+      "query": [
+        {
+          "field": "keyword",
+          "note": "搜索关键词"
+        },
+        {
+          "field": "page",
+          "note": "页码"
+        },
+        {
+          "field": "page_size",
+          "note": "每页数量"
+        },
+        {
+          "field": "department_code",
+          "note": "部门唯一标识编码"
+        },
+        {
+          "field": "employee_status",
+          "note": "员工状态"
+        },
+        {
+          "field": "ordering",
+          "note": "排序字段，形如 `field` 或 `-field`"
+        },
+        {
+          "field": "search",
+          "note": "模糊搜索关键字"
+        }
+      ]
+    },
+    "GET /api/v1/users/employees/statistics": {
+      "response": [
+        {
+          "field": "total_employees",
+          "note": "员工总数"
+        },
+        {
+          "field": "active_employees",
+          "note": "在职员工数"
+        },
+        {
+          "field": "by_status",
+          "note": "按状态分组统计"
+        },
+        {
+          "field": "by_department",
+          "note": "按部门分组统计"
+        }
+      ]
+    },
+    "GET /api/v1/users/employees/{}": {
+      "path": [
+        {
+          "field": "employee_jobcode",
+          "note": "工号"
+        }
+      ]
+    },
+    "POST /api/v1/assets/asset-types": {
+      "body": [
+        {
+          "field": "recordcode",
+          "note": "后端生成的全局唯一编码,用于外键引用"
+        },
+        {
+          "field": "type_code",
+          "note": "资产类型唯一编码(用于树形结构标识)"
+        },
+        {
+          "field": "type_name",
+          "note": "资产类型的显示名称"
+        },
+        {
+          "field": "type_description",
+          "note": "资产类型的详细描述"
+        },
+        {
+          "field": "is_active",
+          "note": "控制记录是否激活"
+        },
+        {
+          "field": "parent",
+          "note": "父级资产类型(FK 指向 recordcode),null 表示顶级"
+        },
+        {
+          "field": "path",
+          "note": "从根到当前节点的完整路径,如 /ASSETTYPE-001/IT-001/DEV-001"
+        },
+        {
+          "field": "level",
+          "note": "资产类型在树形结构中的层级,顶级为0"
+        },
+        {
+          "field": "sort_order",
+          "note": "同级资产类型之间的排序权重,数字越小越靠前"
+        }
+      ]
+    },
+    "POST /api/v1/assets/assets": {
+      "body": [
+        {
+          "field": "asset_name",
+          "note": "资产名称"
+        },
+        {
+          "field": "asset_purchase_price",
+          "note": "采购价格"
+        },
+        {
+          "field": "asset_purchase_date",
+          "note": "购买日期"
+        },
+        {
+          "field": "asset_entry_date",
+          "note": "入库日期"
+        },
+        {
+          "field": "asset_brand",
+          "note": "品牌"
+        },
+        {
+          "field": "asset_specification",
+          "note": "规格"
+        },
+        {
+          "field": "asset_unit",
+          "note": "单位"
+        },
+        {
+          "field": "asset_warranty_period",
+          "note": "保修期（年）"
+        },
+        {
+          "field": "asset_description",
+          "note": "描述"
+        },
+        {
+          "field": "asset_purchase_number",
+          "note": "采购数量"
+        },
+        {
+          "field": "asset_using_location",
+          "note": "资产使用的地点"
+        },
+        {
+          "field": "asset_type",
+          "note": "资产类型编码（通过 recordcode 关联）"
+        },
+        {
+          "field": "asset_contract",
+          "note": "关联合同编码（通过 contract_code 关联）"
+        },
+        {
+          "field": "asset_storage",
+          "note": "存储仓库编码（通过 recordcode 关联）"
+        },
+        {
+          "field": "asset_entry_person",
+          "note": "录入人员工号（通过 recordcode 关联）"
+        },
+        {
+          "field": "asset_applicant",
+          "note": "申请人员工号（通过 recordcode 关联）"
+        },
+        {
+          "field": "asset_manager",
+          "note": "管理员工号（通过 recordcode 关联）"
+        }
+      ]
+    },
+    "POST /api/v1/assets/assets/{}/change_status": {
+      "path": [
+        {
+          "field": "recordcode",
+          "note": "资产编码"
+        }
+      ],
+      "body": [
+        {
+          "field": "status",
+          "note": "目标状态"
+        },
+        {
+          "field": "description",
+          "note": "变更说明"
+        }
+      ]
+    },
+    "POST /api/v1/assets/contracts": {
+      "body": [
+        {
+          "field": "contract_code",
+          "note": "合同编码"
+        },
+        {
+          "field": "contract_name",
+          "note": "合同名称"
+        },
+        {
+          "field": "contract_type",
+          "note": "类型（purchase/service/information_construction/direct_procurement）"
+        },
+        {
+          "field": "supplier_name",
+          "note": "供应商名称"
+        },
+        {
+          "field": "contract_amount",
+          "note": "合同总金额(元)"
+        },
+        {
+          "field": "settlemented_price",
+          "note": "最终结算金额(元)"
+        },
+        {
+          "field": "contract_total_quantity",
+          "note": "合同约定的总数量"
+        },
+        {
+          "field": "contract_start_date",
+          "note": "合同开始日期"
+        },
+        {
+          "field": "contract_end_date",
+          "note": "合同结束日期"
+        },
+        {
+          "field": "contract_status",
+          "note": "合同状态:供货中/供货完成/到货验收/初步验收/结算中/结算完成/最终验收/项目结束"
+        },
+        {
+          "field": "project_change",
+          "note": "是否存在项目变更"
+        },
+        {
+          "field": "project_change_type",
+          "note": "变更类型:设备增加/设备减少/只涉及型号/数量增加和型号/数量减少和型号"
+        },
+        {
+          "field": "project_change_description",
+          "note": "简单介绍变更内容"
+        },
+        {
+          "field": "receive_check_date",
+          "note": "到货验收日期"
+        },
+        {
+          "field": "initial_check_date",
+          "note": "初步验收日期"
+        },
+        {
+          "field": "final_check_date",
+          "note": "最终验收日期"
+        },
+        {
+          "field": "amount_paid",
+          "note": "已支付金额,默认为0"
+        },
+        {
+          "field": "contract_description",
+          "note": "补充说明"
+        },
+        {
+          "field": "is_active",
+          "note": "控制记录是否激活"
+        },
+        {
+          "field": "sort_order",
+          "note": "排序字段"
+        }
+      ]
+    },
+    "POST /api/v1/assets/contracts/{}/payment_record": {
+      "path": [
+        {
+          "field": "recordcode",
+          "note": "合同编码"
+        }
+      ],
+      "body": [
+        {
+          "field": "amount",
+          "note": "付款金额"
+        },
+        {
+          "field": "description",
+          "note": "付款说明"
+        },
+        {
+          "field": "payment_date",
+          "note": "付款发生日期 YYYY-MM-DD，默认当天；历史付款回填真实日期用"
+        },
+        {
+          "field": "payment_method",
+          "note": "支付方式（自由文本，如 bank_transfer/cash/check），仅存于付款明细，不参与查询"
+        }
+      ]
+    },
+    "POST /api/v1/assets/contracts/{}/update_settlement_status": {
+      "path": [
+        {
+          "field": "recordcode",
+          "note": "合同编码"
+        }
+      ],
+      "body": [
+        {
+          "field": "status",
+          "note": "结算状态（pending/settled）"
+        }
+      ]
+    },
+    "POST /api/v1/assets/damaged-assets": {
+      "body": [
+        {
+          "field": "damaged_asset_number",
+          "note": "default=1，数量"
+        },
+        {
+          "field": "damaged_date",
+          "note": "default=当天，申请日期"
+        },
+        {
+          "field": "damaged_asset_description",
+          "note": "描述"
+        },
+        {
+          "field": "is_active",
+          "note": "控制记录是否激活"
+        },
+        {
+          "field": "asset_recordcode",
+          "note": "待报废的资产唯一标识码(通过 recordcode 关联)。由 Partial Unique Constraint 保证仅非软删记录唯一,软删(驳回/取消)释放槽位以便重新申请"
+        }
+      ]
+    },
+    "POST /api/v1/assets/damaged-assets/{}/approve": {
+      "path": [
+        {
+          "field": "recordcode",
+          "note": "资产编码"
+        }
+      ],
+      "body": [
+        {
+          "field": "damaged_date",
+          "note": "提交报废申请的日期"
+        },
+        {
+          "field": "damaged_asset_number",
+          "note": "待报废的资产数量"
+        },
+        {
+          "field": "damaged_asset_description",
+          "note": "报废原因等说明"
+        },
+        {
+          "field": "is_active",
+          "note": "控制记录是否激活"
+        },
+        {
+          "field": "asset_recordcode",
+          "note": "待报废的资产唯一标识码(通过 recordcode 关联)。由 Partial Unique Constraint 保证仅非软删记录唯一,软删(驳回/取消)释放槽位以便重新申请"
+        },
+        {
+          "field": "approval_status",
+          "note": "审批状态:待审批/已批准/已拒绝"
+        },
+        {
+          "field": "approver",
+          "note": "审批人的工号(通过 recordcode 关联)"
+        }
+      ]
+    },
+    "POST /api/v1/assets/harddisk-sn": {
+      "body": [
+        {
+          "field": "harddisk_sn_code",
+          "note": "序列号"
+        },
+        {
+          "field": "harddisk_type",
+          "note": "类型（HDD/SSD/NVMe/Other）"
+        },
+        {
+          "field": "harddisk_status",
+          "note": "状态（active/repair/scrap/lost/damaged）"
+        },
+        {
+          "field": "harddisk_capacity",
+          "note": "硬盘容量标识,如 500GB/1TB/2TB"
+        },
+        {
+          "field": "harddisk_description",
+          "note": "硬盘的补充说明"
+        },
+        {
+          "field": "asset_recordcode",
+          "note": "关联的资产唯一标识码(通过 recordcode 关联)"
+        },
+        {
+          "field": "version",
+          "note": "乐观锁版本号"
+        }
+      ]
+    },
+    "POST /api/v1/assets/harddisk-sn/batch-save": {
+      "body": [
+        {
+          "field": "harddisk_sn_code",
+          "note": "硬盘的唯一序列号"
+        },
+        {
+          "field": "harddisk_type",
+          "note": "硬盘类型:HDD/SSD/NVMe/Other"
+        },
+        {
+          "field": "harddisk_capacity",
+          "note": "硬盘容量标识,如 500GB/1TB/2TB"
+        },
+        {
+          "field": "harddisk_status",
+          "note": "硬盘状态:正常/维修/报废/丢失/损坏"
+        },
+        {
+          "field": "harddisk_description",
+          "note": "硬盘的补充说明"
+        },
+        {
+          "field": "asset_recordcode",
+          "note": "关联的资产唯一标识码(通过 recordcode 关联)"
+        },
+        {
+          "field": "version",
+          "note": "乐观锁版本号"
+        }
+      ],
+      "sub:disks 子项": [
+        {
+          "field": "id",
+          "note": "硬盘序列号记录 ID（有值时为更新，无值时为新建）"
+        },
+        {
+          "field": "harddisk_no",
+          "note": "硬盘编号"
+        },
+        {
+          "field": "harddisk_sn_code",
+          "note": "序列号"
+        },
+        {
+          "field": "harddisk_type",
+          "note": "类型（HDD/SSD/NVMe/Other）"
+        },
+        {
+          "field": "harddisk_status",
+          "note": "状态（active/repair/scrap/lost/damaged）"
+        }
+      ]
+    },
+    "POST /api/v1/assets/harddisk-sn/search_by_serial_number": {
+      "body": [
+        {
+          "field": "harddisk_sn_code",
+          "note": "硬盘序列号"
+        },
+        {
+          "field": "harddisk_type",
+          "note": "硬盘类型:HDD/SSD/NVMe/Other"
+        },
+        {
+          "field": "harddisk_capacity",
+          "note": "硬盘容量标识,如 500GB/1TB/2TB"
+        },
+        {
+          "field": "harddisk_status",
+          "note": "硬盘状态:正常/维修/报废/丢失/损坏"
+        },
+        {
+          "field": "harddisk_description",
+          "note": "硬盘的补充说明"
+        },
+        {
+          "field": "asset_recordcode",
+          "note": "关联的资产唯一标识码(通过 recordcode 关联)"
+        },
+        {
+          "field": "version",
+          "note": "乐观锁版本号"
+        }
+      ]
+    },
+    "POST /api/v1/assets/out-assets": {
+      "body": [
+        {
+          "field": "outasset_number",
+          "note": "出库数量"
+        },
+        {
+          "field": "outasset_using_location",
+          "note": "使用地点（通过 Asset FK 关联自动获取）"
+        },
+        {
+          "field": "outasset_type",
+          "note": "类型（receive/borrow）"
+        },
+        {
+          "field": "return_date",
+          "note": "归还日期"
+        },
+        {
+          "field": "outasset_description",
+          "note": "描述"
+        },
+        {
+          "field": "outasset_date",
+          "note": "出库日期"
+        },
+        {
+          "field": "asset_recordcode",
+          "note": "关联的资产唯一标识码(通过 recordcode 关联)"
+        },
+        {
+          "field": "outasset_applicant",
+          "note": "申请人员工号（通过 recordcode 关联）"
+        },
+        {
+          "field": "outasset_manager",
+          "note": "管理员工号（通过 recordcode 关联）"
+        }
+      ]
+    },
+    "POST /api/v1/assets/recycle-assets": {
+      "body": [
+        {
+          "field": "outasset_recordcode",
+          "note": "出库记录编码"
+        },
+        {
+          "field": "recycle_asset_date",
+          "note": "回收日期"
+        },
+        {
+          "field": "recycle_asset_number",
+          "note": "default=1，回收数量"
+        },
+        {
+          "field": "recycle_asset_description",
+          "note": "描述"
+        },
+        {
+          "field": "storage_code",
+          "note": "仓库唯一编码,用于业务关联"
+        },
+        {
+          "field": "recycle_type",
+          "note": "回收原因/类型"
+        },
+        {
+          "field": "is_broken",
+          "note": "回收时是否发现资产损坏"
+        },
+        {
+          "field": "is_lost",
+          "note": "回收时是否发现资产遗失"
+        },
+        {
+          "field": "is_active",
+          "note": "控制记录是否激活"
+        },
+        {
+          "field": "broken_reason",
+          "note": "回收时发现损坏的原因"
+        },
+        {
+          "field": "lost_reason",
+          "note": "回收时发现遗失的原因"
+        }
+      ]
+    },
+    "POST /api/v1/assets/storages": {
+      "body": [
+        {
+          "field": "storage_code",
+          "note": "仓库编码"
+        },
+        {
+          "field": "storage_name",
+          "note": "仓库名称"
+        },
+        {
+          "field": "storage_address",
+          "note": "地址"
+        },
+        {
+          "field": "storage_type",
+          "note": "类型（newasset/recycle/damaged）"
+        },
+        {
+          "field": "storage_description",
+          "note": "描述"
+        },
+        {
+          "field": "recordcode",
+          "note": "后端生成的全局唯一编码,用于外键引用"
+        },
+        {
+          "field": "is_active",
+          "note": "控制记录是否激活"
+        }
+      ]
+    },
+    "POST /api/v1/auth/login": {
+      "body": [
+        {
+          "field": "auth_username",
+          "note": "用户名"
+        },
+        {
+          "field": "password",
+          "note": "密码（write_only）"
+        }
+      ]
+    },
+    "POST /api/v1/auth/logout": {
+      "body": [
+        {
+          "field": "refresh",
+          "note": "要作废的 refresh token"
+        }
+      ]
+    },
+    "POST /api/v1/auth/register": {
+      "body": [
+        {
+          "field": "auth_username",
+          "note": "用户名"
+        },
+        {
+          "field": "password",
+          "note": "密码（write_only），需通过 Django validate_password 验证"
+        },
+        {
+          "field": "password2",
+          "note": "确认密码（write_only），必须与 password 一致"
+        },
+        {
+          "field": "email",
+          "note": "邮箱"
+        },
+        {
+          "field": "auth_phone",
+          "note": "手机号"
+        }
+      ]
+    },
+    "POST /api/v1/auth/token/refresh": {
+      "body": [
+        {
+          "field": "refresh",
+          "note": "refresh token"
+        }
+      ]
+    },
+    "POST /api/v1/auth/token/verify": {
+      "body": [
+        {
+          "field": "token",
+          "note": "access token"
+        }
+      ]
+    },
+    "POST /api/v1/unregisteredassets/unregistered-assets": {
+      "body": [
+        {
+          "field": "asset_name",
+          "note": "资产名称"
+        },
+        {
+          "field": "asset_brand",
+          "note": "品牌"
+        },
+        {
+          "field": "asset_specification",
+          "note": "规格"
+        },
+        {
+          "field": "scenario_type",
+          "note": "不在账资产的具体场景:S1实物有系统无/S2系统有无出库/S3状态异常"
+        },
+        {
+          "field": "discovery_date",
+          "note": "发现资产的日期"
+        },
+        {
+          "field": "discovery_location",
+          "note": "资产发现的具体位置"
+        },
+        {
+          "field": "unregistered_asset_type",
+          "note": "资产的分类(可选,通过 recordcode 关联)"
+        },
+        {
+          "field": "estimated_value",
+          "note": "资产的预估价值(元,可选)"
+        },
+        {
+          "field": "related_asset",
+          "note": "系统中已存在的资产(S2/S3场景必填,通过 recordcode 关联)"
+        },
+        {
+          "field": "unregistered_asset_storage",
+          "note": "回收后存放的仓库(通过 recordcode 关联)"
+        },
+        {
+          "field": "handle_description",
+          "note": "处理的补充说明(可选)"
+        },
+        {
+          "field": "attachments",
+          "note": "照片/凭证文件路径列表(JSON数组格式)"
+        }
+      ]
+    },
+    "POST /api/v1/unregisteredassets/unregistered-assets/{}/approve": {
+      "path": [
+        {
+          "field": "unregistered_code",
+          "note": "未登记资产编码"
+        }
+      ],
+      "body": [
+        {
+          "field": "handle_type",
+          "note": "审批后选择的处理方式"
+        },
+        {
+          "field": "approval_remark",
+          "note": "审批的备注说明(可选)"
+        },
+        {
+          "field": "approver",
+          "note": "审批人的人员工号(通过 recordcode 关联)"
+        }
+      ]
+    },
+    "POST /api/v1/users/departments": {
+      "body": [
+        {
+          "field": "department_code",
+          "note": "部门编码"
+        },
+        {
+          "field": "department_name",
+          "note": "部门名称"
+        },
+        {
+          "field": "department_information",
+          "note": "部门信息员"
+        },
+        {
+          "field": "level",
+          "note": "层级"
+        },
+        {
+          "field": "sort_order",
+          "note": "排序"
+        },
+        {
+          "field": "recordcode",
+          "note": "后端生成的全局唯一编码,用于外键引用"
+        },
+        {
+          "field": "parent",
+          "note": "上级部门(FK 指向 recordcode),null 表示根部门"
+        },
+        {
+          "field": "path",
+          "note": "从根到当前节点的完整路径,如 /DEPT-001/IT-001/DEV-001"
+        }
+      ]
+    },
+    "POST /api/v1/users/employees": {
+      "body": [
+        {
+          "field": "employee_jobcode",
+          "note": "工号"
+        },
+        {
+          "field": "employee_name",
+          "note": "姓名"
+        },
+        {
+          "field": "employee_status",
+          "note": "状态（active/left/retirement）"
+        },
+        {
+          "field": "employee_phone",
+          "note": "手机号"
+        },
+        {
+          "field": "employee_location",
+          "note": "位置"
+        },
+        {
+          "field": "employee_description",
+          "note": "描述"
+        },
+        {
+          "field": "sort_order",
+          "note": "排序"
+        },
+        {
+          "field": "employee_department_code",
+          "note": "所属部门编码（通过 recordcode 关联）"
+        }
+      ]
+    },
+    "POST /api/v1/users/employees/{}/change_status": {
+      "path": [
+        {
+          "field": "employee_jobcode",
+          "note": "工号"
+        }
+      ],
+      "body": [
+        {
+          "field": "status",
+          "note": "目标状态：active/left/retirement"
+        }
+      ]
+    },
+    "PUT /api/v1/auth/profile": {
+      "body": [
+        {
+          "field": "email",
+          "note": "邮箱"
+        },
+        {
+          "field": "auth_phone",
+          "note": "手机号"
+        },
+        {
+          "field": "password",
+          "note": "新密码（write_only），需通过 validate_password 验证"
+        },
+        {
+          "field": "old_password",
+          "note": "原密码，修改密码时用于身份校验"
+        }
+      ]
+    },
+    "PUT /api/v1/users/departments/sort": {
+      "body": [
+        {
+          "field": "items",
+          "note": "排序项列表"
+        }
+      ],
+      "sub:items 子项": [
+        {
+          "field": "department_code",
+          "note": "部门编码"
+        },
+        {
+          "field": "sort_order",
+          "note": "排序值"
+        }
+      ]
+    },
+    "PUT /api/v1/users/departments/{}/move": {
+      "path": [
+        {
+          "field": "department_code",
+          "note": "部门编码"
+        }
+      ],
+      "body": [
+        {
+          "field": "target_parent_department_code",
+          "note": "目标上级部门编码；留空或为 null 表示移动为顶级部门"
+        }
+      ]
+    },
+    "PUT /api/v1/users/employees/sort": {
+      "body": [
+        {
+          "field": "items",
+          "note": "排序项列表"
+        }
+      ],
+      "sub:items 子项": [
+        {
+          "field": "employee_jobcode",
+          "note": "员工工号"
+        },
+        {
+          "field": "sort_order",
+          "note": "排序值"
+        }
+      ]
+    }
+  },
+  "enum_notes": {
+    "asset_current_status": {
+      "in_store": "新增加、已拒绝报废",
+      "in_use": "已出库/已发放",
+      "recycled_pending": "已回收，等待重新发放",
+      "broken": "标记损坏后的状态；损坏资产须创建维修记录方可送修",
+      "repairing": "送修中（送修时必须创建维修记录）",
+      "lost": "标记遗失；找回后经 found_and_return 回到 recycled_pending",
+      "damaged": "待报废审批中",
+      "scrapped": "已完成报废"
+    },
+    "scenario_type": {
+      "s1_no_record": "资产实物存在但系统中无入库记录",
+      "s2_no_outasset": "资产在用但系统中无出库记录",
+      "s3_status_mismatch": "资产实际状态与系统记录不一致"
+    },
+    "handle_type": {
+      "create_and_recycle": "补建入库记录并创建回收记录",
+      "create_and_damaged": "补建入库记录并创建待报废申请",
+      "supplement_and_recycle": "补充出库记录并创建回收记录",
+      "correct_and_recycle": "纠正状态并创建回收记录",
+      "reject": "驳回未登记资产处理"
+    }
+  }
+}

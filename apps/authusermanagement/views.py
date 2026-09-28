@@ -6,8 +6,13 @@
 
 from typing import Any, cast
 
-from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
-from rest_framework import permissions, status, viewsets
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiResponse,
+    extend_schema,
+    inline_serializer,
+)
+from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
@@ -386,6 +391,22 @@ class LogoutAPIView(APIView):
         return response
 
 
+# token 刷新的请求体结构。RBACTokenRefreshView.post 直接读
+# ``request.data.get("refresh")``（双通道：bearer 走 body，cookie 走 Cookie），
+# 无运行时 Serializer，故 spectacular 产不出 requestBody、基线缺失该端点入参。
+# 用 inline_serializer 声明**文档**结构，不新增运行时 Serializer（避免第二处
+# 结构定义，DR-1）。改字段时须与 post() 内取值同步。
+TokenRefreshRequestSchema = inline_serializer(
+    name="TokenRefresh",
+    fields={
+        "refresh": serializers.CharField(
+            required=False,
+            help_text="refresh token（bearer 通道必填；cookie 通道改从 Cookie 读取，故非必填）",
+        ),
+    },
+)
+
+
 class RBACTokenRefreshView(APIView):
     """
     RBAC Token 刷新视图(双通道)
@@ -399,6 +420,11 @@ class RBACTokenRefreshView(APIView):
     permission_classes = [permissions.AllowAny]
     authentication_classes: list[Any] = []
 
+    @extend_schema(
+        summary="刷新 Token（双通道）",
+        description="bearer 通道从 body 取 refresh；cookie 通道从 refresh Cookie 读取。",
+        request=TokenRefreshRequestSchema,
+    )
     def post(self, request: Any) -> Response:
         enforce_csrf_if_cookie_channel(request)
         channel = get_auth_channel(request)

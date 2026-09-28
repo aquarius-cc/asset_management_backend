@@ -129,6 +129,60 @@ class OutAssetViewSet(  # type: ignore[misc]
             return OutAssetUpdateSerializer
         return OutAssetDetailSerializer
 
+    @extend_schema(
+        summary="可回收出库资产",
+        description=(
+            "按条件分页查询可申请回收的出库资产。全部查询参数由本方法体手工读取"
+            "（见下方 FILTER_PARAMS），drf-spectacular 不会为自定义 action 自动补出，"
+            "故在此显式声明，否则 schema 缺参数、文档只能靠人工同步，长期必然漂移。"
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="search",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="模糊搜索关键字（配合 searchType 使用）",
+            ),
+            OpenApiParameter(
+                name="searchType",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="搜索范围：all / asset / department 等",
+            ),
+            OpenApiParameter(
+                name="years",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="出库年份（仅接受纯数字）",
+            ),
+            *[
+                OpenApiParameter(
+                    name=name, type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, description=f"按 {name} 精确过滤"
+                )
+                for name in [
+                    "asset_code",
+                    "asset_name",
+                    "asset_specification",
+                    "asset_brand",
+                    "outasset_applicant_name",
+                    "outasset_manager_name",
+                    "department",
+                    "department_code",
+                    "employee_jobcode",
+                ]
+            ],
+            OpenApiParameter(name="page", type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, description="页码"),
+            OpenApiParameter(
+                name="page_size", type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, description="每页条数"
+            ),
+            OpenApiParameter(
+                name="ordering",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="排序字段，可选 outasset_date（- 前缀为倒序）",
+            ),
+        ],
+    )
     @action(detail=False, methods=["get"], url_path="recyclable")
     def recyclable(self, request: Any) -> Response:
         filters = {}

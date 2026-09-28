@@ -235,13 +235,13 @@ class AssetOperationLogDetailView(ResponseWrapperMixin, APIView):
             404: {"description": "记录不存在"},
         },
     )
-    def get(self, request: Any, pk: int) -> Response:
+    def get(self, request: Any, id: int) -> Response:
         """获取单条操作记录"""
         # 【AGENTS 规范 - P1-09】调用 Service 层查询,View 不直接操作 ORM
-        log = OperationLogQueryService.get_operation_log_by_pk(request.user, pk)
+        log = OperationLogQueryService.get_operation_log_by_pk(request.user, id)
 
         if not log:
-            return error_response(message=f"操作记录 {pk} 不存在", status_code=status.HTTP_404_NOT_FOUND)
+            return error_response(message=f"操作记录 {id} 不存在", status_code=status.HTTP_404_NOT_FOUND)
 
         serializer = AssetOperationLogSerializer(log)
         return success_response(data=serializer.data)

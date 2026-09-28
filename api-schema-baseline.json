@@ -913,17 +913,17 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
+                                "$ref": "#/components/schemas/AssetStatusChangeRequest"
                             }
                         },
                         "application/x-www-form-urlencoded": {
                             "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
+                                "$ref": "#/components/schemas/AssetStatusChangeRequest"
                             }
                         },
                         "multipart/form-data": {
                             "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
+                                "$ref": "#/components/schemas/AssetStatusChangeRequest"
                             }
                         }
                     },
@@ -1494,7 +1494,19 @@
         "/api/v1/assets/assets/combined_details/": {
             "get": {
                 "operationId": "v1_assets_assets_combined_details_retrieve",
-                "description": "支持 pk(数字)和 recordcode(字符串)双模式查找的 get_object()。\n\n子类必须设置 lookup_field = \"recordcode\"(或其变体如 \"asset_recordcode__asset_code\")。",
+                "description": "按资产编码返回资产与关联合同的联合详情。asset_code 由方法体手工读取（缺失即 400），drf-spectacular 不会为自定义 action 自动补出，故在此显式声明，否则 schema 缺参数、文档只能靠人工同步，长期必然漂移。",
+                "summary": "资产+合同联合详情",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "asset_code",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "资产编码（必填）",
+                        "required": true
+                    }
+                ],
                 "tags": [
                     "v1"
                 ],
@@ -2623,6 +2635,7 @@
             "post": {
                 "operationId": "v1_assets_contracts_payment_record_create",
                 "description": "支持 pk(数字)和 recordcode(字符串)双模式查找的 get_object()。\n\n子类必须设置 lookup_field = \"recordcode\"(或其变体如 \"asset_recordcode__asset_code\")。",
+                "summary": "添加付款记录",
                 "parameters": [
                     {
                         "in": "path",
@@ -2638,6 +2651,26 @@
                 "tags": [
                     "v1"
                 ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ContractPaymentRecordRequest"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ContractPaymentRecordRequest"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ContractPaymentRecordRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
                 "security": [
                     {
                         "BearerAuth": []
@@ -2751,10 +2784,11 @@
                 }
             }
         },
-        "/api/v1/assets/contracts/{recordcode}/update_settlement_status/": {
+        "/api/v1/assets/contracts/{recordcode}/payment_record/batch/": {
             "post": {
-                "operationId": "v1_assets_contracts_update_settlement_status_create",
-                "description": "支持 pk(数字)和 recordcode(字符串)双模式查找的 get_object()。\n\n子类必须设置 lookup_field = \"recordcode\"(或其变体如 \"asset_recordcode__asset_code\")。",
+                "operationId": "v1_assets_contracts_payment_record_batch_create",
+                "description": "上传已执行合同时一次性回填其历史付款,替代「每笔发 add + approve 两次请求」。每条回填记录由服务端内部 add → approve 两步落到 approved 状态;该状态不开放为入参,以保持审批环节的单一入口与可追溯性。需保留待审核状态时请改用单条 POST /contracts/{recordcode}/payment_record/ 端点。",
+                "summary": "批量回填历史付款记录",
                 "parameters": [
                     {
                         "in": "path",
@@ -2770,6 +2804,85 @@
                 "tags": [
                     "v1"
                 ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ContractBatchPaymentRecordRequest"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ContractBatchPaymentRecordRequest"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ContractBatchPaymentRecordRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ContractDetail"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/assets/contracts/{recordcode}/update_settlement_status/": {
+            "post": {
+                "operationId": "v1_assets_contracts_update_settlement_status_create",
+                "description": "支持 pk(数字)和 recordcode(字符串)双模式查找的 get_object()。\n\n子类必须设置 lookup_field = \"recordcode\"(或其变体如 \"asset_recordcode__asset_code\")。",
+                "summary": "更新结算状态",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "recordcode",
+                        "schema": {
+                            "type": "string",
+                            "title": "记录编码",
+                            "description": "后端生成的全局唯一编码,用于外键引用"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "v1"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ContractSettlementStatusRequest"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ContractSettlementStatusRequest"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ContractSettlementStatusRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
                 "security": [
                     {
                         "BearerAuth": []
@@ -6052,7 +6165,130 @@
         "/api/v1/assets/out-assets/recyclable/": {
             "get": {
                 "operationId": "v1_assets_out_assets_recyclable_retrieve",
-                "description": "操作人上下文 Mixin\n\n从 request.user 提取操作人信息,供 create/update 等操作\n通过 **self.get_operator_context() 写入操作人字段。",
+                "description": "按条件分页查询可申请回收的出库资产。全部查询参数由本方法体手工读取（见下方 FILTER_PARAMS），drf-spectacular 不会为自定义 action 自动补出，故在此显式声明，否则 schema 缺参数、文档只能靠人工同步，长期必然漂移。",
+                "summary": "可回收出库资产",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "asset_brand",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "按 asset_brand 精确过滤"
+                    },
+                    {
+                        "in": "query",
+                        "name": "asset_code",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "按 asset_code 精确过滤"
+                    },
+                    {
+                        "in": "query",
+                        "name": "asset_name",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "按 asset_name 精确过滤"
+                    },
+                    {
+                        "in": "query",
+                        "name": "asset_specification",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "按 asset_specification 精确过滤"
+                    },
+                    {
+                        "in": "query",
+                        "name": "department",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "按 department 精确过滤"
+                    },
+                    {
+                        "in": "query",
+                        "name": "department_code",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "按 department_code 精确过滤"
+                    },
+                    {
+                        "in": "query",
+                        "name": "employee_jobcode",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "按 employee_jobcode 精确过滤"
+                    },
+                    {
+                        "in": "query",
+                        "name": "ordering",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "排序字段，可选 outasset_date（- 前缀为倒序）"
+                    },
+                    {
+                        "in": "query",
+                        "name": "outasset_applicant_name",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "按 outasset_applicant_name 精确过滤"
+                    },
+                    {
+                        "in": "query",
+                        "name": "outasset_manager_name",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "按 outasset_manager_name 精确过滤"
+                    },
+                    {
+                        "in": "query",
+                        "name": "page",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "页码"
+                    },
+                    {
+                        "in": "query",
+                        "name": "page_size",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "每页条数"
+                    },
+                    {
+                        "in": "query",
+                        "name": "search",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "模糊搜索关键字（配合 searchType 使用）"
+                    },
+                    {
+                        "in": "query",
+                        "name": "searchType",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "搜索范围：all / asset / department 等"
+                    },
+                    {
+                        "in": "query",
+                        "name": "years",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "出库年份（仅接受纯数字）"
+                    }
+                ],
                 "tags": [
                     "出库管理"
                 ],
@@ -7599,6 +7835,7 @@
             "get": {
                 "operationId": "v1_assets_storages_statistics_retrieve",
                 "description": "支持 pk(数字)和 recordcode(字符串)双模式查找的 get_object()。\n\n子类必须设置 lookup_field = \"recordcode\"(或其变体如 \"asset_recordcode__asset_code\")。",
+                "summary": "仓库统计",
                 "tags": [
                     "v1"
                 ],
@@ -7612,7 +7849,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/Storage"
+                                    "$ref": "#/components/schemas/StorageStatistics"
                                 }
                             }
                         },
@@ -8145,6 +8382,7 @@
             "get": {
                 "operationId": "v1_assets_waste_assets_statistics_retrieve",
                 "description": "支持 pk(数字)和 recordcode(字符串)双模式查找的 get_object()。\n\n子类必须设置 lookup_field = \"recordcode\"(或其变体如 \"asset_recordcode__asset_code\")。",
+                "summary": "已报废统计",
                 "tags": [
                     "v1"
                 ],
@@ -8158,7 +8396,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/WasteAssetDetail"
+                                    "$ref": "#/components/schemas/WasteAssetStatistics"
                                 }
                             }
                         },
@@ -8734,10 +8972,30 @@
         "/api/v1/auth/token/refresh/": {
             "post": {
                 "operationId": "v1_auth_token_refresh_create",
-                "description": "RBAC Token 刷新视图(双通道)\n\n- bearer 通道: body 取 refresh, 轮换并黑名单旧 token\n- cookie 通道: 从 refresh Cookie 取 token, 轮换并回写 Cookie\n- 刷新时重新注入最新 RBAC claims, 角色变更后立即生效\n- 认证类置空: access cookie 过期时不阻断 refresh",
+                "description": "bearer 通道从 body 取 refresh；cookie 通道从 refresh Cookie 读取。",
+                "summary": "刷新 Token（双通道）",
                 "tags": [
                     "v1"
                 ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TokenRefreshRequest"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TokenRefreshRequest"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TokenRefreshRequest"
+                            }
+                        }
+                    }
+                },
                 "security": [
                     {
                         "BearerAuth": []
@@ -9401,6 +9659,18 @@
             "get": {
                 "operationId": "v1_dashboard_recent_out_assets_retrieve",
                 "description": "自动记录操作的 Mixin\n\n在执行创建、更新、删除操作时自动记录日志信息,便于调试和追踪。\n使用 logging 模块而不是 print,便于生产环境日志管理。",
+                "summary": "最近发放",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "type": "integer",
+                            "default": 10
+                        },
+                        "description": "返回条数上限（默认 10，运行时上限 100）"
+                    }
+                ],
                 "tags": [
                     "v1"
                 ],
@@ -9427,6 +9697,18 @@
             "get": {
                 "operationId": "v1_dashboard_recent_recycle_assets_retrieve",
                 "description": "自动记录操作的 Mixin\n\n在执行创建、更新、删除操作时自动记录日志信息,便于调试和追踪。\n使用 logging 模块而不是 print,便于生产环境日志管理。",
+                "summary": "最近回收",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "type": "integer",
+                            "default": 10
+                        },
+                        "description": "返回条数上限（默认 10，运行时上限 100）"
+                    }
+                ],
                 "tags": [
                     "v1"
                 ],
@@ -11322,6 +11604,7 @@
             "post": {
                 "operationId": "v1_users_employees_change_status_create",
                 "description": "更改员工状态(统一格式)",
+                "summary": "更改员工状态",
                 "parameters": [
                     {
                         "in": "path",
@@ -11336,6 +11619,26 @@
                 "tags": [
                     "v1"
                 ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/EmployeeStatusChangeRequest"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/EmployeeStatusChangeRequest"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/EmployeeStatusChangeRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
                 "security": [
                     {
                         "BearerAuth": []
@@ -11894,9 +12197,30 @@
             "put": {
                 "operationId": "v1_users_employees_sort_update",
                 "description": "批量更新员工排序字段\n\n【AGENTS 规范 - P3-45】批量更新逻辑已迁移到 EmployeeSelector.batch_update_sort(),\n批量更新员工排序(前端传入列表,每个元素包含 employee_jobcode 和 sort_order)\n视图层仅负责调用 Selector 和返回成功响应。\n\n【修复】使用 EmployeeBatchSortSerializer 提供批量大小限制和重复校验",
+                "summary": "批量更新员工排序",
                 "tags": [
                     "v1"
                 ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/EmployeeBatchSortRequest"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/EmployeeBatchSortRequest"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/EmployeeBatchSortRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
                 "security": [
                     {
                         "BearerAuth": []
@@ -13416,6 +13740,26 @@
                     "related_record_type"
                 ]
             },
+            "AssetStatusChangeRequest": {
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/AssetStatusEnum"
+                            }
+                        ],
+                        "description": "目标状态（仅状态机合法边可转换）\n\n* `in_store` - 在库\n* `in_use` - 在用\n* `recycled_pending` - 已回收待发放\n* `broken` - 已损坏\n* `repairing` - 维修中\n* `lost` - 已遗失\n* `damaged` - 待报废\n* `scrapped` - 已报废"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "变更说明（默认空串）"
+                    }
+                },
+                "required": [
+                    "status"
+                ]
+            },
             "AssetStatusEnum": {
                 "enum": [
                     "in_store",
@@ -14229,6 +14573,52 @@
                     }
                 }
             },
+            "ContractBatchPaymentRecordItemRequest": {
+                "type": "object",
+                "description": "单条历史付款回填数据校验(BF-054)\n\n【决策 Q-C】不开放 status 字段:回填条目一律由 Service 内部 add → approve 落到\napproved,保持「approved 仅由 approve_payment_record 产生」这一状态机单一入口。\npayment_method 为自由文本(仅存于 paid_record 明细,不参与查询),故不设 ChoiceField。",
+                "properties": {
+                    "amount": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "description": "付款金额"
+                    },
+                    "description": {
+                        "type": "string",
+                        "default": "",
+                        "description": "付款说明"
+                    },
+                    "payment_date": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "付款发生日期(YYYY-MM-DD),缺省取当天"
+                    },
+                    "payment_method": {
+                        "type": "string",
+                        "minLength": 1,
+                        "default": "bank_transfer",
+                        "description": "支付方式(自由文本,如 bank_transfer/cash/check)"
+                    }
+                },
+                "required": [
+                    "amount"
+                ]
+            },
+            "ContractBatchPaymentRecordRequest": {
+                "type": "object",
+                "description": "【新增】批量回填历史付款记录请求校验(BF-054)\n\n形态与 ContractBatchCreateSerializer 同构(items + validate_items 长度/去重),\n供上传已执行合同时一次性录入其历史付款,替代「每笔发 add + approve 两次请求」。",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ContractBatchPaymentRecordItemRequest"
+                        }
+                    }
+                },
+                "required": [
+                    "items"
+                ]
+            },
             "ContractCreate": {
                 "type": "object",
                 "description": "合同创建序列化器\n用途:create action\n特点:写入字段",
@@ -14369,6 +14759,7 @@
                     },
                     "paid_record": {
                         "type": "string",
+                        "readOnly": true,
                         "nullable": true,
                         "title": "支付记录",
                         "description": "支付记录(可存储JSON格式的支付明细)"
@@ -14379,12 +14770,13 @@
                         "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
                         "nullable": true,
                         "title": "已支付金额",
-                        "description": "已支付金额,默认为0"
+                        "description": "期初已付金额:上传历史合同时的初始已付额,保存时自动转为一条已通过的付款记录"
                     },
                     "amount_unpaid": {
                         "type": "string",
                         "format": "decimal",
                         "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "readOnly": true,
                         "nullable": true,
                         "title": "未支付金额",
                         "description": "未支付金额(自动计算)"
@@ -14409,8 +14801,10 @@
                     }
                 },
                 "required": [
+                    "amount_unpaid",
                     "contract_code",
                     "contract_name",
+                    "paid_record",
                     "recordcode"
                 ]
             },
@@ -14550,27 +14944,13 @@
                         "title": "最终验收日期",
                         "description": "最终验收日期"
                     },
-                    "paid_record": {
-                        "type": "string",
-                        "nullable": true,
-                        "title": "支付记录",
-                        "description": "支付记录(可存储JSON格式的支付明细)"
-                    },
                     "amount_paid": {
                         "type": "string",
                         "format": "decimal",
                         "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
                         "nullable": true,
                         "title": "已支付金额",
-                        "description": "已支付金额,默认为0"
-                    },
-                    "amount_unpaid": {
-                        "type": "string",
-                        "format": "decimal",
-                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
-                        "nullable": true,
-                        "title": "未支付金额",
-                        "description": "未支付金额(自动计算)"
+                        "description": "期初已付金额:上传历史合同时的初始已付额,保存时自动转为一条已通过的付款记录"
                     },
                     "contract_description": {
                         "type": "string",
@@ -14987,6 +15367,59 @@
                     "version"
                 ]
             },
+            "ContractPaymentRecordRequest": {
+                "type": "object",
+                "properties": {
+                    "amount": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "description": "付款金额（须为有限数且不超过 9999999999.99）"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "付款说明（默认空串）"
+                    },
+                    "payment_date": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "付款发生日期 YYYY-MM-DD（默认当天）"
+                    },
+                    "payment_method": {
+                        "type": "string",
+                        "minLength": 1,
+                        "default": "bank_transfer",
+                        "description": "支付方式（自由文本，仅存于付款明细，不参与查询）"
+                    }
+                },
+                "required": [
+                    "amount"
+                ]
+            },
+            "ContractSettlementStatusRequest": {
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ContractSettlementStatusStatusEnum"
+                            }
+                        ],
+                        "description": "目标结算状态\n\n* `pending` - pending\n* `settled` - settled"
+                    }
+                },
+                "required": [
+                    "status"
+                ]
+            },
+            "ContractSettlementStatusStatusEnum": {
+                "enum": [
+                    "pending",
+                    "settled"
+                ],
+                "type": "string",
+                "description": "* `pending` - pending\n* `settled` - settled"
+            },
             "ContractStatusEnum": {
                 "enum": [
                     "purchasing",
@@ -15151,6 +15584,7 @@
                     },
                     "paid_record": {
                         "type": "string",
+                        "readOnly": true,
                         "nullable": true,
                         "title": "支付记录",
                         "description": "支付记录(可存储JSON格式的支付明细)"
@@ -15159,6 +15593,7 @@
                         "type": "string",
                         "format": "decimal",
                         "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "readOnly": true,
                         "nullable": true,
                         "title": "已支付金额",
                         "description": "已支付金额,默认为0"
@@ -15167,6 +15602,7 @@
                         "type": "string",
                         "format": "decimal",
                         "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "readOnly": true,
                         "nullable": true,
                         "title": "未支付金额",
                         "description": "未支付金额(自动计算)"
@@ -15191,6 +15627,9 @@
                     }
                 },
                 "required": [
+                    "amount_paid",
+                    "amount_unpaid",
+                    "paid_record",
                     "recordcode"
                 ]
             },
@@ -15329,28 +15768,6 @@
                         "nullable": true,
                         "title": "最终验收日期",
                         "description": "最终验收日期"
-                    },
-                    "paid_record": {
-                        "type": "string",
-                        "nullable": true,
-                        "title": "支付记录",
-                        "description": "支付记录(可存储JSON格式的支付明细)"
-                    },
-                    "amount_paid": {
-                        "type": "string",
-                        "format": "decimal",
-                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
-                        "nullable": true,
-                        "title": "已支付金额",
-                        "description": "已支付金额,默认为0"
-                    },
-                    "amount_unpaid": {
-                        "type": "string",
-                        "format": "decimal",
-                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
-                        "nullable": true,
-                        "title": "未支付金额",
-                        "description": "未支付金额(自动计算)"
                     },
                     "contract_description": {
                         "type": "string",
@@ -16038,46 +16455,155 @@
             },
             "DashboardStat": {
                 "type": "object",
+                "description": "仪表盘概览统计的响应结构。\n\n字段集与 ``DashboardSelector.get_overview_statistics()`` 的 return 键\n**逐一对应**（DR-1：响应结构只此一处定义）。本 serializer 原先只声明 3 个\n字段，而 selector 实际返回 13 个，差额 10 个使 drf-spectacular 回退的\n``serializer_class`` 把基线写成残缺结构——文档写全了反而被判\"多字段\"\n（BF-050 同型：手工/回退声明不做校正，错误直接进基线）。\n\n增删本类字段时必须同步 ``get_overview_statistics()`` 的返回字典。",
                 "properties": {
                     "total_assets": {
                         "type": "integer",
-                        "description": "资产总数"
+                        "description": "用户可见范围内资产总数"
+                    },
+                    "total_value": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,14}(?:\\.\\d{0,2})?$",
+                        "description": "用户可见范围内资产采购价合计"
                     },
                     "total_contracts": {
                         "type": "integer",
-                        "description": "合同总数"
+                        "description": "未删除合同总数（不按用户范围隔离）"
                     },
                     "active_assets": {
                         "type": "integer",
-                        "description": "在用资产数"
+                        "description": "在用（in_use）资产数"
+                    },
+                    "in_stock_assets": {
+                        "type": "integer",
+                        "description": "在库（in_store）资产数"
+                    },
+                    "monthly_distributed": {
+                        "type": "integer",
+                        "description": "本月发放数"
+                    },
+                    "monthly_recycled": {
+                        "type": "integer",
+                        "description": "本月回收数"
+                    },
+                    "pending_waste": {
+                        "type": "integer",
+                        "description": "待报废（damaged）数"
+                    },
+                    "wasted_assets": {
+                        "type": "integer",
+                        "description": "已报废（scrapped）数"
+                    },
+                    "total_recycled": {
+                        "type": "integer",
+                        "description": "累计回收数"
+                    },
+                    "total_distributed": {
+                        "type": "integer",
+                        "description": "累计发放数"
+                    },
+                    "status_distribution": {
+                        "type": "object",
+                        "additionalProperties": {},
+                        "description": "按 8 种资产状态分组：{\"状态码\": {\"name\": 状态名, \"count\": 数量}}"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "description": "统计生成时刻（ISO 8601 含时区偏移）"
                     }
                 },
                 "required": [
                     "active_assets",
+                    "in_stock_assets",
+                    "monthly_distributed",
+                    "monthly_recycled",
+                    "pending_waste",
+                    "status_distribution",
+                    "timestamp",
                     "total_assets",
-                    "total_contracts"
+                    "total_contracts",
+                    "total_distributed",
+                    "total_recycled",
+                    "total_value",
+                    "wasted_assets"
                 ]
             },
             "DashboardStatRequest": {
                 "type": "object",
+                "description": "仪表盘概览统计的响应结构。\n\n字段集与 ``DashboardSelector.get_overview_statistics()`` 的 return 键\n**逐一对应**（DR-1：响应结构只此一处定义）。本 serializer 原先只声明 3 个\n字段，而 selector 实际返回 13 个，差额 10 个使 drf-spectacular 回退的\n``serializer_class`` 把基线写成残缺结构——文档写全了反而被判\"多字段\"\n（BF-050 同型：手工/回退声明不做校正，错误直接进基线）。\n\n增删本类字段时必须同步 ``get_overview_statistics()`` 的返回字典。",
                 "properties": {
                     "total_assets": {
                         "type": "integer",
-                        "description": "资产总数"
+                        "description": "用户可见范围内资产总数"
+                    },
+                    "total_value": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,14}(?:\\.\\d{0,2})?$",
+                        "description": "用户可见范围内资产采购价合计"
                     },
                     "total_contracts": {
                         "type": "integer",
-                        "description": "合同总数"
+                        "description": "未删除合同总数（不按用户范围隔离）"
                     },
                     "active_assets": {
                         "type": "integer",
-                        "description": "在用资产数"
+                        "description": "在用（in_use）资产数"
+                    },
+                    "in_stock_assets": {
+                        "type": "integer",
+                        "description": "在库（in_store）资产数"
+                    },
+                    "monthly_distributed": {
+                        "type": "integer",
+                        "description": "本月发放数"
+                    },
+                    "monthly_recycled": {
+                        "type": "integer",
+                        "description": "本月回收数"
+                    },
+                    "pending_waste": {
+                        "type": "integer",
+                        "description": "待报废（damaged）数"
+                    },
+                    "wasted_assets": {
+                        "type": "integer",
+                        "description": "已报废（scrapped）数"
+                    },
+                    "total_recycled": {
+                        "type": "integer",
+                        "description": "累计回收数"
+                    },
+                    "total_distributed": {
+                        "type": "integer",
+                        "description": "累计发放数"
+                    },
+                    "status_distribution": {
+                        "type": "object",
+                        "additionalProperties": {},
+                        "description": "按 8 种资产状态分组：{\"状态码\": {\"name\": 状态名, \"count\": 数量}}"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "统计生成时刻（ISO 8601 含时区偏移）"
                     }
                 },
                 "required": [
                     "active_assets",
+                    "in_stock_assets",
+                    "monthly_distributed",
+                    "monthly_recycled",
+                    "pending_waste",
+                    "status_distribution",
+                    "timestamp",
                     "total_assets",
-                    "total_contracts"
+                    "total_contracts",
+                    "total_distributed",
+                    "total_recycled",
+                    "total_value",
+                    "wasted_assets"
                 ]
             },
             "Department": {
@@ -16369,6 +16895,22 @@
                     "sort_order"
                 ]
             },
+            "EmployeeBatchSortRequest": {
+                "type": "object",
+                "description": "员工批量排序请求序列化器\n\n包含多个员工的排序信息。",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/EmployeeSortRequest"
+                        },
+                        "description": "员工排序项列表"
+                    }
+                },
+                "required": [
+                    "items"
+                ]
+            },
             "EmployeeCreate": {
                 "type": "object",
                 "description": "员工创建序列化器",
@@ -16621,6 +17163,27 @@
                     "updated_at"
                 ]
             },
+            "EmployeeSortRequest": {
+                "type": "object",
+                "description": "员工批量排序序列化器\n\n用于批量更新员工的 sort_order 字段。\n\n【请求格式】\n{\n    \"items\": [\n        {\"employee_jobcode\": \"E001\", \"sort_order\": 1},\n        {\"employee_jobcode\": \"E002\", \"sort_order\": 2},\n        ...\n    ]\n}",
+                "properties": {
+                    "employee_jobcode": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "员工工号",
+                        "maxLength": 20
+                    },
+                    "sort_order": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "排序顺序,数字越小越靠前"
+                    }
+                },
+                "required": [
+                    "employee_jobcode",
+                    "sort_order"
+                ]
+            },
             "EmployeeStatistics": {
                 "type": "object",
                 "properties": {
@@ -16650,6 +17213,22 @@
                     "by_department",
                     "by_status",
                     "total_employees"
+                ]
+            },
+            "EmployeeStatusChangeRequest": {
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/UserStatusEnum"
+                            }
+                        ],
+                        "description": "目标员工状态\n\n* `active` - 在职员工\n* `left` - 离职员工\n* `retirement` - 退休员工"
+                    }
+                },
+                "required": [
+                    "status"
                 ]
             },
             "EmployeeUpdate": {
@@ -19886,28 +20465,6 @@
                         "title": "最终验收日期",
                         "description": "最终验收日期"
                     },
-                    "paid_record": {
-                        "type": "string",
-                        "nullable": true,
-                        "title": "支付记录",
-                        "description": "支付记录(可存储JSON格式的支付明细)"
-                    },
-                    "amount_paid": {
-                        "type": "string",
-                        "format": "decimal",
-                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
-                        "nullable": true,
-                        "title": "已支付金额",
-                        "description": "已支付金额,默认为0"
-                    },
-                    "amount_unpaid": {
-                        "type": "string",
-                        "format": "decimal",
-                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
-                        "nullable": true,
-                        "title": "未支付金额",
-                        "description": "未支付金额(自动计算)"
-                    },
                     "contract_description": {
                         "type": "string",
                         "nullable": true,
@@ -22239,6 +22796,24 @@
                     "storage_name"
                 ]
             },
+            "StorageStatistics": {
+                "type": "object",
+                "properties": {
+                    "total_storages": {
+                        "type": "integer",
+                        "description": "仓库总数"
+                    },
+                    "by_type": {
+                        "type": "object",
+                        "additionalProperties": {},
+                        "description": "按仓库类型分组：{\"类型码\": {\"name\": 类型名, \"count\": 数量}}"
+                    }
+                },
+                "required": [
+                    "by_type",
+                    "total_storages"
+                ]
+            },
             "StorageTypeEnum": {
                 "enum": [
                     "newasset",
@@ -22248,6 +22823,16 @@
                 ],
                 "type": "string",
                 "description": "* `newasset` - 新货仓库\n* `recycle` - 回收仓库\n* `broken` - 损坏存放出库\n* `damaged` - 待报废仓库"
+            },
+            "TokenRefreshRequest": {
+                "type": "object",
+                "properties": {
+                    "refresh": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "refresh token（bearer 通道必填；cookie 通道改从 Cookie 读取，故非必填）"
+                    }
+                }
             },
             "TokenVerifyRequest": {
                 "type": "object",
@@ -23307,6 +23892,31 @@
                     "waste_asset_date",
                     "waste_asset_description",
                     "waste_asset_specification"
+                ]
+            },
+            "WasteAssetStatistics": {
+                "type": "object",
+                "properties": {
+                    "total_waste": {
+                        "type": "integer",
+                        "description": "已报废总数"
+                    },
+                    "current_year_count": {
+                        "type": "integer",
+                        "description": "本年度报废数量"
+                    },
+                    "monthly_distribution": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "integer"
+                        },
+                        "description": "本年度每月报废数量：{\"月份\": 数量}"
+                    }
+                },
+                "required": [
+                    "current_year_count",
+                    "monthly_distribution",
+                    "total_waste"
                 ]
             }
         },

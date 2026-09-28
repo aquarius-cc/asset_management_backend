@@ -149,7 +149,13 @@ class ContractCreateSerializer(serializers.ModelSerializer[Contract]):
         extra_kwargs = {
             "contract_code": {"required": True},
             "contract_name": {"required": True},
+            # 【BF-053 / 决策 2a】amount_paid 在创建入口的语义是「期初已付金额」输入,
+            # Service 会将其规范化为一条 approved 期初付款记录后由 _recalc_paid_amounts 落库,
+            # 因此保持可写;paid_record / amount_unpaid 为纯派生,一律禁止直写。
+            "amount_paid": {"help_text": "期初已付金额:上传历史合同时的初始已付额,保存时自动转为一条已通过的付款记录"},
+            "amount_unpaid": {"read_only": True},
         }
+        read_only_fields = ["paid_record", "amount_unpaid"]
 
 
 class ContractDetailSerializer(serializers.ModelSerializer[Contract]):
@@ -232,6 +238,9 @@ class ContractUpdateSerializer(serializers.ModelSerializer[Contract]):
             "contract_code": {"required": False},
             "contract_name": {"required": False},
         }
+        # 【BF-053 / Q-B】三字段全禁止直写:更新场景应走 payment_record 端点增删付款,
+        # 而非直接改反规范化金额,否则 paid_record 明细与 amount_paid 立即分叉。
+        read_only_fields = ["paid_record", "amount_paid", "amount_unpaid"]
 
 
 # ==================== 保持向后兼容 ====================

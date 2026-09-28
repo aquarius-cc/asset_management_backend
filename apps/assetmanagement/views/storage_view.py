@@ -6,7 +6,12 @@ from typing import Any
 
 from django.db.models import Count, QuerySet
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import permissions, status, viewsets
+from drf_spectacular.utils import (
+    OpenApiResponse,
+    extend_schema,
+    inline_serializer,
+)
+from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
@@ -26,6 +31,20 @@ from utils.response_utils import success_response
 from utils.user_utils import resolve_operator
 
 from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
+
+
+# 仓库统计的响应结构。聚合字典由本模块 statistics() 直接构造，故用
+# inline_serializer 声明文档结构，不新增运行时 Serializer（避免第二处
+# 结构定义）。键与 statistics() 的 success_response 逐一对应。
+StorageStatisticsDataSchema = inline_serializer(
+    name="StorageStatistics",
+    fields={
+        "total_storages": serializers.IntegerField(help_text="仓库总数"),
+        "by_type": serializers.DictField(
+            help_text='按仓库类型分组：{"类型码": {"name": 类型名, "count": 数量}}',
+        ),
+    },
+)
 
 
 class StorageViewSet(  # type: ignore[misc]
@@ -85,6 +104,13 @@ class StorageViewSet(  # type: ignore[misc]
             status_code=status.HTTP_201_CREATED,
         )
 
+    @extend_schema(
+        summary="仓库统计",
+        # statistics 返回聚合字典，不是分页实体列表（BF-050 同型）。字段集与
+        # 本方法内 success_response 的键逐一对应；drf-spectacular 对手工声明
+        # 不做校正，写错即进基线，故用 inline_serializer 显式声明而非依赖推断。
+        responses={200: OpenApiResponse(response=StorageStatisticsDataSchema)},
+    )
     @action(detail=False, methods=["get"], url_path="statistics")
     def statistics(self, request: Any) -> Response:
         queryset = self._base_queryset()

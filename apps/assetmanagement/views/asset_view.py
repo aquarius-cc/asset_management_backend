@@ -10,8 +10,8 @@ from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.openapi import OpenApiParameter  # type: ignore[attr-defined]
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema
-from rest_framework import permissions, status, viewsets
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
@@ -280,6 +280,26 @@ class AssetViewSet(  # type: ignore[misc]
             "[已废弃] UI 已切换至专用状态接口(出库/回收/送修/报废等), 此端点仅供系统管理员数据修复使用. "
             "注意: 仅执行状态机合法边转换并记录审计, 不创建任何业务单据, 变更后须人工补录对应单据."
         ),
+        # 本方法只读 request.data 的 status / description 两个键，而
+        # get_serializer_class() 对本 action 落到 AssetDetailSerializer，
+        # spectacular 据此把 requestBody 写成 15 个实体字段的
+        # AssetDetailRequest（与运行时完全不符）。故显式声明 request；
+        # 响应仍由 AssetDetailSerializer 推断（与运行时一致），不覆写。
+        # 取值域以 Asset.ASSET_STATUS_CHOICES 为唯一真值（DR-1）。
+        request=inline_serializer(
+            name="AssetStatusChange",
+            fields={
+                "status": serializers.ChoiceField(
+                    choices=Asset.ASSET_STATUS_CHOICES,
+                    help_text="目标状态（仅状态机合法边可转换）",
+                ),
+                "description": serializers.CharField(
+                    required=False,
+                    allow_blank=True,
+                    help_text="变更说明（默认空串）",
+                ),
+            },
+        ),
     )
     @action(detail=True, methods=["post"], url_path="change_status")
     def change_status(self, request: Any, recordcode: Any = None) -> Response:
@@ -330,6 +350,23 @@ class AssetViewSet(  # type: ignore[misc]
             message=f"资产 {asset_code} 已更新资产申请人 {applicant_jobcode} 和资产保管人 {manager_jobcode}",
         )
 
+    @extend_schema(
+        summary="资产+合同联合详情",
+        description=(
+            "按资产编码返回资产与关联合同的联合详情。asset_code 由方法体手工读取"
+            "（缺失即 400），drf-spectacular 不会为自定义 action 自动补出，"
+            "故在此显式声明，否则 schema 缺参数、文档只能靠人工同步，长期必然漂移。"
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="asset_code",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description="资产编码（必填）",
+            ),
+        ],
+    )
     @action(detail=False, methods=["get"], url_path="combined_details")
     def combined_details(self, request: Any) -> Response:
         asset_code = request.query_params.get("asset_code")

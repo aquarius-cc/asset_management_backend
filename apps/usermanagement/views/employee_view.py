@@ -8,8 +8,12 @@ from django.db.models import QuerySet
 from django.http import HttpResponseBase
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiParameter, extend_schema
-from rest_framework import permissions, status, viewsets
+from drf_spectacular.utils import (
+    OpenApiParameter,
+    extend_schema,
+    inline_serializer,
+)
+from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 
@@ -320,6 +324,21 @@ class EmployeeViewSet(  # type: ignore[misc]
     batch_delete_service = EmployeeService.batch_delete_employee
     batch_delete_passes_operator = False
 
+    @extend_schema(
+        summary="更改员工状态",
+        # 直接读 request.data.get("status")，无运行时 Serializer，故基线缺
+        # requestBody。取值域以 Employee.EMPLOYEE_STATUS_CHOICES 为唯一真值
+        # （不从字面量硬编码，DR-1）；改枚举时本声明自动跟随。
+        request=inline_serializer(
+            name="EmployeeStatusChange",
+            fields={
+                "status": serializers.ChoiceField(
+                    choices=Employee.EMPLOYEE_STATUS_CHOICES,
+                    help_text="目标员工状态",
+                ),
+            },
+        ),
+    )
     @action(detail=True, methods=["post"])
     def change_status(self, request: "Request", pk: int | None = None) -> "Response":
         """更改员工状态(统一格式)"""
@@ -363,6 +382,18 @@ class EmployeeViewSet(  # type: ignore[misc]
             status_code=status.HTTP_201_CREATED,
         )
 
+    @extend_schema(
+        summary="批量更新员工排序",
+        # 请求体复用运行时 EmployeeBatchSortSerializer（不另立结构定义，DR-1）。
+        # 必须显式声明 request：action 名是 `batch_sort`，该方法不在
+        # get_serializer_class() 的分派表内，spectacular 会回退到
+        # EmployeeSerializer（列表序列化器），产不出 items 包装层。
+        # 遗留（另立条目）：响应形状仍不准——本方法直接返回 serializer.data
+        # 的裸数组、未走 paginate_queryset，但基线为 PaginatedEmployeeList。
+        # 实测本处显式 responses={200: OpenApiResponse(response=...many=True))}
+        # 会被 ViewSet 的分页推断覆盖（声明不生效），故不写无效声明。
+        request=EmployeeBatchSortSerializer,
+    )
     @action(detail=False, methods=["put"], url_path="sort")
     def batch_sort(self, request: "Request") -> "Response":
         """

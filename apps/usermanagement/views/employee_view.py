@@ -388,10 +388,25 @@ class EmployeeViewSet(  # type: ignore[misc]
         # 必须显式声明 request：action 名是 `batch_sort`，该方法不在
         # get_serializer_class() 的分派表内，spectacular 会回退到
         # EmployeeSerializer（列表序列化器），产不出 items 包装层。
-        # 遗留（另立条目）：响应形状仍不准——本方法直接返回 serializer.data
-        # 的裸数组、未走 paginate_queryset，但基线为 PaginatedEmployeeList。
-        # 实测本处显式 responses={200: OpenApiResponse(response=...many=True))}
-        # 会被 ViewSet 的分页推断覆盖（声明不生效），故不写无效声明。
+        #
+        # 【BF-057 响应形状】本方法运行时直接返回 serializer.data 的裸数组
+        # （success_response 包装），不经过 paginate_queryset，故 200 响应不是分页对象。
+        #
+        # 【为什么必须用 raw dict 而不是 EmployeeSerializer(many=True)】
+        # 传序列化器实例时，drf-spectacular 的 :1486 会用 `_is_list_view(serializer)`
+        # 判定——`many=True` 使其判 True，进而走 :1500 的分页包装分支，把裸数组
+        # 重新包成 PaginatedEmployeeList（声明被覆盖）。传 raw dict 则命中
+        # :1471-1475 的 `isinstance(serializer, dict)` 分支，该分支把 serializer
+        # 置为 None，使 :1486 恒判 False，整条「数组+分页」推断分支一并跳过。
+        # 副作用同样被跳过：补 many=True 会翻转 `_is_list_view()`，进而打开
+        # get_filter_backends()，给本端点凭空加上 5 条运行时从不消费的筛选参数
+        # （batch_sort 是 PUT，直接调 Selector，全程不跑 filter_queryset）——
+        # 那正是 OS-5 双向红线所说的「文档超前于运行时」反向失真。
+        #
+        # 【耦合点】下方组件名与 EmployeeSerializer 绑定：若该序列化器的组件名变更
+        # （ref_name / ENUM_NAME_OVERRIDES），此处是字面量、不会自动跟随，须同步修改。
+        # 护栏：test_employee_openapi_contract.py::test_sort_response_is_bare_array
+        responses={200: {"type": "array", "items": {"$ref": "#/components/schemas/Employee"}}},
         request=EmployeeBatchSortSerializer,
     )
     @action(detail=False, methods=["put"], url_path="sort")

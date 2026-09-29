@@ -1,4 +1,4 @@
-"""员工域 OpenAPI 契约回归（BF-049 / BF-050）。
+"""员工域 OpenAPI 契约回归（BF-049 / BF-050 / BF-057）。
 
 **为什么需要这个文件**：BF-049 / BF-050 都是「运行时正确、OpenAPI 失真」类缺陷，
 不会让任何既有测试变红——既有测试断言的是 HTTP 行为，没人断言文档。已实测：
@@ -23,6 +23,8 @@ from apps.usermanagement.models import EmployeeStatus
 
 EXPORT_URL = "/api/v1/users/employees/export/"
 STATS_URL = "/api/v1/users/employees/statistics/"
+LIST_URL = "/api/v1/users/employees/"
+SORT_URL = "/api/v1/users/employees/sort/"
 
 # 10 个走 Mixin 默认 get_export_queryset()（不跑 filter_queryset）的资产导出端点，
 # 只声明 limit/offset 是如实的。operation-logs 导出自带业务参数 override，不属此类。
@@ -126,3 +128,50 @@ def test_bare_asset_exports_not_overstated(employee_schema):
     """
     for url in BARE_ASSET_EXPORTS:
         assert _param_names(employee_schema, url) == {"limit", "offset"}, url
+
+
+# ------------------------------------------------------------------ BF-057
+
+
+def test_sort_response_is_bare_array(employee_schema):
+    """``sort`` 运行时返回裸数组（不经过 paginate_queryset），不得声明成分页对象。
+
+    修法是给 ``responses`` 传 raw dict（见 employee_view.py 的 BF-057 注释）——
+    传 ``EmployeeSerializer(many=True)`` 会被 :1500 的分页包装分支覆盖成
+    PaginatedEmployeeList，且连带打开 get_filter_backends() 泄漏筛选参数。
+
+    ref 用**完整路径**断言而非 ``in`` 子串匹配：raw dict 是字面量，拼错组件名时
+    drf-spectacular **不报错**（实测写 ``EmployeeTYPO`` 照常生成、退出码 0），
+    子串匹配会漏过 ``EmployeeExtended`` 之类的前缀撞名。第二条断言直接确认
+    目标组件确实存在，把悬空 ref 这个静默失败面一并堵住。
+    """
+    schema = employee_schema["paths"][SORT_URL]["put"]["responses"]["200"]["content"]["application/json"]["schema"]
+    assert schema["type"] == "array"
+    assert schema["items"]["$ref"] == "#/components/schemas/Employee"
+    assert "Employee" in employee_schema["components"]["schemas"]
+
+
+def test_sort_declares_no_runtime_unused_params(employee_schema):
+    """反向护栏（OS-5）：``sort`` 端点不得声明任何查询参数。
+
+    ``batch_sort`` 是 ``methods=["put"]``，直接调 ``EmployeeSelector.batch_update_sort``，
+    **全程不跑 ``filter_queryset``**。一旦 ``_is_list_view()`` 被翻 True，
+    ``get_filter_backends()`` 会给它加上 department_code /
+    employee_department__department_code / employee_status / ordering / search
+    共 5 条运行时从不消费的参数——「文档有、运行时无」的反向失真。
+    """
+    assert _param_names(employee_schema, SORT_URL, method="put") == set()
+
+
+def test_sort_change_does_not_affect_list(employee_schema):
+    """sort 端点走 raw dict 旁路，不得波及 ``list``（员工域分页入口）。
+
+    旁路只作用于声明了 raw dict 的 operation；``list`` 仍须是分页对象并保留
+    page / page_size。缺这条护栏时，未来有人把 raw dict 误提到类级或改走
+    AutoSchema 全局豁免，本用例即为唯一拦截点。
+    """
+    list_response = employee_schema["paths"][LIST_URL]["get"]["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ]
+    assert list_response["$ref"] == "#/components/schemas/PaginatedEmployeeList"
+    assert {"page", "page_size"} <= _param_names(employee_schema, LIST_URL)

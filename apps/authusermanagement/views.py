@@ -166,6 +166,8 @@ class RegisterAPIView(APIView):
     """
 
     permission_classes = [permissions.AllowAny]
+    # 认证类置空: AllowAny 端点不解析入站令牌,残留/过期 access cookie 不得阻断注册
+    authentication_classes: list[Any] = []
     # 【修复】限制注册频率,防止批量注册攻击(5次/分钟)
     throttle_classes = [RegisterRateThrottle]
 
@@ -222,6 +224,8 @@ class LoginAPIView(APIView):
     """
 
     permission_classes = [permissions.AllowAny]
+    # 认证类置空: AllowAny 端点不解析入站令牌,残留/过期 access cookie 不得阻断登录(BF-056)
+    authentication_classes: list[Any] = []
     # H-4: 账户级登录限流(5次/分钟/用户) + 全局 IP 级限流(20次/分钟/IP)
     # 登录锁定:连续失败5次后锁定15分钟
     throttle_classes = [LoginRateThrottle, LoginLockoutThrottle]

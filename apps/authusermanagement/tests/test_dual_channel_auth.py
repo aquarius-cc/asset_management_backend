@@ -215,6 +215,22 @@ class TestLoginDualChannel:
         resp = _login(api_client, username="inactive")
         assert resp.status_code == 401
 
+    def test_login_not_blocked_by_poison_access_cookie(self, api_client):
+        """残留/无效 access Cookie 不得阻断登录(authentication_classes=[], BF-056)"""
+        _make_user("poison1")
+        api_client.cookies[settings.JWT_AUTH_COOKIE_ACCESS] = "invalid-expired"
+        resp = _login(api_client, username="poison1")
+        assert resp.status_code == 200
+        assert resp.data["code"] == 0
+
+    def test_login_wrong_password_with_poison_cookie(self, api_client):
+        """毒 Cookie 场景下错误密码仍应返回凭据错误,而非令牌错误文案"""
+        _make_user("poison2")
+        api_client.cookies[settings.JWT_AUTH_COOKIE_ACCESS] = "invalid-expired"
+        resp = _login(api_client, username="poison2", password="wrongpass")
+        assert resp.status_code == 401
+        assert resp.data["message"] == "用户名或密码错误"
+
 
 @pytest.mark.django_db
 class TestBearerChannel:
@@ -401,6 +417,22 @@ class TestProfileAndRegister:
         payload = _decode(resp.data["data"]["access"])
         assert payload["role"] == "regular_user"
         assert "asset_access_token" in api_client.cookies
+
+    def test_register_not_blocked_by_poison_access_cookie(self, api_client):
+        """残留/无效 access Cookie 不得阻断注册(authentication_classes=[], BF-056)"""
+        api_client.cookies[settings.JWT_AUTH_COOKIE_ACCESS] = "invalid-expired"
+        resp = api_client.post(
+            REGISTER_URL,
+            {
+                "auth_username": "newreg2",
+                "password": "Passw0rd@123",
+                "password2": "Passw0rd@123",
+                "email": "n2@x.com",
+                "auth_phone": "13800000001",
+            },
+        )
+        assert resp.status_code == 201
+        assert resp.data["code"] == 0
 
 
 @pytest.mark.django_db

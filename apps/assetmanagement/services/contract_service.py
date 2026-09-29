@@ -95,6 +95,35 @@ def _recalc_paid_amounts(contract: Contract) -> None:
         contract.amount_unpaid = (contract.contract_amount or 0) - contract.amount_paid
 
 
+def _apply_opening_paid(contract: Contract, opening_paid: str | int | float | Decimal | None) -> None:
+    """把创建入口的期初已付金额规范化为一条 approved 期初付款记录
+
+    调用方 create_contract 处的【BF-055 / 决策 2a】注释说明了为何要「弹出后规范化」
+    而非裸写;本函数只负责该规范化的实现,与常规付款共用 _build_payment_entry(DR-1)。
+
+    卫语句早返回等价于原式 ``opening_paid and Decimal(str(opening_paid)) > 0``:
+    falsy 值短路返回,不会走到 ``Decimal(str(None))`` 这条 InvalidOperation 路径。
+    非数值字符串(如 "abc")会抛 InvalidOperation——与拆分前一致,由 Serializer 先行校验兜底。
+    """
+    if not opening_paid or Decimal(str(opening_paid)) <= 0:
+        return
+    contract.paid_record = json.dumps(
+        {
+            "payments": [
+                _build_payment_entry(
+                    Decimal(str(opening_paid)),
+                    "期初已付",
+                    payment_date=str(contract.contract_start_date) if contract.contract_start_date else None,
+                    payment_method="opening_balance",
+                    status="approved",
+                )
+            ]
+        },
+        ensure_ascii=False,
+    )
+    contract.save(update_fields=["paid_record", "updated_at"])
+
+
 class ContractService:
     """
     合同管理服务
@@ -135,22 +164,7 @@ class ContractService:
         opening_paid = contract_data.pop("amount_paid", None)
         contract = Contract.objects.create(**contract_data)
 
-        if opening_paid and Decimal(str(opening_paid)) > 0:
-            contract.paid_record = json.dumps(
-                {
-                    "payments": [
-                        _build_payment_entry(
-                            Decimal(str(opening_paid)),
-                            "期初已付",
-                            payment_date=str(contract.contract_start_date) if contract.contract_start_date else None,
-                            payment_method="opening_balance",
-                            status="approved",
-                        )
-                    ]
-                },
-                ensure_ascii=False,
-            )
-            contract.save(update_fields=["paid_record", "updated_at"])
+        _apply_opening_paid(contract, opening_paid)
 
         # 重算无条件执行:新建合同即便无期初已付,amount_unpaid 也应为 contract_amount - 0,
         # 而非模型默认值 0(字段 help_text 明写「自动计算」)。此前该分支被关在 if 内,

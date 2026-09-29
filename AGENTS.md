@@ -1,10 +1,10 @@
 
 ---
 
-### 📄 文档 2：后端子引擎 `/asset_management_backend/AGENTS.md` (v9.2.1)
+### 📄 文档 2：后端子引擎 `/asset_management_backend/AGENTS.md` (v9.3.0)
 
 # 后端 AI 执行子引擎配置 (Backend Engine)
-> 版本：v9.2.1 | 最后更新：2026-07-13
+> 版本：v9.3.0 | 最后更新：2026-09-29
 > 职责：Django/DRF 代码生成、ORM 规范、状态机逻辑、后端测试门禁、代码规模与复杂度管控
 
 ## §1 核心执行协议
@@ -24,6 +24,12 @@
 
 ### 1.3 硬性代码标准与质量门禁
 - **格式化与类型检查**：必须通过 `ruff check .` 和 `mypy . --strict`。
+  **复核要求（根级 CT-7）**：执行前须比对 `pip list` 与 `requirements/dev.txt` 声明的
+  `mypy` / `django-stubs` / `djangorestframework-stubs` / `types-channels` 版本是否一致。
+  不一致时**先 `pip install -r requirements/dev.txt` 对齐再下结论**。本项目曾长期漂移
+  （本地 1.15.0 / 5.2.9 / 3.16.9 / 未装 types-channels，声明 2.1.0 / 6.1.0 / 3.18.0 / 已声明），
+  本地报 27 条而 CI 实为 **0 条**；据此幻影基线曾差点误改 4 处生产代码
+  （`interfaces.py` DI 边界签名 + 3 条 `type: ignore` 删除）。**幻影基线一律不得作为事实引用。**
 - **导入顺序**：标准库 → 第三方库 → Django → 本地 apps。
 - **敏感操作标注**：涉及删除、批量更新，必须在代码注释中添加 `# [HALT]`。
 - **复杂度门禁**：代码完成后，必须运行 `ruff check . --select C90 --config lint.mccabe.max-complexity=10`，若超标则触发 `[HALT]`。
@@ -102,6 +108,8 @@
 - 涉及数据库表结构重命名 → 触发根级红线。
 
 ## §5 变更日志
+- v9.3.0 (2026-09-29)：同步根级v3.6.0，新增CT-7（门禁结论必须以 CI 工具链复核）。§1.3 类型检查门禁补「复核要求」：执行前须 `pip list` 比对 `requirements/dev.txt` 声明版本，不一致先对齐再下结论。事故实证——本地 mypy 1.15.0 / django-stubs 5.2.9 / djangorestframework-stubs 3.16.9 / 未装 types-channels（声明 2.1.0 / 6.1.0 / 3.18.0 / 已声明），本地报 27 条 / 12 文件而 CI 同版本实为 0 条；据此幻影基线差点误改 `apps/assetmanagement/interfaces.py` DI 边界签名 4 处、并误删 `authusermanagement/models.py:142,150` 与 `unregisteredasset/views.py:169` 三条在真实工具链下**仍然有效**的 `type: ignore`，同时误将 `types-python-dateutil` 写入 `dev.txt`（装齐后验证为多余，已还原）。
+
 - v9.2.1 (2026-07-13)：审计票自检项同步根级v3.4.1，增加Fact-1（事实基线）和Style-1~Style-3（写作风格）检查行。
 
 - v9.2.0 (2026-07-13)：同步根级v3.4.0，§1.1读取优先增加根级§9（AI交互与写作规范）引用。

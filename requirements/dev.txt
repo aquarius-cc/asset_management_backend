@@ -27,6 +27,12 @@ pytest==9.1.1
 factory-boy==3.3.3
 pytest-cov==7.1.0
 
+# 变异测试（后端 T7 红线 80%）
+# 【易错点】必须钉版本：2.x 用原地改写 + .bak 恢复，3.x 改为 mutants/ 目录架构，
+# 配置键名全部更名（paths_to_mutate -> source_paths、tests_dir ->
+# pytest_add_cli_args_test_selection、runner -> pytest_add_cli_args），配置见 setup.cfg [mutmut]。
+mutmut==3.8.0
+
 # 类型检查
 # mypy
 mypy==2.1.0

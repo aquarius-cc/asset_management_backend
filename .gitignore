@@ -96,6 +96,8 @@ venv.bak/
 htmlcov/
 .tox/
 .pytest_cache/
+# mutmut 3.x 变异测试工作目录（setup.cfg [mutmut]，源码在 mutants/ 下重写生成）
+mutants/
 
 # =============================================================================
 # 类型检查

@@ -131,4 +131,8 @@ docs/knowledge-graph.html
 # 临时/测试产物（不入库）
 # =============================================================================
 pytest_full.err
-constants/
+# 【BF-067】constants/ 整目录排除会使其内文件的否定例外不生效（git 不下探已排除目录）。
+# 改为 constants/*（排除内容而非目录本身）+ 下方白名单，令 permission_constants.py 可入库
+# 供 M-6 在 CI 干净检出下校验。其余临时产物仍被排除。
+constants/*
+!constants/permission_constants.py

@@ -1,0 +1,10 @@
+{
+    "score": 70.44,
+    "formula": "(killed + timeout) / (total - skipped) * 100",
+    "mutants": 1959,
+    "killed": 1267,
+    "timeout": 113,
+    "run_date": "2026-09-30",
+    "environment": "WSL 16核 全量首跑（BF-066）",
+    "note": "相对基线不回归门禁（B批决策 2026-09-30）：新 run 得分不得低于本基线。C批补测抬分后更新本文件直至 80% 绝对红线恢复。"
+}

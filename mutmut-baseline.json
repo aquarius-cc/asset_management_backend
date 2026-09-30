@@ -1,10 +1,12 @@
 {
-    "score": 70.44,
+    "score": 68.61,
     "formula": "(killed + timeout) / (total - skipped) * 100",
     "mutants": 1959,
-    "killed": 1267,
-    "timeout": 113,
+    "killed": 1344,
+    "timeout": 0,
+    "survived": 597,
+    "no_tests": 18,
     "run_date": "2026-09-30",
-    "environment": "WSL 16核 全量首跑（BF-066）",
-    "note": "相对基线不回归门禁（B批决策 2026-09-30）：新 run 得分不得低于本基线。C批补测抬分后更新本文件直至 80% 绝对红线恢复。"
+    "environment": "GitHub Actions ubuntu-latest 2核 全量（BF-067 run 98）",
+    "note": "相对基线不回归门禁（B批决策 2026-09-30）：新 run 得分不得低于本基线。基线环境切换为 CI 执行环境（此前为 WSL 16核 70.44%）：WSL 基线 113 个 timeout 系跨 /mnt/d 慢 I/O 的环境伪象，CI 原生磁盘下这些变异体正常结束（timeout=0），pure-kill 反升（CI 68.61% vs WSL pure-kill 64.68%），且 services/tests/setup.cfg 自 0093467 起零变更，判定为环境差异、非代码回归。C批补测抬分后更新本文件直至 80% 绝对红线恢复。"
 }

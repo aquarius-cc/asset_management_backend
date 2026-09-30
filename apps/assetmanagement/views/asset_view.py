@@ -1,4 +1,3 @@
-# TECHNICAL_DEBT: >500 lines
 """
 资产管理视图集
 """

@@ -34,6 +34,12 @@ mutmut==3.8.0
 # mypy
 mypy==2.1.0
 django-stubs==6.1.0
+# 【刻意错配，勿"顺手对齐"】djangorestframework-stubs 3.18.0 对应 runtime
+# DRF 3.17.2（base.txt）。保持 3.18.0 的依据：① 本组合并非新错配——升版前
+# 已是 runtime 3.16.0 + stubs 3.18.0，且由 CI 直证 mypy --strict 0 errors；
+# ② stubs 不对 runtime DRF 版本做硬约束（否则 3.16.0 早已装不上）。
+# 改钉 3.17.1 虽配对更严，但会改变类型基线、净增 mypy 错误风险而无收益。
+# 依据：BF-067 §三-6（2026-09-30）升版评估
 djangorestframework-stubs==3.18.0
 types-channels==4.3.0.20260518
 # types-requests

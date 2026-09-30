@@ -3,12 +3,18 @@
 # 【易错点】更新版本时必须同步测试，避免依赖冲突
 
 # Django 核心框架
-# 版本说明：Django 6.0.5 - 与本地实际运行环境对齐（2026-09-13 决策反转 A-16，详见 Rules_Fiels/Duplicate_Codes/complete-patterns.md）
-Django==6.0.5
+# 版本说明：Django 6.0.9 - 6.0.x 当前最新补丁，覆盖 pip-audit 所列全部 advisory
+# （BF-067 §三-6，2026-09-30）。钉版方向承接 A-16「锁文件匹配实际运行环境」，
+# 不变；6.0 为功能版本非 LTS，待 6.2 LTS 发布后另行评估（风险已在 A-16 留痕，
+# 详见 Rules_Fiels/Duplicate_Codes/complete-patterns.md）
+Django==6.0.9
 
 # Django REST Framework
-# 版本说明：DRF 3.16 与 Django 5.2 兼容
-djangorestframework==3.16.0
+# 版本说明：DRF 3.17.2 - 修复 pip-audit 高危的版本线，亦为 3.17.x 上限
+# 【红线】不得升至 3.18.x：3.18 将 many=True 的错误响应由 list 改为 dict，
+# 直接破坏跨端响应契约（根级 §3），须走 §5 变更流程评估后方可升版
+# 【已核实】3.17 移除 coreapi 支持，本仓库全仓 0 处 coreapi 引用，无影响
+djangorestframework==3.17.2
 
 # Django 扩展
 # 版本说明：base.py INSTALLED_APPS 按 P1-38 无条件加载 django_extensions
@@ -39,20 +45,27 @@ qrcode[pil]==8.2
 requests==2.33.0
 
 # requests 依赖（显式 pin，避免系统级版本冲突）
-# 版本说明：urllib3 2.7.0 修复4个已知CVE
-urllib3==2.7.0
+# 版本说明：urllib3 2.8.0 修复 pip-audit 高危（BF-067 §三-6，2026-09-30）
+urllib3==2.8.0
 chardet==5.2.0
 
 # 环境变量管理
 python-decouple==3.8
 
 # JWT 认证
-# 版本说明：PyJWT 2.13.0 修复12个已知CVE（含 crit header 未验证）
+# 版本说明：PyJWT 2.14.0 修复 pip-audit 高危（BF-067 §三-6，2026-09-30）；
+# 2.13.0 修复的 crit header 未验证等 12 项 CVE 保持修复状态
 djangorestframework-simplejwt==5.5.1
-PyJWT==2.13.0
+PyJWT==2.14.0
 
 # API 文档生成
 # 【易错点】drf-spectacular 0.29+ 支持 Django 5.2/6.0
+# 【决策留痕 BF-067 §三-6，2026-09-30】DRF 升至 3.17.2 后仍钉 0.29.0：0.30.0
+# 才官方声明支持 DRF 3.17，但升版会改动 AutoSchema.get_filter_backends() 的
+# 筛选参数发现行为——backend-business-rules.md §4.8 OS-1~OS-7、
+# core/schema.py::ForceFilterDiscoverySchema 与 3 个 OpenAPI 护栏测试均以此
+# 为基线，另批评估。0.29.0 对 DRF 的声明为 >=3.10.3（无上界），本身无
+# pip-audit 告警，本次共存由 CI 直证。
 drf-spectacular==0.29.0
 drf-spectacular-sidecar==2026.4.14
 

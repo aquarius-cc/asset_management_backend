@@ -77,7 +77,9 @@ def generate_fe_ts(codes: set[str]) -> str:
 # ── 生成后端 Python 常量 ────────────────────────────────────────────────
 BE_HEADER = '''\
 """权限码常量（由 scripts/generate_permission_codes.py 自动生成，勿手动编辑）。"""
+
 from __future__ import annotations
+
 
 PERMISSION_CODES: dict[str, str] = {
 '''

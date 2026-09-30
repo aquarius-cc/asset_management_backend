@@ -1,5 +1,7 @@
 """权限码常量（由 scripts/generate_permission_codes.py 自动生成，勿手动编辑）。"""
+
 from __future__ import annotations
+
 
 PERMISSION_CODES: dict[str, str] = {
     "ASSET_CREATE": "asset:create",

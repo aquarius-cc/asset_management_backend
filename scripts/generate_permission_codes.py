@@ -61,7 +61,7 @@ export const PERMISSION_CODES = {
   // 由 scripts/generate_permission_codes.py 自动生成，勿手动编辑
 """
 FE_FOOTER = """\
-} as const;
+} as const
 """
 
 
@@ -161,7 +161,7 @@ def main() -> int:
     # 写入前端
     fe_path = FE_DIR / "src" / "constants" / "permissionCodes.ts"
     fe_content = generate_fe_ts(codes)
-    fe_path.write_text(fe_content, encoding="utf-8")
+    fe_path.write_text(fe_content, encoding="utf-8", newline="\n")
     print(f"[M-6] 写入 {fe_path} ({len(codes)} codes)")
 
     # 写入后端
@@ -169,7 +169,7 @@ def main() -> int:
     be_dir.mkdir(exist_ok=True)
     be_path = be_dir / "permission_constants.py"
     be_content = generate_be_py(codes)
-    be_path.write_text(be_content, encoding="utf-8")
+    be_path.write_text(be_content, encoding="utf-8", newline="\n")
     print(f"[M-6] 写入 {be_path} ({len(codes)} codes)")
 
     return 0

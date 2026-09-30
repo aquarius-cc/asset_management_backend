@@ -10,6 +10,13 @@ Django==6.0.5
 # 版本说明：DRF 3.16 与 Django 5.2 兼容
 djangorestframework==3.16.0
 
+# Django 扩展
+# 版本说明：base.py INSTALLED_APPS 按 P1-38 无条件加载 django_extensions
+# （非 dev-only），故为运行时必需依赖；缺失将导致 django.setup() ImportError
+# （BF-067 M-3 配套生成器 CI 仅装 base.txt → exit 2）。dev.txt 经 -r base.txt
+# 继承，不再单独声明。
+django-extensions==3.2.3
+
 # CORS 跨域支持
 django-cors-headers==4.7.0
 

@@ -4,9 +4,6 @@
 
 # ==================== 开发增强工具 ====================
 
-# Django 扩展（shell_plus, runserver_plus 等）
-django-extensions==3.2.3
-
 # drf-spectacular 扩展（markdown 支持）
 # 【注意】base.txt 已锁定 drf-spectacular==0.29.0，此处仅追加 markdown extra
 drf-spectacular[markdown]==0.29.0

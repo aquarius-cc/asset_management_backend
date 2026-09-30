@@ -58,10 +58,14 @@ chardet==5.2.0
 python-decouple==3.8
 
 # JWT 认证
-# 版本说明：PyJWT 2.14.0 修复 pip-audit 高危（BF-067 §三-6，2026-09-30）；
-# 2.13.0 修复的 crit header 未验证等 12 项 CVE 保持修复状态
+# 版本说明：PyJWT 2.15.1 修复 pip-audit 高危（BF-067 §三-6，2026-09-30）。
+# 教训：2.14.0 为「当时最新」但非「修复线终点」，升版后 pip-audit 仍报高危
+# （GHSA-ffc3-869f-jxw9 crit 等），须持续升到 advisory 声明的修复版本为止。
+# 查证纪律：钉版前先核对 pip-audit 输出的 advisory 修复版本号，再取 PyPI 上
+# 不低于该修复线的最新补丁；勿以「latest」为准。2.13.0 修复的 crit header
+# 未验证等 12 项 CVE 保持修复状态
 djangorestframework-simplejwt==5.5.1
-PyJWT==2.14.0
+PyJWT==2.15.1
 
 # API 文档生成
 # 【易错点】drf-spectacular 0.29+ 支持 Django 5.2/6.0

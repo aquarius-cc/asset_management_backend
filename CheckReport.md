@@ -12,11 +12,11 @@
 | 组件 | 技术 | 版本 |
 |------|------|------|
 | 语言 | Python | 3.12+ |
-| Web框架 | Django | 6.0.5 |
-| REST框架 | Django REST Framework | 3.16.0 |
+| Web框架 | Django | 6.0.8 |
+| REST框架 | Django REST Framework | 3.17.2 |
 | 数据库 | PostgreSQL | 16 |
 | 认证 | JWT (SimpleJWT) | 5.5.1 |
-| API文档 | drf-spectacular | 0.28.0 |
+| API文档 | drf-spectacular | 0.29.0 |
 | 过滤器 | django-filter | 25.1 |
 | 跨域 | django-cors-headers | 4.7.0 |
 

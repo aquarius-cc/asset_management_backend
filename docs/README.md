@@ -1,6 +1,6 @@
 # 资产管理系统后端工程 — README
 
-> **面向 Python 3.12 + Django 6.0 + DRF 3.15 的后端服务**  
+> **面向 Python 3.12 + Django 6.0 + DRF 3.17 的后端服务**  
 > 遵循 `AGENTS.md`（AI 最高开发准则）与 Harness 协作流程  
 > 为人工开发者与 AI 代理提供统一的入口、规范与知识上下文
 
@@ -18,7 +18,7 @@
 | 领域       | 技术选型                                                       |
 | -------- | ---------------------------------------------------------- |
 | **语言**   | Python 3.12+（强制类型标注，禁止 `Any`）                              |
-| **框架**   | Django 6.0.5、Django REST Framework 3.15                    |
+| **框架**   | Django 6.0.8、Django REST Framework 3.17.2                    |
 | **数据库**  | PostgreSQL 16+（ORM 防注入、软删除基类）                              |
 | **认证**   | JWT（Simple JWT / Token 刷新）                                 |
 | **权限**   | DRF 全局权限 + 对象级 `check_object_permissions` + 行级数据隔离         |

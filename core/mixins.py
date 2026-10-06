@@ -228,6 +228,18 @@ class PaginateAndRespondMixin:
                 return self._paginate_and_respond(records)
     """
 
+    def _post_paginate_hook(self, page: Any) -> None:
+        """分页切片后、序列化前的扩展点。
+
+        默认空实现 —— 对既有调用方行为不变。需要「先切页再补数据」的端点
+        （如资产分组汇总需按当页分组回填 asset_codes）覆写本方法，
+        避免各端点重复实现分页+响应序列（DR-1）。
+
+        Args:
+            page: paginate_queryset 的返回值；未启用分页时为 None。
+        """
+        return None
+
     def _paginate_and_respond(self, queryset: Any) -> Response:
         """
         分页并返回统一响应
@@ -240,6 +252,7 @@ class PaginateAndRespondMixin:
         """
         page = self.paginate_queryset(queryset)  # type: ignore[attr-defined]
         if page is not None:
+            self._post_paginate_hook(page)
             serializer = self.get_serializer(page, many=True)  # type: ignore[attr-defined]
             return self.get_paginated_response(serializer.data)  # type: ignore[attr-defined, no-any-return]
         serializer = self.get_serializer(queryset, many=True)  # type: ignore[attr-defined]

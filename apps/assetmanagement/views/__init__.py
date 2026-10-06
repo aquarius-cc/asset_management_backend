@@ -4,6 +4,8 @@
 提供所有资产管理相关的视图集,向后兼容原有导入路径。
 """
 
+from .asset_group_children_view import AssetGroupChildrenViewSet
+from .asset_grouped_view import AssetGroupedViewSet
 from .asset_lifecycle_view import (
     BrokenAssetViewSet,
     FoundAssetViewSet,
@@ -23,6 +25,8 @@ from .waste_asset_view import WasteAssetViewSet
 
 
 __all__ = [
+    "AssetGroupChildrenViewSet",
+    "AssetGroupedViewSet",
     "AssetTypeViewSet",
     "AssetViewSet",
     "BrokenAssetViewSet",

@@ -66,6 +66,27 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
+### 可选：铺入演示数据
+
+资产分组展开表格需要参照数据（合同 / 资产类型 / 仓库）才能手工验证 ——
+参照表为空时分组功能无从下手（无合同可分、无类型可筛）。
+
+```bash
+# 预览将要写入的内容（不落库）
+python manage.py seed_grouped_assets --dry-run
+
+# 铺入：38 条资产 / 6 个分组，覆盖无合同哨兵组、null 规格与品牌、单值与区间价格
+python manage.py seed_grouped_assets
+
+# 重建：先按 DEMO- 前缀软删除既有演示数据，再重新铺入
+python manage.py seed_grouped_assets --reset
+```
+
+验证入口：`GET /api/v1/assets/grouped/` 与 `GET /api/v1/assets/group_children/?group_key=<上一步返回的 group_key>`。
+
+⚠️ 该命令**不自动执行**（不进 `docker-entrypoint.sh`），演示数据不应出现在生产库；
+且它**不创建登录账号**，请用你自己的 `init_production_data` 或 `createsuperuser`。
+
 ### 环境变量配置
 
 参考 `.env.example` 文件，配置以下环境变量：

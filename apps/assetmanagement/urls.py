@@ -20,6 +20,8 @@ from apps.assetmanagement.operation_log_views import (
 
 # 从 views/ 包导入主要视图
 from apps.assetmanagement.views import (
+    AssetGroupChildrenViewSet,
+    AssetGroupedViewSet,
     AssetTypeViewSet,
     AssetViewSet,
     BrokenAssetViewSet,
@@ -78,6 +80,20 @@ urlpatterns: list[URLResolver | URLPattern] = [
     path("operation-logs/user/<str:operator_jobcode>/", UserOperationsView.as_view(), name="operation-log-user"),
     path("assets/<str:asset_code>/history/", AssetHistoryView.as_view(), name="asset-history"),
     path("assets/<str:asset_code>/timeline/", AssetStatusTimelineView.as_view(), name="asset-timeline"),
+    # 资产分组汇总(纯新增端点,不修改既有 assets 路由)
+    # 目标 /api/v1/assets/grouped/(04 §2.4b.1)。此处写 "grouped/" 而非 "assets/grouped/":
+    # 本文件已被 config/urls.py:159 以 "api/v1/assets/" 前缀 include,故 "grouped/" 即为契约路径。
+    # ⚠️ 既有资产列表因 router 前缀叠加实际在 /api/v1/assets/assets/(前端 asset.ts:82 亦如此),
+    #    新端点不跟随该叠加 —— 契约以 04 文档为准,前端按 request.get('/assets/grouped/') 调用。
+    # as_view({"get": "list"}) 使 self.action == "list",RBAC 解析依赖该值。
+    path("grouped/", AssetGroupedViewSet.as_view({"get": "list"}), name="asset-grouped"),
+    # 资产分组明细(纯新增端点)。目标 /api/v1/assets/group_children/(04 §2.4b.2)。
+    # 前缀规则与上面 grouped/ 完全一致(本文件已被 include 于 "api/v1/assets/"。
+    path(
+        "group_children/",
+        AssetGroupChildrenViewSet.as_view({"get": "list"}),
+        name="asset-group-children",
+    ),
     # 公开扫码接口(无需认证)
     path("public/scan/<str:recordcode>/", public_scan_view, name="public-scan"),
 ]

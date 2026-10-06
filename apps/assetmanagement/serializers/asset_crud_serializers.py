@@ -299,7 +299,11 @@ class AssetCreateSerializer(serializers.ModelSerializer):  # type: ignore[type-a
             "asset_purchase_price": {"required": True, "write_only": True},
             "asset_purchase_date": {"required": True},
             "asset_entry_date": {"required": True},
-            "asset_purchase_number": {"required": False, "default": 1},
+            # min_value=1: 录入倍数必须 ≥1。服务层 AssetCodeGenerator.generate 虽有
+            # 同值守卫,但其 ValueError 未被 View 捕获 → 客户端错误被渲染为 500;
+            # 在序列化层前移为 400,并使「录入倍数 N ≥ 1」成为显式契约(与批量创建
+            # AssetBatchItemSerializer.asset_purchase_number 的 min_value=1 对齐)。
+            "asset_purchase_number": {"required": False, "default": 1, "min_value": 1},
             "asset_warranty_period": {"required": False, "default": 0},
             "asset_unit": {"required": False, "allow_blank": True, "allow_null": True},
             "asset_brand": {"required": False, "allow_blank": True, "allow_null": True},

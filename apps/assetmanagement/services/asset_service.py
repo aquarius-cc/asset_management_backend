@@ -36,6 +36,9 @@ ASSET_UPDATE_IMMUTABLE_FIELDS = frozenset(
         "created_at",
         "updated_at",
         "asset_current_status",
+        # 录入倍数只在创建时生效,行实物台数恒为 1;开放改写会破坏「录入/汇总口径自洽」
+        # (汇总 COUNT ≡ 录入倍数 ≡ Σ明细实物数量)。创建后即为不可变事实。
+        "asset_purchase_number",
     ]
 )
 
@@ -128,6 +131,10 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
         asset_data.pop("asset_code", None)
         asset_type = asset_data.get("asset_type_recordcode")
         purchase_number = asset_data.get("asset_purchase_number", 1)
+        # asset_purchase_number 是「录入倍数」(瞬态,决定 fan-out 几条),不是行数据:
+        # 每条落库记录的实物台数恒为 1,否则录入 N 台会显示成 N×N 台。
+        # 需在 fan-out 之前覆写,单条与批量两条创建路径共用本实现(DR-1)。
+        asset_data["asset_purchase_number"] = 1
         # 创建资产初始状态统一注入 in_store,禁止客户端指定(CT-3);
         # 需在防污染拷贝(dict(asset_data))之后覆写,不污染调用方原 dict。
         asset_data["asset_current_status"] = Asset.AssetStatus.IN_STORE

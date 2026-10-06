@@ -85,12 +85,16 @@ class TestAssetViewSet:
         assert response.data["data"]["asset_code"] == asset.asset_code
 
     def test_update_asset(self, admin_authenticated_client, asset, storage, asset_type, contract, employee):
-        """全表单载荷(含 FK SlugRelatedField 键)——修复既有"整表单编辑 400"缺陷的回归锚点"""
+        """全表单载荷(含 FK SlugRelatedField 键)——修复既有"整表单编辑 400"缺陷的回归锚点
+
+        注:asset_purchase_number(录入倍数)已列入 ASSET_UPDATE_IMMUTABLE_FIELDS,
+        编辑载荷必须剔除,否则 400 FIELD_NOT_ALLOWED;其禁改行为由
+        test_update_asset_rejects_purchase_number_change 单独锚定。
+        """
         url = reverse("assets-detail", kwargs={"recordcode": asset.recordcode})
         data = {
             "asset_name": "更新后的资产名称",
             "asset_purchase_price": "1500.00",
-            "asset_purchase_number": 3,
             "asset_unit": "台",
             "asset_brand": "品牌B",
             "asset_specification": "规格B",
@@ -145,6 +149,36 @@ class TestAssetViewSet:
         url = reverse("assets-detail", kwargs={"recordcode": asset.recordcode})
         response = admin_authenticated_client.patch(url, {"bogus_field": 1}, format="json")
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_update_asset_rejects_purchase_number_change(self, admin_authenticated_client, asset):
+        """【W-3 回归·API 层】PATCH 录入倍数 → 400 FIELD_NOT_ALLOWED
+
+        服务端禁改(ASSET_UPDATE_IMMUTABLE_FIELDS)+ 前端编辑载荷剔除 构成一对:
+        任一侧单独上线都会让「整表单编辑」全线 400。
+        """
+        url = reverse("assets-detail", kwargs={"recordcode": asset.recordcode})
+        response = admin_authenticated_client.patch(url, {"asset_purchase_number": 3}, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data["data"]["error_code"] == "FIELD_NOT_ALLOWED"
+        asset.refresh_from_db()
+        assert asset.asset_purchase_number == 1
+
+    def test_create_asset_rejects_zero_purchase_number(self, admin_authenticated_client, storage, asset_type):
+        """【W-4 回归】录入倍数 0 → 400(序列化层前移),而非服务层 ValueError 冒泡成 500"""
+        url = reverse("assets-list")
+        data = {
+            "asset_name": "录入数量非法资产",
+            "asset_type": asset_type.type_code,
+            "asset_storage": storage.storage_code,
+            "asset_purchase_price": "1000.00",
+            "asset_purchase_date": "2026-01-01",
+            "asset_entry_date": "2026-01-02",
+            "asset_purchase_number": 0,
+        }
+        response = admin_authenticated_client.post(url, data, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "asset_purchase_number" in response.data["data"]
+        assert Asset.objects.filter(asset_name="录入数量非法资产").count() == 0
 
     def test_partial_update_asset(self, admin_authenticated_client, asset):
         url = reverse("assets-detail", kwargs={"recordcode": asset.recordcode})

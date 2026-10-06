@@ -232,6 +232,8 @@ class TestAssetBatchCreateAPI:
         assert response.status_code == 200
         assert response.data["data"]["success_count"] == 1
         assert Asset.objects.count() == 3
+        # 【W-2 回归】批量路径复用 create_asset(DR-1),落库实物台数同样恒为 1
+        assert sorted(Asset.objects.values_list("asset_purchase_number", flat=True)) == [1, 1, 1]
 
         assets = Asset.objects.all()
         for asset in assets:

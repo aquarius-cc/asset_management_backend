@@ -48,6 +48,20 @@ class TestUpdateAsset:
             )
         assert exc_info.value.error_code == "FIELD_NOT_ALLOWED"
 
+    def test_update_asset_rejects_purchase_number_change(self, asset, admin_auth_user):
+        """【W-3 回归】录入倍数仅创建时生效。
+
+        若允许改写,单条记录的实物台数将与「录入倍数 ≡ 汇总条数 ≡ Σ实物数量」
+        自洽关系脱钩:改 N 不改汇总条数,台账口径随即失真。
+        """
+        with pytest.raises(AppValidationError) as exc_info:
+            AssetService.update_asset(
+                asset_code="A001",
+                update_data={"asset_purchase_number": 3},
+                user=admin_auth_user,
+            )
+        assert exc_info.value.error_code == "FIELD_NOT_ALLOWED"
+
     def test_update_asset_rejects_status_change(self, asset, admin_auth_user):
         """asset_current_status 变更所有权归 FSM,不可经通用更新接口直改(CT-3)"""
         with pytest.raises(AppValidationError) as exc_info:

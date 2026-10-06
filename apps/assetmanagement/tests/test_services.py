@@ -105,6 +105,9 @@ class TestAssetService:
         for asset in assets:
             asset.refresh_from_db()
             assert asset.asset_current_status == Asset.AssetStatus.IN_STORE
+        # 【W-2 回归】录入倍数只在创建时生效:fan-out 后每条落库记录的实物台数恒为 1。
+        # 不覆写则录入 3 台会落成 3×3=9 台,汇总条数与实物数量自相矛盾。
+        assert [a.asset_purchase_number for a in assets] == [1, 1, 1]
 
     def test_create_asset_duplicate_code(self, asset, storage, asset_type):
         """

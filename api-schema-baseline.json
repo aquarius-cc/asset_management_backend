@@ -4236,6 +4236,269 @@
                 }
             }
         },
+        "/api/v1/assets/group_children/": {
+            "get": {
+                "operationId": "v1_assets_group_children_list",
+                "description": "按 `group_key` 返回该组的资产明细（`AssetDetailSerializer`，含 `harddisk_sns`）。`data.count` **恒等于**汇总端点对应组的 `asset_count`（契约不变量 I-1）。各筛选参数须与汇总端点的当前 active 筛选原样透传。",
+                "summary": "资产分组明细",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "asset_brand",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "资产品牌模糊过滤（`icontains`），必须与汇总端点一致"
+                    },
+                    {
+                        "in": "query",
+                        "name": "asset_code",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "资产编码模糊过滤（`icontains`），必须与汇总端点一致"
+                    },
+                    {
+                        "in": "query",
+                        "name": "asset_contract_name",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "合同名称模糊过滤，必须与汇总端点一致"
+                    },
+                    {
+                        "in": "query",
+                        "name": "asset_current_status",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "状态精确过滤，**必须与汇总端点的当前筛选一致**"
+                    },
+                    {
+                        "in": "query",
+                        "name": "asset_name",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "资产名称模糊过滤（`icontains`），必须与汇总端点一致"
+                    },
+                    {
+                        "in": "query",
+                        "name": "asset_specification",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "资产规格模糊过滤（`icontains`），必须与汇总端点一致"
+                    },
+                    {
+                        "in": "query",
+                        "name": "asset_storage_recordcode",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "仓库 recordcode 精确过滤，必须与汇总端点一致"
+                    },
+                    {
+                        "in": "query",
+                        "name": "asset_type_category",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "资产类型分类精确过滤（展开为 `asset_type_recordcode__in`），必须与汇总端点一致"
+                    },
+                    {
+                        "in": "query",
+                        "name": "asset_type_recordcode",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "类型 recordcode 精确过滤，必须与汇总端点一致"
+                    },
+                    {
+                        "in": "query",
+                        "name": "group_key",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "JSON 数组字符串，汇总端点 `group_key` 原样回传：`[\"HT00001\",\"笔记本电脑\",\"14寸/i5\",\"联想\"]`。三个 null 位（合同/规格/品牌）须写 `null`，不可写空串。",
+                        "required": true
+                    },
+                    {
+                        "name": "page",
+                        "required": false,
+                        "in": "query",
+                        "description": "A page number within the paginated result set.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "v1"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedAssetDetailList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/assets/grouped/": {
+            "get": {
+                "operationId": "v1_assets_grouped_list",
+                "description": "按 `[contract_code, asset_name, asset_specification, asset_brand]` 四元组聚合。`data.count` 是**分组总数**，与 `results[i].asset_count`（组内资产条数）不是同一概念。排序：`asset_count` 降序（主键）→ 合同号升序（null 置末）→ 名称/规格/品牌。",
+                "summary": "资产分组汇总",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "asset_brand",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "资产品牌模糊过滤（新增，`icontains`）"
+                    },
+                    {
+                        "in": "query",
+                        "name": "asset_code",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "资产编码模糊过滤（新增，`icontains`）"
+                    },
+                    {
+                        "in": "query",
+                        "name": "asset_contract_name",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "合同名称模糊过滤（新增，走 `asset_contract_recordcode__contract_name`）"
+                    },
+                    {
+                        "in": "query",
+                        "name": "asset_current_status",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "状态精确过滤（复用既有键）"
+                    },
+                    {
+                        "in": "query",
+                        "name": "asset_name",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "资产名称模糊过滤（新增，`icontains`）"
+                    },
+                    {
+                        "in": "query",
+                        "name": "asset_specification",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "资产规格模糊过滤（新增，`icontains`）"
+                    },
+                    {
+                        "in": "query",
+                        "name": "asset_storage_recordcode",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "仓库 recordcode 精确过滤（复用既有键）"
+                    },
+                    {
+                        "in": "query",
+                        "name": "asset_type_category",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "资产类型分类精确过滤（新增）。值取 `AssetType.type_code`，展开为该分类下全部类型的 `asset_type_recordcode__in`；分类不存在时返回空集"
+                    },
+                    {
+                        "in": "query",
+                        "name": "asset_type_recordcode",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "类型 recordcode 精确过滤（复用既有键）"
+                    },
+                    {
+                        "in": "query",
+                        "name": "contract_code",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "合同编码精确过滤（新增）"
+                    },
+                    {
+                        "in": "query",
+                        "name": "no_contract",
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "description": "true 时仅返回无合同哨兵组（新增）；与 contract_code 互斥，同传返回 400"
+                    },
+                    {
+                        "name": "page",
+                        "required": false,
+                        "in": "query",
+                        "description": "A page number within the paginated result set.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "v1"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedAssetGroupSummaryList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/assets/harddisk-sn/": {
             "get": {
                 "operationId": "v1_assets_harddisk_sn_list",
@@ -12901,7 +13164,7 @@
                     "asset_purchase_number": {
                         "type": "integer",
                         "maximum": 2147483647,
-                        "minimum": -2147483648,
+                        "minimum": 1,
                         "default": 1,
                         "title": "资产购买数量",
                         "description": "采购数量"
@@ -13024,7 +13287,7 @@
                     "asset_purchase_number": {
                         "type": "integer",
                         "maximum": 2147483647,
-                        "minimum": -2147483648,
+                        "minimum": 1,
                         "default": 1,
                         "title": "资产购买数量",
                         "description": "采购数量"
@@ -13425,6 +13688,62 @@
                     "asset_name",
                     "asset_purchase_date",
                     "asset_purchase_price"
+                ]
+            },
+            "AssetGroupSummary": {
+                "type": "object",
+                "description": "单个分组汇总行\n\n字段声明顺序 = 04 §2.4b.1 示例顺序（`group_key` 打头）。JSON 键序无语义意义，\n但与契约示例一致可让抓包比对与文档走查更直观。",
+                "properties": {
+                    "group_key": {
+                        "type": "string",
+                        "description": "四元组 -> JSON 数组字符串（编码侧唯一实现）\n\n顺序直接取 `GROUP_KEY_PATHS`（B1 派生自 `GROUP_KEY_FIELDS` 的唯一顺序声明），\n故与 B4 解码侧不可能错位 —— 两处若各写一份字面量数组，漂移将静默发生。\n\n`ensure_ascii=False`：契约示例中中文为原文（`\"笔记本电脑\"`）而非 `\\uXXXX`。\n两种写法都能被 `json.loads` 解析，但保持与契约一致可避免前端日志/缓存键出现转义串。",
+                        "readOnly": true
+                    },
+                    "contract_code": {
+                        "type": "string",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "asset_name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "asset_specification": {
+                        "type": "string",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "asset_brand": {
+                        "type": "string",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "asset_count": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "price_display": {
+                        "type": "string",
+                        "description": "由聚合行的 `price_min` / `price_max` 派生展示串",
+                        "readOnly": true
+                    },
+                    "asset_codes": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "asset_brand",
+                    "asset_codes",
+                    "asset_count",
+                    "asset_name",
+                    "asset_specification",
+                    "contract_code",
+                    "group_key",
+                    "price_display"
                 ]
             },
             "AssetList": {
@@ -19096,6 +19415,56 @@
                                 "type": "array",
                                 "items": {
                                     "$ref": "#/components/schemas/AssetDetail"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "PaginatedAssetGroupSummaryList": {
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "integer",
+                        "example": 0
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "查询成功"
+                    },
+                    "data": {
+                        "type": "object",
+                        "properties": {
+                            "count": {
+                                "type": "integer",
+                                "example": 100
+                            },
+                            "total_pages": {
+                                "type": "integer",
+                                "example": 5
+                            },
+                            "page": {
+                                "type": "integer",
+                                "example": 1
+                            },
+                            "page_size": {
+                                "type": "integer",
+                                "example": 20
+                            },
+                            "next": {
+                                "type": "string",
+                                "nullable": true,
+                                "example": "http://api.example.com/users/?page=2&page_size=20"
+                            },
+                            "previous": {
+                                "type": "string",
+                                "nullable": true,
+                                "example": null
+                            },
+                            "results": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/AssetGroupSummary"
                                 }
                             }
                         }

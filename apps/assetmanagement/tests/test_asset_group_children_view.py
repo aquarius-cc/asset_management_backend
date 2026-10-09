@@ -623,7 +623,7 @@ class TestChildrenResponse:
         emp_a: Employee,
         contract_c001: Contract,
     ) -> None:
-        """组内翻页不重不漏（依赖 `recordcode` 稳定排序）
+        """组内翻页不重不漏（依赖 `asset_code` 稳定排序）
 
         无稳定排序时同一 OFFSET 会随数据变化返回不同行，前端「加载更多」必然出现重复项。
         """
@@ -658,8 +658,9 @@ class TestChildrenResponse:
 
         # 排序键组内唯一 -> OFFSET 分页是全序：同一页重复请求必得同一结果。
         # 若排序键换成非唯一列（如价格），同 OFFSET 会随执行计划返回不同行，前端「加载更多」必出重复项。
-        recordcodes = [asset.recordcode for asset in created]
-        assert len(set(recordcodes)) == len(recordcodes)
+        # asset_code 经 unique_asset_code_not_deleted（condition is_deleted=False）在未删范围唯一。
+        codes = [asset.asset_code for asset in created]
+        assert len(set(codes)) == len(codes)
         repeat = _children_data(client_a, key, page=2, page_size=3)
         repeat_codes = [row["asset_code"] for row in repeat["results"]]
         assert repeat_codes == seen[3:6], "同页两次请求结果不一致"
@@ -667,14 +668,18 @@ class TestChildrenResponse:
             row["asset_code"] for row in _children_data(client_a, key, page=2, page_size=3)["results"]
         ]
 
-    def test_ordering_is_by_recordcode(
+    def test_ordering_is_by_asset_code(
         self, db: Any, user_a: AuthUser, emp_a: Employee, storage: Storage, asset_type: AssetType
     ) -> None:
-        """明细排序键固定为 `recordcode`（全局唯一）
+        """明细排序键固定为 `asset_code`（查询范围内唯一，且有业务序）
 
         静态断言：这是「组内翻页不重不漏」的**前提**。
         若有人改成按可空列排序（如价格），同 OFFSET 在不同请求下顺序不定，
         上述翻页用例仅在小数据集下侥幸通过。故此条把前提本身钉住。
+
+        BF-082：排序键由 `recordcode`（UUID 派生、无业务序）改为 `asset_code`——
+        asset_code 经 unique_asset_code_not_deleted（condition is_deleted=False）
+        在查询范围内唯一（分页稳定），且编码升序符合业务阅读顺序。
         """
         from apps.assetmanagement.selectors.asset_grouped_selector import AssetGroupedSelector
 
@@ -684,7 +689,33 @@ class TestChildrenResponse:
             user=user_a, group_key=group_key_json(None, "打印机", "规格A", "品牌X"), filters={}
         )
 
-        assert list(queryset.query.order_by) == ["recordcode"]
+        assert list(queryset.query.order_by) == ["asset_code"]
+
+    def test_children_rows_sorted_by_asset_code_ascending(
+        self,
+        client_a: APIClient,
+        storage: Storage,
+        asset_type: AssetType,
+        emp_a: Employee,
+        contract_c001: Contract,
+    ) -> None:
+        """组内子行按 `asset_code` 升序返回（BF-082 需求 1：编码序更符合实际）"""
+        codes = [f"B{i:02d}" for i in (4, 1, 7, 3, 6, 2, 5)]  # 创建顺序故意打乱
+        for code in codes:
+            _make_asset(
+                storage,
+                asset_type,
+                emp_a,
+                code,
+                name="打印机",
+                spec="规格A",
+                brand="品牌X",
+                contract=contract_c001,
+            )
+
+        key = group_key_json("C001", "打印机", "规格A", "品牌X")
+        got = [row["asset_code"] for row in _children_data(client_a, key)["results"]]
+        assert got == sorted(codes), f"子行未按 asset_code 升序: {got}"
 
     def test_page_beyond_last_returns_404(
         self, client_a: APIClient, storage: Storage, asset_type: AssetType, emp_a: Employee

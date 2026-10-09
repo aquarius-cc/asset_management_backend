@@ -335,6 +335,9 @@ class AssetGroupedSelector:
             filters=filters or {},
             base=AssetSelector.get_assets_with_all_relations(),
         )
-        # recordcode 全局唯一（core/models.py:93），作组内分页的稳定排序键：
+        # 组内合同/名称/规格/品牌同质（GROUP_KEY_FIELDS 派生的四元组即分组键）。
+        # asset_code 在查询范围内唯一（unique_asset_code_not_deleted，condition is_deleted=False，
+        # 且 SoftDeleteManager 默认排除软删行），作组内分页的稳定排序键：
         # 无稳定序时 LIMIT/OFFSET 翻页会重复或漏掉行（组内翻页必然发生，故必须显式排序）。
-        return queryset.filter(_build_group_q(values)).order_by("recordcode")
+        # 业务有序（编码升序）替代无业务序的 recordcode（UUID 派生），BF-082 需求 1。
+        return queryset.filter(_build_group_q(values)).order_by("asset_code")

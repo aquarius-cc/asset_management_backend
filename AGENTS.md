@@ -1,10 +1,10 @@
 
 ---
 
-### 📄 文档 2：后端子引擎 `/asset_management_backend/AGENTS.md` (v9.3.1)
+### 📄 文档 2：后端子引擎 `/asset_management_backend/AGENTS.md` (v9.3.2)
 
 # 后端 AI 执行子引擎配置 (Backend Engine)
-> 版本：v9.3.1 | 最后更新：2026-09-30
+> 版本：v9.3.2 | 最后更新：2026-10-10
 > 职责：Django/DRF 代码生成、ORM 规范、状态机逻辑、后端测试门禁、代码规模与复杂度管控
 
 ## §1 核心执行协议
@@ -34,7 +34,7 @@
 - **敏感操作标注**：涉及删除、批量更新，必须在代码注释中添加 `# [HALT]`。
 - **复杂度门禁**：代码完成后，必须运行 `ruff check . --select C90 --config lint.mccabe.max-complexity=10`，若超标则触发 `[HALT]`。
 - **测试门禁**：代码完成后，**必须**运行 `pytest --cov=. --cov-fail-under=80`，并单独检查 Service 层覆盖率 ≥ 90%。若未通过，触发 `[HALT]` 并补充测试用例。
-- **变异测试**：必须运行 `mutmut run` 并确保通过率 ≥ 80%（参见 T8）。
+- **变异测试**：必须运行 `mutmut run`，通过率不回归——本 run 得分不得低于 `mutmut-baseline.json` 记录的基线（参见 T7；当前基线 68.6064，80% 绝对红线暂挂沙盒期）。
 - **复用规则索引**：编码前必须检查是否存在可复用的 Selector/Service/Utils，详细复用规范见 `../Rules_Fiels/backend-business-rules.md` 第四节（BR-1 ~ BR-3）。
 - **规模规则索引**：函数行数、文件行数、调用链深度等量化红线见 `../Rules_Fiels/backend-business-rules.md` 第四节（BR-4 ~ BR-7）。**行数口径红线（根级 LT-1~LT-3）**：一律「逻辑行」口径，查数用 `python ../scripts/check_file_length_guard.py --print`，**禁止** `wc -l` / `Measure-Object -Line`（误判事故见 BR6 台账与 BF-058）。
 
@@ -108,6 +108,8 @@
 - 涉及数据库表结构重命名 → 触发根级红线。
 
 ## §5 变更日志
+- v9.3.2 (2026-10-10)：修复 §1.3 变异测试条目双重漂移（P1-2 口径统一，人工拍板）——① 口径矛盾：原写「通过率 ≥ 80%」与 T7 已定的「相对基线不回归」冲突（绝对红线处沙盒期），改为基线不回归表述；② 编号漂移：原引「参见 T8」，而 T8 是迁移验证，变异测试为 T7，已改正。配套：`backend-testing-rules.md` T7 升 v1.6 补注基线口径（现行 68.6064，70.44 系 WSL 旧口径）。
+
 - v9.3.1 (2026-09-30)：同步根级 v3.6.1，§1.3 规模规则索引补「行数口径红线（LT-1~LT-3）」与护栏查验命令（`python ../scripts/check_file_length_guard.py --print`，禁 `wc -l` / `Measure-Object -Line`）；护栏自测套件见 `../scripts/tests/`（CI `backend-lint` 先证红后证绿）。
 
 - v9.3.0 (2026-09-29)：同步根级v3.6.0，新增CT-7（门禁结论必须以 CI 工具链复核）。§1.3 类型检查门禁补「复核要求」：执行前须 `pip list` 比对 `requirements/dev.txt` 声明版本，不一致先对齐再下结论。事故实证——本地 mypy 1.15.0 / django-stubs 5.2.9 / djangorestframework-stubs 3.16.9 / 未装 types-channels（声明 2.1.0 / 6.1.0 / 3.18.0 / 已声明），本地报 27 条 / 12 文件而 CI 同版本实为 0 条；据此幻影基线差点误改 `apps/assetmanagement/interfaces.py` DI 边界签名 4 处、并误删 `authusermanagement/models.py:142,150` 与 `unregisteredasset/views.py:169` 三条在真实工具链下**仍然有效**的 `type: ignore`，同时误将 `types-python-dateutil` 写入 `dev.txt`（装齐后验证为多余，已还原）。

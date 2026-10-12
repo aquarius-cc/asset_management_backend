@@ -114,9 +114,7 @@ class TestAuditSnapshotMutants:
             outasset_snapshot={},
         )
         upd = {"outasset_using_location": "新地点", "outasset_type": "receive"}
-        before, after = OutAssetService._build_update_audit_snapshot(
-            oa, upd, applicant=employee, manager=employee
-        )
+        before, after = OutAssetService._build_update_audit_snapshot(oa, upd, applicant=employee, manager=employee)
         assert before["outasset_using_location"] == "旧地点"
         assert before["outasset_type"] == "borrow"
         assert before["outasset_applicant"] == user.employee_jobcode
@@ -327,9 +325,7 @@ class TestBatchCreateOutassetMutants:
             "outasset_applicant": user,
         }
         with patch(AUDIT) as mock_audit:
-            result = OutAssetService.batch_create_outasset(
-                [payload], operator_jobcode="OP999", operator_name="批量员"
-            )
+            result = OutAssetService.batch_create_outasset([payload], operator_jobcode="OP999", operator_name="批量员")
         assert result["success_count"] == 1
         mock_audit.log_asset_out.assert_called_once()
         call_kwargs = mock_audit.log_asset_out.call_args
@@ -431,9 +427,7 @@ class TestBatchDeleteOutassetMutants:
 
     def test_operator_name_forwarded_to_delete(self, asset, user, employee):
         """先出库到 in_use，再删除转发 operator_name"""
-        oa = OutAssetService.create_outasset(
-            _outasset_payload(asset, applicant=employee, manager=employee)
-        )
+        oa = OutAssetService.create_outasset(_outasset_payload(asset, applicant=employee, manager=employee))
         with patch(AUDIT) as mock_audit:
             result = OutAssetService.batch_delete_outasset(
                 [oa.recordcode], operator_jobcode="OP1", operator_name="李四"

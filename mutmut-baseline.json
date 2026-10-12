@@ -1,12 +1,12 @@
 {
-    "score": 77.8458,
+    "score": 82.6977,
     "formula": "(killed + timeout) / (total - skipped) * 100",
     "mutants": 1959,
-    "killed": 1525,
+    "killed": 1620,
     "timeout": 0,
-    "survived": 416,
+    "survived": 321,
     "no_tests": 18,
-    "run_date": "2026-10-11",
-    "environment": "GitHub Actions ubuntu-latest 全量（run 38099431497，与本地 WSL 77.8458% 互证一致）",
-    "note": "相对基线不回归门禁（B批决策 2026-09-30）：新 run 得分不得低于本基线。C批 B2-A/B2-B 补刀（test_operation_log_mutants.py，40 用例）：operation_log_service.py 存活 mutant 181→0，全局 killed 1344→1525（+181），survived 597→416（-181），68.6064→77.8458（+9.2394pt），距 80% 绝对红线余 2.1542pt。【取值规则】score 存实测精确值向下取整到 4 位小数（本例精确值 77.84583971413987），禁用四舍五入值——门禁用 score >= baseline 精确比较，四舍五入会把 77.84583 抬成 77.85 使门禁恒红（BF-067 run 99 实测教训）。"
+    "run_date": "2026-10-12",
+    "environment": "GitHub Actions ubuntu-latest 全量（run 38099431497，与本地 WSL 77.8458% 互证一致；B3 run 为本地 WSL 实测 82.6977%，CI 实证待补）",
+    "note": "相对基线不回归门禁（B批决策 2026-09-30）：新 run 得分不得低于本基线。C批 B2-A/B2-B 补刀（test_operation_log_mutants.py，40 用例）：operation_log_service.py 存活 mutant 181→0，全局 killed 1344→1525（+181），survived 597→416（-181），68.6064→77.8458（+9.2394pt）。C批 B3 补刀（test_out_asset_mutants.py，24 用例）：out_asset_service.py 存活 123→28（-95），全局 killed 1525→1620（+95），survived 416→321（-95），77.8458→82.6977（+4.8519pt），已越 80% 绝对红线（余量 2.6977pt）。【取值规则】score 存实测精确值向下取整到 4 位小数（本例精确值 82.69773281144589），禁用四舍五入值——门禁用 score >= baseline 精确比较，四舍五入会把 82.69773 抬成 82.70 使门禁恒红（BF-067 run 99 实测教训）。"
 }

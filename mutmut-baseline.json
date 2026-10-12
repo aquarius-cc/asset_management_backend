@@ -1,12 +1,12 @@
 {
-    "score": 82.6977,
+    "score": 83.2568,
     "formula": "(killed + timeout) / (total - skipped) * 100",
     "mutants": 1959,
-    "killed": 1620,
+    "killed": 1631,
     "timeout": 0,
-    "survived": 321,
+    "survived": 310,
     "no_tests": 18,
     "run_date": "2026-10-12",
-    "environment": "GitHub Actions ubuntu-latest 全量（run 38099431497，与本地 WSL 77.8458% 互证一致；B3 run 为本地 WSL 实测 82.6977%，CI 实证待补）",
-    "note": "相对基线不回归门禁（B批决策 2026-09-30）：新 run 得分不得低于本基线。C批 B2-A/B2-B 补刀（test_operation_log_mutants.py，40 用例）：operation_log_service.py 存活 mutant 181→0，全局 killed 1344→1525（+181），survived 597→416（-181），68.6064→77.8458（+9.2394pt）。C批 B3 补刀（test_out_asset_mutants.py，24 用例）：out_asset_service.py 存活 123→28（-95），全局 killed 1525→1620（+95），survived 416→321（-95），77.8458→82.6977（+4.8519pt），已越 80% 绝对红线（余量 2.6977pt）。【取值规则】score 存实测精确值向下取整到 4 位小数（本例精确值 82.69773281144589），禁用四舍五入值——门禁用 score >= baseline 精确比较，四舍五入会把 82.69773 抬成 82.70 使门禁恒红（BF-067 run 99 实测教训）。"
+    "environment": "GitHub Actions ubuntu-latest 全量（run 38099431497，与本地 WSL 77.8458% 互证一致；B3 两轮 run 为本地 WSL 实测 82.6977%→83.2568%，CI 实证待补）",
+    "note": "相对基线不回归门禁（B批决策 2026-09-30）：新 run 得分不得低于本基线。C批 B2-A/B2-B 补刀（test_operation_log_mutants.py，40 用例）：operation_log_service.py 存活 mutant 181→0，全局 killed 1344→1525（+181），survived 597→416（-181），68.6064→77.8458（+9.2394pt）。C批 B3 补刀（test_out_asset_mutants.py，24 用例）：out_asset_service.py 存活 123→28（-95），全局 killed 1525→1620（+95），survived 416→321（-95），77.8458→82.6977（+4.8519pt），已越 80% 绝对红线（余量 2.6977pt）。C批 B3-二轮补刀（test_out_asset_mutants_round2.py，6 用例）：全局 killed 1620→1631（+11），survived 321→310（-11），82.6977→83.2568（+0.5591pt，余量 3.2568pt）。out_asset_service 残留 17 个判为等价变异（B类）：batch_create #3 deepcopy、#26/#27/#31/#33 max_batch_size/use_transaction 参数变体、#32 batch_execute 101 条 size 守卫、_delete_one #24/#25 recycle 过滤器参数变体、_snapshot #8/12/20/24/30 与 _audit #13/27/53 fallback 死分支。全局 80% 红线本 run 已满足（T7 绝对红线恢复条件达成，规则变更另批送审）。【取值规则】score 存实测精确值向下取整到 4 位小数（本例精确值 83.25676365492600），禁用四舍五入值——门禁用 score >= baseline 精确比较，四舍五入会把 83.25676 抬成 83.26 使门禁恒红（BF-067 run 99 实测教训）。"
 }

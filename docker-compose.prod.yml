@@ -10,7 +10,8 @@
 
 services:
   web:
-    image: asset-management-backend:${IMAGE_TAG:-latest}
+    # 【GHCR 迁移 2026-10-13】镜像仓库 Docker Hub → GHCR（网络不可达触发，零库外凭据）
+    image: ghcr.io/aquarius-cc/asset-management-backend:${IMAGE_TAG:-latest}
     restart: always
     # 【优雅停机】docker-entrypoint.sh 以 exec "$@" 启动，Daphne 即为 PID 1，
     # 可直接接收 Docker 下发的 SIGTERM 并优雅退出（停止接新连接、等待在途请求）。

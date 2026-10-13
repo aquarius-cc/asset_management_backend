@@ -39,7 +39,8 @@ def build_sign(timestamp: str) -> str:
 
     算法: HmacSHA256(key=f"{timestamp}\\n{secret}", msg=b"") 后 base64.
     """
-    # TODO_AI_CONFIRM: 上线前对照飞书官方文档复核加签算法与字段名(timestamp/sign)
+    # 复核留痕(AR-1 闭环, 2026-10-13): 对照飞书官方文档 open.feishu.cn/custom-bot 加签章节,
+    # 签名串/HmacSHA256/base64/timestamp+sign 字段名逐项一致; 冒烟正检 code=0、负检错密钥 code=19021 实证生效
     if not FEISHU_SECRET:
         return ""
     string_to_sign = f"{timestamp}\n{FEISHU_SECRET}"

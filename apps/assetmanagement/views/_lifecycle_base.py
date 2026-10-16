@@ -18,6 +18,7 @@ from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 
+from apps.assetmanagement.models import Asset
 from apps.assetmanagement.selectors.asset_selector import AssetSelector
 from apps.assetmanagement.services.asset_lifecycle_mixin import AssetLifecycleMixin
 from core.batch_mixins import BatchDeleteViewMixin
@@ -60,10 +61,15 @@ class AssetLifecycleViewSetBase(  # type: ignore[misc]
     model = None
     selector = None
     list_serializer = None
-    create_serializer = None
+    # 【C-1 修复】Any 注解: 基类 None 占位、子类注入真实序列化器类(对齐 batch_delete_serializer)
+    create_serializer: Any = None
     update_serializer = None
     detail_serializer = None
     delete_service_method = ""
+    # 【C-1 修复】单条 create 委托的 AssetLifecycleMixin 方法名(子类注入:
+    # mark_asset_broken / mark_asset_lost / find_and_return_asset),
+    # 覆盖 DRF 默认 serializer.save() 直落库绕过 FSM/审计/行级隔离的缺口
+    create_service_method: str = ""
     batch_delete_serializer: Any = None
     batch_delete_service = AssetLifecycleMixin.batch_delete_lifecycle_asset
     batch_delete_passes_user = True
@@ -119,6 +125,35 @@ class AssetLifecycleViewSetBase(  # type: ignore[misc]
             user=request.user,
         )
         return success_response(data={"recordcode": obj.recordcode}, message="删除成功")
+
+    def build_create_kwargs(self, validated_data: dict[str, Any]) -> dict[str, Any]:
+        """子类钩子: 从 validated_data 组装 create_service_method 的业务参数(不含 asset_code/operator/user)
+
+        Broken/Lost 仅透传 reason/description/date; Found 额外做
+        lost_asset_recordcode 一致性校验(防客户端传入他资产的遗失记录被静默忽略)。
+        """
+        raise NotImplementedError
+
+    def create(self, request: Any, *args: Any, **kwargs: Any) -> Response:
+        """【C-1 修复】单条 create 委托 AssetLifecycleMixin(与 destroy/batch_delete 委托模式一致)
+
+        覆盖 DRF 默认 serializer.save() 直落库缺口: 现走 FSM 校验+资产状态流转+
+        审计日志+BEQ-02 行级隔离, 与 batch_create 语义统一。
+        响应契约不变: 201 + code=0 + CreateSerializer(记录).data。
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        validated = serializer.validated_data
+        asset: Asset = validated["asset_recordcode"]
+        operator_jobcode, operator_name = resolve_operator(request.user)
+        record = getattr(AssetLifecycleMixin, self.create_service_method)(
+            asset_code=asset.asset_code,
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+            user=request.user,
+            **self.build_create_kwargs(validated),
+        )
+        return success_response(data=self.create_serializer(record).data, message="创建成功", status_code=201)
 
     def batch_delete_invoke(self, ids: list[str], **kwargs: Any) -> dict[str, Any]:
         """编排注入: 三子类差异仅 delete_service_method 字符串(子类属性注入)"""

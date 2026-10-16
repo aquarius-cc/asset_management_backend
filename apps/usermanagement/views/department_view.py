@@ -56,7 +56,16 @@ class DepartmentViewSet(  # type: ignore[misc]
         """
         自定义权限:管理员可管理部门,普通用户只能查看
         """
-        if self.action in ["create", "update", "partial_update", "destroy", "batch_create", "batch_delete", "sort"]:
+        if self.action in [
+            "create",
+            "update",
+            "partial_update",
+            "destroy",
+            "batch_create",
+            "batch_delete",
+            "sort",
+            "move",
+        ]:
             permission_classes = [IsSystemAdmin]
         else:
             permission_classes = [permissions.IsAuthenticated]  # type: ignore[list-item]

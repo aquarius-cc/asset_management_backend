@@ -54,8 +54,26 @@ class TestRecycleAssetViewSet:
             "recycle_type": "normal",
         }
         response = admin_authenticated_client.post(url, data, format="json")
-        # Serializer/service field mismatch (storage_code not popped by service) — accept 500 until fixed
-        assert response.status_code in [status.HTTP_201_CREATED, status.HTTP_500_INTERNAL_SERVER_ERROR]
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["code"] == 0
+        assert response.data["data"]["recordcode"]
+
+    def test_create_recycle_asset_missing_storage_code(self, admin_authenticated_client, outasset):
+        """负例:发 recycle_asset_storage(旧字段名)而不带 storage_code → 400
+
+        storage_code 为 RecycleAssetCreateSerializer 必填(required=True);
+        recycle_asset_storage 不在 serializer fields 内,被忽略,
+        缺 storage_code 必须被校验拦截(而非透传到 service 层 500)。
+        """
+        url = reverse("recycle-assets-list")
+        data = {
+            "outasset_recordcode": outasset.recordcode,
+            "recycle_asset_date": "2024-08-01",
+            "recycle_type": "normal",
+            "recycle_asset_storage": "ST-001",
+        }
+        response = admin_authenticated_client.post(url, data, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_retrieve_recycle_asset(self, authenticated_client, recycle_asset):
         """测试获取回收记录详情"""

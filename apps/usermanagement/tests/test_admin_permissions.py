@@ -157,3 +157,39 @@ class TestUserObjectPermission:
             format="json",
         )
         assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.django_db
+class TestDepartmentMoveGate:
+    """部门移动操作：仅 system_admin（C-3 回归屏障）
+
+    move 为 detail=True PUT action，修复前未纳入白名单，
+    任意登录用户可 PUT 改部门层级，违反 §4.2 部门管理仅 system_admin。
+    """
+
+    def test_move_denied_for_dept_manager(self, api_client, dept_manager, dept):
+        api_client.force_authenticate(user=dept_manager)
+        response = api_client.put(
+            reverse("departments-move", args=[dept.department_code]),
+            {"target_parent_department_code": None},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_move_denied_for_regular_user(self, api_client, regular_user, dept):
+        api_client.force_authenticate(user=regular_user)
+        response = api_client.put(
+            reverse("departments-move", args=[dept.department_code]),
+            {"target_parent_department_code": None},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_move_allowed_for_system_admin(self, api_client, sys_admin, dept):
+        api_client.force_authenticate(user=sys_admin)
+        response = api_client.put(
+            reverse("departments-move", args=[dept.department_code]),
+            {"target_parent_department_code": None},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK

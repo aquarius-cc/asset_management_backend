@@ -8,6 +8,7 @@
 """
 
 from collections.abc import Callable
+from datetime import date
 from typing import Any, cast
 
 from django.db import transaction
@@ -91,8 +92,15 @@ class AssetLifecycleMixin:
         operator_jobcode: str = "",
         operator_name: str = "",
         user: Any | None = None,
+        broken_date: date | None = None,
     ) -> BrokenAsset:
         """标记资产为已损坏, 返回创建的 BrokenAsset 记录(batch 响应按该记录序列化)"""
+        record_kwargs: dict[str, Any] = {
+            "broken_reason": broken_reason,
+            "broken_description": broken_description,
+        }
+        if broken_date is not None:
+            record_kwargs["broken_date"] = broken_date
         return cast(
             BrokenAsset,
             _run_lifecycle_transition(
@@ -100,7 +108,7 @@ class AssetLifecycleMixin:
                 target_status=Asset.AssetStatus.BROKEN,
                 fsm_method=AssetFSM.mark_broken,
                 record_model=BrokenAsset,
-                record_kwargs={"broken_reason": broken_reason, "broken_description": broken_description},
+                record_kwargs=record_kwargs,
                 operation_type=AssetOperationLog.OperationType.BROKEN,
                 audit_description=f"资产标记为已损坏: {broken_reason}",
                 operator_jobcode=operator_jobcode,
@@ -119,8 +127,16 @@ class AssetLifecycleMixin:
         operator_jobcode: str = "",
         operator_name: str = "",
         user: Any | None = None,
+        lost_date: date | None = None,
     ) -> LostAsset:
         """标记资产为已遗失, 返回创建的 LostAsset 记录(batch 响应按该记录序列化)"""
+        record_kwargs: dict[str, Any] = {
+            "last_known_location": last_known_location,
+            "lost_reason": lost_reason,
+            "lost_description": lost_description,
+        }
+        if lost_date is not None:
+            record_kwargs["lost_date"] = lost_date
         return cast(
             LostAsset,
             _run_lifecycle_transition(
@@ -128,11 +144,7 @@ class AssetLifecycleMixin:
                 target_status=Asset.AssetStatus.LOST,
                 fsm_method=AssetFSM.mark_lost,
                 record_model=LostAsset,
-                record_kwargs={
-                    "last_known_location": last_known_location,
-                    "lost_reason": lost_reason,
-                    "lost_description": lost_description,
-                },
+                record_kwargs=record_kwargs,
                 operation_type=AssetOperationLog.OperationType.LOST,
                 audit_description=f"资产标记为已遗失: {lost_reason}",
                 operator_jobcode=operator_jobcode,
@@ -149,13 +161,19 @@ class AssetLifecycleMixin:
         found_description: str = "",
         operator_jobcode: str = "",
         operator_name: str = "",
-    ) -> Asset:
-        """找回遗失资产(转入待发放状态)"""
+        user: Any | None = None,
+        found_date: date | None = None,
+    ) -> FoundAsset:
+        """找回遗失资产(转入待发放状态), 返回创建的 FoundAsset 记录"""
         from core.exceptions import AppValidationError
 
         asset = Asset.objects.select_for_update().filter(asset_code=asset_code).first()
         if asset is None:
             raise AppValidationError(detail=f"资产 {asset_code} 不存在", error_code="ASSET_NOT_FOUND")
+
+        # BEQ-02 行级隔离: 找回前校验目标资产在用户可见范围内(与 _run_lifecycle_transition 同口径)
+        if user is not None:
+            AssetSelector.ensure_asset_visible(asset, user)
 
         lost_record = LostAsset.objects.filter(asset_recordcode=asset).first()
         if lost_record is None:
@@ -171,15 +189,18 @@ class AssetLifecycleMixin:
             raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
         asset.save(update_fields=["asset_current_status", "updated_at"])
 
-        from apps.assetmanagement.models import AssetOperationLog, FoundAsset
-
-        FoundAsset.objects.create(
-            lost_asset_recordcode=lost_record,
-            asset_recordcode=asset,
-            found_location=found_location,
-            found_description=found_description,
-            operator_employee=operator,
-        )
+        record_kwargs: dict[str, Any] = {
+            "lost_asset_recordcode": lost_record,
+            "asset_recordcode": asset,
+            "found_location": found_location,
+            "found_description": found_description,
+            "operator_employee": operator,
+        }
+        if found_date is not None:
+            record_kwargs["found_date"] = found_date
+        record = cast(FoundAsset, FoundAsset.objects.create(**record_kwargs))
+        # DateField default=timezone.now 使内存实例携带 datetime, 刷新为 DB 落库后的 date(否则响应序列化拒绝)
+        record.refresh_from_db()
         AssetOperationLog.objects.create(
             asset_code=asset.asset_code,
             asset_name=asset.asset_name,
@@ -189,7 +210,7 @@ class AssetLifecycleMixin:
             operator_name=operator_name,
             description="遗失资产找回,转入待发放状态",
         )
-        return asset
+        return record
 
     @staticmethod
     # [HALT] 软删除维修记录(仅置 is_deleted=True 留审计; 进行中的记录拒绝)
@@ -336,6 +357,7 @@ class AssetLifecycleMixin:
                 operator_jobcode=operator_jobcode,
                 operator_name=operator_name,
                 user=user,
+                broken_date=item.get("broken_date"),
             )
 
         return BatchOperationMixin.batch_execute(
@@ -363,6 +385,7 @@ class AssetLifecycleMixin:
                 operator_jobcode=operator_jobcode,
                 operator_name=operator_name,
                 user=user,
+                lost_date=item.get("lost_date"),
             )
 
         return BatchOperationMixin.batch_execute(

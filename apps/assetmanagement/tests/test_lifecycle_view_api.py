@@ -40,7 +40,7 @@ class TestBrokenAssetViewSet:
         assert len(response.data["data"]["results"]) == 1
 
     def test_create_broken_asset(self, admin_authenticated_client, asset, employee):
-        """测试创建损坏资产记录"""
+        """测试创建损坏资产记录(【C-1 修复】现经 mark_asset_broken: FSM in_store→broken + 审计 + 行级隔离)"""
         url = reverse("broken-assets-list")
         data = {
             "asset_recordcode": asset.recordcode,
@@ -53,6 +53,9 @@ class TestBrokenAssetViewSet:
         assert response.data["code"] == 0
         # asset_recordcode is write_only in serializer, check recordcode instead
         assert "recordcode" in response.data["data"]
+        # C-1 核心锚: 创建后资产状态已流转(绕过 FSM 的旧路径资产仍为 in_store)
+        asset.refresh_from_db()
+        assert asset.asset_current_status == "broken"
 
     def test_retrieve_broken_asset(self, authenticated_client, broken_asset):
         """测试获取损坏资产详情"""
@@ -118,7 +121,7 @@ class TestLostAssetViewSet:
         assert len(response.data["data"]["results"]) == 1
 
     def test_create_lost_asset(self, admin_authenticated_client, asset, employee):
-        """测试创建遗失资产记录"""
+        """测试创建遗失资产记录(【C-1 修复】现经 mark_asset_lost: FSM in_store→lost + 审计 + 行级隔离)"""
         url = reverse("lost-assets-list")
         data = {
             "asset_recordcode": asset.recordcode,
@@ -132,6 +135,9 @@ class TestLostAssetViewSet:
         assert response.data["code"] == 0
         # asset_recordcode is write_only in serializer, check recordcode instead
         assert "recordcode" in response.data["data"]
+        # C-1 核心锚: 创建后资产状态已流转(绕过 FSM 的旧路径资产仍为 in_store)
+        asset.refresh_from_db()
+        assert asset.asset_current_status == "lost"
 
     def test_retrieve_lost_asset(self, authenticated_client, lost_asset):
         """测试获取遗失资产详情"""
@@ -197,7 +203,10 @@ class TestFoundAssetViewSet:
         assert len(response.data["data"]["results"]) == 1
 
     def test_create_found_asset(self, admin_authenticated_client, asset, employee, lost_asset):
-        """测试创建找回资产记录"""
+        """测试创建找回资产记录(【C-1 修复】现经 find_and_return_asset: FSM lost→recycled_pending + 行级隔离)"""
+        # C-1 后 create 走 FSM: 资产必须处于 lost 态(lost_asset 夹具已建遗失记录但未流转状态)
+        asset.asset_current_status = "lost"
+        asset.save(update_fields=["asset_current_status", "updated_at"])
         url = reverse("found-assets-list")
         data = {
             "lost_asset_recordcode": lost_asset.recordcode,
@@ -210,6 +219,9 @@ class TestFoundAssetViewSet:
         assert response.status_code == status.HTTP_201_CREATED
         assert response.data["code"] == 0
         assert "recordcode" in response.data["data"]
+        # C-1 核心锚: 创建后资产状态已流转(找回→待发放)
+        asset.refresh_from_db()
+        assert asset.asset_current_status == "recycled_pending"
 
     def test_retrieve_found_asset(self, authenticated_client, found_asset):
         """测试获取找回资产详情"""

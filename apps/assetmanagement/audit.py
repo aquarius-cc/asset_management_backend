@@ -193,6 +193,7 @@ class AuditLogger:
         operator_jobcode: str | None = None,
         operator_name: str | None = None,
         ip_address: str | None = None,
+        before_status: str | None = None,
     ) -> bool:
         """记录资产出库日志"""
         return AuditLogger._safe_log(
@@ -202,6 +203,7 @@ class AuditLogger:
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
             ip_address=ip_address or get_current_ip(),
+            before_status=before_status,
         )
 
     @staticmethod

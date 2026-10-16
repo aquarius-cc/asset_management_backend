@@ -16,12 +16,14 @@ Class:
 """
 
 import logging
+from typing import Any
 
 from django.db import transaction
 from django.utils import timezone
 
 from apps.assetmanagement.audit import AuditLogger
 from apps.assetmanagement.models import Asset, AssetOperationLog, DamagedAsset, RepairAsset
+from apps.assetmanagement.selectors import AssetSelector
 from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
 from apps.usermanagement.models import Employee
 from apps.usermanagement.selectors import EmployeeSelector
@@ -44,10 +46,15 @@ class RepairAssetService:
     def _lock_asset_for_repair(
         asset_code: str,
         operator_jobcode: str,
+        user: Any | None = None,
     ) -> tuple[Asset, Employee | None]:
-        """锁定资产 + 幂等校验 + 获取操作人"""
+        """锁定资产 + 行级隔离校验 + 幂等校验 + 获取操作人"""
         # AC-65: 捕获锁超时,返回 409 Conflict (DR-1 收敛至 core.locks.lock_row_or_409)
         asset = lock_row_or_409(Asset.objects.select_for_update(), asset_code=asset_code)
+
+        # BEQ-02 行级隔离: 送修前校验目标资产在用户可见范围内(锁内校验, 与 mixin 同口径)
+        if user is not None:
+            AssetSelector.ensure_asset_visible(asset, user)
 
         # L1-3 防重复校验:检查是否已有 in_progress 维修记录
         if RepairAsset.objects.filter(
@@ -109,6 +116,37 @@ class RepairAssetService:
         )
 
     @staticmethod
+    def _write_complete_log(
+        asset: Asset,
+        operator_jobcode: str,
+        operator_name: str,
+    ) -> None:
+        """记录维修完成操作日志"""
+        AssetOperationLog.objects.create(
+            asset_code=asset.asset_code,
+            asset_name=asset.asset_name,
+            asset_specification=asset.asset_specification,
+            operation_type=AssetOperationLog.OperationType.REPAIR_DONE,
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+            description="Repair completed, asset moved to recycled_pending",
+        )
+
+    @staticmethod
+    def _send_complete_notification(asset: Asset) -> None:
+        """维修完成通知(事务提交后执行)"""
+        from apps.notification.helpers import send_notification_on_commit
+
+        send_notification_on_commit(
+            asset=asset,
+            notification_type="status_change",
+            title="资产维修完成通知",
+            message=f"资产 {asset.asset_code} 维修已完成,已转入待发放状态",
+            priority="medium",
+            related_url=f"/main/assetdetails/{asset.asset_code}",
+        )
+
+    @staticmethod
     @transaction.atomic
     def create_repair_asset(
         asset_code: str,
@@ -117,6 +155,7 @@ class RepairAssetService:
         repair_description: str = "",
         operator_jobcode: str = "",
         operator_name: str = "",
+        user: Any | None = None,
     ) -> RepairAsset:
         """
         创建维修记录(送修资产: broken → repairing)
@@ -126,6 +165,7 @@ class RepairAssetService:
         asset, operator = RepairAssetService._lock_asset_for_repair(
             asset_code,
             operator_jobcode,
+            user=user,
         )
 
         RepairAssetService._execute_repair_transition(
@@ -171,6 +211,14 @@ class RepairAssetService:
         if not repair_record:
             raise AppValidationError(detail="该资产没有进行中的维修记录", error_code="NO_IN_PROGRESS_REPAIR")
 
+        # [BF-095/M-6] 维修后成色枚举校验：Django save() 不强制 choices，必须在写库前拦截。
+        # fail-fast 置于状态流转之前，非法值不触发 repairing→recycled_pending 迁移。
+        if physical_grade_after and physical_grade_after not in Asset.PhysicalGrade.values:
+            raise AppValidationError(
+                detail=f"无效的物理成色: {physical_grade_after}，合法值: {', '.join(Asset.PhysicalGrade.values)}",
+                error_code="INVALID_PHYSICAL_GRADE",
+            )
+
         from_state = asset.asset_current_status
         AssetFSM.repair_done(asset)
         if physical_grade_after:
@@ -182,15 +230,7 @@ class RepairAssetService:
         repair_record.physical_grade_after = physical_grade_after or None
         repair_record.save(update_fields=["repair_status", "actual_return_date", "physical_grade_after", "updated_at"])
 
-        AssetOperationLog.objects.create(
-            asset_code=asset.asset_code,
-            asset_name=asset.asset_name,
-            asset_specification=asset.asset_specification,
-            operation_type=AssetOperationLog.OperationType.REPAIR_DONE,
-            operator_jobcode=operator_jobcode,
-            operator_name=operator_name,
-            description="Repair completed, asset moved to recycled_pending",
-        )
+        RepairAssetService._write_complete_log(asset, operator_jobcode, operator_name)
 
         # AC-61: 记录状态变更日志
 
@@ -202,17 +242,7 @@ class RepairAssetService:
             operator_jobcode=operator_jobcode,
         )
 
-        # 维修完成通知(事务提交后执行)
-        from apps.notification.helpers import send_notification_on_commit
-
-        send_notification_on_commit(
-            asset=asset,
-            notification_type="status_change",
-            title="资产维修完成通知",
-            message=f"资产 {asset.asset_code} 维修已完成,已转入待发放状态",
-            priority="medium",
-            related_url=f"/main/assetdetails/{asset.asset_code}",
-        )
+        RepairAssetService._send_complete_notification(asset)
 
         return repair_record
 

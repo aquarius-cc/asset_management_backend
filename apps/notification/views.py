@@ -23,7 +23,12 @@ def notification_list(request: Request) -> Response:
     """获取当前用户的通知列表"""
     jobcode = request.user.auth_username  # type: ignore[union-attr]
     is_read = request.query_params.get("is_read")
-    limit = int(request.query_params.get("limit", 20))
+    # M-1: 对齐 dashboard_view 先例（try/except + min 上限），另补 max 下限防负切片
+    try:
+        limit = min(int(request.query_params.get("limit", 20) or 20), 100)
+    except (ValueError, TypeError):
+        limit = 20
+    limit = max(limit, 1)
 
     queryset = Notification.objects.filter(recipient_jobcode=jobcode)
 

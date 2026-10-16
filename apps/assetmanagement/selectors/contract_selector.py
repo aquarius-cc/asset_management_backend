@@ -9,6 +9,7 @@ from typing import Any
 from django.db.models import Count, QuerySet, Sum
 
 from apps.assetmanagement.models import Contract
+from core.locks import lock_row_or_409
 
 
 class ContractSelector:
@@ -24,6 +25,19 @@ class ContractSelector:
             return Contract.objects.get(contract_code=contract_code, is_deleted=False)  # type: ignore[no-any-return]
         except Contract.DoesNotExist:
             return None
+
+    @staticmethod
+    def get_contract_for_update(contract_code: str) -> Contract:
+        """行锁版本的合同查询(BF-092/I-4: 付款读-改-写防并发丢失更新)
+
+        与 get_contract_by_code 语义一致(is_deleted=False 不放宽可见性),
+        锁超时经 lock_row_or_409 统一映射为 409 ResourceConflictError。
+        """
+        return lock_row_or_409(  # type: ignore[no-any-return]
+            Contract.objects.select_for_update(),
+            contract_code=contract_code,
+            is_deleted=False,
+        )
 
     @staticmethod
     def search_contracts(keyword: str) -> QuerySet[Contract]:

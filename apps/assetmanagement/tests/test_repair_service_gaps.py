@@ -133,7 +133,7 @@ class TestRepairAuditTrail:
         RepairAssetService.complete_repair(
             asset_code="A001",
             actual_return_date="2024-06-10",
-            physical_grade_after="良好",
+            physical_grade_after="good",
             operator_jobcode=user.employee_jobcode,
             operator_name=user.employee_name,
         )
@@ -307,7 +307,7 @@ class TestRepairMutantKills:
         RepairAssetService.complete_repair(
             asset_code="A001",
             actual_return_date="2024-06-10",
-            physical_grade_after="良好",
+            physical_grade_after="good",
             operator_jobcode=user.employee_jobcode,
             operator_name=user.employee_name,
         )
@@ -330,12 +330,12 @@ class TestRepairMutantKills:
         self._make_repairing(asset, user)
         result = RepairAssetService.complete_repair(
             asset_code="A001",
-            physical_grade_after="良好",
+            physical_grade_after="good",
             operator_jobcode=user.employee_jobcode,
             operator_name=user.employee_name,
         )
         result.refresh_from_db()
-        assert result.physical_grade_after == "良好"
+        assert result.physical_grade_after == "good"
 
     def test_complete_default_operator_fallback(self, asset, user):
         """完成维修省略操作人: 全部日志操作人为空(直写日志无归一化,空串原样落库)"""
@@ -495,3 +495,58 @@ class TestRepairTransactionAtomicity:
         asset.refresh_from_db()
         assert asset.asset_current_status == "repairing"
         assert DamagedAsset.objects.count() == 0
+
+
+@pytest.mark.django_db
+class TestRepairGradeValidation:
+    """[BF-095/M-6] physical_grade_after 枚举校验（Django save() 不强制 choices）"""
+
+    def _make_repairing_asset(self, asset, user):
+        asset.asset_current_status = "repairing"
+        asset.save()
+        return RepairAsset.objects.create(
+            asset_recordcode=asset,
+            repair_date="2024-06-01",
+            repair_reason="主板故障",
+            repair_status="in_progress",
+            operator_employee=user,
+        )
+
+    def test_invalid_grade_rejected_before_state_transition(self, asset, user):
+        """非法成色 → INVALID_PHYSICAL_GRADE，且不触发状态流转（fail-fast）"""
+        self._make_repairing_asset(asset, user)
+        with pytest.raises(AppValidationError) as exc:
+            RepairAssetService.complete_repair(
+                asset_code="A001",
+                physical_grade_after="mint",
+                operator_jobcode=user.employee_jobcode,
+                operator_name=user.employee_name,
+            )
+        assert exc.value.error_code == "INVALID_PHYSICAL_GRADE"
+        asset.refresh_from_db()
+        assert asset.asset_current_status == "repairing"
+        assert asset.physical_grade != "mint"
+
+    def test_valid_grade_accepted(self, asset, user):
+        """合法枚举值（excellent/good/fair/poor）通过校验并落库"""
+        self._make_repairing_asset(asset, user)
+        RepairAssetService.complete_repair(
+            asset_code="A001",
+            physical_grade_after="excellent",
+            operator_jobcode=user.employee_jobcode,
+            operator_name=user.employee_name,
+        )
+        asset.refresh_from_db()
+        assert asset.physical_grade == "excellent"
+
+    def test_empty_grade_skips_validation(self, asset, user):
+        """空串跳过校验（保持原有 or None 回退语义）"""
+        self._make_repairing_asset(asset, user)
+        result = RepairAssetService.complete_repair(
+            asset_code="A001",
+            physical_grade_after="",
+            operator_jobcode=user.employee_jobcode,
+            operator_name=user.employee_name,
+        )
+        result.refresh_from_db()
+        assert result.physical_grade_after is None

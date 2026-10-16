@@ -451,14 +451,18 @@ class AssetViewSet(  # type: ignore[misc]
     @action(detail=True, methods=["post"], url_path="found")
     def found_and_return(self, request: Any, recordcode: Any = None) -> Response:
         asset = self.get_object()
-        asset = AssetService.find_and_return_asset(
+        # 【C-1 修复】find_and_return_asset 返回类型 Asset→FoundAsset(记录), 资产经 .asset_recordcode 取回
+        found_record = AssetService.find_and_return_asset(
             asset_code=asset.asset_code,
             found_location=request.data.get("found_location", ""),
             found_description=request.data.get("found_description", ""),
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
+            user=request.user,
         )
-        return success_response(data=AssetDetailSerializer(asset).data, message="遗失资产已找回，已进入待发放")
+        return success_response(
+            data=AssetDetailSerializer(found_record.asset_recordcode).data, message="遗失资产已找回，已进入待发放"
+        )
 
     @action(detail=True, methods=["post"], url_path="repair")
     def repair(self, request: Any, recordcode: Any = None) -> Response:
@@ -472,6 +476,7 @@ class AssetViewSet(  # type: ignore[misc]
             repair_description=request.data.get("repair_description", ""),
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
+            user=request.user,
         )
         return success_response(data=RepairAssetDetailSerializer(repair_record).data, message="Asset sent for repair")
 

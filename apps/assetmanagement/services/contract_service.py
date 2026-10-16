@@ -19,7 +19,7 @@ from apps.assetmanagement.state_machine.contract_fsm import ContractFSM, Contrac
 from core.audit_service import GenericAuditService
 from core.batch_mixins import BatchOperationMixin
 from core.constants import MAX_BATCH_SIZE
-from core.exceptions import AppValidationError
+from core.exceptions import AppValidationError, ResourceConflictError
 
 
 def _parse_paid_record(raw: str | None) -> dict[str, Any]:
@@ -211,8 +211,12 @@ class ContractService:
         Returns:
             Contract: 更新后的合同实例
         """
-        contract = ContractSelector.get_contract_by_code(contract_code)
-        if not contract:
+        # 【BF-092/I-4】行锁防并发丢失更新: 读-改-写 paid_record 前锁定行
+        try:
+            contract = ContractSelector.get_contract_for_update(contract_code)
+        except ResourceConflictError:
+            raise
+        except Contract.DoesNotExist:
             raise AppValidationError(detail=f"合同 {contract_code} 不存在", error_code="CONTRACT_NOT_FOUND")
 
         if amount <= 0:
@@ -230,7 +234,8 @@ class ContractService:
         contract.paid_record = json.dumps(current_data, ensure_ascii=False)
         _recalc_paid_amounts(contract)
 
-        contract.save()
+        # 【BF-092/I-4】收敛为定向写字段,消除全字段回写并发风险
+        contract.save(update_fields=["paid_record", "amount_paid", "amount_unpaid", "updated_at"])
         return contract
 
     @staticmethod
@@ -303,8 +308,12 @@ class ContractService:
         if status not in valid_statuses:
             raise AppValidationError(detail=f"无效的合同状态: {status}", error_code="INVALID_CONTRACT_STATUS")
 
-        contract = ContractSelector.get_contract_by_code(contract_code)
-        if not contract:
+        # 【BF-092/I-10】行锁 + 结算重算: 防陈旧读回写 + 状态流转后金额滞留旧口径
+        try:
+            contract = ContractSelector.get_contract_for_update(contract_code)
+        except ResourceConflictError:
+            raise
+        except Contract.DoesNotExist:
             raise AppValidationError(detail=f"合同 {contract_code} 不存在", error_code="CONTRACT_NOT_FOUND")
 
         before_status = contract.contract_status
@@ -312,7 +321,10 @@ class ContractService:
             ContractFSM.transition(contract, status)
         except ContractInvalidTransitionError as e:
             raise AppValidationError(detail=str(e), error_code="INVALID_CONTRACT_TRANSITION")
-        contract.save()
+        # 【BF-092/I-10】FSM 已改内存 contract_status,_recalc 的结算分支可正确看到新状态;
+        # 定向写字段,消除全字段回写并发风险
+        _recalc_paid_amounts(contract)
+        contract.save(update_fields=["contract_status", "amount_paid", "amount_unpaid", "updated_at"])
 
         GenericAuditService.log_update(
             record_code=contract.contract_code,
@@ -324,6 +336,24 @@ class ContractService:
             operator_name=operator_name,
         )
 
+        return contract
+
+    @staticmethod
+    @transaction.atomic
+    def recalculate_amounts_for_update(contract_code: str) -> Contract:
+        """合同编辑后重算金额(BF-092/I-10: settlemented_price 可写但编辑不触发重算)
+
+        ContractUpdateSerializer 允许直写 settlemented_price(不在 read_only_fields),
+        编辑保存后须重算 amount_paid/amount_unpaid,否则结算价变更金额滞留旧口径。
+        """
+        try:
+            contract = ContractSelector.get_contract_for_update(contract_code)
+        except ResourceConflictError:
+            raise
+        except Contract.DoesNotExist:
+            raise AppValidationError(detail=f"合同 {contract_code} 不存在", error_code="CONTRACT_NOT_FOUND")
+        _recalc_paid_amounts(contract)
+        contract.save(update_fields=["amount_paid", "amount_unpaid", "updated_at"])
         return contract
 
     @staticmethod
@@ -436,8 +466,12 @@ class ContractService:
         Returns:
             Contract: 更新后的合同实例
         """
-        contract = ContractSelector.get_contract_by_code(contract_code)
-        if not contract:
+        # 【BF-092/I-4】行锁防并发丢失更新
+        try:
+            contract = ContractSelector.get_contract_for_update(contract_code)
+        except ResourceConflictError:
+            raise
+        except Contract.DoesNotExist:
             raise AppValidationError(detail=f"合同 {contract_code} 不存在", error_code="CONTRACT_NOT_FOUND")
 
         data = _parse_paid_record(contract.paid_record)
@@ -467,8 +501,12 @@ class ContractService:
         Returns:
             Contract: 更新后的合同实例
         """
-        contract = ContractSelector.get_contract_by_code(contract_code)
-        if not contract:
+        # 【BF-092/I-4】行锁防并发丢失更新
+        try:
+            contract = ContractSelector.get_contract_for_update(contract_code)
+        except ResourceConflictError:
+            raise
+        except Contract.DoesNotExist:
             raise AppValidationError(detail=f"合同 {contract_code} 不存在", error_code="CONTRACT_NOT_FOUND")
 
         data = _parse_paid_record(contract.paid_record)

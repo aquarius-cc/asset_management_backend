@@ -244,9 +244,12 @@ class OperationLogService:
         operator_jobcode: str | None = None,
         operator_name: str | None = None,
         ip_address: str | None = None,
+        before_status: str | None = None,
     ) -> AssetOperationLog:
         """记录资产出库操作"""
-        before_data = {"asset_current_status": Asset.AssetStatus.IN_STORE}
+        # 【BF-092/I-5】before_status 由调用方传入实际前状态(如 recycled_pending),
+        # 缺省回退 in_store 保持向后兼容
+        before_data = {"asset_current_status": before_status or Asset.AssetStatus.IN_STORE}
         after_data = {"asset_current_status": Asset.AssetStatus.IN_USE}
 
         return cls.log_operation(

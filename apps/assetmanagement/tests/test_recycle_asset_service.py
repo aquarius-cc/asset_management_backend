@@ -383,3 +383,46 @@ class TestDefensiveBranches:
                     }
                 )
         assert exc_info.value.error_code == "OUTASSET_ASSET_MISSING"
+
+
+@pytest.mark.django_db
+class TestBatchCreateRecycleMutants:
+    """batch_create_recycle_asset 存活体补杀(mutmut 20 个 no_tests: 此前零测试引用)"""
+
+    def test_batch_single_success_and_input_not_polluted(self, recycle_data):
+        """单条成功 + 入参字典不被篡改(杀 items/process_fn/deepcopy/返回结构变体)"""
+        items = [{**recycle_data, "is_broken": False}]
+        result = RecycleAssetService.batch_create_recycle_asset(recycle_data_list=items)
+        assert result["total"] == 1
+        assert result["success_count"] == 1
+        assert result["fail_count"] == 0
+        assert result["success_items"][0].pk is not None
+        assert "is_broken" in items[0]
+
+    def test_batch_rejects_101_items(self, recycle_data):
+        """101 条触发批量上限(杀 max_batch_size 数值放宽变体)"""
+        items = [dict(recycle_data) for _ in range(101)]
+        with pytest.raises(AppValidationError) as exc_info:
+            RecycleAssetService.batch_create_recycle_asset(recycle_data_list=items)
+        assert exc_info.value.error_code == "BATCH_SIZE_EXCEEDED"
+
+    def test_batch_accepts_exactly_100_items(self, recycle_data):
+        """恰 100 条不触发上限(杀 max_batch_size 收紧变体)"""
+        items = [dict(recycle_data) for _ in range(100)]
+        result = RecycleAssetService.batch_create_recycle_asset(recycle_data_list=items)
+        assert result["total"] == 100
+
+    def test_batch_aggregates_success_and_failure(self, recycle_data):
+        """成功+失败聚合: 单条失败不中断批次(杀闭包参数透传变体)"""
+        bad = {
+            "outasset_recordcode": "NONEXIST",
+            "recycle_asset_storage": recycle_data["recycle_asset_storage"],
+            "recycle_asset_recycle_person_jobcode": recycle_data["recycle_asset_recycle_person_jobcode"],
+            "recycle_asset_date": recycle_data["recycle_asset_date"],
+        }
+        result = RecycleAssetService.batch_create_recycle_asset(recycle_data_list=[dict(recycle_data), bad])
+        assert result["total"] == 2
+        assert result["success_count"] == 1
+        assert result["fail_count"] == 1
+        assert result["fail_items"][0]["error_code"] == "OUTASSET_NOT_FOUND"
+        assert result["fail_items"][0]["index"] == 1

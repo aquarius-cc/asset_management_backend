@@ -150,8 +150,9 @@ class TestFindAndReturnAsset:
             operator_jobcode=user.employee_jobcode,
             operator_name=user.employee_name,
         )
-        result.refresh_from_db()
-        assert result.asset_current_status == "recycled_pending"
+        # 【C-1 修复】返回类型 Asset→FoundAsset 记录, 资产状态经关联资产断言
+        result.asset_recordcode.refresh_from_db()
+        assert result.asset_recordcode.asset_current_status == "recycled_pending"
 
     def test_find_and_return_no_lost_record(self, asset, user):
         """没有 LostAsset 记录时应返回业务错误 400(NO_LOST_RECORD),而非 500"""
@@ -286,7 +287,7 @@ class TestRepairDone:
         result = RepairAssetService.complete_repair(
             asset_code="A001",
             actual_return_date="2024-06-10",
-            physical_grade_after="良好",
+            physical_grade_after="good",
             operator_jobcode=user.employee_jobcode,
             operator_name=user.employee_name,
         )
@@ -294,7 +295,7 @@ class TestRepairDone:
         assert result.repair_status == "completed"
         asset.refresh_from_db()
         assert asset.asset_current_status == "recycled_pending"
-        assert asset.physical_grade == "良好"
+        assert asset.physical_grade == "good"
 
     def test_repair_done_no_in_progress_record(self, asset, user):
         """没有进行中的维修记录时应报错"""

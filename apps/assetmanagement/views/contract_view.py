@@ -2,7 +2,6 @@
 合同管理视图集
 """
 
-from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from django_filters.rest_framework import DjangoFilterBackend
@@ -19,6 +18,7 @@ from apps.assetmanagement.selectors import ContractSelector
 from apps.assetmanagement.serializers import (
     ContractBatchCreateSerializer,
     ContractBatchDeleteSerializer,
+    ContractBatchPaymentRecordItemSerializer,
     ContractBatchPaymentRecordSerializer,
     ContractCreateSerializer,
     ContractDetailSerializer,
@@ -37,7 +37,7 @@ from utils.user_utils import resolve_operator
 from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
 
 
-class ContractViewSet(  # type: ignore[misc]
+class ContractViewSet(
     RecordcodeLookupMixin,
     AdminWritePermissionMixin,
     ExportExcelMixin,
@@ -120,6 +120,18 @@ class ContractViewSet(  # type: ignore[misc]
         )
         serializer.instance = contract
 
+    def perform_update(self, serializer: Any) -> None:
+        """编辑后若 settlemented_price 变更则重算金额(BF-092/I-10)
+
+        ContractUpdateSerializer 允许直写 settlemented_price,但 DRF 默认
+        perform_update 走 serializer.save() 不触发 _recalc_paid_amounts,
+        导致结算价变更后 amount_unpaid 滞留旧口径。
+        """
+        super().perform_update(serializer)
+        if "settlemented_price" in serializer.validated_data:
+            ContractService.recalculate_amounts_for_update(serializer.instance.contract_code)
+            serializer.instance.refresh_from_db()
+
     def destroy(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         contract = self.get_object()
         operator_jobcode, operator_name = resolve_operator(request.user)
@@ -181,13 +193,14 @@ class ContractViewSet(  # type: ignore[misc]
     @extend_schema(
         summary="更新结算状态",
         # 直接读 request.data.get("status")，无运行时 Serializer，故基线缺
-        # requestBody。取值域与本方法错误文案一致（pending/settled）。
+        # requestBody。取值域与 ContractService.update_settlement_status 的
+        # 校验域一致（Contract.CONTRACT_STATUS_CHOICES，全部合同状态）。
         request=inline_serializer(
             name="ContractSettlementStatus",
             fields={
                 "status": serializers.ChoiceField(
-                    choices=["pending", "settled"],
-                    help_text="目标结算状态",
+                    choices=Contract.CONTRACT_STATUS_CHOICES,
+                    help_text="目标合同状态",
                 ),
             },
         ),
@@ -196,7 +209,8 @@ class ContractViewSet(  # type: ignore[misc]
     def update_settlement_status(self, request: Any, recordcode: Any = None) -> Response:
         new_status = request.data.get("status")
         if not new_status:
-            return error_response(message="请提供结算状态(pending/settled)", status_code=400)
+            valid_statuses = ", ".join(dict(Contract.CONTRACT_STATUS_CHOICES))
+            return error_response(message=f"请提供结算状态(可选: {valid_statuses})", status_code=400)
         contract = self.get_object()
         operator_jobcode, operator_name = resolve_operator(request.user)
         updated = ContractService.update_settlement_status(
@@ -241,30 +255,20 @@ class ContractViewSet(  # type: ignore[misc]
     )
     @action(detail=True, methods=["post"], url_path="payment_record")
     def payment_record(self, request: Any, recordcode: Any = None) -> Response:
-        amount = request.data.get("amount")
-        description = request.data.get("description", "")
-        if not amount:
-            return error_response(message="请提供付款金额", status_code=400)
-        try:
-            amount = Decimal(str(amount))
-        except (ValueError, InvalidOperation):
-            return error_response(message="付款金额格式错误", status_code=400)
-        if not amount.is_finite():
-            return error_response(message="付款金额必须为有限数字", status_code=400)
-        if amount > Decimal("9999999999.99"):
-            return error_response(message="付款金额超出允许范围", status_code=400)
-        payment_date = request.data.get("payment_date")
-        payment_method = request.data.get("payment_method") or "bank_transfer"
+        # 【BF-092/I-11】复用批量端点共享的 item 校验器,消除与 batch_serializers 的重复校验(DR-1)
+        serializer = ContractBatchPaymentRecordItemSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         contract = self.get_object()
+        vd = serializer.validated_data
         updated = ContractService.add_payment_record(
             contract.contract_code,
-            amount,
-            description,
-            payment_date=str(payment_date) if payment_date else None,
-            payment_method=str(payment_method),
+            vd["amount"],
+            vd["description"],
+            payment_date=str(vd["payment_date"]) if vd.get("payment_date") else None,
+            payment_method=vd["payment_method"],
         )
-        serializer = ContractDetailSerializer(instance=updated)
-        return success_response(data={"contract": serializer.data}, message="付款记录添加成功")
+        detail_serializer = ContractDetailSerializer(instance=updated)
+        return success_response(data={"contract": detail_serializer.data}, message="付款记录添加成功")
 
     @extend_schema(
         summary="批量回填历史付款记录",

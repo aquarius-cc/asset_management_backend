@@ -11,7 +11,7 @@ from django.db import transaction
 
 from apps.assetmanagement.audit import AuditLogger
 from apps.assetmanagement.models import Asset, BrokenAsset, LostAsset, OutAsset, RecycleAsset, Storage
-from apps.assetmanagement.selectors import OutAssetSelector
+from apps.assetmanagement.selectors import AssetSelector, OutAssetSelector
 from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
 from apps.usermanagement.models import Employee
 from apps.usermanagement.selectors import EmployeeSelector
@@ -39,7 +39,10 @@ class RecycleAssetService:
     @staticmethod
     @transaction.atomic
     def create_recycle_asset(
-        recycle_data: dict[str, Any], operator_jobcode: str | None = None, operator_name: str | None = None
+        recycle_data: dict[str, Any],
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+        user: Any | None = None,
     ) -> RecycleAsset:
         """
         创建回收记录
@@ -53,6 +56,11 @@ class RecycleAssetService:
         storage_obj, recycle_person_obj, asset = RecycleAssetService._normalize_recycle_input(
             recycle_data, operator_jobcode
         )
+
+        # BEQ-02 行级隔离: 回收前校验目标资产在用户可见范围内(与 by_asset 查询侧同口径);
+        # 校验置于 RecycleAsset.objects.create 之前, 避免先写后滚的无效写入
+        if user is not None:
+            AssetSelector.ensure_asset_visible(asset, user)
 
         is_broken = recycle_data.pop("is_broken", False)
         broken_reason = recycle_data.pop("broken_reason", "")
@@ -134,12 +142,22 @@ class RecycleAssetService:
 
     @staticmethod
     def _normalize_recycle_refs(recycle_data: dict[str, Any]) -> tuple[Storage | None, Employee | None]:
-        """对象化回收入参:storage/person 字符串 → 模型对象"""
+        """对象化回收入参:storage/person 字符串 → 模型对象
+
+        【C-2 修复】validated_data 的仓库键为 storage_code(SlugRelatedField 已转
+        Storage 实例);原实现只 pop recycle_asset_storage,storage_code 残留进
+        RecycleAsset.objects.create(**recycle_data) → TypeError → 500(既有测试
+        test_recycle_asset_view_api 以 "accept 500 until fixed" 记录此债)。现与
+        storage_code 一起摘除,作为 storage_obj 的第二来源,回收链路 500 清零。
+        """
         storage_obj = recycle_data.pop("recycle_asset_storage", None)
+        storage_code_obj = recycle_data.pop("storage_code", None)
         recycle_person_obj = recycle_data.pop("recycle_asset_recycle_person_jobcode", None)
 
         if storage_obj is not None and not isinstance(storage_obj, Storage):
             storage_obj = Storage.objects.filter(storage_code=str(storage_obj)).first()
+        if storage_obj is None and storage_code_obj is not None:
+            storage_obj = storage_code_obj if isinstance(storage_code_obj, Storage) else None
         if recycle_person_obj is not None and not isinstance(recycle_person_obj, Employee):
             recycle_person_obj = EmployeeSelector.get_employee_by_jobcode(str(recycle_person_obj))
 
@@ -311,13 +329,17 @@ class RecycleAssetService:
 
     @staticmethod
     def batch_create_recycle_asset(
-        recycle_data_list: list[dict[str, Any]], operator_jobcode: str | None = None, operator_name: str | None = None
+        recycle_data_list: list[dict[str, Any]],
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+        user: Any | None = None,
     ) -> dict[str, Any]:
         def _create_item(idx: int, recycle_data: dict[str, Any]) -> RecycleAsset:
             return RecycleAssetService.create_recycle_asset(
                 recycle_data=copy.deepcopy(recycle_data),
                 operator_jobcode=operator_jobcode,
                 operator_name=operator_name,
+                user=user,
             )
 
         return BatchOperationMixin.batch_execute(

@@ -10,7 +10,7 @@ from django.db import transaction
 
 from apps.assetmanagement.audit import AuditLogger
 from apps.assetmanagement.models import Asset, OutAsset, RecycleAsset
-from apps.assetmanagement.selectors import OutAssetSelector
+from apps.assetmanagement.selectors import AssetSelector, OutAssetSelector
 from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
 from core.batch_mixins import BatchOperationMixin
 from core.exceptions import AppValidationError
@@ -42,11 +42,18 @@ class OutAssetService:
     @staticmethod
     @transaction.atomic
     def create_outasset(
-        outasset_data: dict[str, Any], operator_jobcode: str | None = None, operator_name: str | None = None
+        outasset_data: dict[str, Any],
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+        user: Any | None = None,
     ) -> OutAsset:
         asset = outasset_data.get("asset_recordcode")
         if not asset:
             raise AppValidationError(detail="缺少资产编码", error_code="MISSING_ASSET_CODE")
+
+        # BEQ-02 行级隔离: 出库前校验目标资产在用户可见范围内(与 by_asset 查询侧同口径)
+        if user is not None:
+            AssetSelector.ensure_asset_visible(asset, user)
 
         OutAssetService._validate_outasset_source(asset)
 
@@ -74,6 +81,8 @@ class OutAssetService:
             outrecordcode=outasset.recordcode,
             operator_jobcode=operator_jobcode or (applicant.employee_jobcode if applicant else None),
             operator_name=operator_name,
+            # 【BF-092/I-5】传入实际前状态(如 recycled_pending),修复审计日志硬编码 in_store
+            before_status=outasset.outasset_previous_status,
         )
 
         return outasset  # type: ignore[no-any-return]
@@ -248,7 +257,10 @@ class OutAssetService:
 
     @staticmethod
     def batch_create_outasset(
-        outasset_data_list: list[dict[str, Any]], operator_jobcode: str | None = None, operator_name: str | None = None
+        outasset_data_list: list[dict[str, Any]],
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+        user: Any | None = None,
     ) -> dict[str, Any]:
         import copy
 
@@ -264,6 +276,7 @@ class OutAssetService:
                 outasset_data=bulk_item,
                 operator_jobcode=operator_jobcode,
                 operator_name=operator_name,
+                user=user,
             )
 
         return BatchOperationMixin.batch_execute(

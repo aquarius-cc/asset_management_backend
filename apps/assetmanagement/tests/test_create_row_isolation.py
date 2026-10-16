@@ -276,3 +276,328 @@ class TestLifecycleBatchCreateRowIsolation:
         )
         assert response.status_code == status.HTTP_200_OK
         assert response.data["data"]["success_count"] == 1
+
+
+# ==================== C-1/C-2 单条 create 行级隔离(BF-091) ====================
+# 六链路统一模式「写路径委托 service + 锁内 ensure_asset_visible」:
+#   跨部门 → 400(AppValidationError ASSET_NOT_VISIBLE, 与 Damaged 类同口径取 400/404 并集)
+#   本部门 → 201 + FSM 状态流转锚(单条 create 现经 service, 与 batch 语义统一)
+
+
+@pytest.fixture
+def astadmin_a_user(db: Any, department: Any) -> Any:
+    """甲部门资产管理员(单条 create 权限面 = IsAssetAdminOrAbove, 六 ViewSet 一致)"""
+    return _create_scoped_auth("AST1A", "甲部门资产管理员1", department, "asset_admin", "13800131909")
+
+
+def _make_lost_for(asset: Any, jobcode: str) -> Any:
+    """为指定资产补建 LostAsset 记录并置 lost 态(找回/送修类前置)"""
+    from apps.assetmanagement.models import LostAsset
+
+    LostAsset.objects.create(
+        asset_recordcode=asset,
+        lost_reason="测试遗失原因",
+        lost_date="2026-10-01",
+        last_known_location="测试位置",
+    )
+    asset.asset_current_status = "lost"
+    asset.save(update_fields=["asset_current_status", "updated_at"])
+    return asset
+
+
+@pytest.mark.django_db
+class TestBrokenCreateRowIsolation:
+    """损坏记录单条 create(C-1: 现经 mark_asset_broken FSM+隔离)"""
+
+    def url(self) -> str:
+        return reverse("broken-assets-list")
+
+    def test_cross_dept_create_rejected(self, api_client: APIClient, dept_b_asset: Any, astadmin_a_user: Any) -> None:
+        """asset_admin 对乙部门资产单条标记损坏 → 400(行级隔离, 非 201)"""
+        api_client.force_authenticate(user=astadmin_a_user)
+        response = api_client.post(
+            self.url(),
+            {"asset_recordcode": dept_b_asset.recordcode, "broken_reason": "测试损坏", "broken_date": "2026-10-13"},
+            format="json",
+        )
+        assert response.status_code in (status.HTTP_400_BAD_REQUEST, status.HTTP_404_NOT_FOUND)
+
+    def test_own_dept_create_allowed_flips_fsm(
+        self, api_client: APIClient, owned_asset: Any, astadmin_a_user: Any
+    ) -> None:
+        """本部门 asset_admin 单条标记损坏 → 201 + 资产状态流转 broken(C-1 核心锚)"""
+        api_client.force_authenticate(user=astadmin_a_user)
+        response = api_client.post(
+            self.url(),
+            {"asset_recordcode": owned_asset.recordcode, "broken_reason": "测试损坏", "broken_date": "2026-10-13"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        owned_asset.refresh_from_db()
+        assert owned_asset.asset_current_status == "broken"
+
+    def test_admin_cross_dept_allowed(self, api_client: APIClient, dept_b_asset: Any, admin_auth_user: Any) -> None:
+        """superuser 无限制 → 201"""
+        api_client.force_authenticate(user=admin_auth_user)
+        response = api_client.post(
+            self.url(),
+            {"asset_recordcode": dept_b_asset.recordcode, "broken_reason": "测试损坏", "broken_date": "2026-10-13"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+
+
+@pytest.mark.django_db
+class TestLostCreateRowIsolation:
+    """遗失记录单条 create(C-1: 现经 mark_asset_lost FSM+隔离)"""
+
+    def url(self) -> str:
+        return reverse("lost-assets-list")
+
+    def test_cross_dept_create_rejected(self, api_client: APIClient, dept_b_asset: Any, astadmin_a_user: Any) -> None:
+        """asset_admin 对乙部门资产单条标记遗失 → 400(行级隔离)"""
+        api_client.force_authenticate(user=astadmin_a_user)
+        response = api_client.post(
+            self.url(),
+            {"asset_recordcode": dept_b_asset.recordcode, "lost_date": "2026-10-13", "lost_reason": "测试遗失"},
+            format="json",
+        )
+        assert response.status_code in (status.HTTP_400_BAD_REQUEST, status.HTTP_404_NOT_FOUND)
+
+    def test_own_dept_create_allowed_flips_fsm(
+        self, api_client: APIClient, owned_asset: Any, astadmin_a_user: Any
+    ) -> None:
+        """本部门 asset_admin 单条标记遗失 → 201 + 资产状态流转 lost"""
+        api_client.force_authenticate(user=astadmin_a_user)
+        response = api_client.post(
+            self.url(),
+            {"asset_recordcode": owned_asset.recordcode, "lost_date": "2026-10-13", "lost_reason": "测试遗失"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        owned_asset.refresh_from_db()
+        assert owned_asset.asset_current_status == "lost"
+
+    def test_admin_cross_dept_allowed(self, api_client: APIClient, dept_b_asset: Any, admin_auth_user: Any) -> None:
+        """superuser 无限制 → 201"""
+        api_client.force_authenticate(user=admin_auth_user)
+        response = api_client.post(
+            self.url(),
+            {"asset_recordcode": dept_b_asset.recordcode, "lost_date": "2026-10-13", "lost_reason": "测试遗失"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+
+
+@pytest.mark.django_db
+class TestFoundCreateRowIsolation:
+    """找回记录单条 create(C-1: 现经 find_and_return_asset FSM+隔离, 要求资产 lost 态)"""
+
+    def url(self) -> str:
+        return reverse("found-assets-list")
+
+    def test_cross_dept_create_rejected(self, api_client: APIClient, dept_b_asset: Any, astadmin_a_user: Any) -> None:
+        """asset_admin 找回乙部门遗失资产 → 400(行级隔离)"""
+        _make_lost_for(dept_b_asset, "USRB")
+        api_client.force_authenticate(user=astadmin_a_user)
+        lost_record = dept_b_asset.lost_assets.first()
+        response = api_client.post(
+            self.url(),
+            {
+                "asset_recordcode": dept_b_asset.recordcode,
+                "lost_asset_recordcode": lost_record.recordcode,
+                "found_location": "测试找回位置",
+                "found_date": "2026-10-13",
+            },
+            format="json",
+        )
+        assert response.status_code in (status.HTTP_400_BAD_REQUEST, status.HTTP_404_NOT_FOUND)
+
+    def test_own_dept_create_allowed_flips_fsm(
+        self, api_client: APIClient, owned_asset: Any, astadmin_a_user: Any
+    ) -> None:
+        """本部门 asset_admin 找回本部门遗失资产 → 201 + 状态流转 recycled_pending"""
+        _make_lost_for(owned_asset, "USRA")
+        api_client.force_authenticate(user=astadmin_a_user)
+        lost_record = owned_asset.lost_assets.first()
+        response = api_client.post(
+            self.url(),
+            {
+                "asset_recordcode": owned_asset.recordcode,
+                "lost_asset_recordcode": lost_record.recordcode,
+                "found_location": "测试找回位置",
+                "found_date": "2026-10-13",
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        owned_asset.refresh_from_db()
+        assert owned_asset.asset_current_status == "recycled_pending"
+
+    def test_lost_asset_mismatch_rejected(self, api_client: APIClient, owned_asset: Any, astadmin_a_user: Any) -> None:
+        """客户端传入的遗失记录码与资产不匹配 → 拒绝(防静默忽略)"""
+        _make_lost_for(owned_asset, "USRA")
+        api_client.force_authenticate(user=astadmin_a_user)
+        response = api_client.post(
+            self.url(),
+            {
+                "asset_recordcode": owned_asset.recordcode,
+                "lost_asset_recordcode": "NON_EXISTENT_CODE",
+                "found_location": "错配测试",
+                "found_date": "2026-10-13",
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.django_db
+class TestOutAssetCreateRowIsolation:
+    """出库单条 create(C-2: service 内 ensure_asset_visible)"""
+
+    def url(self) -> str:
+        return reverse("out-assets-list")
+
+    def test_cross_dept_create_rejected(self, api_client: APIClient, dept_b_asset: Any, astadmin_a_user: Any) -> None:
+        """asset_admin 对乙部门 in_store 资产出库 → 400(行级隔离)"""
+        api_client.force_authenticate(user=astadmin_a_user)
+        response = api_client.post(
+            self.url(),
+            {"asset_recordcode": dept_b_asset.recordcode, "outasset_type": "receive", "outasset_date": "2026-10-13"},
+            format="json",
+        )
+        assert response.status_code in (status.HTTP_400_BAD_REQUEST, status.HTTP_404_NOT_FOUND)
+
+    def test_own_dept_create_allowed_flips_fsm(
+        self, api_client: APIClient, owned_asset: Any, astadmin_a_user: Any
+    ) -> None:
+        """本部门 asset_admin 出库本部门资产 → 201 + 状态流转 in_use"""
+        api_client.force_authenticate(user=astadmin_a_user)
+        response = api_client.post(
+            self.url(),
+            {"asset_recordcode": owned_asset.recordcode, "outasset_type": "receive", "outasset_date": "2026-10-13"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        owned_asset.refresh_from_db()
+        assert owned_asset.asset_current_status == "in_use"
+
+    def test_admin_cross_dept_allowed(self, api_client: APIClient, dept_b_asset: Any, admin_auth_user: Any) -> None:
+        """superuser 无限制 → 201"""
+        api_client.force_authenticate(user=admin_auth_user)
+        response = api_client.post(
+            self.url(),
+            {"asset_recordcode": dept_b_asset.recordcode, "outasset_type": "receive", "outasset_date": "2026-10-13"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+
+
+@pytest.mark.django_db
+class TestRecycleAssetCreateRowIsolation:
+    """回收单条 create(C-2: 校验前移至 RecycleAsset.objects.create 之前)"""
+
+    def url(self) -> str:
+        return reverse("recycle-assets-list")
+
+    @pytest.fixture
+    def own_dept_outasset(self, db: Any, owned_asset: Any) -> Any:
+        """甲部门资产 in_use + 既有出库记录(回收 FSM 入边前提)"""
+        from apps.assetmanagement.models import OutAsset
+
+        owned_asset.asset_current_status = "in_use"
+        owned_asset.save(update_fields=["asset_current_status", "updated_at"])
+        return OutAsset.objects.create(asset_recordcode=owned_asset, outasset_date="2026-10-01")
+
+    @pytest.fixture
+    def dept_b_outasset(self, db: Any, dept_b_asset: Any) -> Any:
+        """乙部门资产 in_use + 既有出库记录"""
+        from apps.assetmanagement.models import OutAsset
+
+        dept_b_asset.asset_current_status = "in_use"
+        dept_b_asset.save(update_fields=["asset_current_status", "updated_at"])
+        return OutAsset.objects.create(asset_recordcode=dept_b_asset, outasset_date="2026-10-01")
+
+    def test_cross_dept_create_rejected(
+        self, api_client: APIClient, dept_b_outasset: Any, astadmin_a_user: Any
+    ) -> None:
+        """asset_admin 回收乙部门出库资产 → 400(行级隔离)"""
+        api_client.force_authenticate(user=astadmin_a_user)
+        response = api_client.post(
+            self.url(),
+            {
+                "outasset_recordcode": dept_b_outasset.recordcode,
+                "storage_code": "S001",
+                "recycle_asset_date": "2026-10-13",
+                "recycle_type": "normal",
+            },
+            format="json",
+        )
+        assert response.status_code in (status.HTTP_400_BAD_REQUEST, status.HTTP_404_NOT_FOUND)
+
+    def test_own_dept_create_allowed_flips_fsm(
+        self, api_client: APIClient, own_dept_outasset: Any, astadmin_a_user: Any
+    ) -> None:
+        """本部门 asset_admin 回收本部门出库资产 → 201 + 状态流转 recycled_pending"""
+        api_client.force_authenticate(user=astadmin_a_user)
+        response = api_client.post(
+            self.url(),
+            {
+                "outasset_recordcode": own_dept_outasset.recordcode,
+                "storage_code": "S001",
+                "recycle_asset_date": "2026-10-13",
+                "recycle_type": "normal",
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        own_dept_outasset.asset_recordcode.refresh_from_db()
+        assert own_dept_outasset.asset_recordcode.asset_current_status == "recycled_pending"
+
+
+@pytest.mark.django_db
+class TestRepairAssetCreateRowIsolation:
+    """送修单条 create(C-2: _lock_asset_for_repair 锁内校验; FSM 前提 broken)"""
+
+    def url(self) -> str:
+        return reverse("repair-assets-list")
+
+    def test_cross_dept_create_rejected(self, api_client: APIClient, dept_b_asset: Any, astadmin_a_user: Any) -> None:
+        """asset_admin 送修乙部门损坏资产 → 400(行级隔离)"""
+        dept_b_asset.asset_current_status = "broken"
+        dept_b_asset.save(update_fields=["asset_current_status", "updated_at"])
+        api_client.force_authenticate(user=astadmin_a_user)
+        response = api_client.post(
+            self.url(),
+            {"asset_recordcode": dept_b_asset.recordcode, "repair_reason": "测试送修", "repair_date": "2026-10-13"},
+            format="json",
+        )
+        assert response.status_code in (status.HTTP_400_BAD_REQUEST, status.HTTP_404_NOT_FOUND)
+
+    def test_own_dept_create_allowed_flips_fsm(
+        self, api_client: APIClient, owned_asset: Any, astadmin_a_user: Any
+    ) -> None:
+        """本部门 asset_admin 送修本部门损坏资产 → 201 + 状态流转 repairing"""
+        owned_asset.asset_current_status = "broken"
+        owned_asset.save(update_fields=["asset_current_status", "updated_at"])
+        api_client.force_authenticate(user=astadmin_a_user)
+        response = api_client.post(
+            self.url(),
+            {"asset_recordcode": owned_asset.recordcode, "repair_reason": "测试送修", "repair_date": "2026-10-13"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        owned_asset.refresh_from_db()
+        assert owned_asset.asset_current_status == "repairing"
+
+    def test_admin_cross_dept_allowed(self, api_client: APIClient, dept_b_asset: Any, admin_auth_user: Any) -> None:
+        """superuser 无限制 → 201"""
+        dept_b_asset.asset_current_status = "broken"
+        dept_b_asset.save(update_fields=["asset_current_status", "updated_at"])
+        api_client.force_authenticate(user=admin_auth_user)
+        response = api_client.post(
+            self.url(),
+            {"asset_recordcode": dept_b_asset.recordcode, "repair_reason": "测试送修", "repair_date": "2026-10-13"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED

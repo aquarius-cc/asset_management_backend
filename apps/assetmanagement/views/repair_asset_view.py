@@ -155,6 +155,7 @@ class RepairAssetViewSet(  # type: ignore[misc]
             repair_description=data.get("repair_description", ""),
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
+            user=request.user,
         )
 
         return success_response(

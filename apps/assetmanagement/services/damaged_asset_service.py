@@ -172,7 +172,10 @@ class DamagedAssetService:
 
         # 更新资产状态
         asset = Asset.objects.select_for_update().get(pk=damaged_asset.asset_recordcode.pk)  # type: ignore[union-attr]
-        AssetFSM.approve(asset)
+        try:
+            AssetFSM.approve(asset)
+        except InvalidTransitionError as e:
+            raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
         asset.save(update_fields=["asset_current_status", "updated_at"])
 
         # 审计日志
@@ -243,7 +246,10 @@ class DamagedAssetService:
         # 根据 original_status 回退状态(业务约束 §三.5: 审批拒绝回退申请前状态)
         asset = Asset.objects.select_for_update().get(pk=damaged_asset.asset_recordcode.pk)  # type: ignore[union-attr]
         old_status = asset.asset_current_status
-        AssetFSM.reject_to_original(asset, damaged_asset.original_status)
+        try:
+            AssetFSM.reject_to_original(asset, damaged_asset.original_status)
+        except InvalidTransitionError as e:
+            raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
         asset.save(update_fields=["asset_current_status", "updated_at"])
 
         # 审计日志
@@ -308,7 +314,10 @@ class DamagedAssetService:
         # 恢复资产状态(按申请前状态回退,与 reject 一致)
         asset = Asset.objects.select_for_update().get(pk=damaged_asset.asset_recordcode.pk)  # type: ignore[union-attr]
         old_status = asset.asset_current_status
-        AssetFSM.cancel_damaged(asset, original_status=damaged_asset.original_status)
+        try:
+            AssetFSM.cancel_damaged(asset, original_status=damaged_asset.original_status)
+        except InvalidTransitionError as e:
+            raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
         asset.save(update_fields=["asset_current_status", "updated_at"])
 
         # 审计日志

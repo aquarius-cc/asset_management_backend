@@ -420,9 +420,11 @@ class TestPutContractStatusRouting:
         project_settlement_contract.refresh_from_db()
         # 状态进入结算口径 → _recalc_paid_amounts 以 settlemented_price 重算
         assert project_settlement_contract.amount_unpaid == Decimal("5000.00")
-        log = self._update_logs(project_settlement_contract).filter(
-            after_data={"contract_status": "settlement_done"}
-        ).first()
+        log = (
+            self._update_logs(project_settlement_contract)
+            .filter(after_data={"contract_status": "settlement_done"})
+            .first()
+        )
         assert log is not None
         assert log.before_data == {"contract_status": "project_settlement"}
         assert log.operator_jobcode is not None
@@ -550,7 +552,14 @@ class TestAllowedNextStatesField:
                 "contract_status": "purchasing",
             }
         )
-        for target in ("purchase_finished", "receive_check", "initial_check", "project_settlement", "settlement_done", "final_check"):
+        for target in (
+            "purchase_finished",
+            "receive_check",
+            "initial_check",
+            "project_settlement",
+            "settlement_done",
+            "final_check",
+        ):
             ContractService.update_settlement_status(c.contract_code, target)
             if target == walk_to:
                 break
@@ -571,7 +580,15 @@ class TestAllowedNextStatesField:
                 "contract_status": "purchasing",
             }
         )
-        for target in ("purchase_finished", "receive_check", "initial_check", "project_settlement", "settlement_done", "final_check", "project_finished"):
+        for target in (
+            "purchase_finished",
+            "receive_check",
+            "initial_check",
+            "project_settlement",
+            "settlement_done",
+            "final_check",
+            "project_finished",
+        ):
             ContractService.update_settlement_status(c.contract_code, target)
         url = reverse("contracts-detail", kwargs={"recordcode": c.recordcode})
         response = client.get(url)

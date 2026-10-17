@@ -26,6 +26,7 @@ def _viewset_with_action(action: str) -> AuthUserViewSet:
     viewset.action = action
     return viewset
 
+
 # test.py 将 DEFAULT_THROTTLE_CLASSES 置空、rates 调至千万级;
 # 429 用例需整块覆盖 rates(register=5/minute)。get_throttles 显式返回
 # RegisterRateThrottle,故 DEFAULT_CLASSES=[] 下该 throttle 仍执行,

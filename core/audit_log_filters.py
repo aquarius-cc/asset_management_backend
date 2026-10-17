@@ -73,7 +73,9 @@ def _parse_date(raw: str | None, field: str) -> tuple[datetime | None, str | Non
         return None, f"{field} {DATE_FORMAT_ERROR}"
 
 
-def _parse_time_range(days: str | None, start_date: str | None, end_date: str | None) -> tuple[datetime | None, datetime | None]:
+def _parse_time_range(
+    days: str | None, start_date: str | None, end_date: str | None
+) -> tuple[datetime | None, datetime | None]:
     """解析时间条件：``days`` 与日期范围互斥。非法时抛 InvalidAuditLogFilters。"""
     if days:
         try:

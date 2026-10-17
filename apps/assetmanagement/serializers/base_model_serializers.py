@@ -15,6 +15,7 @@ from apps.assetmanagement.models import (
     HardDiskSN,
     Storage,
 )
+from apps.assetmanagement.state_machine.contract_fsm import ContractFSM
 
 
 class StrictUnknownFieldMixin:
@@ -165,6 +166,8 @@ class ContractDetailSerializer(serializers.ModelSerializer[Contract]):
     特点:完整字段,只读
     """
 
+    allowed_next_states = serializers.SerializerMethodField()
+
     class Meta:
         model = Contract
         fields = [
@@ -179,6 +182,7 @@ class ContractDetailSerializer(serializers.ModelSerializer[Contract]):
             "contract_start_date",
             "contract_end_date",
             "contract_status",
+            "allowed_next_states",
             "project_change",
             "project_change_type",
             "project_change_description",
@@ -196,6 +200,10 @@ class ContractDetailSerializer(serializers.ModelSerializer[Contract]):
             "version",
         ]
         read_only_fields = fields
+
+    def get_allowed_next_states(self, obj: Contract) -> list[str]:
+        """委托 ContractFSM(DR-1 唯一实现),脏状态值防御性返回 []"""
+        return ContractFSM.allowed_next_states(obj.contract_status)
 
 
 class ContractUpdateSerializer(serializers.ModelSerializer[Contract]):

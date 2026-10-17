@@ -71,3 +71,16 @@ class ContractFSM:
     def transition(cls, contract: "Contract", target_status: str) -> None:
         cls._validate_transition(contract.contract_status, target_status)
         contract.contract_status = target_status
+
+    @classmethod
+    def allowed_next_states(cls, current_status: str | ContractState) -> list[str]:
+        """返回当前状态的全部合法下一状态值(展示用,DR-1 唯一实现)。
+
+        读路径专用:未知/非法状态值防御性返回 []——详情序列化不应因脏数据 500,
+        终态(project_finished)同样返回 [],前端据此禁用状态下拉。
+        """
+        try:
+            current = current_status if isinstance(current_status, ContractState) else ContractState(current_status)
+        except ValueError:
+            return []
+        return [target.value for target in _CONTRACT_TRANSITIONS.get(current, {})]

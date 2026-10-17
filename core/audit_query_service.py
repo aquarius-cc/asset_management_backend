@@ -59,6 +59,42 @@ class AuditLogQueryService:
             return None
 
     @staticmethod
+    def query_logs_queryset(
+        app_label: str | None = None,
+        operation_type: str | None = None,
+        operator_jobcode: str | None = None,
+        record_code: str | None = None,
+        start_time: Any | None = None,
+        end_time: Any | None = None,
+    ) -> Any:
+        """多条件组合查询,返回未物化的 QuerySet(供导出流式消费, P2-04)。
+
+        与 :meth:`query_logs` 共用同一过滤链(DR-1);列表端点仍走
+        ``query_logs`` 物化为 list,导出端点走本方法保持懒求值。
+        """
+        queryset = AuditLog.objects.all()  # type: ignore[attr-defined]
+
+        if app_label:
+            queryset = queryset.filter(app_label=app_label)
+
+        if operation_type:
+            queryset = queryset.filter(operation_type=operation_type)
+
+        if operator_jobcode:
+            queryset = queryset.filter(operator_jobcode=operator_jobcode)
+
+        if record_code:
+            queryset = queryset.filter(record_code=record_code)
+
+        if start_time:
+            queryset = queryset.filter(operation_time__gte=start_time)
+
+        if end_time:
+            queryset = queryset.filter(operation_time__lte=end_time)
+
+        return queryset.order_by("-operation_time")
+
+    @staticmethod
     def query_logs(
         app_label: str | None = None,
         operation_type: str | None = None,
@@ -81,27 +117,16 @@ class AuditLogQueryService:
         Returns:
             List[AuditLog]: 按时间倒序排列的审计记录
         """
-        queryset = AuditLog.objects.all()  # type: ignore[attr-defined]
-
-        if app_label:
-            queryset = queryset.filter(app_label=app_label)
-
-        if operation_type:
-            queryset = queryset.filter(operation_type=operation_type)
-
-        if operator_jobcode:
-            queryset = queryset.filter(operator_jobcode=operator_jobcode)
-
-        if record_code:
-            queryset = queryset.filter(record_code=record_code)
-
-        if start_time:
-            queryset = queryset.filter(operation_time__gte=start_time)
-
-        if end_time:
-            queryset = queryset.filter(operation_time__lte=end_time)
-
-        return list(queryset.order_by("-operation_time"))
+        return list(
+            AuditLogQueryService.query_logs_queryset(
+                app_label=app_label,
+                operation_type=operation_type,
+                operator_jobcode=operator_jobcode,
+                record_code=record_code,
+                start_time=start_time,
+                end_time=end_time,
+            )
+        )
 
     @staticmethod
     def get_recent_logs(days: int = 7) -> list[AuditLog]:

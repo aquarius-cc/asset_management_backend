@@ -20,6 +20,7 @@ from django.urls import reverse
 from rest_framework import status
 
 from apps.assetmanagement.models import Contract
+from apps.assetmanagement.services import ContractService
 from core.models_audit import AuditLog
 
 
@@ -357,3 +358,236 @@ class TestContractAuditLogOperator:
         ).first()
         assert log is not None
         assert log.operator_jobcode is not None
+
+
+@pytest.mark.django_db
+class TestPutContractStatusRouting:
+    """【P1-01】PUT/PATCH 携带 contract_status 必须改路由 ContractService.update_settlement_status
+
+    修复前: ContractUpdateSerializer 的 contract_status 可写且不在 read_only_fields,
+    前端 ContractForm 编辑恒提交该字段 → 生产路径上任意状态跳转均被接受:
+    不过 ContractFSM.transition、不落 GenericAuditService.log_update、
+    状态变更不触发 _recalc_paid_amounts(amount_unpaid 滞留旧口径)。
+    """
+
+    @pytest.fixture
+    def admin_client(self, api_client, admin_auth_user):
+        api_client.force_authenticate(user=admin_auth_user)
+        return api_client
+
+    @pytest.fixture
+    def project_settlement_contract(self, db):
+        """project_settlement 状态 + 结算价 8000 + 已付 3000,用于验证状态变更触发金额重算"""
+        c = ContractService.create_contract(
+            {
+                "contract_code": "C-PUT-001",
+                "contract_name": "P1-01 合同",
+                "contract_type": "service",
+                "contract_amount": Decimal("10000.00"),
+                "settlemented_price": Decimal("8000.00"),
+                "supplier_name": "供应商A",
+                "contract_start_date": "2024-01-01",
+                "contract_end_date": "2024-12-31",
+                "contract_status": "purchase_finished",
+            }
+        )
+        for target in ("receive_check", "initial_check", "project_settlement"):
+            ContractService.update_settlement_status(c.contract_code, target)
+        ContractService.add_payment_record(c.contract_code, Decimal("3000.00"), "首付款")
+        c.refresh_from_db()
+        return c
+
+    @staticmethod
+    def _update_logs(contract: Contract):
+        return AuditLog.objects.filter(
+            record_code=contract.contract_code,
+            operation_type="update",
+            app_label="contract",
+        )
+
+    def test_put_status_change_routed_with_audit_and_recalc(self, admin_client, project_settlement_contract):
+        """合法状态变更:走 Service(FSM+审计+重算),同批落其余字段,响应带新状态"""
+        assert project_settlement_contract.amount_unpaid == Decimal("7000.00")  # 非结算口径 10000-3000
+        url = reverse("contracts-detail", kwargs={"recordcode": project_settlement_contract.recordcode})
+        response = admin_client.put(
+            url, {"contract_status": "settlement_done", "contract_name": "改名后的P1-01"}, format="json"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["code"] == 0
+        assert response.data["data"]["contract_status"] == "settlement_done"
+        assert response.data["data"]["contract_name"] == "改名后的P1-01"
+
+        project_settlement_contract.refresh_from_db()
+        # 状态进入结算口径 → _recalc_paid_amounts 以 settlemented_price 重算
+        assert project_settlement_contract.amount_unpaid == Decimal("5000.00")
+        log = self._update_logs(project_settlement_contract).filter(
+            after_data={"contract_status": "settlement_done"}
+        ).first()
+        assert log is not None
+        assert log.before_data == {"contract_status": "project_settlement"}
+        assert log.operator_jobcode is not None
+
+    def test_put_illegal_transition_400_and_rolls_back(self, admin_client, project_settlement_contract):
+        """非法跳转:400 + INVALID_CONTRACT_TRANSITION,且同请求其余字段不部分落库"""
+        baseline_logs = self._update_logs(project_settlement_contract).count()  # 夹具推进状态已产生 3 条
+        url = reverse("contracts-detail", kwargs={"recordcode": project_settlement_contract.recordcode})
+        response = admin_client.put(
+            url, {"contract_status": "purchasing", "contract_name": "非法跳转带入的改名"}, format="json"
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data["code"] != 0
+        assert response.data["data"]["error_code"] == "INVALID_CONTRACT_TRANSITION"
+        assert "合同状态转换不合法" in response.data["message"]
+
+        project_settlement_contract.refresh_from_db()
+        assert project_settlement_contract.contract_status == "project_settlement"
+        assert project_settlement_contract.contract_name == "P1-01 合同"  # 事务回滚,未部分落库
+        assert project_settlement_contract.amount_unpaid == Decimal("7000.00")
+        assert self._update_logs(project_settlement_contract).count() == baseline_logs
+
+    def test_put_without_status_field_is_plain_edit(self, admin_client, project_settlement_contract):
+        """不含状态字段的 PUT:行为与现状一致(纯编辑,不产生状态审计)"""
+        baseline_logs = self._update_logs(project_settlement_contract).count()
+        url = reverse("contracts-detail", kwargs={"recordcode": project_settlement_contract.recordcode})
+        response = admin_client.put(url, {"contract_name": "纯编辑改名"}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        project_settlement_contract.refresh_from_db()
+        assert project_settlement_contract.contract_name == "纯编辑改名"
+        assert project_settlement_contract.contract_status == "project_settlement"
+        assert project_settlement_contract.amount_unpaid == Decimal("7000.00")
+        assert self._update_logs(project_settlement_contract).count() == baseline_logs
+
+    def test_put_same_status_skips_transition_audit(self, admin_client, project_settlement_contract):
+        """同状态提交(无实际变更):跳过状态路由,避免无意义审计记录"""
+        baseline_logs = self._update_logs(project_settlement_contract).count()
+        url = reverse("contracts-detail", kwargs={"recordcode": project_settlement_contract.recordcode})
+        response = admin_client.put(
+            url, {"contract_status": "project_settlement", "contract_name": "同状态改名"}, format="json"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        project_settlement_contract.refresh_from_db()
+        assert project_settlement_contract.contract_name == "同状态改名"
+        assert project_settlement_contract.contract_status == "project_settlement"
+        assert self._update_logs(project_settlement_contract).count() == baseline_logs
+
+    def test_put_walks_entire_contract_fsm(self, admin_client, db):
+        """【CT-3】经 PUT 收口路径走完 ContractFSM 全部 7 条合法边,终态后再流转必须 400"""
+        c = ContractService.create_contract(
+            {
+                "contract_code": "C-PUT-FSM",
+                "contract_name": "CT-3 全路径合同",
+                "contract_type": "service",
+                "contract_amount": Decimal("10000.00"),
+                "contract_status": "purchasing",
+            }
+        )
+        url = reverse("contracts-detail", kwargs={"recordcode": c.recordcode})
+        legal_path = [
+            "purchase_finished",
+            "receive_check",
+            "initial_check",
+            "project_settlement",
+            "settlement_done",
+            "final_check",
+            "project_finished",
+        ]
+        for target in legal_path:
+            response = admin_client.put(url, {"contract_status": target}, format="json")
+            assert response.status_code == status.HTTP_200_OK, target
+            c.refresh_from_db()
+            assert c.contract_status == target
+        # 7 条合法边各产生且仅产生一条状态审计
+        assert self._update_logs(c).count() == len(legal_path)
+
+        # project_finished 为终态,再流转一律拒绝且不留审计
+        response = admin_client.put(url, {"contract_status": "purchasing"}, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data["data"]["error_code"] == "INVALID_CONTRACT_TRANSITION"
+        assert self._update_logs(c).count() == len(legal_path)
+
+
+@pytest.mark.django_db
+class TestAllowedNextStatesField:
+    """【P3-04】allowed_next_states 展示字段下发口径
+
+    ContractDetailSerializer 经 FSM 单实现取合法出边;PUT/PATCH 走
+    ContractUpdateSerializer 不含该字段(前端不得依赖 update 响应刷新出边)。
+    """
+
+    @pytest.fixture
+    def client(self, api_client, auth_user):
+        api_client.force_authenticate(user=auth_user)
+        return api_client
+
+    @pytest.fixture
+    def admin_client(self, api_client, admin_auth_user):
+        api_client.force_authenticate(user=admin_auth_user)
+        return api_client
+
+    def test_retrieve_returns_single_edge(self, client, contract):
+        """非终态详情:返回唯一合法下一状态"""
+        url = reverse("contracts-detail", kwargs={"recordcode": contract.recordcode})
+        response = client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["data"]["allowed_next_states"] == ["purchase_finished"]
+
+    @pytest.mark.parametrize(
+        ("walk_to", "expected"),
+        [
+            ("purchase_finished", ["receive_check"]),
+            ("project_settlement", ["settlement_done"]),
+            ("final_check", ["project_finished"]),
+        ],
+    )
+    def test_retrieve_returns_expected_edge_per_state(self, client, db, walk_to, expected):
+        """【参数化 3 点】中途各状态详情出边与状态机表一致"""
+        c = ContractService.create_contract(
+            {
+                "contract_code": f"C-ANS-{walk_to}",
+                "contract_name": "P3-04 出边合同",
+                "contract_type": "service",
+                "contract_amount": Decimal("10000.00"),
+                "contract_status": "purchasing",
+            }
+        )
+        for target in ("purchase_finished", "receive_check", "initial_check", "project_settlement", "settlement_done", "final_check"):
+            ContractService.update_settlement_status(c.contract_code, target)
+            if target == walk_to:
+                break
+        url = reverse("contracts-detail", kwargs={"recordcode": c.recordcode})
+        response = client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["data"]["contract_status"] == walk_to
+        assert response.data["data"]["allowed_next_states"] == expected
+
+    def test_terminal_state_returns_empty_list(self, client, db):
+        """终态详情:出边为空数组(前端据此禁用下拉)"""
+        c = ContractService.create_contract(
+            {
+                "contract_code": "C-ANS-TERM",
+                "contract_name": "P3-04 终态合同",
+                "contract_type": "service",
+                "contract_amount": Decimal("10000.00"),
+                "contract_status": "purchasing",
+            }
+        )
+        for target in ("purchase_finished", "receive_check", "initial_check", "project_settlement", "settlement_done", "final_check", "project_finished"):
+            ContractService.update_settlement_status(c.contract_code, target)
+        url = reverse("contracts-detail", kwargs={"recordcode": c.recordcode})
+        response = client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["data"]["allowed_next_states"] == []
+
+    def test_settlement_endpoint_response_includes_field(self, admin_client, contract):
+        """连带下发点:update_settlement_status 响应(ContractDetailSerializer)同样携带出边"""
+        url = reverse("contracts-update-settlement-status", kwargs={"recordcode": contract.recordcode})
+        response = admin_client.post(url, {"status": "purchase_finished"}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["data"]["contract"]["allowed_next_states"] == ["receive_check"]
+
+    def test_put_response_excludes_field(self, admin_client, contract):
+        """【口径锁定】PUT 响应走 ContractUpdateSerializer,不含 allowed_next_states——前端禁止依赖 update 响应回填出边"""
+        url = reverse("contracts-detail", kwargs={"recordcode": contract.recordcode})
+        response = admin_client.put(url, {"contract_name": "改名"}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        assert "allowed_next_states" not in response.data["data"]

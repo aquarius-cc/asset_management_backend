@@ -16,6 +16,7 @@ from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
+from rest_framework.throttling import BaseThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 
@@ -69,6 +70,17 @@ class AuthUserViewSet(viewsets.ModelViewSet):  # type: ignore[type-arg]
         else:
             permission_classes = [IsSystemAdmin]  # type: ignore[list-item]
         return [permission() for permission in permission_classes]
+
+    def get_throttles(self) -> list[BaseThrottle]:
+        """P2-03: create 动作在默认限流前追加 RegisterRateThrottle。
+
+        RegisterRateThrottle 为 AnonRateThrottle 子类(scope=register):
+        仅匿名请求计数 5/min/IP,与 /auth/register/ 同口径;
+        已认证管理端建号不受影响(仍走 UserRateThrottle 100/min)。
+        """
+        if self.action == "create":
+            return [RegisterRateThrottle(), *super().get_throttles()]
+        return super().get_throttles()
 
     def get_serializer_class(self) -> type[AuthUserSerializer] | type[RegisterSerializer]:
         """根据不同的操作选择不同的序列化器"""

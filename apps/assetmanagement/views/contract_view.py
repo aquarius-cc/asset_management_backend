@@ -4,6 +4,7 @@
 
 from typing import Any
 
+from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.openapi import OpenApiParameter  # type: ignore[attr-defined]
 from drf_spectacular.types import OpenApiTypes
@@ -121,12 +122,39 @@ class ContractViewSet(
         serializer.instance = contract
 
     def perform_update(self, serializer: Any) -> None:
-        """编辑后若 settlemented_price 变更则重算金额(BF-092/I-10)
+        """编辑收口:状态变更改路由 Service,结算价变更触发重算(BF-092/I-10 + P1-01)
 
-        ContractUpdateSerializer 允许直写 settlemented_price,但 DRF 默认
-        perform_update 走 serializer.save() 不触发 _recalc_paid_amounts,
-        导致结算价变更后 amount_unpaid 滞留旧口径。
+        ContractUpdateSerializer 允许直写 contract_status,若走 DRF 默认
+        serializer.save(),则 8 态间任意跳转均被接受:不过 ContractFSM、不落
+        GenericAuditService 审计、状态变更不触发 _recalc_paid_amounts,
+        amount_unpaid 滞留旧口径(违反 B7 状态流转审计与 BF-092/I-10 约定)。
+        故检测到状态实际变更时,先落其余字段,再复用
+        ContractService.update_settlement_status(行锁 + FSM + 重算 + log_update
+        一次收齐,DR-1 禁止在 View 层写第二份流转逻辑);非法跳转由
+        AppValidationError(INVALID_CONTRACT_TRANSITION) 抛 400。
+        两次写同处一个事务,非法跳转时其余字段一并回滚,不留部分落库。
         """
+        validated_data = serializer.validated_data
+        target_status = validated_data.get("contract_status")
+        if "contract_status" not in validated_data or target_status == serializer.instance.contract_status:
+            self._save_editable_fields(serializer)
+            return
+
+        # pop 属内存预处理,置于事务之外;状态字段由 Service 定向写入
+        validated_data.pop("contract_status")
+        with transaction.atomic():
+            super().perform_update(serializer)
+            operator_jobcode, operator_name = resolve_operator(serializer.context["request"].user)
+            ContractService.update_settlement_status(
+                serializer.instance.contract_code,
+                target_status,
+                operator_jobcode=operator_jobcode,
+                operator_name=operator_name,
+            )
+            serializer.instance.refresh_from_db()
+
+    def _save_editable_fields(self, serializer: Any) -> None:
+        """纯编辑路径(不含状态变更):保存其余字段,结算价变更时补金额重算"""
         super().perform_update(serializer)
         if "settlemented_price" in serializer.validated_data:
             ContractService.recalculate_amounts_for_update(serializer.instance.contract_code)

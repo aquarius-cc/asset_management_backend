@@ -192,7 +192,8 @@ def _log_approve_audit(
         unregistered=unregistered,
         handle_type=handle_type,
         result=result,
-        operator_jobcode=approver_employee,
+        # [P2-01 修复] 传工号字符串而非 Employee 实例(实例经 str() 会把姓名写进工号字段)
+        operator_jobcode=(approver_employee.employee_jobcode if approver_employee else None),
         operator_name=operator_name,
     )
 

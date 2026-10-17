@@ -60,12 +60,17 @@ def coerce_excel_value(value: Any) -> Any:
 
 
 def resolve_cell_value(obj: Any, col_config: Mapping[str, Any]) -> Any:
-    """按列配置取值，并应用 ``display_map`` 映射；空值统一为 ``""``。"""
+    """按列配置取值，并应用 ``display_map`` 映射；仅 ``None`` 落为 ``""``。
+
+    ``0``/``False`` 是合法单元格值必须原样保留（P3-01：修复 ``or ""``
+    把数值 0 与布尔 False 吞成空串的缺陷）。
+    """
     value = get_nested_value(obj, col_config["field"])
     display_map = col_config.get("display_map")
     if display_map and value in display_map:
         value = display_map[value]
-    return coerce_excel_value(value) or ""
+    value = coerce_excel_value(value)
+    return "" if value is None else value
 
 
 def _iter_rows(rows: Any, iter_chunk_size: int) -> Iterator[Any]:

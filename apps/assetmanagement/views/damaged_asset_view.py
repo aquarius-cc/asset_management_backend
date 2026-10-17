@@ -94,6 +94,17 @@ class DamagedAssetViewSet(  # type: ignore[misc]
         # RBAC 行级数据隔离(所有动作统一限权)
         return DamagedAssetSelector.get_queryset_for_user(self.request.user).with_asset_details()  # type: ignore[attr-defined]
 
+    def get_export_queryset(self) -> Any:
+        """P2-04: 导出恒为待审批行,与页面语义对齐。
+
+        页面 getList(DamagedAssetDetails.vue:189)与 performSearch(:251)
+        均强制 approval_status='pending',且无审批状态筛选 UI;
+        ExportExcelMixin 默认不吃 filterset,若沿用 get_queryset() 会把
+        approved/rejected 行泄进「待报废」导出文件。故写死 pending。
+        将来若页面加审批状态筛选,再升级为读取 query_params。
+        """
+        return self.get_queryset().filter(approval_status="pending")
+
     def destroy(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         obj = self.get_object()
         asset_recordcode = obj.asset_recordcode.recordcode if obj.asset_recordcode else None

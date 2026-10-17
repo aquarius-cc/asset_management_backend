@@ -9,6 +9,7 @@ from django.urls import path
 from core.audit_log_views import (
     AuditLogByLoggingIdView,
     AuditLogDetailView,
+    AuditLogExportView,
     AuditLogListView,
     AuditLogsByAppLabelView,
     AuditLogsByOperatorView,
@@ -18,6 +19,8 @@ from core.audit_log_views import (
 
 urlpatterns = [
     path("audit-logs/", AuditLogListView.as_view(), name="audit-log-list"),
+    # export 须在 <int:pk> 之前注册,避免 "export" 被当作 pk 解析(DRF/Django 按序匹配)
+    path("audit-logs/export/", AuditLogExportView.as_view(), name="audit-log-export"),
     path("audit-logs/<int:pk>/", AuditLogDetailView.as_view(), name="audit-log-detail"),
     path(
         "audit-logs/by-logging-id/<str:logging_id>/", AuditLogByLoggingIdView.as_view(), name="audit-log-by-logging-id"

@@ -36,7 +36,7 @@ class CustomPageNumberPagination(PageNumberPagination):
     page_query_param = "page"  # 页码参数名(默认即为'page',显式声明更清晰)
     # last_page_strings = ('last',)  # 最后一页参数名(默认即为'last',显式声明更清晰)
 
-    def paginate_queryset(self, queryset: Any, request: Any, view: Any = None) -> object | None:  # type: ignore[override]
+    def paginate_queryset(self, queryset: Any, request: Any, view: Any = None) -> list[Any] | None:
         """
         根据请求参数决定是否分页
 

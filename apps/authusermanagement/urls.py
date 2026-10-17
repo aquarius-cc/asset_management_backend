@@ -20,7 +20,10 @@ from apps.authusermanagement.views import (
 
 
 router = DefaultRouter()
-# 【修复】仅注册 list/retrieve/update/delete 操作,create 使用独立的 RegisterAPIView
+# DefaultRouter 注册全部 ModelViewSet 动作。create 为自助注册路径(AllowAny +
+# RegisterSerializer 过滤敏感字段 + RegisterRateThrottle 5/min,与 /auth/register/
+# 同口径);管理端建用户走同一端点(前端 AuthUserManage -> POST /auth/users/)。
+# P2-03 修复前本注释误称「仅注册 list/retrieve/update/delete」,与实现不符。
 router.register("users", AuthUserViewSet, basename="users")
 
 urlpatterns: list[URLResolver | URLPattern] = [

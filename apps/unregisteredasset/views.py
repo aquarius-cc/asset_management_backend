@@ -44,6 +44,7 @@ from apps.unregisteredasset.serializers import (
 from apps.unregisteredasset.services import UnregisteredAssetService
 from core.batch_mixins import BatchDeleteViewMixin, BatchResponseHelper
 from core.constants import MAX_BATCH_SIZE
+from core.excel_export import ExportExcelMixin
 from core.mixins import LoggingMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
 from core.permissions import (
@@ -74,7 +75,7 @@ _ACTION_PERMISSION_OVERRIDES: dict[str, type[BasePermission]] = {
 
 
 class UnregisteredAssetViewSet(  # type: ignore[misc]
-    BatchDeleteViewMixin, LoggingMixin, ResponseWrapperMixin, ModelViewSet[UnregisteredAsset]
+    ExportExcelMixin, BatchDeleteViewMixin, LoggingMixin, ResponseWrapperMixin, ModelViewSet[UnregisteredAsset]
 ):
     """
     未登记资产视图集
@@ -100,6 +101,25 @@ class UnregisteredAssetViewSet(  # type: ignore[misc]
     queryset = UnregisteredAsset.objects.all()
     serializer_class = UnregisteredAssetListSerializer
     pagination_class = CustomPageNumberPagination
+    # P2-04: 挂 ExportExcelMixin,导出经 resolve_viewset_permissions -> CanExportExcel
+    export_columns = [
+        {"header": "未登记编码", "field": "unregistered_code"},
+        {"header": "场景类型", "field": "scenario_type", "display_map": dict(UnregisteredAsset.ScenarioType.choices)},
+        {"header": "资产名称", "field": "asset_name"},
+        {"header": "品牌", "field": "asset_brand"},
+        {"header": "规格型号", "field": "asset_specification"},
+        {"header": "发现日期", "field": "discovery_date"},
+        {"header": "发现地点", "field": "discovery_location"},
+        {"header": "发现人工号", "field": "discovery_person__employee_jobcode"},
+        {"header": "发现人姓名", "field": "discovery_person__employee_name"},
+        {
+            "header": "审批状态",
+            "field": "approval_status",
+            "display_map": dict(UnregisteredAsset.ApprovalStatus.choices),
+        },
+    ]
+    export_filename = "unregistered_assets_export.xlsx"
+    export_sheet_name = "未登记资产"
     # 角色门禁按 4.5 矩阵经 get_permissions 分发;此处仅保留认证兜底默认值
     permission_classes = [IsAuthenticated]
 

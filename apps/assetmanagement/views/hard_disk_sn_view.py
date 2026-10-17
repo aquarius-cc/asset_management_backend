@@ -17,6 +17,7 @@ from apps.assetmanagement.serializers import (
     HardDiskSNSerializer,
 )
 from apps.assetmanagement.services import HardDiskSNService
+from core.excel_export import ExportExcelMixin
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.permissions import IsAssetAdminOrAbove, resolve_viewset_permissions
 from utils.response_utils import error_response, success_response
@@ -28,6 +29,7 @@ from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
 class HardDiskSNViewSet(  # type: ignore[misc]
     RecordcodeLookupMixin,
     AdminWritePermissionMixin,
+    ExportExcelMixin,
     PaginateAndRespondMixin,
     LoggingMixin,
     ResponseWrapperMixin,
@@ -35,6 +37,18 @@ class HardDiskSNViewSet(  # type: ignore[misc]
 ):
     queryset = HardDiskSN.objects.select_related("asset_recordcode").all()
     serializer_class = HardDiskSNSerializer
+    # P2-04: 挂 ExportExcelMixin,导出经 resolve_viewset_permissions -> CanExportExcel
+    export_columns = [
+        {"header": "资产编码", "field": "asset_recordcode__asset_code"},
+        {"header": "资产名称", "field": "asset_recordcode__asset_name"},
+        {"header": "硬盘序列号", "field": "harddisk_sn_code"},
+        {"header": "硬盘类型", "field": "harddisk_type", "display_map": dict(HardDiskSN.HarddiskType.choices)},
+        {"header": "硬盘容量", "field": "harddisk_capacity"},
+        {"header": "硬盘状态", "field": "harddisk_status", "display_map": dict(HardDiskSN.HarddiskStatus.choices)},
+        {"header": "硬盘描述", "field": "harddisk_description"},
+    ]
+    export_filename = "harddisk_sn_export.xlsx"
+    export_sheet_name = "硬盘序列号"
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ["harddisk_status", "harddisk_type", "asset_recordcode"]
     search_fields = ["harddisk_sn_code", "harddisk_description"]

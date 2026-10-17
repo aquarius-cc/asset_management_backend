@@ -11,16 +11,28 @@
 3. 查询逻辑委托给 AuditLogQueryService,View 仅负责参数解析和响应格式化
 """
 
-from datetime import datetime, timedelta
 from typing import Any
 
-from django.utils import timezone
+from django.http import HttpResponseBase
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema  # type: ignore[attr-defined]
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from core.audit_log_filters import (
+    AUDIT_OPERATION_TYPE_DISPLAY_MAP,
+    InvalidAuditLogFilters,
+    parse_audit_log_filters,
+)
 from core.audit_query_service import AuditLogQueryService
+from core.excel_export import (
+    EXPORT_PAGINATION_PARAMETERS,
+    XLSX_EXPORT_RESPONSES,
+    ExportPaginationError,
+    ExportTooLargeError,
+    build_excel_export_response,
+    resolve_max_rows,
+)
 from core.mixins import ResponseWrapperMixin
 from core.models_audit import AuditLog
 from core.pagination import CustomPageNumberPagination
@@ -141,53 +153,13 @@ class AuditLogListView(ResponseWrapperMixin, APIView):
     )
     def get(self, request: Any) -> Response:
         """获取审计日志列表"""
-        app_label = request.query_params.get("app_label")
-        operation_type = request.query_params.get("operation_type")
-        operator_jobcode = request.query_params.get("operator_jobcode")
-        record_code = request.query_params.get("record_code")
-        start_date = request.query_params.get("start_date")
-        end_date = request.query_params.get("end_date")
-        days = request.query_params.get("days")
-
-        # 参数校验:操作类型合法性
-        if operation_type:
-            valid_types = [choice[0] for choice in AuditLog.OPERATION_TYPE_CHOICES]
-            if operation_type not in valid_types:
-                return error_response(message=f"无效的操作类型: {operation_type}. 必须是以下之一: {valid_types}")
-
-        # 参数校验与转换:时间条件
-        start_time = None
-        end_time = None
-
-        if days:
-            try:
-                days_int = int(days)
-                start_time = timezone.now() - timedelta(days=days_int)
-            except ValueError:
-                return error_response(message="days 参数必须是整数")
-        else:
-            if start_date:
-                try:
-                    start_time = timezone.make_aware(datetime.strptime(start_date, "%Y-%m-%d"))
-                except ValueError:
-                    return error_response(message="start_date 格式错误,应为 YYYY-MM-DD")
-
-            if end_date:
-                try:
-                    end_time = timezone.make_aware(datetime.strptime(end_date, "%Y-%m-%d"))
-                    end_time = end_time.replace(hour=23, minute=59, second=59)
-                except ValueError:
-                    return error_response(message="end_date 格式错误,应为 YYYY-MM-DD")
+        try:
+            filters = parse_audit_log_filters(request.query_params)
+        except InvalidAuditLogFilters as exc:
+            return error_response(message=str(exc))
 
         # 【AGENTS 规范 - P1-09】调用 Service 层执行查询
-        logs = AuditLogQueryService.query_logs(
-            app_label=app_label,
-            operation_type=operation_type,
-            operator_jobcode=operator_jobcode,
-            record_code=record_code,
-            start_time=start_time,
-            end_time=end_time,
-        )
+        logs = AuditLogQueryService.query_logs(**filters.as_service_kwargs())
 
         paginator = CustomPageNumberPagination()
         page = paginator.paginate_queryset(logs, request)
@@ -198,6 +170,80 @@ class AuditLogListView(ResponseWrapperMixin, APIView):
 
         serializer = AuditLogSerializer(logs, many=True)
         return success_response(data=serializer.data)
+
+
+class AuditLogExportView(ResponseWrapperMixin, APIView):
+    """通用审计日志导出 API（服务端流式 xlsx，P2-04）。
+
+    【安全 - 可见范围】导出与列表共用 ``AuditLogQueryService.query_logs``
+    及同一套 ``parse_audit_log_filters``，因此导出可见范围恒等于列表可见
+    范围（IsAuditorOrAdmin 全量只读），不会因新增端点而放大。
+
+    【分批导出】缺省 ``limit``/``offset`` 时为全量导出，受服务端
+    ``EXPORT_MAX_ROWS`` 兜底保护；调用方可显式传参分批拉取。
+    """
+
+    permission_classes = [IsAuditorOrAdmin]
+
+    export_columns: list[dict[str, Any]] = [
+        {"header": "记录编码", "field": "record_code"},
+        {"header": "应用标识", "field": "app_label"},
+        {"header": "操作类型", "field": "operation_type", "display_map": AUDIT_OPERATION_TYPE_DISPLAY_MAP},
+        {"header": "操作时间", "field": "operation_time"},
+        {"header": "操作人工号", "field": "operator_jobcode"},
+        {"header": "操作人姓名", "field": "operator_name"},
+        {"header": "操作描述", "field": "description"},
+        {"header": "IP地址", "field": "ip_address"},
+    ]
+    export_filename = "audit_logs.xlsx"
+    export_sheet_name = "审计日志"
+
+    @extend_schema(
+        summary="导出通用审计日志",
+        description=(
+            "按与列表接口相同的过滤条件导出审计日志 Excel。"
+            f"单次最多导出 {resolve_max_rows()} 条；"
+            "超出请缩小筛选范围，或使用 limit/offset 分批导出。"
+        ),
+        parameters=[
+            OpenApiParameter(
+                name=name,
+                type=param_type,
+                location=OpenApiParameter.QUERY,
+                description=description,
+                required=False,
+            )
+            for name, param_type, description in (
+                ("app_label", OpenApiTypes.STR, "应用标识(department / employee / authuser)"),
+                ("operation_type", OpenApiTypes.STR, "操作类型"),
+                ("operator_jobcode", OpenApiTypes.STR, "操作人工号"),
+                ("record_code", OpenApiTypes.STR, "被操作记录编码(精确匹配)"),
+                ("start_date", OpenApiTypes.STR, "开始日期(YYYY-MM-DD)"),
+                ("end_date", OpenApiTypes.STR, "结束日期(YYYY-MM-DD)"),
+                ("days", OpenApiTypes.INT, "最近N天(与日期范围互斥)"),
+            )
+        ]
+        + EXPORT_PAGINATION_PARAMETERS,
+        responses=XLSX_EXPORT_RESPONSES,
+    )
+    def get(self, request: Any) -> HttpResponseBase:
+        """导出审计日志为 Excel"""
+        try:
+            filters = parse_audit_log_filters(request.query_params)
+        except InvalidAuditLogFilters as exc:
+            return error_response(message=str(exc), status_code=status.HTTP_400_BAD_REQUEST)
+
+        rows = AuditLogQueryService.query_logs_queryset(**filters.as_service_kwargs())
+        try:
+            return build_excel_export_response(
+                rows=rows,
+                columns=self.export_columns,
+                filename=self.export_filename,
+                sheet_name=self.export_sheet_name,
+                params=request.query_params,
+            )
+        except (ExportPaginationError, ExportTooLargeError) as exc:
+            return error_response(message=exc.message, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class AuditLogDetailView(ResponseWrapperMixin, APIView):

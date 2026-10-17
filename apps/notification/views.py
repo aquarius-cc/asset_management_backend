@@ -14,44 +14,50 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from apps.notification.models import Notification
+from apps.notification.selectors import NotificationSelector
+from core.pagination import CustomPageNumberPagination
 from utils.response_utils import error_response, success_response
+
+
+def _serialize_notification(notification: Notification) -> dict[str, object]:
+    """通知记录 → API 字段映射(分页与兜底分支共用, DR-1)"""
+    return {
+        "id": notification.id,
+        "type": notification.notification_type,
+        "title": notification.title,
+        "message": notification.message,
+        "priority": notification.priority,
+        "is_read": notification.is_read,
+        "related_asset_code": notification.related_asset_code,
+        "related_url": notification.related_url,
+        "created_at": notification.created_at.isoformat(),
+    }
 
 
 @api_view(["GET"])
 @permission_classes([permissions.IsAuthenticated])
 def notification_list(request: Request) -> Response:
-    """获取当前用户的通知列表"""
+    """获取当前用户通知列表(分页信封, P1-02 重构)"""
     jobcode = request.user.auth_username  # type: ignore[union-attr]
-    is_read = request.query_params.get("is_read")
-    # M-1: 对齐 dashboard_view 先例（try/except + min 上限），另补 max 下限防负切片
-    try:
-        limit = min(int(request.query_params.get("limit", 20) or 20), 100)
-    except (ValueError, TypeError):
-        limit = 20
-    limit = max(limit, 1)
+    queryset = NotificationSelector.list_for_user(
+        jobcode,
+        is_read=request.query_params.get("is_read"),
+        notification_type=request.query_params.get("notification_type"),
+        priority=request.query_params.get("priority"),
+        keyword=request.query_params.get("keyword"),
+    )
 
-    queryset = Notification.objects.filter(recipient_jobcode=jobcode)
+    # 统一分页格式: data 为 {count,total_pages,page,page_size,next,previous,results}
+    # (内部已含 success_response 单层信封, 禁止二次包装)
+    paginator = CustomPageNumberPagination()
+    page = paginator.paginate_queryset(queryset, request)
 
-    if is_read is not None:
-        queryset = queryset.filter(is_read=is_read.lower() == "true")
+    if page is not None:
+        data = [_serialize_notification(notification) for notification in page]
+        return paginator.get_paginated_response(data)  # type: ignore[no-any-return]
 
-    notifications = queryset[:limit]
-
-    data = [
-        {
-            "id": n.id,
-            "type": n.notification_type,
-            "title": n.title,
-            "message": n.message,
-            "priority": n.priority,
-            "is_read": n.is_read,
-            "related_asset_code": n.related_asset_code,
-            "related_url": n.related_url,
-            "created_at": n.created_at.isoformat(),
-        }
-        for n in notifications
-    ]
-
+    # CustomPageNumberPagination 强制分页, 此分支恒不可达(与 operation_log_views 同构兜底)
+    data = [_serialize_notification(notification) for notification in queryset]
     return success_response(data=data)
 
 

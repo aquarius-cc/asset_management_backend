@@ -165,6 +165,32 @@ def test_write_export_workbook_header_counts_toward_width(tmp_path):
     assert widths == {1: 8, 2: 4}
 
 
+def test_write_export_workbook_preserves_zero_and_false(tmp_path):
+    """【P3-01】0 数值与 False 布尔是合法单元格值,不得被 ``or ""`` 吞成空串"""
+    columns = [
+        {"header": "数量", "field": "qty"},
+        {"header": "启用", "field": "enabled"},
+        {"header": "名称", "field": "name"},
+    ]
+    rows = [SimpleNamespace(qty=0, enabled=False, name="")]
+    write_export_workbook(target_path=tmp_path / "zero.xlsx", rows=rows, columns=columns, sheet_name="s")
+    sheet = load_workbook(tmp_path / "zero.xlsx")["s"]
+    cells = [cell.value for cell in sheet[2]]
+    assert cells[0] == 0
+    assert cells[1] is False
+    # openpyxl 将空串落盘为空单元格,回读为 None(仅断言非 0/False 即可,空串不回退为假值)
+    assert cells[2] in (None, "")
+
+
+def test_write_export_workbook_zero_width_still_calculated(tmp_path):
+    """【P3-01】0 值列宽按 str(0)=1 计(空串为 0),列宽口径同步不回退"""
+    columns = [{"header": "数量", "field": "qty"}]
+    rows = [SimpleNamespace(qty=0)]
+    widths = write_export_workbook(target_path=tmp_path / "z.xlsx", rows=rows, columns=columns, sheet_name="s")
+    # 表头"数量"=4 宽 > "0"=1 宽 -> 取 4
+    assert widths == {1: 4}
+
+
 # --------------------------------------------------------------------------
 # streaming
 # --------------------------------------------------------------------------

@@ -46,7 +46,15 @@ types-channels==4.3.0.20260518
 # types-Pillow
 
 # 代码规范
-# ruff
+# 【钉版 2026-10-17，BF-103】ruff==0.17.1 为 CI 权威版本（ci.yml backend-lint/C90
+# 均改 `pip install -r requirements/dev.txt` 强制安装本清单，禁止裸装最新）。
+# 背景：ci.yml 曾裸装 ruff 致本地 0.15.20 / CI 0.17.1 漂移，ruff format --check
+# 本地漏报而 CI 红（ce0a918 案，BF-102）——本地与 CI 必须同版才能对账。
+# 升级节奏（常设指令）：按需（要新规则/修 bug）或至多月度，**升级=单独可审计提交**；
+# 提交前须本地 `python -m ruff check .` + `python -m ruff format --check .` 双绿，
+# 并在活账本落账（格式化输出随版本变化，防 format churn 红灯）。
+# 暂不配 dependabot 周更机器人（决策与启用触发条件见 BF-103）。
+ruff==0.17.1
 # flake8
 
 # ==================== 安装命令 ====================

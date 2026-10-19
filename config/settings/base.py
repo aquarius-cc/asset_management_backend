@@ -350,6 +350,12 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "资产管理系统接口文档(支持 JWT 认证、资产/合同/仓库等模块)",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    # 【BF-109 / AUD-10】三文档端点(/schema/ /swagger/ /redoc/)收紧为需登录:
+    # drf-spectacular 默认 SERVE_PERMISSIONS=AllowAny → 匿名可读全部端点结构(攻击面测绘)。
+    # 未设 SERVE_AUTHENTICATION 时回落 DEFAULT_AUTHENTICATION_CLASSES(JWTCookieAuthentication),
+    # 匿名请求带 Authorization: Bearer 头 → 挑战头非空 → DRF handle_exception 保持 401(非 403)。
+    # 单环境口径(与 persistAuthorization 同);schema 基线不含此三路径,重导不产生 diff。
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAuthenticated"],
     # 【BF-051】原此处有 "SECURITY_SCHEMES" 配置块，已删除：drf-spectacular 0.29
     # **没有 SECURITY_SCHEMES 这个设置项**，未知键被静默忽略，导致
     # components.securitySchemes 整体缺失、而下方 "SECURITY" 注入的 BearerAuth

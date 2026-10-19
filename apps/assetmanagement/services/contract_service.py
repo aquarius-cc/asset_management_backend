@@ -141,6 +141,11 @@ class ContractService:
         """
         创建单个合同
 
+        创建期状态语义【BF-107 / AUD-04 方案②】: 创建(含批量导入)允许指定 8 个合法状态——
+        合同批量导入工作流需回填历史状态——但状态取值须经单闸校验, 且创建即记状态审计。
+        创建后的状态流转只走 ContractFSM.transition(与更新侧收口一致), 终态合同
+        (project_finished 出边为空)须可经创建审计追溯来源。
+
         Args:
             contract_data: 合同数据字典
             operator_jobcode: 操作人工号
@@ -150,12 +155,19 @@ class ContractService:
             Contract: 创建成功的合同实例
 
         Raises:
-            AppValidationError: 合同编码已存在时抛出
+            AppValidationError: 合同编码已存在或合同状态非法时抛出
         """
         contract_code = contract_data.get("contract_code")
 
         if ContractSelector.exists_by_code(contract_code):  # type: ignore[arg-type]
             raise AppValidationError(detail=f"合同 {contract_code} 已存在", error_code="DUPLICATE_CONTRACT_CODE")
+
+        # 【BF-107 / AUD-04】创建期状态单闸: 与 update_settlement_status 同款校验(DR-1)。
+        # 缺省键(序列化器不注入模型默认)按 None 放行, 由模型 default=purchasing 落库;
+        # 显式键须 ∈ 8 态, 拦截绕过序列化器的直调(批量/服务层调用方)。
+        contract_status = contract_data.get("contract_status")
+        if contract_status is not None and contract_status not in dict(Contract.CONTRACT_STATUS_CHOICES):
+            raise AppValidationError(detail=f"无效的合同状态: {contract_status}", error_code="INVALID_CONTRACT_STATUS")
 
         # 【BF-055 / 决策 2a】amount_paid 在创建入口的语义是「期初已付金额」输入,
         # 而非反规范化字段的直接赋值。此处弹出后规范化为一条 approved 期初付款记录,
@@ -180,6 +192,8 @@ class ContractService:
                 "contract_code": contract.contract_code,
                 "contract_name": contract.contract_name,
                 "contract_type": contract.contract_type,
+                # 【BF-107】创建期状态入审计: 终态创建的合同 allowed_next_states=[] 须可追溯
+                "contract_status": contract.contract_status,
             },
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,

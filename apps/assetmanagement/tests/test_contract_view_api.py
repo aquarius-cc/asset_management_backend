@@ -361,6 +361,77 @@ class TestContractAuditLogOperator:
 
 
 @pytest.mark.django_db
+class TestCreateContractStatusGateHTTP:
+    """【BF-107 / AUD-04】创建期状态收口 HTTP 层: 合法终态放行 + 状态入创建审计 + 非法态 400"""
+
+    def test_create_terminal_status_accepted_and_audited(self, admin_authenticated_client):
+        """方案②: 创建允许终态(导入回填历史状态),但须落状态审计"""
+        url = reverse("contracts-list")
+        data = {
+            "contract_code": "C-BF107",
+            "contract_name": "BF-107 终态合同",
+            "contract_amount": 1000.00,
+            "contract_status": "project_finished",
+            "contract_type": "service",
+            "contract_start_date": "2024-04-01",
+            "contract_end_date": "2025-04-01",
+        }
+        response = admin_authenticated_client.post(url, data, format="json")
+        assert response.status_code == status.HTTP_201_CREATED
+        log = AuditLog.objects.filter(
+            record_code="C-BF107",
+            operation_type="create",
+            app_label="contract",
+        ).first()
+        assert log is not None
+        assert log.after_data is not None
+        assert log.after_data["contract_status"] == "project_finished"
+
+    def test_create_invalid_status_rejected(self, admin_authenticated_client):
+        """非法状态由序列化器 ChoiceField 拦截为 400"""
+        url = reverse("contracts-list")
+        data = {
+            "contract_code": "C-BF107X",
+            "contract_name": "BF-107 非法状态",
+            "contract_amount": 1000.00,
+            "contract_status": "bogus",
+            "contract_type": "service",
+            "contract_start_date": "2024-04-01",
+            "contract_end_date": "2025-04-01",
+        }
+        response = admin_authenticated_client.post(url, data, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_batch_create_terminal_status_shared_path(self, admin_authenticated_client):
+        """批量端点共享 create_contract 路径,终态经闸并记审计"""
+        url = reverse("contracts-batch-create")
+        data = {
+            "items": [
+                {
+                    "contract_code": "BATCH-BF107",
+                    "contract_name": "BF-107 批量终态",
+                    "contract_amount": 30000.00,
+                    "contract_status": "project_finished",
+                    "contract_type": "service",
+                    "contract_start_date": "2024-04-01",
+                    "contract_end_date": "2025-04-01",
+                },
+            ]
+        }
+        response = admin_authenticated_client.post(url, data, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["data"]["success_count"] == 1
+        log = AuditLog.objects.filter(
+            record_code="BATCH-BF107",
+            operation_type="create",
+            app_label="contract",
+        ).first()
+        assert log is not None
+        assert log.after_data is not None
+        assert log.after_data["contract_status"] == "project_finished"
+
+
+@pytest.mark.django_db
 class TestPutContractStatusRouting:
     """【P1-01】PUT/PATCH 携带 contract_status 必须改路由 ContractService.update_settlement_status
 

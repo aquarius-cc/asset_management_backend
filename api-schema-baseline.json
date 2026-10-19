@@ -893,7 +893,7 @@
         "/api/v1/assets/assets/{recordcode}/change_status/": {
             "post": {
                 "operationId": "v1_assets_assets_change_status_create",
-                "description": "[已废弃] UI 已切换至专用状态接口(出库/回收/送修/报废等), 此端点仅供系统管理员数据修复使用. 注意: 仅执行状态机合法边转换并记录审计, 不创建任何业务单据, 变更后须人工补录对应单据.",
+                "description": "[已废弃] UI 已切换至专用状态接口(出库/回收/送修/报废等), 此端点仅供系统管理员数据修复使用, description 必填(数据修复须填写变更原因, 记入操作日志). 副作用【BF-108 / AUD-05】: 仅执行状态机合法边转换并记录审计, 不创建 BrokenAsset/LostAsset/DamagedAsset/RepairAsset 子记录, 也不写 DamagedAsset.original_status(权威写点在报废服务), 变更后须人工补录对应单据; 直调 FSM 私有转换可产出业务不可达态(如 damaged→in_use, 与报废回退假设'scrapping.py 声明该入边业务不可达'矛盾). 正式改态一律走各业务端点(出库/回收/送修/报废审批), 本端点仅限数据修复.",
                 "parameters": [
                     {
                         "in": "path",
@@ -14287,10 +14287,12 @@
                     },
                     "description": {
                         "type": "string",
-                        "description": "变更说明（默认空串）"
+                        "minLength": 1,
+                        "description": "变更说明（必填，数据修复须填写变更原因）"
                     }
                 },
                 "required": [
+                    "description",
                     "status"
                 ]
             },

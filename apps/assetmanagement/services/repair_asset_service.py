@@ -98,6 +98,19 @@ class RepairAssetService:
         return from_state
 
     @staticmethod
+    def _ensure_repairing(asset: Asset, target_state: Asset.AssetStatus) -> None:
+        """完成/失败共同前置: 资产必须处于 repairing,否则 400(INVALID_STATE_TRANSITION)拦截
+
+        仅靠 FSM 表校验不足: 部分源状态到目标态存在合法边(如 damaged→recycled_pending),
+        会静默错转;前置断言拦下后 FSM 调用异常不可达。
+        """
+        if asset.asset_current_status != Asset.AssetStatus.REPAIRING:
+            raise AppValidationError(
+                detail=f"状态转换不合法: {asset.asset_current_status} → {target_state.value}",
+                error_code="INVALID_STATE_TRANSITION",
+            )
+
+    @staticmethod
     def _log_repair_audit(
         asset: Asset,
         operator_jobcode: str,
@@ -219,6 +232,9 @@ class RepairAssetService:
                 error_code="INVALID_PHYSICAL_GRADE",
             )
 
+        # 完成维修前置: 拦下非 repairing 资产,详见 _ensure_repairing
+        RepairAssetService._ensure_repairing(asset, Asset.AssetStatus.RECYCLED_PENDING)
+
         from_state = asset.asset_current_status
         AssetFSM.repair_done(asset)
         if physical_grade_after:
@@ -262,6 +278,9 @@ class RepairAssetService:
         ).first()
         if not repair_record:
             raise AppValidationError(detail="该资产没有进行中的维修记录", error_code="NO_IN_PROGRESS_REPAIR")
+
+        # 维修失败前置: 拦下非 repairing 资产,详见 _ensure_repairing
+        RepairAssetService._ensure_repairing(asset, Asset.AssetStatus.DAMAGED)
 
         from_state = asset.asset_current_status
         AssetFSM.repair_failed(asset)

@@ -280,6 +280,50 @@ class TestAssetViewSet:
         resp = api_client.post(url, {"status": "in_use", "description": "越权尝试"}, format="json")
         assert resp.status_code == status.HTTP_403_FORBIDDEN
 
+    def test_change_status_empty_description_rejected(self, admin_authenticated_client, asset):
+        """【BF-108 / AUD-05】数据修复必填 description: 缺失或空串 → 400"""
+        url = reverse("assets-change-status", kwargs={"recordcode": asset.recordcode})
+        response = admin_authenticated_client.post(url, {"status": "in_use"}, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_change_status_blank_description_rejected(self, admin_authenticated_client, asset):
+        """【BF-108 / AUD-05】纯空格视为空(校验前 strip), → 400"""
+        url = reverse("assets-change-status", kwargs={"recordcode": asset.recordcode})
+        response = admin_authenticated_client.post(url, {"status": "in_use", "description": "   "}, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_change_status_reason_recorded_in_operation_log(self, admin_authenticated_client, asset):
+        """【BF-108】description 透传至操作日志: 尾部子句含所填原因"""
+        url = reverse("assets-change-status", kwargs={"recordcode": asset.recordcode})
+        response = admin_authenticated_client.post(
+            url, {"status": "broken", "description": "BF-108 数据修复补录"}, format="json"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        log = (
+            AssetOperationLog.objects.filter(asset_code=asset.asset_code, operation_type="state_change")
+            .order_by("-operation_time")
+            .first()
+        )
+        assert log is not None
+        assert log.description.endswith("原因: BF-108 数据修复补录")
+        assert "触发: manual_change" in log.description
+
+    def test_change_status_damaged_to_in_use_no_child_record(self, admin_authenticated_client, damaged_asset, asset):
+        """【AUD-05 副作用文档锚】damaged→in_use 业务不可达态: 200 但不建/不改子记录"""
+        from apps.assetmanagement.models import DamagedAsset
+
+        assert DamagedAsset.objects.filter(asset_recordcode=asset).count() == 1
+        original_status = DamagedAsset.objects.get(asset_recordcode=asset).original_status
+        url = reverse("assets-change-status", kwargs={"recordcode": asset.recordcode})
+        response = admin_authenticated_client.post(
+            url, {"status": "in_use", "description": "BF-108 修复不可达态样本"}, format="json"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        asset.refresh_from_db()
+        assert asset.asset_current_status == "in_use"
+        assert DamagedAsset.objects.filter(asset_recordcode=asset).count() == 1
+        assert DamagedAsset.objects.get(asset_recordcode=asset).original_status == original_status
+
     def test_change_outasset_employee(self, admin_authenticated_client, asset, employee):
         url = reverse("assets-change-outasset-employee", kwargs={"recordcode": asset.recordcode})
         # jobcode→recordcode 映射: 传 Employee.employee_jobcode, 落库 FK 应为 Employee 实例

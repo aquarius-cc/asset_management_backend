@@ -326,6 +326,20 @@ class TestUnregisteredAssetService:
         existing_asset.refresh_from_db()
         assert existing_asset.asset_current_status == "recycled_pending"
 
+    def test_approve_s2_scrapped_asset_raises_mapped_error(self, unregistered_asset_s2, admin_employee, existing_asset):
+        """S2 关联资产已报废(scrapped 终态): INVALID_STATE_TRANSITION(400 而非 500, AUD-02)"""
+        existing_asset.asset_current_status = "scrapped"
+        existing_asset.save(update_fields=["asset_current_status"])
+
+        with pytest.raises(AppValidationError) as exc_info:
+            UnregisteredAssetService.approve_and_handle(
+                unregistered_code=unregistered_asset_s2.unregistered_code,
+                handle_type="supplement_and_recycle",
+                approver=admin_employee.employee_jobcode,
+            )
+
+        assert exc_info.value.error_code == "INVALID_STATE_TRANSITION"
+
     def test_approve_reject(self, unregistered_asset_s1, admin_employee):
         """
         测试审批拒绝

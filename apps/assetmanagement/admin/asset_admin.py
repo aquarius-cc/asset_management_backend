@@ -73,7 +73,8 @@ class ContractAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
     ]
     search_fields = ["contract_code", "contract_name", "supplier_name"]
     list_filter = ["contract_status", "created_at"]
-    readonly_fields = ["recordcode", "created_at", "updated_at"]
+    # 状态变更所有权归 ContractFSM(service 层),后台禁止直改绕过流转校验与审计
+    readonly_fields = ["recordcode", "contract_status", "created_at", "updated_at"]
 
 
 # ======================================================================
@@ -92,7 +93,8 @@ class AssetAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
     ]
     search_fields = ["asset_code", "asset_name", "asset_brand"]
     list_filter = ["asset_current_status", "physical_grade", "usage_type"]
-    readonly_fields = ["recordcode", "asset_code", "created_at", "updated_at"]
+    # 状态变更所有权归 AssetFSM(service 层),后台禁止直改绕过流转校验与审计日志
+    readonly_fields = ["recordcode", "asset_code", "asset_current_status", "created_at", "updated_at"]
     fieldsets = (
         (
             "Basic Info",

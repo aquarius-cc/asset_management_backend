@@ -170,15 +170,23 @@ class AuditLogger:
         operator_jobcode: str | None = None,
         operator_name: str | None = None,
         ip_address: str | None = None,
+        description: str = "",
     ) -> bool:
-        """记录状态变更日志"""
+        """记录状态变更日志
+
+        description: 【BF-108】变更原因(数据修复场景必填), 非空时追加为尾部子句;
+        为空时描述逐字节保持原格式, 既有 exact 断言与 contains 断言均不受影响。
+        """
+        detail = f"状态从 {from_state} 变更为 {to_state} (触发: {trigger})"
+        if description:
+            detail = f"{detail} 原因: {description}"
         return AuditLogger._safe_log(
             OperationLogService.log_operation,
             asset_code=asset.asset_code,
             asset_name=asset.asset_name,
             asset_specification=asset.asset_specification,
             operation_type=AssetOperationLog.OperationType.STATE_CHANGE,
-            description=f"状态从 {from_state} 变更为 {to_state} (触发: {trigger})",
+            description=detail,
             before_data={"asset_current_status": from_state},
             after_data={"asset_current_status": to_state},
             operator_jobcode=operator_jobcode,

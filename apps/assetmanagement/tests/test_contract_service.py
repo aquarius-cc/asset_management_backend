@@ -9,6 +9,7 @@ from django.utils import timezone
 from apps.assetmanagement.models import Contract
 from apps.assetmanagement.services.contract_service import ContractService
 from core.exceptions import AppValidationError
+from core.models_audit import AuditLog
 
 
 def _contract_data(**overrides):
@@ -470,3 +471,56 @@ class TestCreateContractOpeningPaid:
         result = ContractService.create_contract(data)
         assert "amount_paid" not in data
         assert Contract.objects.get(recordcode=result.recordcode).amount_paid == Decimal("3000.00")
+
+
+# ========== BF-107 / AUD-04 方案②: 创建期状态单闸 + 创建状态审计 ==========
+
+
+@pytest.mark.django_db
+class TestCreateContractStatusGate:
+    def test_invalid_status_raises(self):
+        """服务层直调非法状态必须被单闸拦截(HTTP 层被序列化器先拦,此行须服务层钉住)"""
+        with pytest.raises(AppValidationError) as exc_info:
+            ContractService.create_contract(_contract_data(contract_status="bogus"))
+        assert exc_info.value.error_code == "INVALID_CONTRACT_STATUS"
+
+    def test_missing_status_defaults_to_purchasing(self):
+        """缺省键按模型默认 purchasing 落库(序列化器不注入默认值,闸门不得误杀)"""
+        data = _contract_data()
+        del data["contract_status"]
+        result = ContractService.create_contract(data)
+        assert result.contract_status == "purchasing"
+
+    def test_create_terminal_status_records_status_audit(self):
+        """终态创建须落状态审计: after_data 含 contract_status(allowed_next_states=[] 可追溯)"""
+        ContractService.create_contract(_contract_data(contract_status="project_finished"))
+        log = AuditLog.objects.filter(
+            record_code="C001",
+            operation_type="create",
+            app_label="contract",
+        ).first()
+        assert log is not None
+        assert log.after_data is not None
+        assert log.after_data["contract_status"] == "project_finished"
+
+    def test_batch_create_terminal_status_shared_path(self):
+        """批量导入共享路径同样过闸并记状态审计(导入回填历史状态能力保留)"""
+        result = ContractService.batch_create_contract(
+            [
+                {
+                    "contract_code": "BFS107",
+                    "contract_name": "BF-107 终态批量",
+                    "contract_amount": Decimal("1000"),
+                    "contract_status": "project_finished",
+                }
+            ]
+        )
+        assert result["success_count"] == 1
+        log = AuditLog.objects.filter(
+            record_code="BFS107",
+            operation_type="create",
+            app_label="contract",
+        ).first()
+        assert log is not None
+        assert log.after_data is not None
+        assert log.after_data["contract_status"] == "project_finished"

@@ -36,6 +36,7 @@ from typing import Any
 from django.db import transaction
 from django.utils import timezone
 
+from apps.assetmanagement.state_machine import InvalidTransitionError
 from apps.unregisteredasset.handlers import (
     _handle_s1_create_and_damaged,
     _handle_s1_create_and_recycle,
@@ -219,7 +220,8 @@ class UnregisteredAssetService:
 
     【异常类型】
     - AppValidationError: 业务校验失败
-    - InvalidTransitionError: 状态转换非法(来自 AssetFSM)
+    - InvalidTransitionError: 仅在 approve_and_handle 内捕获并转换为
+      AppValidationError(INVALID_STATE_TRANSITION),不向外抛出
 
     Example:
         >>> from apps.unregisteredasset.services import UnregisteredAssetService
@@ -404,7 +406,12 @@ class UnregisteredAssetService:
             AppValidationError: 状态不允许、处理方式不匹配或处理失败时抛出
         """
         unregistered, approver_employee = _prepare_approval(unregistered_code, handle_type, approver, approval_remark)
-        result = _execute_handle(unregistered, handle_type, approver_employee)
+        # 审批处理链(5 分支 handler)可能触发 AssetFSM 非法流转(如关联资产 scrapped),
+        # 统一映射为 AppValidationError(400)返回,禁止裸 InvalidTransitionError 冒泡到 500。
+        try:
+            result = _execute_handle(unregistered, handle_type, approver_employee)
+        except InvalidTransitionError as e:
+            raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION") from e
 
         # 记录审计日志(延迟导入,异常捕获)
         _log_approve_audit(unregistered, handle_type, result, approver_employee, operator_name)

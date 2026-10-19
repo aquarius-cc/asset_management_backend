@@ -13,6 +13,9 @@
 | 机器可读契约 | `/api/v1/schema/` | OpenAPI 3 JSON，由 drf-spectacular 从代码生成 |
 | 版本化基线 | [`api-schema-baseline.json`](../api-schema-baseline.json) | CI 比对漂移用快照，改端点须同 PR 重导出 |
 
+> **访问前置（BF-109 / AUD-10）**：上述三个文档端点均要求登录（`SERVE_PERMISSIONS = IsAuthenticated`）。
+> 匿名浏览器直接打开会收到 401；先登录获取 JWT 后再访问 Swagger UI（UI 已开 `persistAuthorization`，会记住输入的 Bearer token）。
+
 生成基线的命令（**改动任何端点后必须执行并提交**）：
 
 ```bash

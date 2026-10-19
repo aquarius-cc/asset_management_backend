@@ -328,6 +328,8 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
             trigger="manual_change",
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
+            # 【BF-108】变更原因入操作日志(端点必填, 服务层缺省空串不追加子句)
+            description=description,
         )
         asset.save()
         return asset

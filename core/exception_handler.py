@@ -81,11 +81,17 @@ def custom_exception_handler(exc: Any, context: Any) -> Response:
             else:
                 errors = {"error_code": business_error_code}
 
-        return error_response(
+        wrapped = error_response(
             message=message,
             status_code=response.status_code,
             errors=errors,
         )
+        # 【BF-109】透传 DRF 原生响应头: 401 的 WWW-Authenticate 挑战头(RFC 6750 要求
+        # Bearer 401 携带)与 429 的 Retry-After。原实现在重包时丢弃 headers,
+        # 致全部 401 无挑战头、429 无重试提示。(Django ResponseHeaders 无 update())
+        for header_key, header_value in response.headers.items():
+            wrapped.headers[header_key] = header_value
+        return wrapped
 
     # 捕获 PermissionError(如 AssetOperationLog 只读保护),返回 403
     # 不返回 str(exc),防止内部实现细节泄露

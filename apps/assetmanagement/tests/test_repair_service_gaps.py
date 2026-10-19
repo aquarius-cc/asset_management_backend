@@ -550,3 +550,46 @@ class TestRepairGradeValidation:
         )
         result.refresh_from_db()
         assert result.physical_grade_after is None
+
+
+@pytest.mark.django_db
+class TestRepairInvalidStateTransition:
+    """完成/失败路径状态非法时返回 AppValidationError 而非裸 InvalidTransitionError(AUD-01)
+
+    复现: 资产处于 damaged(管理员经 change_status 将 repairing→damaged)且
+    in_progress 维修记录未关闭 → complete_repair(damaged→recycled_pending 非法)与
+    fail_repair(damaged→damaged 非法)均触发非法流转。
+    """
+
+    def _make_record_with_asset_in_damaged(self, asset, user):
+        asset.asset_current_status = "damaged"
+        asset.save()
+        return RepairAsset.objects.create(
+            asset_recordcode=asset,
+            repair_date="2024-06-01",
+            repair_reason="主板故障",
+            repair_status="in_progress",
+            operator_employee=user,
+        )
+
+    def test_complete_repair_wrong_state_raises_mapped_error(self, asset, user):
+        """complete_repair 资产已不在 repairing: INVALID_STATE_TRANSITION(400 而非 500)"""
+        self._make_record_with_asset_in_damaged(asset, user)
+        with pytest.raises(AppValidationError) as exc:
+            RepairAssetService.complete_repair(
+                asset_code="A001",
+                operator_jobcode=user.employee_jobcode,
+                operator_name=user.employee_name,
+            )
+        assert exc.value.error_code == "INVALID_STATE_TRANSITION"
+
+    def test_fail_repair_wrong_state_raises_mapped_error(self, asset, user):
+        """fail_repair 资产已不在 repairing: INVALID_STATE_TRANSITION(400 而非 500)"""
+        self._make_record_with_asset_in_damaged(asset, user)
+        with pytest.raises(AppValidationError) as exc:
+            RepairAssetService.fail_repair(
+                asset_code="A001",
+                operator_jobcode=user.employee_jobcode,
+                operator_name=user.employee_name,
+            )
+        assert exc.value.error_code == "INVALID_STATE_TRANSITION"

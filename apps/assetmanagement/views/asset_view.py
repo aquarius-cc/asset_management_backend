@@ -276,8 +276,14 @@ class AssetViewSet(  # type: ignore[misc]
     @extend_schema(
         deprecated=True,
         description=(
-            "[已废弃] UI 已切换至专用状态接口(出库/回收/送修/报废等), 此端点仅供系统管理员数据修复使用. "
-            "注意: 仅执行状态机合法边转换并记录审计, 不创建任何业务单据, 变更后须人工补录对应单据."
+            "[已废弃] UI 已切换至专用状态接口(出库/回收/送修/报废等), 此端点仅供系统管理员数据修复使用, "
+            "description 必填(数据修复须填写变更原因, 记入操作日志). "
+            "副作用【BF-108 / AUD-05】: 仅执行状态机合法边转换并记录审计, "
+            "不创建 BrokenAsset/LostAsset/DamagedAsset/RepairAsset 子记录, "
+            "也不写 DamagedAsset.original_status(权威写点在报废服务), 变更后须人工补录对应单据; "
+            "直调 FSM 私有转换可产出业务不可达态(如 damaged→in_use, "
+            "与报废回退假设'scrapping.py 声明该入边业务不可达'矛盾). "
+            "正式改态一律走各业务端点(出库/回收/送修/报废审批), 本端点仅限数据修复."
         ),
         # 本方法只读 request.data 的 status / description 两个键，而
         # get_serializer_class() 对本 action 落到 AssetDetailSerializer，
@@ -293,9 +299,9 @@ class AssetViewSet(  # type: ignore[misc]
                     help_text="目标状态（仅状态机合法边可转换）",
                 ),
                 "description": serializers.CharField(
-                    required=False,
-                    allow_blank=True,
-                    help_text="变更说明（默认空串）",
+                    required=True,
+                    allow_blank=False,
+                    help_text="变更说明（必填，数据修复须填写变更原因）",
                 ),
             },
         ),
@@ -306,7 +312,11 @@ class AssetViewSet(  # type: ignore[misc]
         asset = self.get_object()
         asset_code = asset.asset_code
         new_status = request.data.get("status")
-        description = request.data.get("description", "")
+        description = str(request.data.get("description") or "").strip()
+        # 【BF-108 / AUD-05】运行时必填校验: inline_serializer 只影响文档不产生运行时校验,
+        # 校验放 View 层(service 层 description 缺省空串被多个单测直调, 放 service 会连坐)。
+        if not description:
+            return error_response(message="变更说明不能为空（数据修复操作需填写变更原因）", status_code=400)
         asset = AssetService.change_asset_status(
             asset_code,
             new_status,

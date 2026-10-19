@@ -213,7 +213,7 @@ graph TB
 | **OutAssetService** | 出库业务逻辑 | `create_outasset()`, `update_outasset()` |
 | **RecycleAssetService** | 回收业务逻辑 | `create_recycle_asset()` |
 | **DamagedAssetService** | 报废申请与审批 | `create_damaged_asset()`, `approve_damaged_asset()`, `reject_damaged_asset()` |
-| **WasteAssetService** | 报废执行 | `create_waste_asset()`, `create_from_damaged_asset()` |
+| **WasteAssetService** | 报废记录取消 | `cancel_waste_asset()`, `batch_delete_waste_assets()` |
 | **ContractService** | 合同管理 | `add_payment_record()`, `update_settlement_status()` |
 | **StorageService** | 仓库管理 | `create_storage()` |
 | **AssetTypeService** | 资产类型管理 | `create_asset_type()` |
@@ -438,7 +438,6 @@ flowchart TD
         S6[DamagedAssetService.approve_damaged_asset]
         S7[DamagedAssetService.reject_damaged_asset]
         S8[DamagedAssetService.create_damaged_asset]
-        S9[WasteAssetService.create_from_damaged_asset]
         S10[OperationLogService.log_operation]
         S11[AssetStateManager.on_outasset_created]
         S12[AssetStateManager.on_recycle_created]
@@ -491,7 +490,7 @@ flowchart TD
     S5 --> S12
     
     S6 --> SEL4
-    S6 --> S9
+    S6 --> M6
     S6 --> S10
     
     S7 --> SEL4
@@ -500,9 +499,6 @@ flowchart TD
     S8 --> SEL1
     S8 --> M5
     S8 --> S13
-    
-    S9 --> SEL5
-    S9 --> M6
 ```
 
 ### 3.3 数据流向图
@@ -567,7 +563,6 @@ sequenceDiagram
         View->>Service: DamagedAssetService.approve_damaged_asset(code, approver)
         Service->>Selector: DamagedAssetSelector.get_damaged_asset_by_asset_code()
         Service->>Service: 更新审批状态为"approved"
-        Service->>Service: WasteAssetService.create_from_damaged_asset()
         Service->>Model: WasteAsset.objects.create(**data)
         Model->>DB: INSERT INTO am_waste_asset
         Service->>Service: AssetStateManager.on_damaged_approved()

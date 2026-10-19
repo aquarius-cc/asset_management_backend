@@ -440,11 +440,6 @@ class OperationLogQueryService:
         return OperationLogSelector.get_recent_operations(user, days)
 
     @staticmethod
-    def get_operations_by_type(operation_type: str) -> list[AssetOperationLog]:
-        """按操作类型查询记录"""
-        return OperationLogSelector.get_operations_by_type(operation_type)
-
-    @staticmethod
     def get_user_operations(user: Any, operator_jobcode: str) -> list[AssetOperationLog]:
         """获取指定用户的操作记录"""
         return OperationLogSelector.get_user_operations(user, operator_jobcode)

@@ -15,23 +15,9 @@ from rest_framework.response import Response
 
 from apps.notification.models import Notification
 from apps.notification.selectors import NotificationSelector
+from apps.notification.serializers import NotificationSerializer
 from core.pagination import CustomPageNumberPagination
 from utils.response_utils import error_response, success_response
-
-
-def _serialize_notification(notification: Notification) -> dict[str, object]:
-    """通知记录 → API 字段映射(分页与兜底分支共用, DR-1)"""
-    return {
-        "id": notification.id,
-        "type": notification.notification_type,
-        "title": notification.title,
-        "message": notification.message,
-        "priority": notification.priority,
-        "is_read": notification.is_read,
-        "related_asset_code": notification.related_asset_code,
-        "related_url": notification.related_url,
-        "created_at": notification.created_at.isoformat(),
-    }
 
 
 @api_view(["GET"])
@@ -53,11 +39,11 @@ def notification_list(request: Request) -> Response:
     page = paginator.paginate_queryset(queryset, request)
 
     if page is not None:
-        data = [_serialize_notification(notification) for notification in page]
+        data = [NotificationSerializer(notification).data for notification in page]
         return paginator.get_paginated_response(data)  # type: ignore[no-any-return]
 
     # CustomPageNumberPagination 强制分页, 此分支恒不可达(与 operation_log_views 同构兜底)
-    data = [_serialize_notification(notification) for notification in queryset]
+    data = [NotificationSerializer(notification).data for notification in queryset]
     return success_response(data=data)
 
 

@@ -24,6 +24,7 @@ from django.utils import timezone
 from apps.assetmanagement.audit import AuditLogger
 from apps.assetmanagement.models import Asset, AssetOperationLog, DamagedAsset, RepairAsset
 from apps.assetmanagement.selectors import AssetSelector
+from apps.assetmanagement.services.operation_log_service import OperationLogService
 from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
 from apps.usermanagement.models import Employee
 from apps.usermanagement.selectors import EmployeeSelector
@@ -118,14 +119,14 @@ class RepairAssetService:
         repair_reason: str,
     ) -> None:
         """记录操作日志"""
-        AssetOperationLog.objects.create(
+        OperationLogService.log_operation(
             asset_code=asset.asset_code,
+            operation_type=AssetOperationLog.OperationType.REPAIR,
+            description=f"Asset sent for repair: {repair_reason}",
             asset_name=asset.asset_name,
             asset_specification=asset.asset_specification,
-            operation_type=AssetOperationLog.OperationType.REPAIR,
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
-            description=f"Asset sent for repair: {repair_reason}",
         )
 
     @staticmethod
@@ -135,14 +136,14 @@ class RepairAssetService:
         operator_name: str,
     ) -> None:
         """记录维修完成操作日志"""
-        AssetOperationLog.objects.create(
+        OperationLogService.log_operation(
             asset_code=asset.asset_code,
+            operation_type=AssetOperationLog.OperationType.REPAIR_DONE,
+            description="Repair completed, asset moved to recycled_pending",
             asset_name=asset.asset_name,
             asset_specification=asset.asset_specification,
-            operation_type=AssetOperationLog.OperationType.REPAIR_DONE,
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
-            description="Repair completed, asset moved to recycled_pending",
         )
 
     @staticmethod
@@ -305,14 +306,14 @@ class RepairAssetService:
             original_status=from_state,
         )
 
-        AssetOperationLog.objects.create(
+        OperationLogService.log_operation(
             asset_code=asset.asset_code,
+            operation_type=AssetOperationLog.OperationType.REPAIR_FAILED,
+            description="Repair failed, asset moved to damaged",
             asset_name=asset.asset_name,
             asset_specification=asset.asset_specification,
-            operation_type=AssetOperationLog.OperationType.REPAIR_FAILED,
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
-            description="Repair failed, asset moved to damaged",
         )
 
         # 维修失败通知(事务提交后执行)

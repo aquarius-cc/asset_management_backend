@@ -56,13 +56,16 @@ VALID_TRANSITIONS: dict[AssetState, dict[AssetState, str]] = {
         AssetState.RECYCLED_PENDING: "found_and_return",
     },
     # 待报废 → 已报废(审批通过)、回退申请前状态(审批拒绝)
+    # 拒绝回退各边共用 reject_to_original 实现,target 由 original_status 参数表达;
+    # 5 个具名 reject_to_* 实现面已删除(BF-113)。边集不变,值仅作转换名标注(core.py
+    # :67 只消费键,无方法名分派),故同值重复无行为影响
     AssetState.DAMAGED: {
         AssetState.SCRAPPED: "approve",
-        AssetState.BROKEN: "reject_to_broken",
-        AssetState.LOST: "reject_to_lost",
-        AssetState.IN_USE: "reject_to_in_use",
-        AssetState.RECYCLED_PENDING: "reject_to_recycled_pending",
-        AssetState.REPAIRING: "reject_to_repairing",
+        AssetState.BROKEN: "reject_to_original",
+        AssetState.LOST: "reject_to_original",
+        AssetState.IN_USE: "reject_to_original",
+        AssetState.RECYCLED_PENDING: "reject_to_original",
+        AssetState.REPAIRING: "reject_to_original",
     },
     # 已报废 - 终态,无转出
     AssetState.SCRAPPED: {},

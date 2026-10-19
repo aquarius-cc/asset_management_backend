@@ -638,17 +638,6 @@ class TestGetRecentOperationsMutants:
 
 
 @pytest.mark.django_db
-class TestGetOperationsByTypeMutants:
-    """get_operations_by_type：operation_type→None 会返回空集。"""
-
-    def test_returns_only_requested_type(self, db):
-        AssetOperationLog.objects.create(asset_code="T1", operation_type="create", description="c")
-        AssetOperationLog.objects.create(asset_code="T2", operation_type="out", description="o")
-        result = OperationLogQueryService.get_operations_by_type("create")
-        assert [log.asset_code for log in result] == ["T1"]
-
-
-@pytest.mark.django_db
 class TestGetUserOperationsMutants:
     """get_user_operations：operator_jobcode→None 会改查 NULL 干扰项。"""
 

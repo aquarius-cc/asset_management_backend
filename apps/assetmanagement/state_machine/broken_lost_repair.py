@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 class BrokenLostRepairTransitionsMixin:
-    """损坏/遗失/维修转换: mark_broken、mark_lost、found_and_return、reject_to_broken/lost、repair*"""
+    """损坏/遗失/维修转换: mark_broken、mark_lost、found_and_return、repair*"""
 
     # ===================================================================
     # 损坏/遗失相关状态转换
@@ -70,38 +70,6 @@ class BrokenLostRepairTransitionsMixin:
             InvalidTransitionError: 当前状态不是 lost 时抛出
         """
         cls._transition(asset, AssetState.RECYCLED_PENDING)  # type: ignore[attr-defined]
-
-    @classmethod
-    def reject_to_broken(cls, asset: "Asset") -> None:
-        """
-        审批拒绝(损坏): damaged → broken
-
-        待报废审批被拒绝后,资产回到损坏状态。
-        触发时机: 审批人拒绝待报废申请,且原状态为 broken 时。
-
-        Args:
-            asset: 资产实例
-
-        Raises:
-            InvalidTransitionError: 当前状态不是 damaged 时抛出
-        """
-        cls._transition(asset, AssetState.BROKEN)  # type: ignore[attr-defined]
-
-    @classmethod
-    def reject_to_lost(cls, asset: "Asset") -> None:
-        """
-        审批拒绝(遗失): damaged → lost
-
-        待报废审批被拒绝后,资产回到遗失状态。
-        触发时机: 审批人拒绝待报废申请,且原状态为 lost 时。
-
-        Args:
-            asset: 资产实例
-
-        Raises:
-            InvalidTransitionError: 当前状态不是 damaged 时抛出
-        """
-        cls._transition(asset, AssetState.LOST)  # type: ignore[attr-defined]
 
     # ===================================================================
     # 维修相关状态转换

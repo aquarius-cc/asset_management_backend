@@ -20,7 +20,7 @@ from rest_framework.test import APIClient
 
 from apps.notification.helpers import notify_dept_managers, send_notification_on_commit
 from apps.notification.models import Notification
-from apps.notification.service import send_notification_sync
+from apps.notification.services import send_notification_sync
 from core.tests import TEST_PASSWORD
 
 
@@ -53,7 +53,7 @@ class TestNotificationModel:
 
 @pytest.mark.django_db
 class TestSendNotificationSync:
-    @patch("apps.notification.service.get_channel_layer")
+    @patch("apps.notification.services.notification_service.get_channel_layer")
     def test_persists_notification(self, mock_channel):
         mock_channel.return_value = MagicMock()
         n = send_notification_sync(
@@ -66,7 +66,7 @@ class TestSendNotificationSync:
         assert n.id is not None
         assert Notification.objects.filter(recipient_jobcode="EMP002").count() == 1
 
-    @patch("apps.notification.service.get_channel_layer", side_effect=Exception("channel error"))
+    @patch("apps.notification.services.notification_service.get_channel_layer", side_effect=Exception("channel error"))
     def test_ws_failure_does_not_break(self, mock_channel):
         """WebSocket 推送失败不应影响持久化"""
         n = send_notification_sync(
@@ -80,7 +80,7 @@ class TestSendNotificationSync:
 
 @pytest.mark.django_db
 class TestNotifyDeptManagers:
-    @patch("apps.notification.service.get_channel_layer")
+    @patch("apps.notification.services.notification_service.get_channel_layer")
     def test_sends_to_managers(self, mock_ws):
         """批量创建通知并推送给所有 manager"""
         mock_channel = MagicMock()
@@ -103,7 +103,7 @@ class TestNotifyDeptManagers:
                 # 验证 WebSocket 推送了 2 次(per-group)
                 assert mock_channel.group_send.call_count == 2
 
-    @patch("apps.notification.service.get_channel_layer")
+    @patch("apps.notification.services.notification_service.get_channel_layer")
     def test_bulk_create_single_manager(self, mock_ws):
         """单个 manager 时也使用 bulk_create"""
         mock_channel = MagicMock()
@@ -123,7 +123,7 @@ class TestNotifyDeptManagers:
                 )
                 assert Notification.objects.filter(recipient_jobcode="MGR001").count() == 1
 
-    @patch("apps.notification.service.get_channel_layer", side_effect=Exception("channel error"))
+    @patch("apps.notification.services.notification_service.get_channel_layer", side_effect=Exception("channel error"))
     def test_ws_failure_does_not_break(self, mock_ws):
         """WebSocket 失败不影响通知持久化"""
         mock_asset = MagicMock()

@@ -17,6 +17,7 @@ from apps.assetmanagement.audit import AuditLogger
 from apps.assetmanagement.models import Asset, BrokenAsset, FoundAsset, LostAsset
 from apps.assetmanagement.models.operation_log import AssetOperationLog
 from apps.assetmanagement.selectors.asset_selector import AssetSelector
+from apps.assetmanagement.services.operation_log_service import OperationLogService
 from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
 
 
@@ -68,14 +69,14 @@ def _run_lifecycle_transition(
     record = record_model.objects.create(asset_recordcode=asset, operator_employee=operator, **record_kwargs)
     # DateField default=timezone.now 使内存实例携带 datetime, 刷新为 DB 落库后的 date(否则响应序列化拒绝)
     record.refresh_from_db()
-    AssetOperationLog.objects.create(
+    OperationLogService.log_operation(
         asset_code=asset.asset_code,
+        operation_type=operation_type,
+        description=audit_description,
         asset_name=asset.asset_name,
         asset_specification=asset.asset_specification,
-        operation_type=operation_type,
         operator_jobcode=operator_jobcode,
         operator_name=operator_name,
-        description=audit_description,
     )
     return record
 
@@ -201,14 +202,14 @@ class AssetLifecycleMixin:
         record = cast(FoundAsset, FoundAsset.objects.create(**record_kwargs))
         # DateField default=timezone.now 使内存实例携带 datetime, 刷新为 DB 落库后的 date(否则响应序列化拒绝)
         record.refresh_from_db()
-        AssetOperationLog.objects.create(
+        OperationLogService.log_operation(
             asset_code=asset.asset_code,
+            operation_type=AssetOperationLog.OperationType.FOUND,
+            description="遗失资产找回,转入待发放状态",
             asset_name=asset.asset_name,
             asset_specification=asset.asset_specification,
-            operation_type=AssetOperationLog.OperationType.FOUND,
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
-            description="遗失资产找回,转入待发放状态",
         )
         return record
 

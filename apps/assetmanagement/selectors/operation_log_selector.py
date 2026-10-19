@@ -5,7 +5,6 @@ Class:
   - OperationLogSelector: 操作日志查询选择器
     - get_asset_history: 获取指定资产的完整操作历史
     - get_recent_operations: 获取最近 N 天的操作记录
-    - get_operations_by_type: 按操作类型查询记录
     - get_user_operations: 获取指定用户的操作记录
     - get_asset_status_timeline: 获取资产状态变更时间线
     - get_operation_log_by_logging_id / get_operation_log_by_pk: 按ID精确查询
@@ -62,11 +61,6 @@ class OperationLogSelector:
         start_time = timezone.now() - timedelta(days=days)
         queryset = AssetOperationLog.objects.filter(operation_time__gte=start_time)
         return list(OperationLogSelector._scope_by_user(queryset, user).order_by("-operation_time"))
-
-    @staticmethod
-    def get_operations_by_type(operation_type: str) -> list[AssetOperationLog]:
-        """按操作类型查询记录"""
-        return list(AssetOperationLog.objects.filter(operation_type=operation_type).order_by("-operation_time"))
 
     @staticmethod
     def get_user_operations(user: Any, operator_jobcode: str) -> list[AssetOperationLog]:

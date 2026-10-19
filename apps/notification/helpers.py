@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from django.db import connection, transaction
 from django.db.transaction import TransactionManagementError
 
-from apps.notification.service import send_notification_sync
+from apps.notification.services import send_notification_sync
 
 
 if TYPE_CHECKING:

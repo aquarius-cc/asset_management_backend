@@ -223,12 +223,6 @@ class TestOperationLogQueryService:
         logs = OperationLogQueryService.get_recent_operations(query_admin, days=7)
         assert len(logs) >= 1
 
-    def test_get_operations_by_type(self, asset, query_admin):
-        self._create_log(asset.asset_code, "create")
-        self._create_log(asset.asset_code, "update")
-        logs = OperationLogQueryService.get_operations_by_type("create")
-        assert all(log.operation_type == "create" for log in logs)
-
     def test_get_user_operations(self, asset, query_admin):
         self._create_log(asset.asset_code, jobcode="U001")
         self._create_log(asset.asset_code, jobcode="U002")

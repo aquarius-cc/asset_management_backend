@@ -479,7 +479,7 @@ git revert <commit-hash>  # 回退到拆分前状态
 - [ ] 所有Admin正确注册
 - [ ] urls.py路由正确
 - [ ] services命名统一（out_asset_service等）
-- [ ] querysets.py已删除
+- [x] querysets.py已删除（BF-114，2026-10-19 批次 C 执行）
 - [ ] 所有测试通过
 - [ ] mypy检查通过
 - [ ] ruff检查通过

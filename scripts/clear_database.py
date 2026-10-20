@@ -13,8 +13,12 @@
 4. 执行前二次确认
 5. 执行后自动验证
 
+【使用范围】
+- 仅本地手动使用：开发者在功能测试前手动执行的数据重置脚本。
+- 禁止接入 CI/CD 流水线，禁止在任何共享/生产环境执行。
+
 【回退方案】
-- 备份文件位于 backups/ 目录，可通过 MySQL 恢复
+- 备份文件位于项目根 backups/ 目录，可通过 MySQL 恢复
 - 保留 django_migrations 表，不影响迁移状态
 """
 
@@ -24,9 +28,9 @@ import sys
 import django
 
 
-# 设置 Django 环境
+# 设置 Django 环境(本文件位于 scripts/, 项目根为上一级目录)
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.development")
-project_root = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, "apps"))
 
@@ -91,7 +95,7 @@ PROTECTED_TABLES: list[str] = [
     "django_session",
 ]
 
-BACKUP_DIR = Path(__file__).resolve().parent / "backups"
+BACKUP_DIR = Path(__file__).resolve().parent.parent / "backups"
 
 
 # =============================================================================

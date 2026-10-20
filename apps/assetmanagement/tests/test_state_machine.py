@@ -349,3 +349,40 @@ class TestRecycleToRecycledPending:
         asset = _make_asset(storage, asset_type, "in_use", "A_FSM_RCL")
         AssetFSM.recycle(asset)
         assert asset.asset_current_status == "recycled_pending"
+
+
+@pytest.mark.django_db
+class TestBrokenToRepairing:
+    """CT-3/AUD-14: broken → repairing 正向路径(repair,此前仅终态负向覆盖)"""
+
+    def test_broken_to_repairing(self, storage, asset_type):
+        asset = _make_asset(storage, asset_type, "broken", "A_FSM_RP")
+        AssetFSM.repair(asset)
+        assert asset.asset_current_status == "repairing"
+
+
+@pytest.mark.django_db
+class TestRepairingToRecycledPending:
+    """CT-3/AUD-14: repairing → recycled_pending 正向路径(repair_done,此前零直调覆盖)"""
+
+    def test_repairing_to_recycled_pending(self, storage, asset_type):
+        asset = _make_asset(storage, asset_type, "repairing", "A_FSM_RD")
+        AssetFSM.repair_done(asset)
+        assert asset.asset_current_status == "recycled_pending"
+
+
+@pytest.mark.django_db
+class TestRecycledPendingToDamaged:
+    """CT-3/AUD-14: recycled_pending → damaged 正向路径(to_damaged,此前仅 lost/broken 源覆盖)"""
+
+    def test_recycled_pending_to_damaged(self, storage, asset_type):
+        asset = _make_asset(storage, asset_type, "recycled_pending", "A_FSM_RPD")
+        AssetFSM.to_damaged(asset)
+        assert asset.asset_current_status == "damaged"
+
+
+def test_state_enum_equivalence():
+    """AUD-17: AssetState 与 Asset.AssetStatus 取值集合等价(防双枚举静默分叉)"""
+    from apps.assetmanagement.state_machine import AssetState
+
+    assert {state.value for state in AssetState} == {status.value for status in Asset.AssetStatus}

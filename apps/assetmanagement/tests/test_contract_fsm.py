@@ -13,6 +13,7 @@ import pytest
 from apps.assetmanagement.state_machine.contract_fsm import (
     _CONTRACT_TRANSITIONS,
     ContractFSM,
+    ContractInvalidTransitionError,
     ContractState,
 )
 
@@ -55,3 +56,23 @@ class TestAllowedNextStates:
         for state in ContractState:
             expected = [t.value for t in _CONTRACT_TRANSITIONS.get(state, {})]
             assert ContractFSM.allowed_next_states(state) == expected
+
+
+class TestValidateTransition:
+    """写路径 _validate_transition 异常口径测试(AUD-15: 非法态收敛为本域异常)"""
+
+    @pytest.mark.parametrize("bogus", ["unknown_status", "", "PURCHASING", "purchasing "])
+    def test_invalid_current_raises_domain_error(self, bogus: str) -> None:
+        """非法 current 态: 抛 ContractInvalidTransitionError 而非裸 ValueError"""
+        with pytest.raises(ContractInvalidTransitionError):
+            ContractFSM._validate_transition(bogus, "purchase_finished")
+
+    @pytest.mark.parametrize("bogus", ["unknown_status", "", "PURCHASING", "purchasing "])
+    def test_invalid_target_raises_domain_error(self, bogus: str) -> None:
+        """非法 target 态: 抛 ContractInvalidTransitionError 而非裸 ValueError"""
+        with pytest.raises(ContractInvalidTransitionError):
+            ContractFSM._validate_transition("purchasing", bogus)
+
+    def test_legal_edge_passes(self) -> None:
+        """合法边不抛"""
+        ContractFSM._validate_transition("purchasing", "purchase_finished")

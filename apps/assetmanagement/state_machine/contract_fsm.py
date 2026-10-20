@@ -62,8 +62,14 @@ class ContractFSM:
 
     @classmethod
     def _validate_transition(cls, current_status: str, target_status: str) -> None:
-        current = ContractState(current_status)
-        target = ContractState(target_status)
+        try:
+            current = ContractState(current_status)
+            target = ContractState(target_status)
+        except ValueError:
+            # AUD-15: 非法态收敛为本域异常(与读路径 allowed_next_states 的 ValueError 防御同口径), 不再裸抛 500
+            raise ContractInvalidTransitionError(
+                f"合同状态不合法: current={current_status!r} target={target_status!r}"
+            ) from None
         if target not in _CONTRACT_TRANSITIONS.get(current, {}):
             raise ContractInvalidTransitionError(f"合同状态转换不合法: {current.value} → {target.value}")
 

@@ -7,6 +7,7 @@
 被 AssetService 继承以保持统一 API。
 """
 
+import logging
 from collections.abc import Callable
 from datetime import date
 from typing import Any, cast
@@ -19,6 +20,9 @@ from apps.assetmanagement.models.operation_log import AssetOperationLog
 from apps.assetmanagement.selectors.asset_selector import AssetSelector
 from apps.assetmanagement.services.operation_log_service import OperationLogService
 from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
+
+
+logger = logging.getLogger(__name__)
 
 
 def _run_lifecycle_transition(
@@ -52,6 +56,12 @@ def _run_lifecycle_transition(
     if asset.asset_current_status == target_status:
         existing = record_model.objects.filter(asset_recordcode=asset).order_by("-created_at").first()
         if existing is not None:
+            logger.debug(
+                "幂等命中: 资产 %s 已为 %s, 复用现有 %s 记录(不重建、不改状态)",
+                asset_code,
+                target_status,
+                record_model.__name__,
+            )
             return existing
         # 历史数据缺失时补建记录, 保持幂等语义(不改变资产状态, 不重复 FSM 迁移)
         return record_model.objects.create(asset_recordcode=asset, **record_kwargs)

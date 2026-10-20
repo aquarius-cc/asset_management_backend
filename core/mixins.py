@@ -80,11 +80,11 @@ class ResponseWrapperMixin:
     """
     统一响应格式
 
-    将视图响应统一为标准格式:{"code": 状态码, "msg": "消息", "data": {}}
+    将视图响应统一为标准格式:{"code": 状态码, "message": "消息", "data": {}}
     使用 utils.response_utils 中的工具函数确保响应格式一致性。
     注意:
     - 仅捕获非 DRF 异常,让 DRF 的 APIException 子类正常传播到 exception handler
-    - create/update/destroy 方法返回统一的 {code, msg, data} 格式
+    - create/update/destroy 方法返回统一的 {code, message, data} 格式
     - 捕获异常时不在响应中暴露内部错误详情
     """
 

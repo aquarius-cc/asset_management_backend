@@ -23,7 +23,7 @@ keywords = ["django", "rest-api", "asset-management", "drf"]
 # 分类
 classifiers = [
     "Development Status :: 4 - Beta",
-    "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",

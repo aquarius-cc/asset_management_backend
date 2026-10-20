@@ -18,7 +18,8 @@
 - 禁止接入 CI/CD 流水线，禁止在任何共享/生产环境执行。
 
 【回退方案】
-- 备份文件位于项目根 backups/ 目录，可通过 MySQL 恢复
+- 备份由 scripts/backup.sh 生成（pg_dump --format=custom → $BACKUP_DIR/full_*.dump）
+- 恢复: pg_restore -U <user> -d <db> --clean --if-exists <dump文件>
 - 保留 django_migrations 表，不影响迁移状态
 """
 
@@ -76,9 +77,9 @@ ALLOWED_TABLES: list[str] = [
     "department_database_table",
     # 认证用户
     "auth_user_management_table",
-    # Token 黑名单
-    "token_blacklist_outstandingtoken",
+    # Token 黑名单（子表先清：BlacklistedToken → OutstandingToken）
     "token_blacklist_blacklistedtoken",
+    "token_blacklist_outstandingtoken",
 ]
 
 # Django 系统表 - 绝对禁止清空
@@ -122,7 +123,7 @@ def list_all_tables() -> list[str]:
         cursor.execute("""
             SELECT table_name
             FROM information_schema.tables
-            WHERE table_schema = DATABASE()
+            WHERE table_schema = current_schema()
             AND table_type = 'BASE TABLE'
             ORDER BY table_name
         """)
@@ -141,55 +142,49 @@ def get_table_count(table_name: str) -> int:
     """获取指定表的数据行数"""
     _validate_table_name(table_name)
     with connection.cursor() as cursor:
-        cursor.execute(f"SELECT COUNT(*) FROM `{table_name}`")
+        cursor.execute(f'SELECT COUNT(*) FROM "{table_name}"')
         return cursor.fetchone()[0]
 
 
-def create_backup() -> Path:
-    """创建数据库备份（SQL 导出）"""
-    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    db_info = get_db_info()
-    db_name = db_info["name"]
-    backup_file = BACKUP_DIR / f"backup_{db_name}_{timestamp}.sql"
+def require_backup() -> Path:
+    """
+    校验已存在的 PG 全量备份（scripts/backup.sh 产物），找不到则报错终止。
 
-    # 使用 mysqldump 备份
-    import subprocess
+    三顺位查找 full_*.dump：
+      1. $BACKUP_DIR 环境变量（与 scripts/backup.sh 同源）
+      2. /data/backups/postgres/（Docker 默认路径）
+      3. <项目根>/backups/（本地回退路径）
 
-    cmd = [
-        "mysqldump",
-        "-h",
-        db_info["host"] or "localhost",
-        "-P",
-        str(db_info["port"] or 3306),
-        "-u",
-        db_info["user"] or "root",
-        "--single-transaction",
-        "--routines",
-        "--triggers",
-        db_name,
-    ]
+    Returns:
+        Path: 最新备份文件路径
 
-    # 如果有密码，通过环境变量传递
-    env = os.environ.copy()
-    password = db_info.get("password")
-    if password:
-        env["MYSQL_PWD"] = password
+    Raises:
+        RuntimeError: 三处均未找到 full_*.dump
+    """
+    candidate_dirs = []
+    env_dir = os.environ.get("BACKUP_DIR")
+    if env_dir:
+        candidate_dirs.append(Path(env_dir))
+    candidate_dirs.append(Path("/data/backups/postgres"))
+    candidate_dirs.append(BACKUP_DIR)
 
-    with open(backup_file, "w", encoding="utf-8") as f:
-        result = subprocess.run(
-            cmd,
-            stdout=f,
-            stderr=subprocess.PIPE,
-            text=True,
-            env=env,
-        )
+    for directory in candidate_dirs:
+        if not directory.is_dir():
+            continue
+        dumps = sorted(directory.glob("full_*.dump"), key=lambda p: p.stat().st_mtime, reverse=True)
+        if dumps:
+            newest = dumps[0]
+            mtime = datetime.fromtimestamp(newest.stat().st_mtime)
+            print(f"  ✓ 已找到备份: {newest}")
+            print(f"  备份时间: {mtime:%Y-%m-%d %H:%M:%S}")
+            print("  提示: 建议先运行 scripts/backup.sh 生成新鲜备份后再清空。")
+            return newest
 
-    if result.returncode != 0:
-        backup_file.unlink(missing_ok=True)
-        raise RuntimeError(f"备份失败: {result.stderr}")
-
-    return backup_file
+    searched = ", ".join(str(d) for d in candidate_dirs)
+    raise RuntimeError(
+        f"未找到 PG 全量备份（full_*.dump），已查找: {searched}。"
+        "请先运行 scripts/backup.sh（或手动 pg_dump --format=custom）生成备份。"
+    )
 
 
 def clear_table(table_name: str) -> int:
@@ -209,24 +204,11 @@ def clear_table(table_name: str) -> int:
 
     get_table_count(table_name)
 
-    # 使用独立连接确保 FOREIGN_KEY_CHECKS 状态可靠恢复
-    fk_restored = False
-    try:
-        with transaction.atomic():
-            with connection.cursor() as cursor:
-                cursor.execute("SET FOREIGN_KEY_CHECKS = 0")
-                cursor.execute(f"DELETE FROM `{table_name}`")
-                deleted = cursor.rowcount
-                cursor.execute("SET FOREIGN_KEY_CHECKS = 1")
-                fk_restored = True
-    except Exception:
-        if not fk_restored:
-            try:
-                with connection.cursor() as cursor:
-                    cursor.execute("SET FOREIGN_KEY_CHECKS = 1")
-            except Exception:
-                pass
-        raise
+    # 白名单已按子表先清顺序排列（含 token_blacklist 对调），PG 外键约束下普通 DELETE 即可
+    with transaction.atomic():
+        with connection.cursor() as cursor:
+            cursor.execute(f'DELETE FROM "{table_name}"')
+            deleted = cursor.rowcount
 
     return deleted
 
@@ -313,14 +295,13 @@ def main():
             print("\n✗ 操作已取消。")
             return 1
 
-    # 5. 创建备份（强制成功，失败则终止）
-    print("\n【步骤 1/3】创建数据库备份...")
+    # 5. 校验已有备份（找不到则终止）
+    print("\n【步骤 1/3】校验已有 PG 备份...")
     try:
-        backup_file = create_backup()
-        print(f"  ✓ 备份已创建: {backup_file}")
+        backup_file = require_backup()
     except Exception as e:
-        print(f"  ✗ 备份失败: {e}")
-        print("  备份失败，操作已终止（安全策略：必须先备份才能清空）。")
+        print(f"  ✗ 未找到备份: {e}")
+        print("  未找到备份，操作已终止（安全策略：必须先备份才能清空）。")
         return 1
 
     # 6. 执行清空（失败即停）
@@ -341,7 +322,7 @@ def main():
             print(f"\n  错误：表 '{table}' 清空失败，操作已终止。")
             print(f"  已清空的表: {list(cleared_counts.keys())}")
             print(f"  未清空的表: {[t for t in ALLOWED_TABLES if t not in cleared_counts and t in all_tables]}")
-            print(f"\n  恢复方案: mysql -u {db_info['user']} -p {db_info['name']} < {backup_file}")
+            print(f"\n  恢复方案: pg_restore -U {db_info['user']} -d {db_info['name']} --clean --if-exists {backup_file}")
             return 1
 
     # 7. 验证结果
@@ -360,7 +341,7 @@ def main():
     if backup_file:
         print("\n【备份文件】")
         print(f"  {backup_file}")
-        print(f"  恢复命令: mysql -u {db_info['user']} -p {db_info['name']} < {backup_file}")
+        print(f"  恢复命令: pg_restore -U {db_info['user']} -d {db_info['name']} --clean --if-exists {backup_file}")
 
     print("\n" + "=" * 70)
     if all_cleared:

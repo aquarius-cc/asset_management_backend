@@ -35,6 +35,72 @@ def _parse_integrity_error(exc: IntegrityError) -> str:
     return "数据完整性冲突,请检查输入"
 
 
+def _extract_drf_message(data: Any) -> tuple[str, Any]:
+    """从 DRF 原生响应 data 提取 message 与 errors 载荷"""
+    message = "请求失败"
+    if isinstance(data, dict):
+        # 单字段错误:{"field": ["error msg"]} 或 {"detail": "error msg"}
+        if "detail" in data:
+            message = str(data["detail"])
+        elif "non_field_errors" in data:
+            errors = data["non_field_errors"]
+            message = errors[0] if isinstance(errors, list) and errors else str(errors)
+        else:
+            # 字段级错误,保留原始 data 作为 errors
+            message = "参数验证失败"
+    elif isinstance(data, list):
+        message = data[0] if data else "请求失败"
+
+    if isinstance(data, dict) and "detail" not in data and "non_field_errors" not in data:
+        return message, data
+    return message, None
+
+
+def _build_wrapped_response(exc: Any, response: Response) -> Response:
+    """将 DRF 原生响应转换为统一格式并透传响应头"""
+    message, errors = _extract_drf_message(response.data)
+
+    # 【#41】单条响应透传业务 error_code(AppValidationError 等带 error_code 的 APIException),
+    # 并入 data 载荷而不改根 envelope(§3 跨端契约零变化)
+    business_error_code = getattr(exc, "error_code", None)
+    if business_error_code:
+        if isinstance(errors, dict):
+            errors = {**errors, "error_code": business_error_code}
+        else:
+            errors = {"error_code": business_error_code}
+
+    wrapped = error_response(
+        message=message,
+        status_code=response.status_code,
+        errors=errors,
+    )
+    # 【BF-109】透传 DRF 原生响应头: 401 的 WWW-Authenticate 挑战头(RFC 6750 要求
+    # Bearer 401 携带)与 429 的 Retry-After。原实现在重包时丢弃 headers,
+    # 致全部 401 无挑战头、429 无重试提示。(Django ResponseHeaders 无 update())
+    for header_key, header_value in response.headers.items():
+        wrapped.headers[header_key] = header_value
+    return wrapped
+
+
+def _handle_unhandled_exception(exc: Any) -> Response:
+    """DRF 未识别异常的兜底映射(权限/完整性/未知)"""
+    # 捕获 PermissionError(如 AssetOperationLog 只读保护),返回 403
+    # 不返回 str(exc),防止内部实现细节泄露
+    if isinstance(exc, PermissionError):
+        logger.warning(f"权限错误: {exc}")
+        return error_response(message="权限不足,无法执行此操作", status_code=status.HTTP_403_FORBIDDEN)
+
+    # 捕获数据库 IntegrityError(唯一约束/外键/非空),返回 400 + 用户可读消息
+    if isinstance(exc, IntegrityError):
+        logger.warning(f"数据库完整性冲突: {exc}", exc_info=True)
+        return error_response(message=_parse_integrity_error(exc), status_code=status.HTTP_400_BAD_REQUEST)
+
+    # 未处理的异常
+    # 【观测性修复】exc_info 常开(原 settings.DEBUG 使生产日志/Sentry 事件丢失堆栈)
+    logger.error(f"未处理异常: {type(exc).__name__}: {exc}", exc_info=True)
+    return error_response(message="服务器内部错误,请稍后重试", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 def custom_exception_handler(exc: Any, context: Any) -> Response:
     """
     自定义全局异常处理器
@@ -53,59 +119,6 @@ def custom_exception_handler(exc: Any, context: Any) -> Response:
     response = exception_handler(exc, context)
 
     if response is not None:
-        # 将 DRF 原生响应转换为统一格式
-        data = response.data
-        message = "请求失败"
+        return _build_wrapped_response(exc, response)
 
-        # 提取错误信息
-        if isinstance(data, dict):
-            # 单字段错误:{"field": ["error msg"]} 或 {"detail": "error msg"}
-            if "detail" in data:
-                message = str(data["detail"])
-            elif "non_field_errors" in data:
-                errors = data["non_field_errors"]
-                message = errors[0] if isinstance(errors, list) and errors else str(errors)
-            else:
-                # 字段级错误,保留原始 data 作为 errors
-                message = "参数验证失败"
-        elif isinstance(data, list):
-            message = data[0] if data else "请求失败"
-
-        errors = data if isinstance(data, dict) and "detail" not in data and "non_field_errors" not in data else None
-        # 【#41】单条响应透传业务 error_code(AppValidationError 等带 error_code 的 APIException),
-        # 并入 data 载荷而不改根 envelope(§3 跨端契约零变化)
-        business_error_code = getattr(exc, "error_code", None)
-        if business_error_code:
-            if isinstance(errors, dict):
-                errors = {**errors, "error_code": business_error_code}
-            else:
-                errors = {"error_code": business_error_code}
-
-        wrapped = error_response(
-            message=message,
-            status_code=response.status_code,
-            errors=errors,
-        )
-        # 【BF-109】透传 DRF 原生响应头: 401 的 WWW-Authenticate 挑战头(RFC 6750 要求
-        # Bearer 401 携带)与 429 的 Retry-After。原实现在重包时丢弃 headers,
-        # 致全部 401 无挑战头、429 无重试提示。(Django ResponseHeaders 无 update())
-        for header_key, header_value in response.headers.items():
-            wrapped.headers[header_key] = header_value
-        return wrapped
-
-    # 捕获 PermissionError(如 AssetOperationLog 只读保护),返回 403
-    # 不返回 str(exc),防止内部实现细节泄露
-    if isinstance(exc, PermissionError):
-        logger.warning(f"权限错误: {exc}")
-        return error_response(message="权限不足,无法执行此操作", status_code=status.HTTP_403_FORBIDDEN)
-
-    # 捕获数据库 IntegrityError(唯一约束/外键/非空),返回 400 + 用户可读消息
-    if isinstance(exc, IntegrityError):
-        logger.warning(f"数据库完整性冲突: {exc}", exc_info=True)
-        return error_response(message=_parse_integrity_error(exc), status_code=status.HTTP_400_BAD_REQUEST)
-
-    # 未处理的异常
-    # 【观测性修复】exc_info 常开(原 settings.DEBUG 使生产日志/Sentry 事件丢失堆栈)
-    logger.error(f"未处理异常: {type(exc).__name__}: {exc}", exc_info=True)
-
-    return error_response(message="服务器内部错误,请稍后重试", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    return _handle_unhandled_exception(exc)

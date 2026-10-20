@@ -322,7 +322,9 @@ def main():
             print(f"\n  错误：表 '{table}' 清空失败，操作已终止。")
             print(f"  已清空的表: {list(cleared_counts.keys())}")
             print(f"  未清空的表: {[t for t in ALLOWED_TABLES if t not in cleared_counts and t in all_tables]}")
-            print(f"\n  恢复方案: pg_restore -U {db_info['user']} -d {db_info['name']} --clean --if-exists {backup_file}")
+            print(
+                f"\n  恢复方案: pg_restore -U {db_info['user']} -d {db_info['name']} --clean --if-exists {backup_file}"
+            )
             return 1
 
     # 7. 验证结果

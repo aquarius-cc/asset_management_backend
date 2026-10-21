@@ -9539,7 +9539,7 @@
             },
             "post": {
                 "operationId": "v1_auth_users_create",
-                "description": "创建新用户\n\n【修复 S8】使用 RegisterSerializer,它会自动忽略 auth_is_staff 等敏感字段\n【AUD-21 批次2】自助注册开关: AUTH_SELF_REGISTRATION_ENABLED=false 时非 system_admin 一律 403\n(权限类保持 AllowAny 不动, 避免 drf-spectacular 推断漂移; 开关写在方法体内)",
+                "description": "创建新用户(仅 system_admin;【BF-126】与注册开关解耦,开关仅控制 /auth/register/)\n\n【修复 S8】使用 RegisterSerializer,它会自动忽略 auth_is_staff 等敏感字段",
                 "tags": [
                     "v1"
                 ],
@@ -9566,8 +9566,7 @@
                 "security": [
                     {
                         "BearerAuth": []
-                    },
-                    {}
+                    }
                 ],
                 "responses": {
                     "201": {
@@ -9580,8 +9579,11 @@
                         },
                         "description": ""
                     },
+                    "401": {
+                        "description": "匿名建号已收口(BF-126): 匿名注册唯一入口 /auth/register/, 本端点需 system_admin 认证"
+                    },
                     "403": {
-                        "description": "自助注册已关闭(AUTH_SELF_REGISTRATION_ENABLED=false, 非 system_admin)"
+                        "description": "非 system_admin 已认证用户建号被拒(BF-126, 与 AUTH_SELF_REGISTRATION_ENABLED 解耦)"
                     }
                 }
             }

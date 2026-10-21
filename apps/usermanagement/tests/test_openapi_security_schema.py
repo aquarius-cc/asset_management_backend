@@ -39,7 +39,7 @@ ANONYMOUS_OPERATIONS = {
     ("/api/v1/auth/logout/", "post"),
     ("/api/v1/auth/register/", "post"),
     ("/api/v1/auth/token/refresh/", "post"),
-    ("/api/v1/auth/users/", "post"),
+    # BF-126: /auth/users/ POST 已收口 system_admin 单通道,不再允许匿名,移出白名单
     ("/api/v1/assets/public/scan/{recordcode}/", "get"),
 }
 

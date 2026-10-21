@@ -1,12 +1,13 @@
 """
-自助注册开关 AUTH_SELF_REGISTRATION_ENABLED 双入口门禁测试（AUD-21 批次2）
+自助注册开关 AUTH_SELF_REGISTRATION_ENABLED 门禁测试（AUD-21 批次2 + BF-126 批次3）
 
 覆盖：
-- 开关关闭: 匿名 POST /auth/register/ 与 /auth/users/ 一律 403（零建号）
-- 开关关闭: 普通用户（有 Employee、非 system_admin）POST /auth/users/ 403
-- 开关关闭: system_admin 双入口放行 201（保留管理端建号能力）
-- 开关开启(dev/test 默认): 双入口匿名注册照常 201 —— 固化存量行为
-  （残留提示①: 开关开启下 /auth/users/ 匿名建号洞保持现状，另立账本后续项）
+- 开关关闭: 匿名 POST /auth/register/ 403（零建号，生产 fail-closed 默认）
+- 开关开启: 匿名 POST /auth/register/ 201（唯一匿名注册入口）
+- /auth/users/ create 收口单通道（BF-126，与注册开关解耦）:
+  - 匿名 → 401（任意开关取值；DRF 权限类 IsSystemAdmin 拒绝，Bearer 挑战头）
+  - 已认证非 system_admin → 403（任意开关取值）
+  - system_admin → 201（任意开关取值，管理端建号能力保留）
 """
 
 import pytest
@@ -49,7 +50,7 @@ def _system_admin() -> AuthUser:
 
 @pytest.mark.django_db
 class TestSelfRegistrationDisabled:
-    """AUTH_SELF_REGISTRATION_ENABLED=False（生产 fail-closed 默认）"""
+    """AUTH_SELF_REGISTRATION_ENABLED=False（生产 fail-closed 默认）——本开关仅管 /auth/register/"""
 
     @override_settings(AUTH_SELF_REGISTRATION_ENABLED=False)
     def test_register_anonymous_403(self, api_client):
@@ -57,31 +58,6 @@ class TestSelfRegistrationDisabled:
         assert resp.status_code == 403
         assert resp.data["code"] == 403
         assert not AuthUser.objects.filter(auth_username="anon_off1").exists()
-
-    @override_settings(AUTH_SELF_REGISTRATION_ENABLED=False)
-    def test_users_create_anonymous_403(self, api_client):
-        resp = api_client.post(CREATE_URL, _payload("anon_off2", "13800000002"))
-        assert resp.status_code == 403
-        assert resp.data["code"] == 403
-        assert not AuthUser.objects.filter(auth_username="anon_off2").exists()
-
-    @override_settings(AUTH_SELF_REGISTRATION_ENABLED=False)
-    def test_users_create_regular_user_403(self, api_client):
-        user = AuthUser.objects.create_user(auth_username="regular_off", password=TEST_PASSWORD)
-        Employee.objects.create(
-            employee_jobcode="regular_off", employee_name="普通员工", role=EmployeeRole.REGULAR_USER
-        )
-        api_client.force_authenticate(user=user)
-        resp = api_client.post(CREATE_URL, _payload("victim1", "13800000003"))
-        assert resp.status_code == 403
-        assert not AuthUser.objects.filter(auth_username="victim1").exists()
-
-    @override_settings(AUTH_SELF_REGISTRATION_ENABLED=False)
-    def test_users_create_system_admin_201(self, api_client):
-        api_client.force_authenticate(user=_system_admin())
-        resp = api_client.post(CREATE_URL, _payload("admin_made1", "13800000004"))
-        assert resp.status_code == 201
-        assert AuthUser.objects.filter(auth_username="admin_made1").exists()
 
     @override_settings(AUTH_SELF_REGISTRATION_ENABLED=False)
     def test_register_system_admin_201(self, api_client):
@@ -93,7 +69,7 @@ class TestSelfRegistrationDisabled:
 
 @pytest.mark.django_db
 class TestSelfRegistrationEnabled:
-    """AUTH_SELF_REGISTRATION_ENABLED=True（base 默认，dev/test 存量行为）"""
+    """AUTH_SELF_REGISTRATION_ENABLED=True（base 默认，dev/test）"""
 
     @override_settings(AUTH_SELF_REGISTRATION_ENABLED=True)
     def test_register_anonymous_201(self, api_client):
@@ -101,10 +77,46 @@ class TestSelfRegistrationEnabled:
         assert resp.status_code == 201
         assert AuthUser.objects.filter(auth_username="anon_on1").exists()
 
+
+@pytest.mark.django_db
+class TestCreateSingleChannel:
+    """BF-126: /auth/users/ create 收口 sysadmin 单通道——行为与注册开关解耦"""
+
     @override_settings(AUTH_SELF_REGISTRATION_ENABLED=True)
-    def test_users_create_anonymous_201_status_quo(self, api_client):
-        # 固化存量行为: 开关开启(默认)下 create 权限类维持 AllowAny, 匿名建号仍 201。
-        # 残留提示①: 若日后收紧(改权限类或默认值), 须同步更新本用例与活账本后续项。
+    def test_create_anonymous_401_flag_on(self, api_client):
         resp = api_client.post(CREATE_URL, _payload("anon_on2", "13800000007"))
+        assert resp.status_code == 401
+        assert resp.data["code"] == 401
+        assert not AuthUser.objects.filter(auth_username="anon_on2").exists()
+
+    @override_settings(AUTH_SELF_REGISTRATION_ENABLED=False)
+    def test_create_anonymous_401_flag_off(self, api_client):
+        # 收口后匿名 create 恒 401（权限门），不再是批次2 的方法体 403——证明与开关解耦
+        resp = api_client.post(CREATE_URL, _payload("anon_off2", "13800000002"))
+        assert resp.status_code == 401
+        assert resp.data["code"] == 401
+        assert not AuthUser.objects.filter(auth_username="anon_off2").exists()
+
+    def test_create_regular_user_403(self, api_client):
+        user = AuthUser.objects.create_user(auth_username="regular_off", password=TEST_PASSWORD)
+        Employee.objects.create(
+            employee_jobcode="regular_off", employee_name="普通员工", role=EmployeeRole.REGULAR_USER
+        )
+        api_client.force_authenticate(user=user)
+        resp = api_client.post(CREATE_URL, _payload("victim1", "13800000003"))
+        assert resp.status_code == 403
+        assert not AuthUser.objects.filter(auth_username="victim1").exists()
+
+    def test_create_system_admin_201_flag_on(self, api_client):
+        api_client.force_authenticate(user=_system_admin())
+        resp = api_client.post(CREATE_URL, _payload("admin_made1", "13800000004"))
         assert resp.status_code == 201
-        assert AuthUser.objects.filter(auth_username="anon_on2").exists()
+        assert AuthUser.objects.filter(auth_username="admin_made1").exists()
+
+    @override_settings(AUTH_SELF_REGISTRATION_ENABLED=False)
+    def test_create_system_admin_201_flag_off(self, api_client):
+        # 生产 fail-closed 开关关闭时管理端建号不受影响（解耦双向直证）
+        api_client.force_authenticate(user=_system_admin())
+        resp = api_client.post(CREATE_URL, _payload("admin_made3", "13800000008"))
+        assert resp.status_code == 201
+        assert AuthUser.objects.filter(auth_username="admin_made3").exists()

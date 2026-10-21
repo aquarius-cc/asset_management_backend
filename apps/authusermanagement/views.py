@@ -17,7 +17,6 @@ from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
-from rest_framework.throttling import BaseThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 
@@ -60,28 +59,16 @@ class AuthUserViewSet(viewsets.ModelViewSet):  # type: ignore[type-arg]
     def get_permissions(self) -> list[BasePermission]:
         """
         自定义权限:
-        - 创建用户:任何人可注册
+        - 创建用户:仅 system_admin(BF-126 收口为 sysadmin 单通道,与注册开关解耦;
+          匿名注册唯一入口为 /auth/register/)
         - 列表和详情页:仅管理员可访问
         - 更新和删除:仅管理员或本人可操作
         """
-        if self.action == "create":
-            permission_classes = [permissions.AllowAny]
-        elif self.action in ["update", "partial_update", "destroy"]:
-            permission_classes = [permissions.IsAuthenticated]  # type: ignore[list-item]
+        if self.action in ["update", "partial_update", "destroy"]:
+            permission_classes = [permissions.IsAuthenticated]
         else:
             permission_classes = [IsSystemAdmin]  # type: ignore[list-item]
         return [permission() for permission in permission_classes]
-
-    def get_throttles(self) -> list[BaseThrottle]:
-        """P2-03: create 动作在默认限流前追加 RegisterRateThrottle。
-
-        RegisterRateThrottle 为 AnonRateThrottle 子类(scope=register):
-        仅匿名请求计数 5/min/IP,与 /auth/register/ 同口径;
-        已认证管理端建号不受影响(仍走 UserRateThrottle 100/min)。
-        """
-        if self.action == "create":
-            return [RegisterRateThrottle(), *super().get_throttles()]
-        return super().get_throttles()
 
     def get_serializer_class(self) -> type[AuthUserSerializer] | type[RegisterSerializer]:
         """根据不同的操作选择不同的序列化器"""
@@ -102,19 +89,20 @@ class AuthUserViewSet(viewsets.ModelViewSet):  # type: ignore[type-arg]
         responses={
             # 201 显式复刻自动推断形状(Register 组件 $ref), 防止 responses 声明整体替换掉自动推断(§4.8 OS-6)
             201: RegisterSerializer,
-            403: OpenApiResponse(description="自助注册已关闭(AUTH_SELF_REGISTRATION_ENABLED=false, 非 system_admin)"),
+            401: OpenApiResponse(
+                description="匿名建号已收口(BF-126): 匿名注册唯一入口 /auth/register/, 本端点需 system_admin 认证"
+            ),
+            403: OpenApiResponse(
+                description="非 system_admin 已认证用户建号被拒(BF-126, 与 AUTH_SELF_REGISTRATION_ENABLED 解耦)"
+            ),
         },
     )
     def create(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         """
-        创建新用户
+        创建新用户(仅 system_admin;【BF-126】与注册开关解耦,开关仅控制 /auth/register/)
 
         【修复 S8】使用 RegisterSerializer,它会自动忽略 auth_is_staff 等敏感字段
-        【AUD-21 批次2】自助注册开关: AUTH_SELF_REGISTRATION_ENABLED=false 时非 system_admin 一律 403
-        (权限类保持 AllowAny 不动, 避免 drf-spectacular 推断漂移; 开关写在方法体内)
         """
-        if not settings.AUTH_SELF_REGISTRATION_ENABLED and not IsSystemAdmin().has_permission(request, self):
-            return error_response(message="自助注册已关闭", status_code=status.HTTP_403_FORBIDDEN)
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()

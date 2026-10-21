@@ -38,9 +38,13 @@ def get_department_codes_for_user(user: Any) -> list[str] | None:
     返回用户可访问的部门编码列表。
 
     返回值语义:
-    - None: 无限制(system_admin / auditor / is_superuser / 无 Employee 记录)
-    - 空列表: 无权限(部门级角色但无部门,最严兜底,仅保留查看权限)
+    - None: 无限制(system_admin / auditor / is_superuser)
+    - 空列表: 无权限(无 Employee 记录,或部门级角色但无部门;最严兜底,仅保留查看权限)
     - 非空列表: 限定的部门范围
+
+    【AUD-21】无 Employee 记录原先返回 None(不限制),但自注册账号天然无 Employee 绑定,
+    叠加 AllowAny 注册端点即构成"自注册→全量可见"授权缺口。现反转为空列表(拒绝),
+    与 unregisteredasset/selectors.py 对无 Employee 的既有拒绝语义对齐(DR-1)。
     """
     # 超级管理员:无限制
     if getattr(user, "is_superuser", False):
@@ -48,9 +52,9 @@ def get_department_codes_for_user(user: Any) -> list[str] | None:
 
     employee = get_employee_for_user(user)
 
-    # 无 Employee 记录:默认无限制(最小权限兜底为 regular_user,此处放行由 View 层权限类控制)
+    # 无 Employee 记录:最严兜底,无数据访问(AUD-21 授权可见性缺口修复)
     if not employee:
-        return None
+        return []
 
     role = employee.role
 
@@ -81,7 +85,8 @@ def get_effective_data_scope_for_user(user: Any) -> dict[str, Any]:
     与 employee_view.get_employee_permissions 统一调用。
 
     映射关系:
-    - 无限制(superuser / system_admin / auditor / 无 Employee) → {"scope_type": "all"}
+    - 无限制(superuser / system_admin / auditor) → {"scope_type": "all"}
+    - 无 Employee 记录(最严兜底) → {departments, [], include_children: False}
     - 部门级角色但无部门(最严兜底) → {departments, [], include_children: False}
     - dept_manager → {departments, [本部门, *下级], include_children: True}
     - 其余角色(asset_admin / regular_user) → {departments, [本部门], include_children: False}
@@ -244,8 +249,8 @@ def get_employee_scoped_queryset_for_user(user: Any, queryset: QuerySet[Any, Any
 
     完全委托 get_department_codes_for_user + filter_queryset_by_department,
     不新增任何范围规则(DR-1),语义与 OperationLogSelector._scope_by_user 一致:
-    - None(无限制): superuser / system_admin / auditor / 无 Employee 记录
-    - 空列表(无数据): 部门级角色但无部门,最严兜底
+    - None(无限制): superuser / system_admin / auditor
+    - 空列表(无数据): 无 Employee 记录,或部门级角色但无部门,最严兜底(AUD-21)
     - 非空列表: dept_manager = 本部门 + 所有下级部门; asset_admin/regular_user = 仅本部门
 
     Employee 的部门归属字段是 employee_department(部门挂在员工上,与资产的三路径

@@ -218,10 +218,11 @@ class TestEdgeCases:
             request.user = su
             assert perm.has_permission(request, None) is True
 
-    def test_no_employee_defaults_to_unrestricted(self, db):
+    def test_no_employee_restricted_to_empty(self, db):
+        """AUD-21:无 Employee → 空集(最严兜底),不再是 None 不限制"""
         user = User.objects.create_user(auth_username="no_emp", password=TEST_PASSWORD)
         codes = get_department_codes_for_user(user)
-        assert codes is None
+        assert codes == []
 
     def test_employee_no_department_restricted(self, db):
         Employee.objects.create(

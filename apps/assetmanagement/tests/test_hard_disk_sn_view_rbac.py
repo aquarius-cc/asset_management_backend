@@ -4,7 +4,7 @@
 锚定 search_by_serial_number / by-asset 端点行级数据隔离:
 - 部门内员工只能查询本部门资产的硬盘
 - 越部门/不存在 → 404,不泄露存在性
-- 无限制用户(superuser / 无 Employee)全量可见
+- 无限制用户(superuser)全量可见;无 Employee 用户空集(AUD-21 收紧)
 """
 
 from typing import Any, cast
@@ -143,14 +143,17 @@ class TestHardDiskSNReadScope:
         assert resp.data["data"]["count"] == 0
         assert resp.data["data"]["results"] == []
 
-    def test_unrestricted_user_sees_all(self, api_client: APIClient, auth_user: AuthUser, disk_b: HardDiskSN) -> None:
+    def test_scoped_auth_user_cannot_see_other_dept_disk(
+        self, api_client: APIClient, auth_user: AuthUser, disk_b: HardDiskSN
+    ) -> None:
+        """AUD-21:共享 auth_user 为 D001 regular_user,跨部门盘不可见(收紧后原全量语义已反转)"""
         api_client.force_authenticate(user=auth_user)
         resp = api_client.post(
             "/api/v1/assets/harddisk-sn/search_by_serial_number/",
             {"harddisk_sn_code": "SN-RB-B1"},
             format="json",
         )
-        assert resp.status_code == status.HTTP_200_OK
+        assert resp.status_code == status.HTTP_404_NOT_FOUND
 
     def test_superuser_sees_all(self, api_client: APIClient, admin_auth_user: AuthUser, disk_b: HardDiskSN) -> None:
         api_client.force_authenticate(user=admin_auth_user)

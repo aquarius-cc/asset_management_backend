@@ -2,7 +2,7 @@
 RoleService 测试(Step 4:D1 继承部门 / D2 同步 Employee.role / M3 自定义角色 / 审计操作者)
 
 覆盖:
-- D1: data_scope 继承 Employee 部门(含部门经理含下级、无 Employee → all、部门级无部门最严兜底、全局角色无部门 → all)
+- D1: data_scope 继承 Employee 部门(含部门经理含下级、无 Employee → 空部门范围、部门级无部门最严兜底、全局角色无部门 → all)
 - D2: assign/remove 后 Employee.role 重算(升级/保持最高/降级/忽略自定义角色/回退 regular_user)
 - M3: 自定义角色禁止分配 → AppValidationError(CUSTOM_ROLE_NOT_ASSIGNABLE)
 - 审计:操作者解析(显式参数 / request 上下文 / 缺省 None)
@@ -87,13 +87,18 @@ class TestAssignRoleD1DataScope:
         assert user_role.data_scope["include_children"] is True
         assert set(user_role.data_scope["department_codes"]) == {"DEPT-ROLE", "DEPT-ROLE1"}
 
-    def test_assign_no_employee_scope_all(self):
+    def test_assign_no_employee_restrictive_scope(self):
+        """AUD-21:无 Employee → 空部门范围(拒绝),不再 all"""
         user = _make_user("r3")
         role = _seed_role("asset_admin")
 
         user_role = RoleService.assign_role(user.auth_id, role.id)
 
-        assert user_role.data_scope == {"scope_type": "all"}
+        assert user_role.data_scope == {
+            "scope_type": "departments",
+            "department_codes": [],
+            "include_children": False,
+        }
 
     def test_assign_no_department_employee_restrictive_scope(self):
         """部门级角色无部门:data_scope 为最严兜底(空部门范围)"""

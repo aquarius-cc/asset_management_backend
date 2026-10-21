@@ -57,7 +57,9 @@ def _employee(department: Department, jobcode: str, name: str, status_value: Any
 
 @pytest.fixture
 def auth_user(db):
-    return AuthUser.objects.create_user(auth_username="FILTER001", password=TEST_PASSWORD)
+    # AUD-21:本文件锁定筛选口径(非 RBAC),requester 需全量可见才能聚合到 3 人;
+    # 无 Employee 用户行级隔离已收紧为空集,故改用 superuser。
+    return AuthUser.objects.create_superuser(auth_username="FILTER001", password=TEST_PASSWORD)
 
 
 @pytest.fixture

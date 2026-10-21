@@ -93,12 +93,15 @@ def asset_type(db):
 
 
 @pytest.fixture
-def asset(db, storage, asset_type):
+def asset(db, storage, asset_type, user):
     """
     测试资产
 
     【修复】添加 asset_type_code 必填外键,
     避免 IntegrityError: Column 'asset_type_code_id' cannot be null
+    【AUD-21】挂 asset_entry_person_recordcode=user(D001),使资产归属 D001:
+    auth_user 改造后为 D001 regular_user(行级隔离收紧),无归属资产对普通
+    用户不可见,共享 fixture 需显式归属才能保持读测试可见性。
     """
     return Asset.objects.create(
         asset_code="A001",
@@ -108,6 +111,7 @@ def asset(db, storage, asset_type):
         asset_entry_date="2024-01-15",
         asset_storage_recordcode=storage,
         asset_type_recordcode=asset_type,
+        asset_entry_person_recordcode=user,
         asset_current_status="in_store",
     )
 
@@ -138,10 +142,20 @@ def outasset(db, asset, user):
 
 
 @pytest.fixture
-def auth_user(db):
+def auth_user(db, department):
     """
     测试认证用户(用于API认证)
+
+    【AUD-21】同步创建绑定 D001 的 Employee(jobcode 对齐 auth_username,
+    role 走模型默认 regular_user):行级隔离对无 Employee 用户收紧为空集,
+    共享认证用户须有部门归属,读测试才能通过部门范围看到 D001 数据。
     """
+    Employee.objects.create(
+        employee_jobcode="testuser",
+        employee_name="测试用户",
+        employee_department=department,
+        employee_phone="13800131004",
+    )
     return AuthUser.objects.create_user(auth_username="testuser", password=TEST_PASSWORD, auth_phone="13800138000")
 
 

@@ -361,6 +361,11 @@ class TestDepartmentScope:
     def test_auditor_no_restriction(self, auditor):
         assert get_department_codes_for_user(auditor) is None
 
+    def test_superuser_no_employee_no_restriction(self, db):
+        """AUD-21:superuser 分支先于 Employee 查找,无 Employee 的 superuser 仍必须 None(防误伤)"""
+        su = User.objects.create_superuser(auth_username="su_noemp", password=TEST_PASSWORD)
+        assert get_department_codes_for_user(su) is None
+
     def test_dept_manager_sees_own(self, dept_manager, dept_a):
         codes = get_department_codes_for_user(dept_manager)
         assert codes is not None
@@ -374,9 +379,10 @@ class TestDepartmentScope:
         codes = get_department_codes_for_user(regular_user)
         assert codes == ["DEPT-A"]
 
-    def test_no_employee_returns_none(self, db):
+    def test_no_employee_returns_empty(self, db):
+        """AUD-21:无 Employee → 空集(拒绝),不再返回 None(不限制)"""
         user = User.objects.create_user(auth_username="noemp", password=TEST_PASSWORD)
-        assert get_department_codes_for_user(user) is None
+        assert get_department_codes_for_user(user) == []
 
 
 # =====================================================================

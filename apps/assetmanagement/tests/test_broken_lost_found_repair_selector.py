@@ -26,7 +26,7 @@ class TestBrokenAssetSelector:
             broken_reason="测试损坏",
         )
         # 模拟用户
-        auth_user = AuthUser.objects.create_user(auth_username="test", password=TEST_PASSWORD)
+        auth_user = AuthUser.objects.create_user(auth_username=user.employee_jobcode, password=TEST_PASSWORD)
         user.auth_user = auth_user
         user.save()
 
@@ -87,7 +87,7 @@ class TestLostAssetSelector:
             lost_reason="测试遗失",
         )
         # 模拟用户
-        auth_user = AuthUser.objects.create_user(auth_username="test", password=TEST_PASSWORD)
+        auth_user = AuthUser.objects.create_user(auth_username=user.employee_jobcode, password=TEST_PASSWORD)
         user.auth_user = auth_user
         user.save()
 
@@ -152,7 +152,7 @@ class TestFoundAssetSelector:
             lost_asset_recordcode=lost,
         )
         # 模拟用户
-        auth_user = AuthUser.objects.create_user(auth_username="test", password=TEST_PASSWORD)
+        auth_user = AuthUser.objects.create_user(auth_username=user.employee_jobcode, password=TEST_PASSWORD)
         user.auth_user = auth_user
         user.save()
 
@@ -230,7 +230,7 @@ class TestRepairAssetSelector:
             repair_reason="测试维修",
         )
         # 模拟用户
-        auth_user = AuthUser.objects.create_user(auth_username="test", password=TEST_PASSWORD)
+        auth_user = AuthUser.objects.create_user(auth_username=user.employee_jobcode, password=TEST_PASSWORD)
         user.auth_user = auth_user
         user.save()
 

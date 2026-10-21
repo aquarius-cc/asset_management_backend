@@ -38,8 +38,8 @@ class OperationLogSelector:
         (build_asset_owned_department_q / get_department_codes_for_user)。
 
         get_department_codes_for_user 语义:
-        - None: 无限制(system_admin / auditor / superuser / 无 Employee)
-        - 空列表: 无权限(部门级角色但无部门),返回空集
+        - None: 无限制(system_admin / auditor / superuser)
+        - 空列表: 无权限(无 Employee 或部门级角色但无部门),返回空集
         """
         codes = get_department_codes_for_user(user)
         if codes is None:

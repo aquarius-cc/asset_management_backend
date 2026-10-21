@@ -102,7 +102,7 @@ class AssetSelector:
         RBAC 行级部门范围过滤(全项目唯一实现入口)。
 
         - dept_codes is None(无限制) → 原样返回
-        - dept_codes 为空(部门级角色无部门,最严兜底) → 空集
+        - dept_codes 为空(无 Employee 或部门级角色无部门,最严兜底) → 空集
         - 非空 → 按资产三路径部门归属过滤
         """
         dept_codes = get_department_codes_for_user(user)

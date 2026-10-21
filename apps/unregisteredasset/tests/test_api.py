@@ -36,7 +36,7 @@ def authenticated_client(api_client, auth_user):
 def admin_client(api_client, admin_auth_user):
     """系统管理员客户端。
 
-    4.5 矩阵收紧后 auth_user(无 Employee/角色)对 list/create/update 等
+    4.5 矩阵收紧后 auth_user(regular_user,对未登记资产无权限)对 list/create/update 等
     一律 403,故原 200 路径用例统一切换至 system_admin(全量可见)。
     """
     api_client.force_authenticate(user=admin_auth_user)

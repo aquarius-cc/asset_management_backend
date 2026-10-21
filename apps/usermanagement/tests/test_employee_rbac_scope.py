@@ -4,8 +4,8 @@
 员工域任何返回**员工行**的端点，可见范围必须**恒等于**调用者的部门范围，即
 ``core.department_scope.get_department_codes_for_user`` 的三态语义：
 
-- ``None``（superuser / system_admin / auditor / 无 Employee 记录）-> 不限部门
-- **空列表**（部门级角色但未挂部门）-> 零行，且写类/导出类权限一并降级
+- ``None``（superuser / system_admin / auditor）-> 不限部门
+- **空列表**（无 Employee 记录,或部门级角色但未挂部门, AUD-21）-> 零行，且写类/导出类权限一并降级
   （``core.permissions.get_user_role`` 降级为 None）
 - **部门列表** -> dept_manager 见本部门 + 全部下级部门；asset_admin / regular_user 见本部门
 

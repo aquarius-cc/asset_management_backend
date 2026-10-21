@@ -24,8 +24,8 @@ class DashboardSelector:
         """按用户部门范围过滤 Asset 查询集(与全系统行级隔离单一事实来源)
 
         get_department_codes_for_user 返回值语义:
-        - None: 无限制(system_admin / auditor / superuser / 无 Employee)
-        - 空列表: 无权限(部门级角色但无部门),返回空集
+        - None: 无限制(system_admin / auditor / superuser)
+        - 空列表: 无权限(无 Employee 或部门级角色但无部门),返回空集
         - 非空列表: 限定部门范围(三路径归属)
         """
         codes = get_department_codes_for_user(user)

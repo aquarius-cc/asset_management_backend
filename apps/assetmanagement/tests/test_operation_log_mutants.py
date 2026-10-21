@@ -499,8 +499,8 @@ def _make_scoped_user(username: str, department: Department, phone: str):
 
 
 def _make_unrestricted_user(username: str, phone: str):
-    """无 Employee 记录的 AuthUser：范围 None（不过滤）。"""
-    return User.objects.create_user(auth_username=username, password=TEST_PASSWORD)
+    """superuser:范围 None(不过滤)。AUD-21 后无 Employee 已收紧为空集,不再等价于不限制。"""
+    return User.objects.create_superuser(auth_username=username, password=TEST_PASSWORD)
 
 
 def _make_foreign_dept_asset(dept_code: str, dept_name: str, asset_code: str, phone: str):

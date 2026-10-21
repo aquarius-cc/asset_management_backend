@@ -2,7 +2,8 @@
 my-permissions 端点与权限/数据范围查询功能测试
 
 覆盖(G1-B flavor a + G6):
-- get_effective_data_scope_for_user: superuser/无Employee/system_admin/auditor → all
+- get_effective_data_scope_for_user: superuser/system_admin/auditor → all
+- get_effective_data_scope_for_user: 无 Employee → 空部门范围(拒绝, AUD-21)
 - get_effective_data_scope_for_user: dept_manager → departments+include_children
 - get_effective_data_scope_for_user: asset_admin/regular_user → 本部门
 - get_effective_data_scope_for_user: 无部门 Employee → 最严兜底(空部门范围)
@@ -71,9 +72,14 @@ class TestEffectiveDataScope:
         user = _make_user("su", is_superuser=True)
         assert get_effective_data_scope_for_user(user) == {"scope_type": "all"}
 
-    def test_no_employee_scope_all(self):
+    def test_no_employee_scope_restrictive(self):
+        """AUD-21:无 Employee → 空部门范围(拒绝),不再 all"""
         user = _make_user("noemp")
-        assert get_effective_data_scope_for_user(user) == {"scope_type": "all"}
+        assert get_effective_data_scope_for_user(user) == {
+            "scope_type": "departments",
+            "department_codes": [],
+            "include_children": False,
+        }
 
     def test_no_department_employee_scope_restrictive(self):
         """无部门 Employee:最严兜底(空部门范围,无数据访问)。"""

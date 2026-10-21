@@ -159,8 +159,8 @@ class TestHardDiskSNSelector:
             asset_recordcode=asset,
             harddisk_status="normal",
         )
-        # 模拟用户
-        auth_user = AuthUser.objects.create_user(auth_username="test", password=TEST_PASSWORD)
+        # 模拟用户(RBAC 关联走 jobcode 字符串匹配,须与 Employee 工号对齐, AUD-21)
+        auth_user = AuthUser.objects.create_user(auth_username=user.employee_jobcode, password=TEST_PASSWORD)
         user.auth_user = auth_user
         user.save()
 

@@ -25,7 +25,7 @@ class TestOutAssetSelector:
             outasset_date="2024-01-01",
         )
         # 模拟用户
-        auth_user = AuthUser.objects.create_user(auth_username="test", password=TEST_PASSWORD)
+        auth_user = AuthUser.objects.create_user(auth_username=user.employee_jobcode, password=TEST_PASSWORD)
         user.auth_user = auth_user
         user.save()
 

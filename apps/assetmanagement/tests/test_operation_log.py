@@ -110,10 +110,10 @@ class TestGetByLoggingIdService:
 
     @pytest.fixture
     def query_admin(self, db):
-        """无 Employee 记录的 AuthUser:部门范围 None(不过滤)"""
+        """superuser:部门范围 None(不过滤,AUD-21 后无 Employee 已收紧为空集)"""
         from apps.authusermanagement.models import AuthUser
 
-        return AuthUser.objects.create_user(auth_username="testuser", password=TEST_PASSWORD)
+        return AuthUser.objects.create_superuser(auth_username="testuser", password=TEST_PASSWORD)
 
     def test_existing_logging_id(self, query_admin):
         """查询存在的 logging_id 应返回记录"""
@@ -136,10 +136,10 @@ class TestGetByLoggingIdAPI:
 
     @pytest.fixture(autouse=True)
     def setup(self, db):
-        """创建测试用户并强制认证"""
+        """创建 superuser 并强制认证(AUD-21 后无 Employee 收紧为空集,须不限制主体)"""
         from apps.authusermanagement.models import AuthUser
 
-        self.user = AuthUser.objects.create_user(auth_username="testuser", password=TEST_PASSWORD)
+        self.user = AuthUser.objects.create_superuser(auth_username="testuser", password=TEST_PASSWORD)
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 

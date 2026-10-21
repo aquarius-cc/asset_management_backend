@@ -203,10 +203,10 @@ class TestOperationLogQueryService:
 
     @pytest.fixture
     def query_admin(self, db):
-        """无 Employee 记录的 AuthUser:部门范围 None(不过滤),保持既有查询行为断言"""
+        """superuser:部门范围 None(不过滤),保持既有查询行为断言(AUD-21 后无 Employee 收紧为空集)"""
         from apps.authusermanagement.models import AuthUser
 
-        return AuthUser.objects.create_user(auth_username="ops_q", password=TEST_PASSWORD)
+        return AuthUser.objects.create_superuser(auth_username="ops_q", password=TEST_PASSWORD)
 
     def test_get_asset_history(self, asset, query_admin):
         self._create_log(asset.asset_code, "create")

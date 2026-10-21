@@ -177,7 +177,8 @@ class TestAssetViewReadScope:
         resp = api_client.delete(f"/api/v1/assets/assets/{asset_b.recordcode}/")
         assert resp.status_code == status.HTTP_403_FORBIDDEN
 
-    def test_unrestricted_user_sees_all(self, api_client: APIClient, auth_user: AuthUser, asset_b: Asset) -> None:
-        api_client.force_authenticate(user=auth_user)
+    def test_superuser_sees_all(self, api_client: APIClient, admin_auth_user: AuthUser, asset_b: Asset) -> None:
+        """superuser 无限制可见(AUD-21 后无 Employee 不再全量,须 superuser/全局角色)"""
+        api_client.force_authenticate(user=admin_auth_user)
         resp = api_client.get(f"/api/v1/assets/assets/{asset_b.recordcode}/")
         assert resp.status_code == status.HTTP_200_OK

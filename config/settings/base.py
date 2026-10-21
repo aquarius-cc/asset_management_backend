@@ -240,6 +240,13 @@ SIMPLE_JWT = {
 # JWT Cookie 双通道配置 (PC 浏览器 Cookie 通道 / 移动端 Bearer 通道)
 # 通道判定: 请求带 Authorization: Bearer 头 -> bearer; 否则 -> cookie
 # =============================================================================
+# =============================================================================
+# 自助注册开关 (AUD-21 批次2)
+# 同时约束双入口: POST /api/v1/auth/register/ 与 POST /api/v1/auth/users/ (create)
+# base 默认开启(dev/test 存量行为与既有测试零影响); production.py 覆写为默认关闭(fail-closed)
+# =============================================================================
+AUTH_SELF_REGISTRATION_ENABLED = config("AUTH_SELF_REGISTRATION_ENABLED", default=True, cast=bool)
+
 JWT_AUTH_COOKIE_ACCESS = "asset_access_token"
 JWT_AUTH_COOKIE_REFRESH = "asset_refresh_token"
 # access cookie 为 session cookie (浏览器关闭即失效)

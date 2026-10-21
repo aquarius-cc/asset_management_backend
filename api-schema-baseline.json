@@ -9388,6 +9388,9 @@
                     },
                     "400": {
                         "description": "注册失败,参数校验错误"
+                    },
+                    "403": {
+                        "description": "自助注册已关闭(AUTH_SELF_REGISTRATION_ENABLED=false, 非 system_admin)"
                     }
                 }
             }
@@ -9536,7 +9539,7 @@
             },
             "post": {
                 "operationId": "v1_auth_users_create",
-                "description": "创建新用户\n\n【修复 S8】使用 RegisterSerializer,它会自动忽略 auth_is_staff 等敏感字段",
+                "description": "创建新用户\n\n【修复 S8】使用 RegisterSerializer,它会自动忽略 auth_is_staff 等敏感字段\n【AUD-21 批次2】自助注册开关: AUTH_SELF_REGISTRATION_ENABLED=false 时非 system_admin 一律 403\n(权限类保持 AllowAny 不动, 避免 drf-spectacular 推断漂移; 开关写在方法体内)",
                 "tags": [
                     "v1"
                 ],
@@ -9576,6 +9579,9 @@
                             }
                         },
                         "description": ""
+                    },
+                    "403": {
+                        "description": "自助注册已关闭(AUTH_SELF_REGISTRATION_ENABLED=false, 非 system_admin)"
                     }
                 }
             }

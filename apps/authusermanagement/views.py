@@ -6,6 +6,7 @@
 
 from typing import Any, cast
 
+from django.conf import settings
 from drf_spectacular.utils import (
     OpenApiExample,
     OpenApiResponse,
@@ -97,12 +98,23 @@ class AuthUserViewSet(viewsets.ModelViewSet):  # type: ignore[type-arg]
 
         return super().check_object_permissions(request, obj)
 
+    @extend_schema(
+        responses={
+            # 201 显式复刻自动推断形状(Register 组件 $ref), 防止 responses 声明整体替换掉自动推断(§4.8 OS-6)
+            201: RegisterSerializer,
+            403: OpenApiResponse(description="自助注册已关闭(AUTH_SELF_REGISTRATION_ENABLED=false, 非 system_admin)"),
+        },
+    )
     def create(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         """
         创建新用户
 
         【修复 S8】使用 RegisterSerializer,它会自动忽略 auth_is_staff 等敏感字段
+        【AUD-21 批次2】自助注册开关: AUTH_SELF_REGISTRATION_ENABLED=false 时非 system_admin 一律 403
+        (权限类保持 AllowAny 不动, 避免 drf-spectacular 推断漂移; 开关写在方法体内)
         """
+        if not settings.AUTH_SELF_REGISTRATION_ENABLED and not IsSystemAdmin().has_permission(request, self):
+            return error_response(message="自助注册已关闭", status_code=status.HTTP_403_FORBIDDEN)
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
@@ -211,6 +223,7 @@ class RegisterAPIView(APIView):
                 ],
             ),
             400: OpenApiResponse(description="注册失败,参数校验错误"),
+            403: OpenApiResponse(description="自助注册已关闭(AUTH_SELF_REGISTRATION_ENABLED=false, 非 system_admin)"),
         },
         tags=["认证管理"],
     )
@@ -219,7 +232,10 @@ class RegisterAPIView(APIView):
         用户注册
 
         【修复 S8】使用 RegisterSerializer,它会自动忽略 auth_is_staff 等敏感字段
+        【AUD-21 批次2】自助注册开关: 关闭时非 system_admin 一律 403(开关写在方法体内)
         """
+        if not settings.AUTH_SELF_REGISTRATION_ENABLED and not IsSystemAdmin().has_permission(request, self):
+            return error_response(message="自助注册已关闭", status_code=status.HTTP_403_FORBIDDEN)
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()

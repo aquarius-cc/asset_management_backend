@@ -1,5 +1,6 @@
 import os
 
+from decouple import config
 from django.core.exceptions import ImproperlyConfigured
 
 from .base import *
@@ -63,6 +64,9 @@ CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
 # JWT 认证 Cookie (access/refresh/csrftoken) 仅通过 HTTPS 传输
 JWT_AUTH_COOKIE_SECURE = True
+# 【AUD-21 批次2】自助注册生产 fail-closed: 未显式设置 AUTH_SELF_REGISTRATION_ENABLED=true 即关闭
+# (显式导入 decouple.config: --strict no-implicit-reexport 下 from .base import * 不携带 config)
+AUTH_SELF_REGISTRATION_ENABLED = config("AUTH_SELF_REGISTRATION_ENABLED", default=False, cast=bool)
 
 # 【安全头治理】所有安全响应头由 Nginx 边缘层唯一下发
 # 理由: /static/、/media/ 由 Nginx 直接服务(绕过 Django), 只有 Nginx 能全量覆盖

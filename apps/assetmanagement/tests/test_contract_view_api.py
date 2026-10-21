@@ -10,6 +10,10 @@
 - destroy
 - 自定义 actions: batch_create, batch_delete, getcontractByname, statistics, update_settlement_status,
   payment_record, payment_record_batch, global_search
+
+【BF-127】读面收口 system_admin(矩阵 4.2 :144 系统配置行,合同仅 system_admin):
+读功能测试改用 admin client;角色矩阵面(regular/dept/asset/auditor 403、匿名 401)
+由 test_contract_read_scope 承担。
 """
 
 import json
@@ -42,10 +46,10 @@ def admin_authenticated_client(api_client, admin_auth_user):
 class TestContractViewSet:
     """ContractViewSet API 测试"""
 
-    def test_list_contracts(self, authenticated_client, contract):
-        """测试获取合同列表"""
+    def test_list_contracts(self, admin_authenticated_client, contract):
+        """测试获取合同列表(BF-127 读面收口 system_admin)"""
         url = reverse("contracts-list")
-        response = authenticated_client.get(url)
+        response = admin_authenticated_client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data["code"] == 0
         assert "results" in response.data["data"]
@@ -68,10 +72,10 @@ class TestContractViewSet:
         assert response.data["code"] == 0
         assert response.data["data"]["contract_code"] == "C002"
 
-    def test_retrieve_contract(self, authenticated_client, contract):
-        """测试获取合同详情"""
+    def test_retrieve_contract(self, admin_authenticated_client, contract):
+        """测试获取合同详情(BF-127 读面收口 system_admin)"""
         url = reverse("contracts-detail", kwargs={"recordcode": contract.recordcode})
-        response = authenticated_client.get(url)
+        response = admin_authenticated_client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data["code"] == 0
         assert response.data["data"]["contract_code"] == contract.contract_code
@@ -138,18 +142,18 @@ class TestContractViewSet:
         assert response.data["code"] == 0
         assert response.data["data"]["success_count"] == 1
 
-    def test_getcontractByname(self, authenticated_client, contract):
-        """测试按名称搜索合同"""
+    def test_getcontractByname(self, admin_authenticated_client, contract):
+        """测试按名称搜索合同(BF-127 读面收口 system_admin)"""
         url = reverse("contracts-getcontractByname", kwargs={"name": contract.contract_name})
-        response = authenticated_client.get(url)
+        response = admin_authenticated_client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data["code"] == 0
         assert "results" in response.data["data"]
 
-    def test_statistics(self, authenticated_client):
-        """测试合同统计"""
+    def test_statistics(self, admin_authenticated_client):
+        """测试合同统计(BF-127 读面收口 system_admin)"""
         url = reverse("contracts-statistics")
-        response = authenticated_client.get(url)
+        response = admin_authenticated_client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data["code"] == 0
 
@@ -206,10 +210,10 @@ class TestContractViewSet:
         response = admin_authenticated_client.post(url, {"amount": "1e10"}, format="json")
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_global_search(self, authenticated_client, contract):
-        """测试全局搜索合同"""
+    def test_global_search(self, admin_authenticated_client, contract):
+        """测试全局搜索合同(BF-127 读面收口 system_admin)"""
         url = reverse("contracts-global-search")
-        response = authenticated_client.get(url, {"keyword": contract.contract_name})
+        response = admin_authenticated_client.get(url, {"keyword": contract.contract_name})
         assert response.status_code == status.HTTP_200_OK
         assert response.data["code"] == 0
         assert "results" in response.data["data"]
@@ -588,19 +592,14 @@ class TestAllowedNextStatesField:
     """
 
     @pytest.fixture
-    def client(self, api_client, auth_user):
-        api_client.force_authenticate(user=auth_user)
-        return api_client
-
-    @pytest.fixture
     def admin_client(self, api_client, admin_auth_user):
         api_client.force_authenticate(user=admin_auth_user)
         return api_client
 
-    def test_retrieve_returns_single_edge(self, client, contract):
-        """非终态详情:返回唯一合法下一状态"""
+    def test_retrieve_returns_single_edge(self, admin_client, contract):
+        """非终态详情:返回唯一合法下一状态(BF-127 读面收口 system_admin)"""
         url = reverse("contracts-detail", kwargs={"recordcode": contract.recordcode})
-        response = client.get(url)
+        response = admin_client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data["data"]["allowed_next_states"] == ["purchase_finished"]
 
@@ -612,8 +611,8 @@ class TestAllowedNextStatesField:
             ("final_check", ["project_finished"]),
         ],
     )
-    def test_retrieve_returns_expected_edge_per_state(self, client, db, walk_to, expected):
-        """【参数化 3 点】中途各状态详情出边与状态机表一致"""
+    def test_retrieve_returns_expected_edge_per_state(self, admin_client, db, walk_to, expected):
+        """【参数化 3 点】中途各状态详情出边与状态机表一致(BF-127 读面收口 system_admin)"""
         c = ContractService.create_contract(
             {
                 "contract_code": f"C-ANS-{walk_to}",
@@ -635,13 +634,13 @@ class TestAllowedNextStatesField:
             if target == walk_to:
                 break
         url = reverse("contracts-detail", kwargs={"recordcode": c.recordcode})
-        response = client.get(url)
+        response = admin_client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data["data"]["contract_status"] == walk_to
         assert response.data["data"]["allowed_next_states"] == expected
 
-    def test_terminal_state_returns_empty_list(self, client, db):
-        """终态详情:出边为空数组(前端据此禁用下拉)"""
+    def test_terminal_state_returns_empty_list(self, admin_client, db):
+        """终态详情:出边为空数组(前端据此禁用下拉)(BF-127 读面收口 system_admin)"""
         c = ContractService.create_contract(
             {
                 "contract_code": "C-ANS-TERM",
@@ -662,7 +661,7 @@ class TestAllowedNextStatesField:
         ):
             ContractService.update_settlement_status(c.contract_code, target)
         url = reverse("contracts-detail", kwargs={"recordcode": c.recordcode})
-        response = client.get(url)
+        response = admin_client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data["data"]["allowed_next_states"] == []
 

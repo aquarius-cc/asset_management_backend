@@ -38,6 +38,18 @@ from utils.user_utils import resolve_operator
 from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
 
 
+# 合同读 action 收口(BF-127):矩阵 4.2 :144 系统配置行——合同仅 system_admin 可读,
+# dept_manager/asset_admin/regular_user/auditor 全 ❌。读面与写面(admin_actions)分列,
+# 便于矩阵行调整时独立变更;角色集合与 IsSystemAdmin 相同,按 DR-1 直接复用不建同义类。
+_CONTRACT_READ_OVERRIDES = {
+    "list": IsSystemAdmin,
+    "retrieve": IsSystemAdmin,
+    "getcontractByname": IsSystemAdmin,
+    "statistics": IsSystemAdmin,
+    "global_search": IsSystemAdmin,
+}
+
+
 class ContractViewSet(
     RecordcodeLookupMixin,
     AdminWritePermissionMixin,
@@ -66,8 +78,13 @@ class ContractViewSet(
     ]
 
     def get_permissions(self) -> Any:
-        """RBAC: 写操作需 IsSystemAdmin+,读操作需认证"""
-        return resolve_viewset_permissions(self.action, self.admin_actions, IsSystemAdmin)
+        """RBAC: 读写均收口 IsSystemAdmin(矩阵 :144 合同=仅 system_admin;BF-127 读面收口)"""
+        return resolve_viewset_permissions(
+            self.action,
+            self.admin_actions,
+            IsSystemAdmin,
+            action_overrides=_CONTRACT_READ_OVERRIDES,
+        )
 
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ["contract_type", "contract_status"]

@@ -65,6 +65,13 @@ class DamagedAssetSelector:
         return DamagedAsset.objects.filter(asset_recordcode=asset, is_deleted=False).exists()
 
     @staticmethod
+    def has_pending_approval(asset: Asset) -> bool:
+        """M-11 状态机守卫专用(DR-1 唯一入口):资产是否存在待审批(pending+未软删)的待报废记录"""
+        return DamagedAsset.objects.filter(
+            asset_recordcode=asset, is_deleted=False, approval_status=DamagedAsset.ApprovalStatus.PENDING
+        ).exists()
+
+    @staticmethod
     def get_for_update(recordcode: str, user: Any | None = None) -> DamagedAsset | None:
         """锁内按待报废记录编码取记录(保留既有不含 is_deleted 查询形态,行为等价;user 提供时按部门范围过滤)"""
         queryset: QuerySet[DamagedAsset] = DamagedAsset.objects.filter(recordcode=recordcode)

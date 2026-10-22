@@ -4,6 +4,7 @@ import json
 from decimal import Decimal
 
 import pytest
+from django.test import TestCase as DjangoTestCase
 from django.utils import timezone
 
 from apps.assetmanagement.models import Contract
@@ -493,7 +494,8 @@ class TestCreateContractStatusGate:
 
     def test_create_terminal_status_records_status_audit(self):
         """终态创建须落状态审计: after_data 含 contract_status(allowed_next_states=[] 可追溯)"""
-        ContractService.create_contract(_contract_data(contract_status="project_finished"))
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            ContractService.create_contract(_contract_data(contract_status="project_finished"))
         log = AuditLog.objects.filter(
             record_code="C001",
             operation_type="create",
@@ -505,16 +507,17 @@ class TestCreateContractStatusGate:
 
     def test_batch_create_terminal_status_shared_path(self):
         """批量导入共享路径同样过闸并记状态审计(导入回填历史状态能力保留)"""
-        result = ContractService.batch_create_contract(
-            [
-                {
-                    "contract_code": "BFS107",
-                    "contract_name": "BF-107 终态批量",
-                    "contract_amount": Decimal("1000"),
-                    "contract_status": "project_finished",
-                }
-            ]
-        )
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            result = ContractService.batch_create_contract(
+                [
+                    {
+                        "contract_code": "BFS107",
+                        "contract_name": "BF-107 终态批量",
+                        "contract_amount": Decimal("1000"),
+                        "contract_status": "project_finished",
+                    }
+                ]
+            )
         assert result["success_count"] == 1
         log = AuditLog.objects.filter(
             record_code="BFS107",

@@ -276,6 +276,45 @@ class TestChangeAssetStatus:
             )
         assert exc_info.value.error_code == "INVALID_ASSET_STATUS"
 
+    @pytest.mark.parametrize(
+        "target_status",
+        ["scrapped", "broken", "lost", "in_use", "recycled_pending", "repairing"],
+    )
+    def test_change_status_blocked_when_pending_scrap_order(self, asset, admin_auth_user, target_status):
+        """M-11: damaged + 待审批待报废单 → 拦截全部 6 条 FSM 出边(防孤儿单据)"""
+        asset.asset_current_status = "damaged"
+        asset.save(update_fields=["asset_current_status"])
+        DamagedAsset.objects.create(asset_recordcode=asset, damaged_asset_number=1)
+        with pytest.raises(AppValidationError) as exc_info:
+            AssetService.change_asset_status(asset_code="A001", new_status=target_status, user=admin_auth_user)
+        assert exc_info.value.error_code == "ACTIVE_SCRAP_ORDER_EXISTS"
+        asset.refresh_from_db()
+        assert asset.asset_current_status == "damaged"
+
+    @pytest.mark.parametrize(
+        "closed_kwargs",
+        [
+            pytest.param({"approval_status": DamagedAsset.ApprovalStatus.REJECTED}, id="rejected"),
+            pytest.param({"is_deleted": True}, id="soft-deleted"),
+        ],
+    )
+    def test_change_status_allowed_when_order_closed(self, asset, admin_auth_user, closed_kwargs):
+        """M-11 放行面: 单据已闭环(驳回/软删取消) → manual 出边维持既有语义"""
+        asset.asset_current_status = "damaged"
+        asset.save(update_fields=["asset_current_status"])
+        DamagedAsset.objects.create(asset_recordcode=asset, damaged_asset_number=1, **closed_kwargs)
+        result = AssetService.change_asset_status(asset_code="A001", new_status="in_use", user=admin_auth_user)
+        result.refresh_from_db()
+        assert result.asset_current_status == "in_use"
+
+    def test_change_status_damaged_without_order_allowed(self, asset, admin_auth_user):
+        """M-11 放行面: 无在途单据的 damaged 资产 manual 改态不受影响(守卫边界=仅活跃单在途)"""
+        asset.asset_current_status = "damaged"
+        asset.save(update_fields=["asset_current_status"])
+        result = AssetService.change_asset_status(asset_code="A001", new_status="broken", user=admin_auth_user)
+        result.refresh_from_db()
+        assert result.asset_current_status == "broken"
+
 
 @pytest.mark.django_db
 class TestChangeOutassetEmployee:

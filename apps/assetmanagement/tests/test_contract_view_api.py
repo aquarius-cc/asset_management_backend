@@ -20,6 +20,7 @@ import json
 from decimal import Decimal
 
 import pytest
+from django.test import TestCase as DjangoTestCase
 from django.urls import reverse
 from rest_framework import status
 
@@ -308,7 +309,8 @@ class TestContractAuditLogOperator:
     def test_destroy_records_operator(self, admin_authenticated_client, contract):
         """删除合同后审计日志应记录操作人"""
         url = reverse("contracts-detail", kwargs={"recordcode": contract.recordcode})
-        response = admin_authenticated_client.delete(url)
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            response = admin_authenticated_client.delete(url)
         assert response.status_code == status.HTTP_200_OK
         log = AuditLog.objects.filter(
             record_code=contract.contract_code,
@@ -322,7 +324,8 @@ class TestContractAuditLogOperator:
         """批量删除合同后审计日志应记录操作人"""
         url = reverse("contracts-batch-delete")
         data = {"ids": [contract.contract_code]}
-        response = admin_authenticated_client.post(url, data, format="json")
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            response = admin_authenticated_client.post(url, data, format="json")
         assert response.status_code == status.HTTP_200_OK
         log = AuditLog.objects.filter(
             record_code=contract.contract_code,
@@ -335,11 +338,12 @@ class TestContractAuditLogOperator:
     def test_create_records_operator(self, admin_authenticated_client):
         """单条创建必须经 Service,创建审计日志不得缺失(B-5 同型)"""
         url = reverse("contracts-list")
-        response = admin_authenticated_client.post(
-            url,
-            {"contract_code": "C-AUDIT-001", "contract_name": "审计合同", "contract_amount": "1000.00"},
-            format="json",
-        )
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            response = admin_authenticated_client.post(
+                url,
+                {"contract_code": "C-AUDIT-001", "contract_name": "审计合同", "contract_amount": "1000.00"},
+                format="json",
+            )
         assert response.status_code == status.HTTP_201_CREATED
         log = AuditLog.objects.filter(
             record_code="C-AUDIT-001",
@@ -353,7 +357,8 @@ class TestContractAuditLogOperator:
         """更新合同状态后审计日志应记录操作人"""
         url = reverse("contracts-update-settlement-status", kwargs={"recordcode": contract.recordcode})
         data = {"status": "purchase_finished"}
-        response = admin_authenticated_client.post(url, data, format="json")
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            response = admin_authenticated_client.post(url, data, format="json")
         assert response.status_code == status.HTTP_200_OK
         log = AuditLog.objects.filter(
             record_code=contract.contract_code,
@@ -380,7 +385,8 @@ class TestCreateContractStatusGateHTTP:
             "contract_start_date": "2024-04-01",
             "contract_end_date": "2025-04-01",
         }
-        response = admin_authenticated_client.post(url, data, format="json")
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            response = admin_authenticated_client.post(url, data, format="json")
         assert response.status_code == status.HTTP_201_CREATED
         log = AuditLog.objects.filter(
             record_code="C-BF107",
@@ -422,7 +428,8 @@ class TestCreateContractStatusGateHTTP:
                 },
             ]
         }
-        response = admin_authenticated_client.post(url, data, format="json")
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            response = admin_authenticated_client.post(url, data, format="json")
         assert response.status_code == status.HTTP_200_OK
         assert response.data["data"]["success_count"] == 1
         log = AuditLog.objects.filter(
@@ -484,9 +491,10 @@ class TestPutContractStatusRouting:
         """合法状态变更:走 Service(FSM+审计+重算),同批落其余字段,响应带新状态"""
         assert project_settlement_contract.amount_unpaid == Decimal("7000.00")  # 非结算口径 10000-3000
         url = reverse("contracts-detail", kwargs={"recordcode": project_settlement_contract.recordcode})
-        response = admin_client.put(
-            url, {"contract_status": "settlement_done", "contract_name": "改名后的P1-01"}, format="json"
-        )
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            response = admin_client.put(
+                url, {"contract_status": "settlement_done", "contract_name": "改名后的P1-01"}, format="json"
+            )
         assert response.status_code == status.HTTP_200_OK
         assert response.data["code"] == 0
         assert response.data["data"]["contract_status"] == "settlement_done"
@@ -506,6 +514,9 @@ class TestPutContractStatusRouting:
 
     def test_put_illegal_transition_400_and_rolls_back(self, admin_client, project_settlement_contract):
         """非法跳转:400 + INVALID_CONTRACT_TRANSITION,且同请求其余字段不部分落库"""
+        # M-13 延迟写: 基线计数前先 flush 夹具挂起的 on_commit 审计回调,保持注释口径(3 条)
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            pass
         baseline_logs = self._update_logs(project_settlement_contract).count()  # 夹具推进状态已产生 3 条
         url = reverse("contracts-detail", kwargs={"recordcode": project_settlement_contract.recordcode})
         response = admin_client.put(
@@ -524,9 +535,13 @@ class TestPutContractStatusRouting:
 
     def test_put_without_status_field_is_plain_edit(self, admin_client, project_settlement_contract):
         """不含状态字段的 PUT:行为与现状一致(纯编辑,不产生状态审计)"""
+        # M-13 延迟写: 先 flush 夹具挂起回调取真实基线,再执行本次请求的审计回调
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            pass
         baseline_logs = self._update_logs(project_settlement_contract).count()
         url = reverse("contracts-detail", kwargs={"recordcode": project_settlement_contract.recordcode})
-        response = admin_client.put(url, {"contract_name": "纯编辑改名"}, format="json")
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            response = admin_client.put(url, {"contract_name": "纯编辑改名"}, format="json")
         assert response.status_code == status.HTTP_200_OK
         project_settlement_contract.refresh_from_db()
         assert project_settlement_contract.contract_name == "纯编辑改名"
@@ -536,11 +551,15 @@ class TestPutContractStatusRouting:
 
     def test_put_same_status_skips_transition_audit(self, admin_client, project_settlement_contract):
         """同状态提交(无实际变更):跳过状态路由,避免无意义审计记录"""
+        # M-13 延迟写: 先 flush 夹具挂起回调取真实基线,再执行本次请求的审计回调
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            pass
         baseline_logs = self._update_logs(project_settlement_contract).count()
         url = reverse("contracts-detail", kwargs={"recordcode": project_settlement_contract.recordcode})
-        response = admin_client.put(
-            url, {"contract_status": "project_settlement", "contract_name": "同状态改名"}, format="json"
-        )
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            response = admin_client.put(
+                url, {"contract_status": "project_settlement", "contract_name": "同状态改名"}, format="json"
+            )
         assert response.status_code == status.HTTP_200_OK
         project_settlement_contract.refresh_from_db()
         assert project_settlement_contract.contract_name == "同状态改名"
@@ -568,11 +587,12 @@ class TestPutContractStatusRouting:
             "final_check",
             "project_finished",
         ]
-        for target in legal_path:
-            response = admin_client.put(url, {"contract_status": target}, format="json")
-            assert response.status_code == status.HTTP_200_OK, target
-            c.refresh_from_db()
-            assert c.contract_status == target
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            for target in legal_path:
+                response = admin_client.put(url, {"contract_status": target}, format="json")
+                assert response.status_code == status.HTTP_200_OK, target
+                c.refresh_from_db()
+                assert c.contract_status == target
         # 7 条合法边各产生且仅产生一条状态审计
         assert self._update_logs(c).count() == len(legal_path)
 

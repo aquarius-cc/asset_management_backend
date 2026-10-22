@@ -13,6 +13,7 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
+from django.test import TestCase as DjangoTestCase
 
 from apps.assetmanagement.models import Asset, AssetOperationLog, DamagedAsset, OutAsset, RecycleAsset
 from apps.unregisteredasset.models import UnregisteredAsset
@@ -252,11 +253,12 @@ class TestUnregisteredAssetService:
         """
         测试审批审计日志工号字段记录工号而非姓名(P2-01 回归: 传 Employee 实例会经 str() 把姓名写进工号字段)
         """
-        UnregisteredAssetService.approve_and_handle(
-            unregistered_code=unregistered_asset_s1.unregistered_code,
-            handle_type="create_and_recycle",
-            approver=admin_employee.employee_jobcode,
-        )
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            UnregisteredAssetService.approve_and_handle(
+                unregistered_code=unregistered_asset_s1.unregistered_code,
+                handle_type="create_and_recycle",
+                approver=admin_employee.employee_jobcode,
+            )
 
         log = AssetOperationLog.objects.filter(operation_type="approve").latest("id")
         assert log.operator_jobcode == admin_employee.employee_jobcode

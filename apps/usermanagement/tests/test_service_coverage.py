@@ -8,6 +8,7 @@
 from datetime import date
 
 import pytest
+from django.test import TestCase as DjangoTestCase
 
 from apps.assetmanagement.models import Asset, AssetType, Storage
 from apps.authusermanagement.models import AuthUser
@@ -124,7 +125,8 @@ class TestEmployeeAuthBinding:
 
     def test_bind_audit_log_emitted(self, bind_employee, auth_user_a):
         """BR-4 B2 锚:绑定落审计日志,操作人显式透传"""
-        EmployeeService.bind_auth_user("BIND001", "auth_a", operator_jobcode="OP001", operator_name="操作员甲")
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            EmployeeService.bind_auth_user("BIND001", "auth_a", operator_jobcode="OP001", operator_name="操作员甲")
 
         log = (
             AuditLog.objects.filter(app_label="employee", record_code="BIND001", operation_type="bind_auth_user")
@@ -138,8 +140,9 @@ class TestEmployeeAuthBinding:
 
     def test_unbind_audit_log_before_data(self, bind_employee, auth_user_a):
         """BR-4 B2 锚:解绑审计记录旧账号"""
-        EmployeeService.bind_auth_user("BIND001", "auth_a")
-        EmployeeService.unbind_auth_user("BIND001", operator_jobcode="OP003")
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            EmployeeService.bind_auth_user("BIND001", "auth_a")
+            EmployeeService.unbind_auth_user("BIND001", operator_jobcode="OP003")
 
         log = (
             AuditLog.objects.filter(app_label="employee", record_code="BIND001", operation_type="unbind_auth_user")
@@ -152,8 +155,9 @@ class TestEmployeeAuthBinding:
 
     def test_replace_auth_user_audit_old_and_new(self, bind_employee, auth_user_a, auth_user_b):
         """BR-4 B2 锚:替换审计 before=旧账号 / after=新账号"""
-        EmployeeService.bind_auth_user("BIND001", "auth_a")
-        EmployeeService.replace_auth_user("BIND001", "auth_b", operator_jobcode="OP002", operator_name="操作员乙")
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            EmployeeService.bind_auth_user("BIND001", "auth_a")
+            EmployeeService.replace_auth_user("BIND001", "auth_b", operator_jobcode="OP002", operator_name="操作员乙")
 
         log = (
             AuditLog.objects.filter(app_label="employee", record_code="BIND001", operation_type="replace_auth_user")

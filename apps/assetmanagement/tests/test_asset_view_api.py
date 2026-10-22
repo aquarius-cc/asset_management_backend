@@ -308,11 +308,31 @@ class TestAssetViewSet:
         assert log.description.endswith("原因: BF-108 数据修复补录")
         assert "触发: manual_change" in log.description
 
-    def test_change_status_damaged_to_in_use_no_child_record(self, admin_authenticated_client, damaged_asset, asset):
-        """【AUD-05 副作用文档锚】damaged→in_use 业务不可达态: 200 但不建/不改子记录"""
+    def test_change_status_damaged_blocked_when_pending_order(self, admin_authenticated_client, damaged_asset, asset):
+        """【M-11 锚】存在待审批待报废单时,damaged 出边一律 400(防孤儿单据,用户拍板全出边拦截)"""
         from apps.assetmanagement.models import DamagedAsset
 
         assert DamagedAsset.objects.filter(asset_recordcode=asset).count() == 1
+        url = reverse("assets-change-status", kwargs={"recordcode": asset.recordcode})
+        response = admin_authenticated_client.post(
+            url, {"status": "in_use", "description": "M-11 待审批单在途拦截"}, format="json"
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data["code"] != 0
+        assert response.data["data"]["error_code"] == "ACTIVE_SCRAP_ORDER_EXISTS"
+        asset.refresh_from_db()
+        assert asset.asset_current_status == "damaged"
+
+    def test_change_status_damaged_to_in_use_no_child_record(self, admin_authenticated_client, damaged_asset, asset):
+        """【AUD-05 副作用文档锚】damaged→in_use 业务不可达态: 200 但不建/不改子记录
+
+        M-11 前置: 单据已闭环(驳回)后 manual 出边放行;待审批在途由上一用例拦截。
+        """
+        from apps.assetmanagement.models import DamagedAsset
+
+        assert DamagedAsset.objects.filter(asset_recordcode=asset).count() == 1
+        damaged_asset.approval_status = DamagedAsset.ApprovalStatus.REJECTED
+        damaged_asset.save()
         original_status = DamagedAsset.objects.get(asset_recordcode=asset).original_status
         url = reverse("assets-change-status", kwargs={"recordcode": asset.recordcode})
         response = admin_authenticated_client.post(

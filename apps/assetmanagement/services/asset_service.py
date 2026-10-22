@@ -319,6 +319,20 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
         # B12 TOCTOU 兜底: 锁内重取快照后再次校验行级可见性
         AssetSelector.ensure_asset_visible(asset, user)
         old_status = asset.asset_current_status
+        # 【M-11】活跃待报废单锁内守卫: 资产处于 damaged 且存在待审批(pending+未软删)待报废单时,
+        # 拦截 manual change_status 的全部出边(含 approve/reject_to_original 系边)——单据 API 闭环
+        # 路径(reject/cancel)均要求资产仍为 damaged,资产被 manual 移出后单据孤儿化且 API 侧不可
+        # 取消,正确闭环应走 DamagedAssetService(通过/驳回/取消);单据已闭环(rejected/软删)或从未
+        # 有单据时 manual 出边维持既有语义(用户拍板: 全出边拦截, 2026-10-22)。
+        if (
+            old_status == AssetState.DAMAGED.value
+            and new_status != old_status
+            and DamagedAssetSelector.has_pending_approval(asset)
+        ):
+            raise AppValidationError(
+                detail=f"资产 {asset_code} 存在待审批的待报废单据,请先完成报废审批(通过/驳回/取消)后再修改状态",
+                error_code="ACTIVE_SCRAP_ORDER_EXISTS",
+            )
         target_state = AssetState.from_string(new_status)
         _run_manual_transition(asset, target_state)
         AuditLogger.log_state_change(

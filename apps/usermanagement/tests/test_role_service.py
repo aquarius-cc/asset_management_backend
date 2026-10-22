@@ -11,6 +11,7 @@ RoleService 测试(Step 4:D1 继承部门 / D2 同步 Employee.role / M3 自定�
 import pytest
 from django.contrib.auth import get_user_model
 from django.test import RequestFactory
+from django.test import TestCase as DjangoTestCase
 
 from apps.usermanagement.models import Department, Employee, EmployeeRole, Role, UserRole
 from apps.usermanagement.services.role_service import RoleService
@@ -267,7 +268,8 @@ class TestAuditOperator:
         user = _make_user("a1", role=EmployeeRole.REGULAR_USER, department=dept)
         role = _seed_role("asset_admin")
 
-        RoleService.assign_role(user.auth_id, role.id, operator_jobcode="OP001", operator_name="操作员甲")
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            RoleService.assign_role(user.auth_id, role.id, operator_jobcode="OP001", operator_name="操作员甲")
 
         log = self._latest_audit(user.auth_id, role.id)
         assert log is not None
@@ -285,7 +287,8 @@ class TestAuditOperator:
         request.user = user
         _thread_locals.request = request
         try:
-            RoleService.assign_role(user.auth_id, role.id)
+            with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+                RoleService.assign_role(user.auth_id, role.id)
         finally:
             _thread_locals.request = None
 
@@ -297,7 +300,8 @@ class TestAuditOperator:
         user = _make_user("a3", role=EmployeeRole.REGULAR_USER, department=dept)
         role = _seed_role("asset_admin")
 
-        RoleService.assign_role(user.auth_id, role.id)
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            RoleService.assign_role(user.auth_id, role.id)
 
         log = self._latest_audit(user.auth_id, role.id)
         assert log is not None
@@ -306,9 +310,9 @@ class TestAuditOperator:
     def test_remove_audit_uses_explicit_operator(self, dept):
         user = _make_user("a4", role=EmployeeRole.REGULAR_USER, department=dept)
         role = _seed_role("asset_admin")
-        RoleService.assign_role(user.auth_id, role.id)
-
-        RoleService.remove_role(user.auth_id, role.id, operator_jobcode="OP002", operator_name="操作员乙")
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            RoleService.assign_role(user.auth_id, role.id)
+            RoleService.remove_role(user.auth_id, role.id, operator_jobcode="OP002", operator_name="操作员乙")
 
         log = self._latest_audit(user.auth_id, role.id)
         assert log is not None

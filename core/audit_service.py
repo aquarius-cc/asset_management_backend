@@ -7,6 +7,8 @@
 import logging
 from typing import Any
 
+from django.db import transaction
+
 from core.models_audit import AuditLog
 from core.request_context import get_current_ip
 
@@ -35,23 +37,31 @@ class GenericAuditService:
     ) -> AuditLog | None:
         """
         记录通用审计日志
+
+        【M-13】写入经 transaction.on_commit 延迟到主事务提交后执行:审计 DB 失败不再落在
+        业务 atomic 内(PG 下事务已 aborted, DatabaseError 反向放大为
+        TransactionManagementError/500)。回调体兜底 + robust=True 双保险,失败仅 logger.error
+        留痕不传播;延迟后无法返回实例,恒返回 None(既有调用方均未消费返回值)。
         """
-        try:
-            log = AuditLog.objects.create(  # type: ignore[attr-defined]
-                record_code=record_code,
-                app_label=app_label,
-                operation_type=operation_type,
-                description=description,
-                operator_jobcode=operator_jobcode,
-                operator_name=operator_name,
-                before_data=before_data,
-                after_data=after_data,
-                ip_address=ip_address or get_current_ip(),
-            )
-            return log  # type: ignore[no-any-return]
-        except Exception as e:
-            logger.error(f"通用审计日志记录失败: {e}", exc_info=True)
-            return None
+
+        def _write_audit() -> None:
+            try:
+                AuditLog.objects.create(  # type: ignore[attr-defined]
+                    record_code=record_code,
+                    app_label=app_label,
+                    operation_type=operation_type,
+                    description=description,
+                    operator_jobcode=operator_jobcode,
+                    operator_name=operator_name,
+                    before_data=before_data,
+                    after_data=after_data,
+                    ip_address=ip_address or get_current_ip(),
+                )
+            except Exception as e:
+                logger.error(f"通用审计日志记录失败: {e}", exc_info=True)
+
+        transaction.on_commit(_write_audit, robust=True)
+        return None
 
     @staticmethod
     def log_create(

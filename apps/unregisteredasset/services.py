@@ -87,14 +87,23 @@ def _validate_create_scenario(data: dict[str, Any]) -> None:
 
 
 def _safe_call_audit(operation: str, *args: Any, **kwargs: Any) -> None:
-    """安全调用审计适配器(延迟导入,异常捕获,失败不影响主流程)"""
-    try:
-        from apps.unregisteredasset.audit_adapter import UnregisteredAssetAuditAdapter
+    """安全调用审计适配器(延迟导入 + on_commit 延迟写 + 异常捕获,失败不影响主流程)
 
-        getattr(UnregisteredAssetAuditAdapter, f"log_{operation}")(*args, **kwargs)
-    except Exception as e:
-        # 【P2-10 修复】审计异常记录日志便于排查,但不影响主流程
-        logger.warning(f"审计日志记录失败({operation}): {e}", exc_info=True)
+    【M-13】适配器底层 OperationLogService 为 re-raise 口径,原同步执行时审计 DB 失败
+    落在主业务 atomic 内(PG 下事务已 aborted,后续业务写放大为 TransactionManagementError/500);
+    现统一为提交后写入 + 失败留痕不阻断(GenericAuditService.on_commit 同构, B6 范式)。
+    """
+
+    def _run_audit() -> None:
+        try:
+            from apps.unregisteredasset.audit_adapter import UnregisteredAssetAuditAdapter
+
+            getattr(UnregisteredAssetAuditAdapter, f"log_{operation}")(*args, **kwargs)
+        except Exception as e:
+            # 【P2-10 修复】审计异常记录日志便于排查,但不影响主流程
+            logger.warning(f"审计日志记录失败({operation}): {e}", exc_info=True)
+
+    transaction.on_commit(_run_audit, robust=True)
 
 
 def _log_create_audit(unregistered: UnregisteredAsset, operator_jobcode: str, operator_name: str | None = None) -> None:

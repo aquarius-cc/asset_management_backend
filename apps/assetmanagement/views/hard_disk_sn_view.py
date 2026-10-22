@@ -19,7 +19,7 @@ from apps.assetmanagement.serializers import (
 from apps.assetmanagement.services import HardDiskSNService
 from core.excel_export import ExportExcelMixin
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
-from core.permissions import IsAssetAdminOrAbove, resolve_viewset_permissions
+from core.permissions import IsAssetAdminOrAbove, request_method, resolve_viewset_permissions
 from utils.response_utils import error_response, success_response
 from utils.user_utils import resolve_operator
 
@@ -70,7 +70,15 @@ class HardDiskSNViewSet(  # type: ignore[misc]
 
     def get_permissions(self) -> Any:
         """RBAC: 写操作需 IsAssetAdminOrAbove+,读操作需认证"""
-        return resolve_viewset_permissions(self.action, self.admin_actions, IsAssetAdminOrAbove)
+        # search_by_serial_number 为 POST 语义的查询端点(序列号走请求体), 行级隔离由
+        # get_queryset 兜底, 对全体登录用户开放 —— [M-09] 写方法 fail-closed 显式豁免
+        return resolve_viewset_permissions(
+            self.action,
+            self.admin_actions,
+            IsAssetAdminOrAbove,
+            action_overrides={"search_by_serial_number": permissions.IsAuthenticated},
+            method=request_method(self),
+        )
 
     def create(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         serializer = self.get_serializer(data=request.data)

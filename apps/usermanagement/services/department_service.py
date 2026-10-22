@@ -19,6 +19,7 @@
 import copy
 from typing import Any
 
+from django.core.cache import cache
 from django.db import transaction
 
 from apps.usermanagement.audit_adapter import DepartmentAuditAdapter
@@ -113,6 +114,22 @@ class DepartmentService:
     # 与 DepartmentSelector.get_all_departments 完全重复,调用方请改用 DepartmentSelector
 
     @staticmethod
+    def _collect_ancestor_recordcodes(path: str) -> list[str]:
+        """从物化路径收集祖先部门的 recordcode 列表(不含自身)。"""
+        if not path:
+            return []
+        parts = path.strip("/").split("/")
+        codes: list[str] = []
+        for i in range(1, len(parts)):
+            ancestor_path = "/" + "/".join(parts[:i])
+            try:
+                ancestor = Department.objects.get(path=ancestor_path)
+                codes.append(ancestor.recordcode)
+            except Department.DoesNotExist:
+                pass
+        return codes
+
+    @staticmethod
     @transaction.atomic
     def move_department(department_code: str, target_parent_code: str | None) -> Department:
         """
@@ -131,10 +148,15 @@ class DepartmentService:
 
         old_path = department.path
         old_level = department.level
+        # [M-07/AUD-26] 移动前捕获旧祖先链 recordcode, 移动后逐一失效其 descendants 缓存
+        # (save() 只清新路径祖先, 旧祖先链因子孙更新走 .update() 绕过 save 而不失效)
+        old_ancestor_codes = DepartmentService._collect_ancestor_recordcodes(old_path)
 
         # 移动为根部门
         if target_parent_code is None:
-            return DepartmentService._move_to_root(department, old_path, old_level)
+            result = DepartmentService._move_to_root(department, old_path, old_level)
+            DepartmentService._invalidate_ancestors_cache(old_ancestor_codes)
+            return result
 
         target_parent, new_level = DepartmentService._validate_move_hierarchy(
             department_code, department, target_parent_code
@@ -149,7 +171,16 @@ class DepartmentService:
         # 更新所有子孙的 path 和 level
         DepartmentService._update_children_paths_and_levels(department, old_path, old_level)
 
+        # [M-07] 失效旧祖先链缓存
+        DepartmentService._invalidate_ancestors_cache(old_ancestor_codes)
+
         return department
+
+    @staticmethod
+    def _invalidate_ancestors_cache(recordcodes: list[str]) -> None:
+        """批量失效祖先部门的 descendants 缓存。"""
+        for rc in recordcodes:
+            cache.delete(f"dept:{rc}:descendants")
 
     @staticmethod
     def _validate_move_hierarchy(

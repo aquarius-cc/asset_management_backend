@@ -20,7 +20,7 @@ from apps.assetmanagement.services import AssetTypeService
 from core.batch_mixins import BatchDeleteViewMixin, BatchResponseHelper
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
-from core.permissions import IsSystemAdmin, resolve_viewset_permissions
+from core.permissions import IsSystemAdmin, request_method, resolve_viewset_permissions
 from utils.response_utils import success_response
 from utils.user_utils import resolve_operator
 
@@ -52,7 +52,7 @@ class AssetTypeViewSet(  # type: ignore[misc]
 
     def get_permissions(self) -> Any:
         """RBAC: 写操作需 IsSystemAdmin+,读操作需认证"""
-        return resolve_viewset_permissions(self.action, self.admin_actions, IsSystemAdmin)
+        return resolve_viewset_permissions(self.action, self.admin_actions, IsSystemAdmin, method=request_method(self))
 
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ["type_code", "type_name", "level"]

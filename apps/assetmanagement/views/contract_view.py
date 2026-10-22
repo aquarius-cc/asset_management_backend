@@ -31,7 +31,7 @@ from core.batch_mixins import BatchDeleteViewMixin
 from core.excel_export import ExportExcelMixin
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
-from core.permissions import IsSystemAdmin, resolve_viewset_permissions
+from core.permissions import IsSystemAdmin, request_method, resolve_viewset_permissions
 from utils.response_utils import error_response, success_response
 from utils.user_utils import resolve_operator
 
@@ -84,6 +84,7 @@ class ContractViewSet(
             self.admin_actions,
             IsSystemAdmin,
             action_overrides=_CONTRACT_READ_OVERRIDES,
+            method=request_method(self),
         )
 
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]

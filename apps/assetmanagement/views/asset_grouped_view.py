@@ -31,7 +31,7 @@ from apps.assetmanagement.serializers.asset_grouped_serializers import (
 )
 from core.mixins import PaginateAndRespondMixin
 from core.pagination import CustomPageNumberPagination
-from core.permissions import IsAssetAdminOrAbove, resolve_viewset_permissions
+from core.permissions import IsAssetAdminOrAbove, request_method, resolve_viewset_permissions
 
 
 SUMMARY_FILTER_PARAMETERS: list[OpenApiParameter] = [
@@ -145,7 +145,7 @@ class AssetGroupedViewSet(PaginateAndRespondMixin, viewsets.GenericViewSet):  # 
 
         行级数据隔离不在此层，而在 Selector 的 `AssetSelector.apply_user_scope`。
         """
-        return resolve_viewset_permissions(self.action, [], IsAssetAdminOrAbove)
+        return resolve_viewset_permissions(self.action, [], IsAssetAdminOrAbove, method=request_method(self))
 
     @extend_schema(
         summary="资产分组汇总",

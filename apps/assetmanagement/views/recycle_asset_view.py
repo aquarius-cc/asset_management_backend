@@ -30,7 +30,7 @@ from core.batch_mixins import BatchDeleteViewMixin, BatchResponseHelper
 from core.excel_export import ExportExcelMixin
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
-from core.permissions import IsAssetAdminOrAbove, resolve_viewset_permissions
+from core.permissions import IsAssetAdminOrAbove, request_method, resolve_viewset_permissions
 from utils.response_utils import error_response, success_response
 from utils.user_utils import resolve_operator
 
@@ -88,7 +88,9 @@ class RecycleAssetViewSet(  # type: ignore[misc]
 
     def get_permissions(self) -> Any:
         """RBAC: 写操作需 IsAssetAdminOrAbove+,读操作需认证"""
-        return resolve_viewset_permissions(self.action, self.admin_actions, IsAssetAdminOrAbove)
+        return resolve_viewset_permissions(
+            self.action, self.admin_actions, IsAssetAdminOrAbove, method=request_method(self)
+        )
 
     def get_serializer_class(self) -> type:
         if self.action == "list":

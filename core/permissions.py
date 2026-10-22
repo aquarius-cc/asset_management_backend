@@ -13,6 +13,7 @@
 - CanExportExcel: 导出 Excel(矩阵 :148: 四角色可导,regular ❌)
 - get_user_role / is_system_admin: 角色解析公开入口(代录白名单等 View 层复用, DR-1)
 - resolve_viewset_permissions: ViewSet get_permissions 统一解析入口(DR-1)
+- request_method: 从 view 取当前请求 HTTP 方法(M-09 fail-closed 判据)
 
 注意:使用延迟导入避免循环依赖(core → usermanagement → core)。
 """
@@ -189,22 +190,48 @@ class CanExportExcel(permissions.BasePermission):
         return role in _EXPORT_EXCEL_ROLES
 
 
+#: HTTP 读方法: 不修改资源, 未登记 action 对其保持 IsAuthenticated(读面语义)
+_SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+
+
+def request_method(view: Any) -> str | None:
+    """
+    从 view 提取当前请求的 HTTP 方法(DR-1: schema 生成期 request 缺省的唯一处理点)。
+
+    dispatch 期恒有 request → 真实方法; drf-spectacular schema 生成期 view.request
+    为 None → 返回 None(调用方按 fail-closed 兜底)。
+    """
+    return getattr(getattr(view, "request", None), "method", None)
+
+
 def resolve_viewset_permissions(
     action: str | None,
     admin_actions: Collection[str],
     admin_permission: type[BasePermission],
     *,
     action_overrides: Mapping[str, type[BasePermission]] | None = None,
+    method: str | None = None,
 ) -> list[BasePermission]:
     """
     ViewSet.get_permissions 统一解析(DR-1: 权限分支唯一实现)。
 
-    优先级: export_excel → action_overrides → admin_actions → 默认 IsAuthenticated。
+    优先级: export_excel → action_overrides → admin_actions → [M-09] 写方法
+    fail-closed → 默认 IsAuthenticated。
+
+    [M-09/NEW-07] fail-closed: admin_actions 非空的 ViewSet, 未登记 action 遇写方法
+    (POST/PUT/PATCH/DELETE)或方法未知(method=None)时缺省返回 admin_permission——
+    新增管理动作漏登记即对全体登录用户开放的越权窗口已封堵。
+    读方法(GET/HEAD/OPTIONS)缺省保持 IsAuthenticated, 读面语义不变。
+    例外: 方法为写但语义只读的端点须经 action_overrides 显式登记为 IsAuthenticated
+    (如 HardDiskSNViewSet.search_by_serial_number)。
     """
     if action == "export_excel":
         return [CanExportExcel()]
     if action_overrides is not None and action is not None and action in action_overrides:
         return [action_overrides[action]()]
     if action is not None and action in admin_actions:
+        return [admin_permission()]
+    # [M-09] fail-closed: 未登记 action + 写方法(或方法未知) → admin_permission
+    if admin_actions and action is not None and (method is None or method.upper() not in _SAFE_METHODS):
         return [admin_permission()]
     return [permissions.IsAuthenticated()]

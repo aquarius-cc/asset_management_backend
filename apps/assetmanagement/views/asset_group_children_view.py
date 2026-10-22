@@ -37,7 +37,7 @@ from apps.assetmanagement.serializers.asset_grouped_serializers import (
 )
 from core.mixins import PaginateAndRespondMixin
 from core.pagination import CustomPageNumberPagination
-from core.permissions import IsAssetAdminOrAbove, resolve_viewset_permissions
+from core.permissions import IsAssetAdminOrAbove, request_method, resolve_viewset_permissions
 
 
 CHILDREN_FILTER_PARAMETERS: list[OpenApiParameter] = [
@@ -141,7 +141,7 @@ class AssetGroupChildrenViewSet(PaginateAndRespondMixin, viewsets.GenericViewSet
         行级数据隔离不在此层，而在 Selector 的 `AssetSelector.apply_user_scope` ——
         与汇总端点同一实现，故两端的可见范围天然一致（I-1 的前提之一）。
         """
-        return resolve_viewset_permissions(self.action, [], IsAssetAdminOrAbove)
+        return resolve_viewset_permissions(self.action, [], IsAssetAdminOrAbove, method=request_method(self))
 
     @extend_schema(
         summary="资产分组明细",

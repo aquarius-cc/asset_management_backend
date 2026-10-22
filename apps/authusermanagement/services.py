@@ -8,7 +8,7 @@ from typing import Any
 
 from django.conf import settings
 from django.contrib.auth import authenticate
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError  # type: ignore[attr-defined]
 
 from apps.authusermanagement.models import AuthUser
@@ -190,6 +190,11 @@ class AuthService:
         - ROTATE_REFRESH_TOKENS/BLACKLIST_AFTER_ROTATION 从 settings.SIMPLE_JWT 读取
           (不用 api_settings, 其首次访问后缓存, override_settings 下不生效)
 
+        [M-08/NEW-06] 轮换 + 黑名单在 transaction.atomic 内执行:
+        blacklist() 抛 IntegrityError(并发同 token 双刷新竞态, 一方已抢先
+        写入 OutstandingToken 唯一约束)时转换为 TokenError, 防止双发窗口。
+        非轮换路径 (ROTATE_REFRESH_TOKENS=False) 无写库, 保持原行为。
+
         Raises:
             TokenError: token 无效/过期/已被作废
             AuthUser.DoesNotExist: token 对应用户不存在
@@ -205,12 +210,18 @@ class AuthService:
         data = {"access": access}
         jwt_settings = getattr(settings, "SIMPLE_JWT", {})
         if jwt_settings.get("ROTATE_REFRESH_TOKENS", True):
-            if jwt_settings.get("BLACKLIST_AFTER_ROTATION", True):
-                refresh.blacklist()
-            refresh.set_jti()
-            refresh.set_exp()
-            refresh.set_iat()
-            data["refresh"] = str(refresh)
+            # [M-08] 轮换 + 黑名单必须原子执行: blacklist() 写 OutstandingToken,
+            # 并发同 token 请求一方成功一方 IntegrityError → 后者按 TokenError 处理
+            with transaction.atomic():
+                if jwt_settings.get("BLACKLIST_AFTER_ROTATION", True):
+                    try:
+                        refresh.blacklist()
+                    except IntegrityError:
+                        raise TokenError("Token 已被作废(并发刷新冲突)")
+                refresh.set_jti()
+                refresh.set_exp()
+                refresh.set_iat()
+                data["refresh"] = str(refresh)
         else:
             data["refresh"] = refresh_token
         return data

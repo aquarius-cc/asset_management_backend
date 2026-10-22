@@ -74,7 +74,7 @@ class OutAssetService:
 
         outasset = OutAsset.objects.create(**outasset_data)
 
-        asset = OutAssetService._apply_outasset_to_asset(asset, applicant, manager, using_location)
+        asset = OutAssetService._apply_outasset_to_asset(asset, applicant, manager, using_location, outasset)
 
         AuditLogger.log_asset_out(
             asset=asset,
@@ -155,10 +155,19 @@ class OutAssetService:
         return update_fields
 
     @staticmethod
-    def _apply_outasset_to_asset(asset: Asset, applicant: Any, manager: Any, using_location: Any) -> Asset:
+    def _apply_outasset_to_asset(
+        asset: Asset, applicant: Any, manager: Any, using_location: Any, outasset: OutAsset | None = None
+    ) -> Asset:
         """锁行并执行出库:FSM 转换 + 资产字段变化 + 定向 save"""
         # F-P2-8: 锁超时收敛至核心助手
         asset = lock_row_or_409(Asset.objects.select_for_update(), pk=asset.pk)
+
+        # [M-06/NEW-04] 锁内重读资产当前状态并更新 outasset.previous_status:
+        # 锁前捕获的前态可能因并发操作(如 recycle)已变化, 锁内复检保证审计日志
+        # 与 cancel_outasset 回退目标正确。
+        if outasset is not None:
+            outasset.outasset_previous_status = asset.asset_current_status
+            outasset.save(update_fields=["outasset_previous_status"])
 
         try:
             AssetFSM.outasset(asset)

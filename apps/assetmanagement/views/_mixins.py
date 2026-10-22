@@ -10,7 +10,7 @@ from typing import Any
 
 from django.http import Http404
 
-from core.permissions import IsSystemAdmin, resolve_viewset_permissions
+from core.permissions import IsSystemAdmin, request_method, resolve_viewset_permissions
 
 
 class RecordcodeLookupMixin:
@@ -62,6 +62,7 @@ class AdminWritePermissionMixin:
             self.action,  # type: ignore[attr-defined]
             self.admin_actions,
             IsSystemAdmin,
+            method=request_method(self),
         )
 
 

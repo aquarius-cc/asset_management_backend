@@ -253,7 +253,9 @@ JWT_AUTH_COOKIE_REFRESH = "asset_refresh_token"
 JWT_AUTH_COOKIE_ACCESS_MAX_AGE = None
 # refresh cookie 有效期 7 天 (与 JWT REFRESH_TOKEN_LIFETIME 一致)
 JWT_AUTH_COOKIE_REFRESH_MAX_AGE = 60 * 60 * 24 * 7
-JWT_AUTH_COOKIE_SECURE = config("JWT_AUTH_COOKIE_SECURE", default=False, cast=bool)
+# [M-10/NEW-08] Secure 缺省改 True:漏配环境下 7 天 refresh cookie 不再走明文 HTTP。
+# development.py / test.py 显式 opt-out (False) 以支持本地 http 调试。
+JWT_AUTH_COOKIE_SECURE = config("JWT_AUTH_COOKIE_SECURE", default=True, cast=bool)
 JWT_AUTH_COOKIE_SAMESITE = "Lax"
 
 # CSRF 双通道配套: csrftoken 需 JS 可读 (写入 X-CSRFToken 请求头)

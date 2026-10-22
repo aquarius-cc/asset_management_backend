@@ -53,6 +53,7 @@ from core.permissions import (
     IsSystemAdmin,
     IsSystemAdminOrAssetAdmin,
     is_system_admin,
+    request_method,
     resolve_viewset_permissions,
 )
 from utils.response_utils import error_response, success_response
@@ -138,6 +139,7 @@ class UnregisteredAssetViewSet(  # type: ignore[misc]
             admin_actions=frozenset(),
             admin_permission=IsSystemAdmin,
             action_overrides=_ACTION_PERMISSION_OVERRIDES,
+            method=request_method(self),
         )
 
     def get_queryset(self) -> QuerySet[UnregisteredAsset]:

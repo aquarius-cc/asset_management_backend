@@ -118,6 +118,9 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": False,
 }
 
+# [M-10/NEW-08] 测试环境 opt-out base.py 的 secure=True 缺省(测试环境 http + cookie 通道)
+JWT_AUTH_COOKIE_SECURE = False
+
 # =============================================================================
 # 【DRF 覆盖 - 测试专用】
 # =============================================================================

@@ -32,7 +32,7 @@ from core.batch_mixins import BatchDeleteViewMixin, BatchResponseHelper
 from core.excel_export import ExportExcelMixin
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
-from core.permissions import IsAssetAdminOrAbove, IsSystemAdmin, resolve_viewset_permissions
+from core.permissions import IsAssetAdminOrAbove, IsSystemAdmin, request_method, resolve_viewset_permissions
 from utils.response_utils import error_response, success_response
 from utils.user_utils import resolve_operator
 
@@ -100,6 +100,7 @@ class AssetViewSet(  # type: ignore[misc]
             self.admin_actions,
             IsAssetAdminOrAbove,
             action_overrides={"change_status": IsSystemAdmin},
+            method=request_method(self),
         )
 
     def get_serializer_class(self) -> type:

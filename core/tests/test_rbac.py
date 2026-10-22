@@ -339,7 +339,7 @@ class TestResolveViewsetPermissions:
     def test_default_is_authenticated(self):
         from rest_framework.permissions import IsAuthenticated
 
-        perms = resolve_viewset_permissions("list", ["create"], IsSystemAdmin)
+        perms = resolve_viewset_permissions("list", ["create"], IsSystemAdmin, method="GET")
         assert isinstance(perms[0], IsAuthenticated)
 
     def test_none_action_defaults(self):

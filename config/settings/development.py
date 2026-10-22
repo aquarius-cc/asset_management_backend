@@ -65,6 +65,8 @@ ALLOWED_HOSTS = [
 
 # CSRF: 开发环境 HTTP 不需要 Secure 标志
 CSRF_COOKIE_SECURE = False
+# [M-10/NEW-08] 开发环境 opt-out base.py 的 secure=True 缺省(本地 http 调试)
+JWT_AUTH_COOKIE_SECURE = False
 
 # 【Bug修复 2026-XX】Vite 代理(5173→8000)导致请求 Origin 与 Host 不一致,
 # Django ≥4.0 的 Origin 校验拒绝跨源 POST, 使 cookie 通道的 token/refresh 端点

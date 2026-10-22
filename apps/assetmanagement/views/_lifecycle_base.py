@@ -25,7 +25,7 @@ from core.batch_mixins import BatchDeleteViewMixin
 from core.excel_export import ExportExcelMixin
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
-from core.permissions import IsAssetAdminOrAbove, resolve_viewset_permissions
+from core.permissions import IsAssetAdminOrAbove, request_method, resolve_viewset_permissions
 from utils.response_utils import error_response, success_response
 from utils.user_utils import resolve_operator
 
@@ -101,7 +101,9 @@ class AssetLifecycleViewSetBase(  # type: ignore[misc]
 
     def get_permissions(self) -> Any:
         """RBAC: 写操作(含 batch_create)需 asset_admin+,读操作需认证"""
-        return resolve_viewset_permissions(self.action, self.admin_actions, IsAssetAdminOrAbove)
+        return resolve_viewset_permissions(
+            self.action, self.admin_actions, IsAssetAdminOrAbove, method=request_method(self)
+        )
 
     def get_queryset(self) -> Any:
         return self.selector.get_queryset_for_user(self.request.user)  # type: ignore[attr-defined]

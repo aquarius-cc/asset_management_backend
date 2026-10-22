@@ -35,7 +35,7 @@ from core.batch_mixins import BatchDeleteViewMixin
 from core.excel_export import ExportExcelMixin
 from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
-from core.permissions import IsAssetAdminOrAbove, resolve_viewset_permissions
+from core.permissions import IsAssetAdminOrAbove, request_method, resolve_viewset_permissions
 from utils.response_utils import error_response, success_response
 from utils.user_utils import resolve_operator
 
@@ -126,7 +126,9 @@ class RepairAssetViewSet(  # type: ignore[misc]
     ordering = ["-repair_date"]
 
     def get_permissions(self) -> Any:
-        return resolve_viewset_permissions(self.action, self.admin_actions, IsAssetAdminOrAbove)
+        return resolve_viewset_permissions(
+            self.action, self.admin_actions, IsAssetAdminOrAbove, method=request_method(self)
+        )
 
     def get_queryset(self) -> Any:
         return RepairAssetSelector.get_queryset_for_user(self.request.user)

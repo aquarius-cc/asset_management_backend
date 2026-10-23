@@ -10,11 +10,13 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.assetmanagement.audit import AuditLogger
-from apps.assetmanagement.models import Asset, DamagedAsset, WasteAsset
+from apps.assetmanagement.models import Asset, AssetOperationLog, DamagedAsset, WasteAsset
 from apps.assetmanagement.selectors import (
     AssetSelector,
     DamagedAssetSelector,
+    RepairAssetSelector,
 )
+from apps.assetmanagement.services.operation_log_service import OperationLogService
 from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
 from apps.usermanagement.selectors import EmployeeSelector
 from core.exceptions import AppValidationError, re_raise_or_map_integrity_error
@@ -210,6 +212,38 @@ class DamagedAssetService:
         )
 
     @staticmethod
+    def _resolve_revert_target(
+        damaged_asset: DamagedAsset,
+        asset: Asset,
+        operator_jobcode: str | None,
+        operator_name: str | None,
+    ) -> str | None:
+        """M-03: reject/cancel 回退目标解析。
+
+        original_status=repairing 但无进行中维修记录的存量搁浅单(fail_repair 历史写点)
+        自愈回 broken(可重新送修),并留 [M03-HEAL] 业务日志供上线后核销;
+        有进行中维修记录的合法单据(维修中直接申请报废)保持 repairing。
+        """
+        original_status = damaged_asset.original_status
+        if original_status != Asset.AssetStatus.REPAIRING:
+            return original_status
+        if RepairAssetSelector.has_in_progress_repair(asset):
+            return original_status
+        OperationLogService.log_operation(
+            asset_code=asset.asset_code,
+            operation_type=AssetOperationLog.OperationType.STATE_CHANGE,
+            description=(
+                "[M03-HEAL] 历史待报废单回退目标自愈: original_status=repairing -> broken "
+                "(无进行中维修记录, 回 repairing 将滞留)"
+            ),
+            asset_name=asset.asset_name,
+            asset_specification=asset.asset_specification,
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+        )
+        return Asset.AssetStatus.BROKEN.value
+
+    @staticmethod
     @transaction.atomic
     def reject_asset_recordcode(
         asset_recordcode_code: str, approver_jobcode: str, operator_name: str, user: Any | None = None
@@ -247,7 +281,10 @@ class DamagedAssetService:
         asset = Asset.objects.select_for_update().get(pk=damaged_asset.asset_recordcode.pk)  # type: ignore[union-attr]
         old_status = asset.asset_current_status
         try:
-            AssetFSM.reject_to_original(asset, damaged_asset.original_status)
+            AssetFSM.reject_to_original(
+                asset,
+                DamagedAssetService._resolve_revert_target(damaged_asset, asset, approver_jobcode, operator_name),
+            )
         except InvalidTransitionError as e:
             raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
         asset.save(update_fields=["asset_current_status", "updated_at"])
@@ -315,7 +352,12 @@ class DamagedAssetService:
         asset = Asset.objects.select_for_update().get(pk=damaged_asset.asset_recordcode.pk)  # type: ignore[union-attr]
         old_status = asset.asset_current_status
         try:
-            AssetFSM.cancel_damaged(asset, original_status=damaged_asset.original_status)
+            AssetFSM.cancel_damaged(
+                asset,
+                original_status=DamagedAssetService._resolve_revert_target(
+                    damaged_asset, asset, operator_jobcode, operator_name
+                ),
+            )
         except InvalidTransitionError as e:
             raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
         asset.save(update_fields=["asset_current_status", "updated_at"])

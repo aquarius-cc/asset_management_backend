@@ -150,7 +150,7 @@ class TestRepairAuditTrail:
         assert AssetOperationLog.objects.filter(asset_code="A001", operation_type="repair_failed").exists()
 
     def test_repair_failed_creates_damaged_payload(self, asset, user):
-        """维修失败生成待报废记录: 数量 1 + 原状态 repairing"""
+        """维修失败生成待报废记录: 数量 1 + 原状态 broken(M-03: 回退恢复点=送修前态, 防 reject 回 repairing 滞留)"""
         self._make_repairing_asset(asset, user)
         RepairAssetService.fail_repair(
             asset_code="A001",
@@ -159,7 +159,7 @@ class TestRepairAuditTrail:
         )
         damaged = DamagedAsset.objects.get(asset_recordcode=asset)
         assert damaged.damaged_asset_number == 1
-        assert damaged.original_status == "repairing"
+        assert damaged.original_status == "broken"
 
     def test_repair_done_notification_payload(self, asset, user):
         """完成通知: 标题与 related_url 指向资产详情"""

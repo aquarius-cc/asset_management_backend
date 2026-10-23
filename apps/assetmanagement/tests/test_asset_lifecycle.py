@@ -357,7 +357,7 @@ class TestRepairFailed:
         asset.refresh_from_db()
         assert asset.asset_current_status == "damaged"
         damaged = DamagedAsset.objects.get(asset_recordcode=asset)
-        assert damaged.original_status == "repairing"
+        assert damaged.original_status == "broken"
 
     def test_repair_failed_no_in_progress_record(self, asset, user):
         """没有进行中的维修记录时应报错"""

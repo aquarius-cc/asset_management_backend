@@ -8,7 +8,7 @@ from typing import Any
 
 from django.db.models import QuerySet
 
-from apps.assetmanagement.models import RepairAsset
+from apps.assetmanagement.models import Asset, RepairAsset
 from core.department_scope import get_asset_linked_queryset_for_user
 
 
@@ -36,6 +36,15 @@ class RepairAssetSelector:
     @staticmethod
     def exists_by_asset_code(asset_code: str) -> bool:
         return RepairAsset.objects.filter(asset_recordcode__asset_code=asset_code, is_deleted=False).exists()
+
+    @staticmethod
+    def has_in_progress_repair(asset: Asset) -> bool:
+        """是否存在进行中的维修记录(M-03 回退目标解析, 与维修服务 IN_PROGRESS 过滤同口径)"""
+        return RepairAsset.objects.filter(
+            asset_recordcode=asset,
+            repair_status=RepairAsset.RepairStatus.IN_PROGRESS,
+            is_deleted=False,
+        ).exists()
 
     @staticmethod
     def get_by_asset_code(asset_code: str, user: Any = None) -> QuerySet[RepairAsset]:

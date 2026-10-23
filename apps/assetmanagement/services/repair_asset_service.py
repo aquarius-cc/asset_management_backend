@@ -300,10 +300,12 @@ class RepairAssetService:
         repair_record.repair_status = RepairAsset.RepairStatus.FAILED
         repair_record.save(update_fields=["repair_status", "updated_at"])
 
+        # M-03: original_status 记送修前状态 broken(报废单的回退恢复点), 而非字面前态 repairing——
+        # 报废单被拒/取消须回可重新送修的 broken; 回 repairing 会因维修记录已 FAILED 而滞留
         DamagedAsset.objects.create(
             asset_recordcode=asset,
             damaged_asset_number=1,
-            original_status=from_state,
+            original_status=Asset.AssetStatus.BROKEN,
         )
 
         OperationLogService.log_operation(

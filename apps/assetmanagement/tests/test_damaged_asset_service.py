@@ -10,9 +10,11 @@ from apps.assetmanagement.models import (
     Asset,
     AssetOperationLog,
     DamagedAsset,
+    RepairAsset,
 )
 from apps.assetmanagement.selectors.damaged_asset_selector import DamagedAssetSelector
 from apps.assetmanagement.services.damaged_asset_service import DamagedAssetService
+from apps.assetmanagement.services.repair_asset_service import RepairAssetService
 from apps.authusermanagement.models import AuthUser
 from apps.usermanagement.models import Department, Employee, EmployeeRole
 from core.exceptions import AppValidationError
@@ -305,7 +307,6 @@ class TestRejectAssetRecordcode:
         [
             ("in_use", "in_use"),
             ("recycled_pending", "recycled_pending"),
-            ("repairing", "repairing"),
             (None, "recycled_pending"),
             ("in_store", "recycled_pending"),
         ],
@@ -681,3 +682,202 @@ class TestWritePathDeptScope:
             user=data["user_b"],
         )
         assert updated.damaged_asset_description == "本部门修改"
+
+
+@pytest.mark.django_db
+class TestRevertTargetSelfHeal:
+    """M-03: reject/cancel 回退目标自愈(存量搁浅单)与合法路径屏障"""
+
+    def _make_asset(self, storage, asset_type, code: str, status: str) -> Asset:
+        return Asset.objects.create(
+            asset_code=code,
+            asset_name="M-03回退测试",
+            asset_specification="M03规格",
+            asset_purchase_price=2000,
+            asset_purchase_date="2024-01-01",
+            asset_entry_date="2024-01-01",
+            asset_storage_recordcode=storage,
+            asset_type_recordcode=asset_type,
+            asset_current_status=status,
+        )
+
+    def _make_repair_record(self, asset, user, repair_status: str) -> RepairAsset:
+        return RepairAsset.objects.create(
+            asset_recordcode=asset,
+            repair_date="2024-06-01",
+            repair_reason="主板故障",
+            repair_status=repair_status,
+            operator_employee=user,
+        )
+
+    def _make_pending_sheet(self, asset, original_status: str) -> DamagedAsset:
+        return DamagedAsset.objects.create(
+            asset_recordcode=asset,
+            damaged_asset_number=1,
+            approval_status="pending",
+            original_status=original_status,
+        )
+
+    def _assert_heal_log(
+        self,
+        asset_code: str,
+        *,
+        operator_jobcode: str,
+        operator_name: str,
+    ) -> None:
+        log = AssetOperationLog.objects.filter(
+            asset_code=asset_code,
+            operation_type="state_change",
+            description__contains="[M03-HEAL]",
+        ).first()
+        assert log is not None
+        # 精确全文断言: sqlite LIKE 大小写不敏感, contains 断言杀不掉大小写/包裹变异
+        assert log.description == (
+            "[M03-HEAL] 历史待报废单回退目标自愈: original_status=repairing -> broken "
+            "(无进行中维修记录, 回 repairing 将滞留)"
+        )
+        assert log.asset_name == "M-03回退测试"
+        assert log.asset_specification == "M03规格"
+        assert log.operator_jobcode == operator_jobcode
+        assert log.operator_name == operator_name
+
+    def test_reject_repairing_with_active_record_returns_repairing(self, db, storage, asset_type, user):
+        """合法路径屏障: 维修中直接申请报废(IN_PROGRESS 记录仍在) → reject 回 repairing 且维修可继续完成"""
+        asset = self._make_asset(storage, asset_type, "A_M03_LEG", Asset.AssetStatus.BROKEN)
+        RepairAssetService.create_repair_asset(
+            asset_code="A_M03_LEG",
+            repair_reason="主板故障",
+            repair_date="2024-06-01",
+            operator_jobcode=user.employee_jobcode,
+            operator_name=user.employee_name,
+        )
+        asset.refresh_from_db()
+        asset.asset_current_status = Asset.AssetStatus.DAMAGED
+        asset.save(update_fields=["asset_current_status", "updated_at"])
+        self._make_pending_sheet(asset, "repairing")
+
+        DamagedAssetService.reject_asset_recordcode(
+            asset.recordcode, approver_jobcode=user.employee_jobcode, operator_name="审批人"
+        )
+        asset.refresh_from_db()
+        assert asset.asset_current_status == "repairing"
+
+        RepairAssetService.complete_repair(
+            asset_code="A_M03_LEG",
+            operator_jobcode=user.employee_jobcode,
+            operator_name=user.employee_name,
+        )
+        asset.refresh_from_db()
+        assert asset.asset_current_status == "recycled_pending"
+
+    def test_reject_repairing_legacy_without_record_self_heals(self, db, storage, asset_type, user):
+        """存量搁浅自愈: original_status=repairing 且无维修记录 → reject 回 broken + [M03-HEAL] 日志"""
+        asset = self._make_asset(storage, asset_type, "A_M03_N", Asset.AssetStatus.DAMAGED)
+        self._make_pending_sheet(asset, "repairing")
+
+        DamagedAssetService.reject_asset_recordcode(
+            asset.recordcode, approver_jobcode=user.employee_jobcode, operator_name="审批人"
+        )
+        asset.refresh_from_db()
+        assert asset.asset_current_status == "broken"
+        self._assert_heal_log("A_M03_N", operator_jobcode=user.employee_jobcode, operator_name="审批人")
+
+    def test_reject_repairing_legacy_failed_record_self_heals(self, db, storage, asset_type, user):
+        """存量搁浅自愈: original_status=repairing 且维修记录已 FAILED → reject 回 broken + [M03-HEAL] 日志"""
+        asset = self._make_asset(storage, asset_type, "A_M03_F", Asset.AssetStatus.DAMAGED)
+        self._make_repair_record(asset, user, "failed")
+        self._make_pending_sheet(asset, "repairing")
+
+        DamagedAssetService.reject_asset_recordcode(
+            asset.recordcode, approver_jobcode=user.employee_jobcode, operator_name="审批人"
+        )
+        asset.refresh_from_db()
+        assert asset.asset_current_status == "broken"
+        self._assert_heal_log("A_M03_F", operator_jobcode=user.employee_jobcode, operator_name="审批人")
+
+    def test_cancel_repairing_legacy_self_heals(self, db, storage, asset_type, user):
+        """存量搁浅自愈: cancel 同构 → 回 broken + [M03-HEAL] 日志"""
+        asset = self._make_asset(storage, asset_type, "A_M03_C", Asset.AssetStatus.DAMAGED)
+        self._make_pending_sheet(asset, "repairing")
+
+        DamagedAssetService.cancel_asset_recordcode(
+            asset.recordcode, operator_jobcode=user.employee_jobcode, operator_name="用户"
+        )
+        asset.refresh_from_db()
+        assert asset.asset_current_status == "broken"
+        self._assert_heal_log("A_M03_C", operator_jobcode=user.employee_jobcode, operator_name="用户")
+
+    def test_fail_repair_reject_full_chain_recovers(self, db, storage, asset_type, user):
+        """M-03 全链(reject): 送修 → 维修失败 → reject → broken → 重新送修 → 维修完成"""
+        asset = self._make_asset(storage, asset_type, "A_M03_FR", Asset.AssetStatus.BROKEN)
+        RepairAssetService.create_repair_asset(
+            asset_code="A_M03_FR",
+            repair_reason="主板故障",
+            repair_date="2024-06-01",
+            operator_jobcode=user.employee_jobcode,
+            operator_name=user.employee_name,
+        )
+        RepairAssetService.fail_repair(
+            asset_code="A_M03_FR",
+            operator_jobcode=user.employee_jobcode,
+            operator_name=user.employee_name,
+        )
+        sheet = DamagedAsset.objects.get(asset_recordcode=asset)
+        assert sheet.original_status == "broken"
+
+        DamagedAssetService.reject_asset_recordcode(
+            asset.recordcode, approver_jobcode=user.employee_jobcode, operator_name="审批人"
+        )
+        asset.refresh_from_db()
+        assert asset.asset_current_status == "broken"
+
+        RepairAssetService.create_repair_asset(
+            asset_code="A_M03_FR",
+            repair_reason="二次送修",
+            repair_date="2024-06-05",
+            operator_jobcode=user.employee_jobcode,
+            operator_name=user.employee_name,
+        )
+        RepairAssetService.complete_repair(
+            asset_code="A_M03_FR",
+            operator_jobcode=user.employee_jobcode,
+            operator_name=user.employee_name,
+        )
+        asset.refresh_from_db()
+        assert asset.asset_current_status == "recycled_pending"
+
+    def test_fail_repair_cancel_full_chain_recovers(self, db, storage, asset_type, user):
+        """M-03 全链(cancel): 送修 → 维修失败 → cancel → broken → 重新送修 → 维修完成"""
+        asset = self._make_asset(storage, asset_type, "A_M03_FC", Asset.AssetStatus.BROKEN)
+        RepairAssetService.create_repair_asset(
+            asset_code="A_M03_FC",
+            repair_reason="主板故障",
+            repair_date="2024-06-01",
+            operator_jobcode=user.employee_jobcode,
+            operator_name=user.employee_name,
+        )
+        RepairAssetService.fail_repair(
+            asset_code="A_M03_FC",
+            operator_jobcode=user.employee_jobcode,
+            operator_name=user.employee_name,
+        )
+        DamagedAssetService.cancel_asset_recordcode(
+            asset.recordcode, operator_jobcode=user.employee_jobcode, operator_name="用户"
+        )
+        asset.refresh_from_db()
+        assert asset.asset_current_status == "broken"
+
+        RepairAssetService.create_repair_asset(
+            asset_code="A_M03_FC",
+            repair_reason="二次送修",
+            repair_date="2024-06-05",
+            operator_jobcode=user.employee_jobcode,
+            operator_name=user.employee_name,
+        )
+        RepairAssetService.complete_repair(
+            asset_code="A_M03_FC",
+            operator_jobcode=user.employee_jobcode,
+            operator_name=user.employee_name,
+        )
+        asset.refresh_from_db()
+        assert asset.asset_current_status == "recycled_pending"

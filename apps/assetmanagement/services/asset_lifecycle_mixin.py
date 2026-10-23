@@ -186,7 +186,7 @@ class AssetLifecycleMixin:
         if user is not None:
             AssetSelector.ensure_asset_visible(asset, user)
 
-        lost_record = LostAsset.objects.filter(asset_recordcode=asset).first()
+        lost_record = LostAsset.objects.filter(asset_recordcode=asset).order_by("id").first()
         if lost_record is None:
             raise AppValidationError(detail=f"资产 {asset_code} 无遗失记录,无法找回", error_code="NO_LOST_RECORD")
 

@@ -74,6 +74,7 @@ class WasteAsset(BaseModel):
         verbose_name = "已报废资产管理"
         verbose_name_plural = "已报废资产管理"
         db_table = "am_waste_asset"
+        ordering = ["-created_at", "-id"]
         indexes = [
             models.Index(fields=["asset_recordcode"]),
             models.Index(fields=["damaged_recordcode"]),

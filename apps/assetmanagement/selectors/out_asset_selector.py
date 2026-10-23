@@ -221,6 +221,7 @@ class OutAssetSelector:
                     is_deleted=False,
                 )
                 .select_related("asset_recordcode")
+                .order_by("id")
                 .first()
             )
         except OutAsset.DoesNotExist:
@@ -229,9 +230,13 @@ class OutAssetSelector:
     @staticmethod
     def get_outasset_by_asset_and_status(asset: "Asset", statuses: list[str]) -> OutAsset | None:
         try:
-            return OutAsset.objects.filter(
-                asset_recordcode=asset, asset_recordcode__asset_current_status__in=statuses, is_deleted=False
-            ).first()
+            return (
+                OutAsset.objects.filter(
+                    asset_recordcode=asset, asset_recordcode__asset_current_status__in=statuses, is_deleted=False
+                )
+                .order_by("id")
+                .first()
+            )
         except OutAsset.DoesNotExist:
             return None
 

@@ -120,6 +120,7 @@ class Contract(BaseModel):
         verbose_name = "合同管理"
         verbose_name_plural = "合同管理"
         db_table = "am_contract"
+        ordering = ["-created_at", "-id"]
         constraints = [
             models.UniqueConstraint(
                 fields=["contract_code"],

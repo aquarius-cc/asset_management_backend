@@ -84,6 +84,7 @@ class FoundAsset(BaseModel):
         verbose_name = "资产找回记录"
         verbose_name_plural = "资产找回记录"
         db_table = "am_found_asset"
+        ordering = ["-created_at", "-id"]
         indexes = [
             models.Index(fields=["asset_recordcode"]),
             models.Index(fields=["lost_asset_recordcode"]),

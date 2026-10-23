@@ -109,6 +109,7 @@ class DamagedAsset(BaseModel):
         verbose_name = "待报废资产管理"
         verbose_name_plural = "待报废资产管理"
         db_table = "am_damaged_asset"
+        ordering = ["-created_at", "-id"]
         constraints = [
             models.UniqueConstraint(
                 fields=["asset_recordcode"],

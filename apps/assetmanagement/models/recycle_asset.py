@@ -107,6 +107,7 @@ class RecycleAsset(BaseModel):
         verbose_name = "回收资产管理"
         verbose_name_plural = "回收资产管理"
         db_table = "am_recycle_asset"
+        ordering = ["-created_at", "-id"]
         indexes = [
             models.Index(fields=["outasset_recordcode"]),
             models.Index(fields=["asset_recordcode"]),

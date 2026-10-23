@@ -189,7 +189,7 @@ class AuthUser(AbstractBaseUser, PermissionsMixin):
             models.Index(fields=["auth_phone"]),
             # models.Index(fields=["sort_order"]),  # 【AGENTS规范】排序字段索引
         ]
-        ordering = ["auth_username"]  # 按排序字段优先排序
+        ordering = ["auth_username", "auth_id"]  # 同名并列 (active/inactive 条件唯一允许) 以 auth_id 决胜, 保证分页全序
 
     def __str__(self) -> str:
         """返回用户名字符串表示"""

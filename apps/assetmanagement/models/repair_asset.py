@@ -90,6 +90,7 @@ class RepairAsset(BaseModel):
         verbose_name = "维修记录"
         verbose_name_plural = verbose_name
         db_table = "am_repair_asset"
+        ordering = ["-created_at", "-id"]
         constraints = [
             models.UniqueConstraint(
                 fields=["asset_recordcode"],

@@ -77,6 +77,7 @@ class LostAsset(BaseModel):
         verbose_name = "已遗失资产管理"
         verbose_name_plural = "已遗失资产管理"
         db_table = "am_lost_asset"
+        ordering = ["-created_at", "-id"]
         indexes = [
             models.Index(fields=["asset_recordcode"]),
             models.Index(fields=["lost_date"]),

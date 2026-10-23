@@ -89,14 +89,32 @@ class LoginLockoutThrottle(AnonRateThrottle):
             return False
         return super().allow_request(request, view)
 
+    def _increment_fail_count(self, fail_key: str) -> int:
+        """原子自增登录失败计数（M-24）
+
+        add 种子（SETNX+TTL 原子）→ 已存在走 incr（原子自增，并发失败不丢计数）。
+        incr 仅在键读取瞬间缺失时抛 ValueError（add 判在 → 键在其间过期的竞态），
+        此时进入下一轮重试种入；两轮极端竞态后按新窗口 1 计，不抛出。
+        全程不出现 get→set 读改写（原实现并发丢计数、5 次锁定阈值可被放大）。
+        """
+        for _attempt in range(2):
+            if cache.add(fail_key, 1, self.LOCKOUT_DURATION):
+                return 1
+            try:
+                return cache.incr(fail_key)
+            except ValueError:
+                logger.warning("登录失败计数键过期竞态，重试种入: %s", fail_key)
+        return 1
+
     def record_failure(self, request: Any, view: Any) -> None:
-        """登录失败时调用"""
+        """登录失败时调用（原子计数 + 滚动窗口刷新）"""
         username = self._get_username(request)
         fail_key = f"login_fail_{username}"
-        count = cache.get(fail_key, 0)
-        cache.set(fail_key, count + 1, self.LOCKOUT_DURATION)
-        if count + 1 >= self.LOCKOUT_THRESHOLD:
-            logger.warning(f"登录锁定触发: {username} 连续失败 {count + 1} 次,锁定 15 分钟")
+        count = self._increment_fail_count(fail_key)
+        # 滚动窗口: 每次失败刷新 15 分钟过期（复刻原 set 刷新 TTL 语义）
+        cache.touch(fail_key, self.LOCKOUT_DURATION)
+        if count >= self.LOCKOUT_THRESHOLD:
+            logger.warning(f"登录锁定触发: {username} 连续失败 {count} 次,锁定 15 分钟")
 
     def record_success(self, request: Any, view: Any) -> None:
         """登录成功时调用"""

@@ -7,12 +7,20 @@ RegisterRateThrottle 自 create 的 get_throttles 分支整体移除；其 429 �
 
 断言:
 - get_throttles: create / list 均不再含 RegisterRateThrottle（收口单元直证）
-- 匿名连续 POST /auth/register/ 第 6 次返回 429（override 压低 register 速率）
+- 匿名连续 POST /auth/register/ 第 6 次返回 429（monkeypatch 直设 rate=5/minute）
 - 已认证 system_admin create 连发不受 register 限流（管理端建号不受影响）
+
+【速率直设机制（BF-128 §六 存量红收口）】DRF 3.17+ 在 rest_framework.throttling 模块
+首次导入时把 DEFAULT_THROTTLE_RATES 快照为 SimpleRateThrottle.THROTTLE_RATES 类属性
+（throttling.py:66）；override_settings 仅刷新 api_settings 实例缓存、不回绑该类属性
+——以 override 压速率是安慰剂，用例绿/红取决于进程首次导入时生效的 settings
+（pytest.ini 默认 development 捕获 base register=5/minute 偶绿；本会话权威口径
+--ds=config.settings.test 捕获 test.py 千万级必红）。故两用例统一
+monkeypatch.setattr(RegisterRateThrottle, "rate", "5/minute")：SimpleRateThrottle.__init__
+见 truthy rate 即跳过 get_rate()，与 settings 口径解耦（双口径同绿），退出自动还原。
 """
 
 import pytest
-from django.test.utils import override_settings
 from rest_framework.test import APIClient
 
 from apps.authusermanagement.views import AuthUserViewSet
@@ -27,29 +35,6 @@ def _viewset_with_action(action: str) -> AuthUserViewSet:
     viewset = AuthUserViewSet()
     viewset.action = action
     return viewset
-
-
-# test.py 将 DEFAULT_THROTTLE_CLASSES 置空、rates 调至千万级;
-# 429 用例需整块覆盖 rates(register=5/minute)。RegisterAPIView 的
-# throttle_classes=[RegisterRateThrottle] 为类属性显式挂载,故
-# DEFAULT_CLASSES=[] 下该 throttle 仍执行,无需恢复默认类。
-# 【镜像必填 DEFAULT_SCHEMA_CLASS】override 窗口内 URLConf 首次懒导入会
-# 执行 @extend_schema 装饰,其回退链读 api_settings.DEFAULT_SCHEMA_CLASS;
-# 本字典缺省时回落 DRF 内建 2-arg AutoSchema 并固化进 ExtendedSchema 基类,
-# 同进程后续 schema 生成必炸 TypeError(spectacular get_operation 为 5-arg,
-# 见 generators.py:175 鸡生蛋注释)。全字典镜像 project 配置防跨测试污染。
-_THROTTLE_TEST_SETTINGS = {
-    "REST_FRAMEWORK": {
-        "DEFAULT_THROTTLE_CLASSES": [],
-        "DEFAULT_THROTTLE_RATES": {
-            "anon": "10000000/minute",
-            "user": "10000000/minute",
-            "register": "5/minute",
-            "login": "10000000/minute",
-        },
-        "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
-    }
-}
 
 
 def _valid_payload(i: int) -> dict[str, str]:
@@ -78,23 +63,24 @@ class TestCreateThrottles:
 class TestRegisterRateLimited:
     """匿名 register 第 6 次 429(5/min 口径)——BF-126 后唯一匿名注册入口"""
 
-    def test_sixth_anonymous_register_returns_429(self):
+    def test_sixth_anonymous_register_returns_429(self, monkeypatch: pytest.MonkeyPatch):
         from django.core.cache import cache
 
         cache.clear()
+        # 类属性直设：绕开 THROTTLE_RATES 导入期快照，对两种 settings 口径同生效
+        monkeypatch.setattr(RegisterRateThrottle, "rate", "5/minute", raising=False)
         client = APIClient()
-        with override_settings(**_THROTTLE_TEST_SETTINGS):
-            codes = []
-            for i in range(6):
-                resp = client.post(REGISTER_URL, _valid_payload(i))
-                codes.append(resp.status_code)
-                # register 成功会种 auth cookie → 下一请求走 cookie 通道触发
-                # CSRF 强制(BF-056)得 403,清 cookie 保持纯匿名口径
-                client.cookies.clear()
+        codes = []
+        for i in range(6):
+            resp = client.post(REGISTER_URL, _valid_payload(i))
+            codes.append(resp.status_code)
+            # register 成功会种 auth cookie → 下一请求走 cookie 通道触发
+            # CSRF 强制(BF-056)得 403,清 cookie 保持纯匿名口径
+            client.cookies.clear()
         assert codes[:5] != [429] * 5, f"前 5 次不应被限流: {codes}"
         assert codes[5] == 429, f"第 6 次应 429, 实得 {codes}"
 
-    def test_authenticated_create_not_blocked_by_register_throttle(self):
+    def test_authenticated_create_not_blocked_by_register_throttle(self, monkeypatch: pytest.MonkeyPatch):
         """已认证 system_admin create 连发不受 register 限流（收口后 create 无该 throttle）"""
         from django.core.cache import cache
 
@@ -102,6 +88,8 @@ class TestRegisterRateLimited:
         from core.tests import TEST_PASSWORD
 
         cache.clear()
+        # 同直设 5/minute：若 create 回归误挂 RegisterRateThrottle，第 6 次必 429 → 断言具杀伤力
+        monkeypatch.setattr(RegisterRateThrottle, "rate", "5/minute", raising=False)
         admin = AuthUser.objects.create_user(
             auth_username="throttle_admin",
             password=TEST_PASSWORD,
@@ -111,9 +99,8 @@ class TestRegisterRateLimited:
         admin.save(update_fields=["is_superuser"])
         client = APIClient()
         client.force_authenticate(user=admin)
-        with override_settings(**_THROTTLE_TEST_SETTINGS):
-            codes = []
-            for i in range(6, 12):
-                resp = client.post(CREATE_URL, _valid_payload(i))
-                codes.append(resp.status_code)
+        codes = []
+        for i in range(6, 12):
+            resp = client.post(CREATE_URL, _valid_payload(i))
+            codes.append(resp.status_code)
         assert 429 not in codes, f"已认证 create 不应吃 register 限流: {codes}"

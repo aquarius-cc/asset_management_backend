@@ -22,7 +22,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -31,7 +31,7 @@
                         "name": "page",
                         "required": false,
                         "in": "query",
-                        "description": "A page number within the paginated result set.",
+                        "description": "分页结果集中的页码。",
                         "schema": {
                             "type": "integer"
                         }
@@ -40,7 +40,7 @@
                         "name": "page_size",
                         "required": false,
                         "in": "query",
-                        "description": "Number of results to return per page.",
+                        "description": "每页返回的结果数量。",
                         "schema": {
                             "type": "integer"
                         }
@@ -49,7 +49,7 @@
                         "name": "search",
                         "required": false,
                         "in": "query",
-                        "description": "A search term.",
+                        "description": "搜索关键词。",
                         "schema": {
                             "type": "string"
                         }
@@ -449,7 +449,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -458,7 +458,7 @@
                         "name": "page",
                         "required": false,
                         "in": "query",
-                        "description": "A page number within the paginated result set.",
+                        "description": "分页结果集中的页码。",
                         "schema": {
                             "type": "integer"
                         }
@@ -467,7 +467,7 @@
                         "name": "page_size",
                         "required": false,
                         "in": "query",
-                        "description": "Number of results to return per page.",
+                        "description": "每页返回的结果数量。",
                         "schema": {
                             "type": "integer"
                         }
@@ -476,7 +476,7 @@
                         "name": "search",
                         "required": false,
                         "in": "query",
-                        "description": "A search term.",
+                        "description": "搜索关键词。",
                         "schema": {
                             "type": "string"
                         }
@@ -1675,7 +1675,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -1684,7 +1684,7 @@
                         "name": "page",
                         "required": false,
                         "in": "query",
-                        "description": "A page number within the paginated result set.",
+                        "description": "分页结果集中的页码。",
                         "schema": {
                             "type": "integer"
                         }
@@ -1693,7 +1693,7 @@
                         "name": "page_size",
                         "required": false,
                         "in": "query",
-                        "description": "Number of results to return per page.",
+                        "description": "每页返回的结果数量。",
                         "schema": {
                             "type": "integer"
                         }
@@ -1702,7 +1702,7 @@
                         "name": "search",
                         "required": false,
                         "in": "query",
-                        "description": "A search term.",
+                        "description": "搜索关键词。",
                         "schema": {
                             "type": "string"
                         }
@@ -1855,7 +1855,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -1864,7 +1864,7 @@
                         "name": "page",
                         "required": false,
                         "in": "query",
-                        "description": "A page number within the paginated result set.",
+                        "description": "分页结果集中的页码。",
                         "schema": {
                             "type": "integer"
                         }
@@ -1873,7 +1873,7 @@
                         "name": "page_size",
                         "required": false,
                         "in": "query",
-                        "description": "Number of results to return per page.",
+                        "description": "每页返回的结果数量。",
                         "schema": {
                             "type": "integer"
                         }
@@ -1882,7 +1882,7 @@
                         "name": "search",
                         "required": false,
                         "in": "query",
-                        "description": "A search term.",
+                        "description": "搜索关键词。",
                         "schema": {
                             "type": "string"
                         }
@@ -2355,7 +2355,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -2364,7 +2364,7 @@
                         "name": "page",
                         "required": false,
                         "in": "query",
-                        "description": "A page number within the paginated result set.",
+                        "description": "分页结果集中的页码。",
                         "schema": {
                             "type": "integer"
                         }
@@ -2373,7 +2373,7 @@
                         "name": "page_size",
                         "required": false,
                         "in": "query",
-                        "description": "Number of results to return per page.",
+                        "description": "每页返回的结果数量。",
                         "schema": {
                             "type": "integer"
                         }
@@ -2382,7 +2382,7 @@
                         "name": "search",
                         "required": false,
                         "in": "query",
-                        "description": "A search term.",
+                        "description": "搜索关键词。",
                         "schema": {
                             "type": "string"
                         }
@@ -3058,7 +3058,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -3067,7 +3067,7 @@
                         "name": "page",
                         "required": false,
                         "in": "query",
-                        "description": "A page number within the paginated result set.",
+                        "description": "分页结果集中的页码。",
                         "schema": {
                             "type": "integer"
                         }
@@ -3076,7 +3076,7 @@
                         "name": "page_size",
                         "required": false,
                         "in": "query",
-                        "description": "Number of results to return per page.",
+                        "description": "每页返回的结果数量。",
                         "schema": {
                             "type": "integer"
                         }
@@ -3085,7 +3085,7 @@
                         "name": "search",
                         "required": false,
                         "in": "query",
-                        "description": "A search term.",
+                        "description": "搜索关键词。",
                         "schema": {
                             "type": "string"
                         }
@@ -3166,7 +3166,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -3190,7 +3190,7 @@
                         "name": "search",
                         "required": false,
                         "in": "query",
-                        "description": "A search term.",
+                        "description": "搜索关键词。",
                         "schema": {
                             "type": "string"
                         }
@@ -3267,7 +3267,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -3276,7 +3276,7 @@
                         "name": "page",
                         "required": false,
                         "in": "query",
-                        "description": "A page number within the paginated result set.",
+                        "description": "分页结果集中的页码。",
                         "schema": {
                             "type": "integer"
                         }
@@ -3285,7 +3285,7 @@
                         "name": "page_size",
                         "required": false,
                         "in": "query",
-                        "description": "Number of results to return per page.",
+                        "description": "每页返回的结果数量。",
                         "schema": {
                             "type": "integer"
                         }
@@ -3294,7 +3294,7 @@
                         "name": "search",
                         "required": false,
                         "in": "query",
-                        "description": "A search term.",
+                        "description": "搜索关键词。",
                         "schema": {
                             "type": "string"
                         }
@@ -3826,7 +3826,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -3835,7 +3835,7 @@
                         "name": "page",
                         "required": false,
                         "in": "query",
-                        "description": "A page number within the paginated result set.",
+                        "description": "分页结果集中的页码。",
                         "schema": {
                             "type": "integer"
                         }
@@ -3844,7 +3844,7 @@
                         "name": "page_size",
                         "required": false,
                         "in": "query",
-                        "description": "Number of results to return per page.",
+                        "description": "每页返回的结果数量。",
                         "schema": {
                             "type": "integer"
                         }
@@ -3853,7 +3853,7 @@
                         "name": "search",
                         "required": false,
                         "in": "query",
-                        "description": "A search term.",
+                        "description": "搜索关键词。",
                         "schema": {
                             "type": "string"
                         }
@@ -4327,7 +4327,7 @@
                         "name": "page",
                         "required": false,
                         "in": "query",
-                        "description": "A page number within the paginated result set.",
+                        "description": "分页结果集中的页码。",
                         "schema": {
                             "type": "integer"
                         }
@@ -4336,7 +4336,7 @@
                         "name": "page_size",
                         "required": false,
                         "in": "query",
-                        "description": "Number of results to return per page.",
+                        "description": "每页返回的结果数量。",
                         "schema": {
                             "type": "integer"
                         }
@@ -4462,7 +4462,7 @@
                         "name": "page",
                         "required": false,
                         "in": "query",
-                        "description": "A page number within the paginated result set.",
+                        "description": "分页结果集中的页码。",
                         "schema": {
                             "type": "integer"
                         }
@@ -4471,7 +4471,7 @@
                         "name": "page_size",
                         "required": false,
                         "in": "query",
-                        "description": "Number of results to return per page.",
+                        "description": "每页返回的结果数量。",
                         "schema": {
                             "type": "integer"
                         }
@@ -4549,7 +4549,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -4558,7 +4558,7 @@
                         "name": "page",
                         "required": false,
                         "in": "query",
-                        "description": "A page number within the paginated result set.",
+                        "description": "分页结果集中的页码。",
                         "schema": {
                             "type": "integer"
                         }
@@ -4567,7 +4567,7 @@
                         "name": "page_size",
                         "required": false,
                         "in": "query",
-                        "description": "Number of results to return per page.",
+                        "description": "每页返回的结果数量。",
                         "schema": {
                             "type": "integer"
                         }
@@ -4576,7 +4576,7 @@
                         "name": "search",
                         "required": false,
                         "in": "query",
-                        "description": "A search term.",
+                        "description": "搜索关键词。",
                         "schema": {
                             "type": "string"
                         }
@@ -5015,7 +5015,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -5024,7 +5024,7 @@
                         "name": "page",
                         "required": false,
                         "in": "query",
-                        "description": "A page number within the paginated result set.",
+                        "description": "分页结果集中的页码。",
                         "schema": {
                             "type": "integer"
                         }
@@ -5033,7 +5033,7 @@
                         "name": "page_size",
                         "required": false,
                         "in": "query",
-                        "description": "Number of results to return per page.",
+                        "description": "每页返回的结果数量。",
                         "schema": {
                             "type": "integer"
                         }
@@ -5042,7 +5042,7 @@
                         "name": "search",
                         "required": false,
                         "in": "query",
-                        "description": "A search term.",
+                        "description": "搜索关键词。",
                         "schema": {
                             "type": "string"
                         }
@@ -5870,7 +5870,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -5894,7 +5894,7 @@
                         "name": "page",
                         "required": false,
                         "in": "query",
-                        "description": "A page number within the paginated result set.",
+                        "description": "分页结果集中的页码。",
                         "schema": {
                             "type": "integer"
                         }
@@ -5903,7 +5903,7 @@
                         "name": "page_size",
                         "required": false,
                         "in": "query",
-                        "description": "Number of results to return per page.",
+                        "description": "每页返回的结果数量。",
                         "schema": {
                             "type": "integer"
                         }
@@ -5912,7 +5912,7 @@
                         "name": "search",
                         "required": false,
                         "in": "query",
-                        "description": "A search term.",
+                        "description": "搜索关键词。",
                         "schema": {
                             "type": "string"
                         }
@@ -6268,7 +6268,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -6292,7 +6292,7 @@
                         "name": "page",
                         "required": false,
                         "in": "query",
-                        "description": "A page number within the paginated result set.",
+                        "description": "分页结果集中的页码。",
                         "schema": {
                             "type": "integer"
                         }
@@ -6301,7 +6301,7 @@
                         "name": "page_size",
                         "required": false,
                         "in": "query",
-                        "description": "Number of results to return per page.",
+                        "description": "每页返回的结果数量。",
                         "schema": {
                             "type": "integer"
                         }
@@ -6310,7 +6310,7 @@
                         "name": "search",
                         "required": false,
                         "in": "query",
-                        "description": "A search term.",
+                        "description": "搜索关键词。",
                         "schema": {
                             "type": "string"
                         }
@@ -6355,7 +6355,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -6379,7 +6379,7 @@
                         "name": "page",
                         "required": false,
                         "in": "query",
-                        "description": "A page number within the paginated result set.",
+                        "description": "分页结果集中的页码。",
                         "schema": {
                             "type": "integer"
                         }
@@ -6388,7 +6388,7 @@
                         "name": "page_size",
                         "required": false,
                         "in": "query",
-                        "description": "Number of results to return per page.",
+                        "description": "每页返回的结果数量。",
                         "schema": {
                             "type": "integer"
                         }
@@ -6397,7 +6397,7 @@
                         "name": "search",
                         "required": false,
                         "in": "query",
-                        "description": "A search term.",
+                        "description": "搜索关键词。",
                         "schema": {
                             "type": "string"
                         }
@@ -6711,7 +6711,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -6730,7 +6730,7 @@
                         "name": "page",
                         "required": false,
                         "in": "query",
-                        "description": "A page number within the paginated result set.",
+                        "description": "分页结果集中的页码。",
                         "schema": {
                             "type": "integer"
                         }
@@ -6739,7 +6739,7 @@
                         "name": "page_size",
                         "required": false,
                         "in": "query",
-                        "description": "Number of results to return per page.",
+                        "description": "每页返回的结果数量。",
                         "schema": {
                             "type": "integer"
                         }
@@ -6748,7 +6748,7 @@
                         "name": "search",
                         "required": false,
                         "in": "query",
-                        "description": "A search term.",
+                        "description": "搜索关键词。",
                         "schema": {
                             "type": "string"
                         }
@@ -7339,7 +7339,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -7348,7 +7348,7 @@
                         "name": "page",
                         "required": false,
                         "in": "query",
-                        "description": "A page number within the paginated result set.",
+                        "description": "分页结果集中的页码。",
                         "schema": {
                             "type": "integer"
                         }
@@ -7357,7 +7357,7 @@
                         "name": "page_size",
                         "required": false,
                         "in": "query",
-                        "description": "Number of results to return per page.",
+                        "description": "每页返回的结果数量。",
                         "schema": {
                             "type": "integer"
                         }
@@ -7366,7 +7366,7 @@
                         "name": "search",
                         "required": false,
                         "in": "query",
-                        "description": "A search term.",
+                        "description": "搜索关键词。",
                         "schema": {
                             "type": "string"
                         }
@@ -7761,7 +7761,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -7770,7 +7770,7 @@
                         "name": "page",
                         "required": false,
                         "in": "query",
-                        "description": "A page number within the paginated result set.",
+                        "description": "分页结果集中的页码。",
                         "schema": {
                             "type": "integer"
                         }
@@ -7779,7 +7779,7 @@
                         "name": "page_size",
                         "required": false,
                         "in": "query",
-                        "description": "Number of results to return per page.",
+                        "description": "每页返回的结果数量。",
                         "schema": {
                             "type": "integer"
                         }
@@ -7788,7 +7788,7 @@
                         "name": "search",
                         "required": false,
                         "in": "query",
-                        "description": "A search term.",
+                        "description": "搜索关键词。",
                         "schema": {
                             "type": "string"
                         }
@@ -8182,7 +8182,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -8191,7 +8191,7 @@
                         "name": "page",
                         "required": false,
                         "in": "query",
-                        "description": "A page number within the paginated result set.",
+                        "description": "分页结果集中的页码。",
                         "schema": {
                             "type": "integer"
                         }
@@ -8200,7 +8200,7 @@
                         "name": "page_size",
                         "required": false,
                         "in": "query",
-                        "description": "Number of results to return per page.",
+                        "description": "每页返回的结果数量。",
                         "schema": {
                             "type": "integer"
                         }
@@ -8209,7 +8209,7 @@
                         "name": "search",
                         "required": false,
                         "in": "query",
-                        "description": "A search term.",
+                        "description": "搜索关键词。",
                         "schema": {
                             "type": "string"
                         }
@@ -8569,7 +8569,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -8578,7 +8578,7 @@
                         "name": "page",
                         "required": false,
                         "in": "query",
-                        "description": "A page number within the paginated result set.",
+                        "description": "分页结果集中的页码。",
                         "schema": {
                             "type": "integer"
                         }
@@ -8587,7 +8587,7 @@
                         "name": "page_size",
                         "required": false,
                         "in": "query",
-                        "description": "Number of results to return per page.",
+                        "description": "每页返回的结果数量。",
                         "schema": {
                             "type": "integer"
                         }
@@ -8596,7 +8596,7 @@
                         "name": "search",
                         "required": false,
                         "in": "query",
-                        "description": "A search term.",
+                        "description": "搜索关键词。",
                         "schema": {
                             "type": "string"
                         }
@@ -9483,7 +9483,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -9492,7 +9492,7 @@
                         "name": "page",
                         "required": false,
                         "in": "query",
-                        "description": "A page number within the paginated result set.",
+                        "description": "分页结果集中的页码。",
                         "schema": {
                             "type": "integer"
                         }
@@ -9501,7 +9501,7 @@
                         "name": "page_size",
                         "required": false,
                         "in": "query",
-                        "description": "Number of results to return per page.",
+                        "description": "每页返回的结果数量。",
                         "schema": {
                             "type": "integer"
                         }
@@ -9510,7 +9510,7 @@
                         "name": "search",
                         "required": false,
                         "in": "query",
-                        "description": "A search term.",
+                        "description": "搜索关键词。",
                         "schema": {
                             "type": "string"
                         }
@@ -10333,7 +10333,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -10342,7 +10342,7 @@
                         "name": "page",
                         "required": false,
                         "in": "query",
-                        "description": "A page number within the paginated result set.",
+                        "description": "分页结果集中的页码。",
                         "schema": {
                             "type": "integer"
                         }
@@ -10351,7 +10351,7 @@
                         "name": "page_size",
                         "required": false,
                         "in": "query",
-                        "description": "Number of results to return per page.",
+                        "description": "每页返回的结果数量。",
                         "schema": {
                             "type": "integer"
                         }
@@ -10384,7 +10384,7 @@
                         "name": "search",
                         "required": false,
                         "in": "query",
-                        "description": "A search term.",
+                        "description": "搜索关键词。",
                         "schema": {
                             "type": "string"
                         }
@@ -10845,7 +10845,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -10854,7 +10854,7 @@
                         "name": "search",
                         "required": false,
                         "in": "query",
-                        "description": "A search term.",
+                        "description": "搜索关键词。",
                         "schema": {
                             "type": "string"
                         }
@@ -11038,7 +11038,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -11047,7 +11047,7 @@
                         "name": "page",
                         "required": false,
                         "in": "query",
-                        "description": "A page number within the paginated result set.",
+                        "description": "分页结果集中的页码。",
                         "schema": {
                             "type": "integer"
                         }
@@ -11056,7 +11056,7 @@
                         "name": "page_size",
                         "required": false,
                         "in": "query",
-                        "description": "Number of results to return per page.",
+                        "description": "每页返回的结果数量。",
                         "schema": {
                             "type": "integer"
                         }
@@ -11065,7 +11065,7 @@
                         "name": "search",
                         "required": false,
                         "in": "query",
-                        "description": "A search term.",
+                        "description": "搜索关键词。",
                         "schema": {
                             "type": "string"
                         }
@@ -11751,7 +11751,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -11760,7 +11760,7 @@
                         "name": "page",
                         "required": false,
                         "in": "query",
-                        "description": "A page number within the paginated result set.",
+                        "description": "分页结果集中的页码。",
                         "schema": {
                             "type": "integer"
                         }
@@ -11769,7 +11769,7 @@
                         "name": "page_size",
                         "required": false,
                         "in": "query",
-                        "description": "Number of results to return per page.",
+                        "description": "每页返回的结果数量。",
                         "schema": {
                             "type": "integer"
                         }
@@ -12530,7 +12530,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -12621,7 +12621,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -12764,7 +12764,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -12811,7 +12811,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -12820,7 +12820,7 @@
                         "name": "search",
                         "required": false,
                         "in": "query",
-                        "description": "A search term.",
+                        "description": "搜索关键词。",
                         "schema": {
                             "type": "string"
                         }
@@ -12887,7 +12887,7 @@
                         "schema": {
                             "type": "integer"
                         },
-                        "description": "A unique integer value identifying this 权限点管理.",
+                        "description": "标识此 权限点管理 的 唯一整数值。",
                         "required": true
                     }
                 ],
@@ -12922,7 +12922,7 @@
                         "schema": {
                             "type": "integer"
                         },
-                        "description": "A unique integer value identifying this 权限点管理.",
+                        "description": "标识此 权限点管理 的 唯一整数值。",
                         "required": true
                     }
                 ],
@@ -12957,7 +12957,7 @@
                         "schema": {
                             "type": "integer"
                         },
-                        "description": "A unique integer value identifying this 权限点管理.",
+                        "description": "标识此 权限点管理 的 唯一整数值。",
                         "required": true
                     }
                 ],
@@ -12986,7 +12986,7 @@
                         "name": "ordering",
                         "required": false,
                         "in": "query",
-                        "description": "Which field to use when ordering the results.",
+                        "description": "用于排序结果的字段。",
                         "schema": {
                             "type": "string"
                         }
@@ -12995,7 +12995,7 @@
                         "name": "page",
                         "required": false,
                         "in": "query",
-                        "description": "A page number within the paginated result set.",
+                        "description": "分页结果集中的页码。",
                         "schema": {
                             "type": "integer"
                         }
@@ -13004,7 +13004,7 @@
                         "name": "page_size",
                         "required": false,
                         "in": "query",
-                        "description": "Number of results to return per page.",
+                        "description": "每页返回的结果数量。",
                         "schema": {
                             "type": "integer"
                         }
@@ -13013,7 +13013,7 @@
                         "name": "search",
                         "required": false,
                         "in": "query",
-                        "description": "A search term.",
+                        "description": "搜索关键词。",
                         "schema": {
                             "type": "string"
                         }
@@ -13098,7 +13098,7 @@
                         "schema": {
                             "type": "integer"
                         },
-                        "description": "A unique integer value identifying this 角色管理.",
+                        "description": "标识此 角色管理 的 唯一整数值。",
                         "required": true
                     }
                 ],
@@ -13134,7 +13134,7 @@
                         "schema": {
                             "type": "integer"
                         },
-                        "description": "A unique integer value identifying this 角色管理.",
+                        "description": "标识此 角色管理 的 唯一整数值。",
                         "required": true
                     }
                 ],
@@ -13190,7 +13190,7 @@
                         "schema": {
                             "type": "integer"
                         },
-                        "description": "A unique integer value identifying this 角色管理.",
+                        "description": "标识此 角色管理 的 唯一整数值。",
                         "required": true
                     }
                 ],
@@ -13245,7 +13245,7 @@
                         "schema": {
                             "type": "integer"
                         },
-                        "description": "A unique integer value identifying this 角色管理.",
+                        "description": "标识此 角色管理 的 唯一整数值。",
                         "required": true
                     }
                 ],
@@ -13276,7 +13276,7 @@
                         "schema": {
                             "type": "integer"
                         },
-                        "description": "A unique integer value identifying this 角色管理.",
+                        "description": "标识此 角色管理 的 唯一整数值。",
                         "required": true
                     }
                 ],
@@ -13311,7 +13311,7 @@
                         "schema": {
                             "type": "integer"
                         },
-                        "description": "A unique integer value identifying this 角色管理.",
+                        "description": "标识此 角色管理 的 唯一整数值。",
                         "required": true
                     }
                 ],

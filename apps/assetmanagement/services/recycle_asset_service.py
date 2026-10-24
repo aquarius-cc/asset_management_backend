@@ -17,6 +17,7 @@ from apps.usermanagement.models import Employee
 from apps.usermanagement.selectors import EmployeeSelector
 from core.batch_mixins import BatchOperationMixin
 from core.exceptions import AppValidationError
+from utils.update_whitelist import apply_whitelisted_updates
 
 
 # 字段白名单:允许通过 update_recycle_asset 修改的字段
@@ -309,11 +310,9 @@ class RecycleAssetService:
 
         before_data = {key: getattr(recycle_asset, key) for key in update_data.keys()}
 
-        for key, value in update_data.items():
-            if key in RECYCLE_ASSET_UPDATE_ALLOWED_FIELDS:
-                setattr(recycle_asset, key, value)
-            else:
-                raise AppValidationError(detail=f"不允许修改字段: {key}", error_code="FIELD_NOT_ALLOWED")
+        apply_whitelisted_updates(
+            recycle_asset, update_data, RECYCLE_ASSET_UPDATE_ALLOWED_FIELDS, error_code="FIELD_NOT_ALLOWED"
+        )
 
         recycle_asset.save()
 

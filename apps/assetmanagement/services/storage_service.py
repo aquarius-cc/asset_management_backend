@@ -12,7 +12,7 @@ from django.db import IntegrityError, transaction
 from apps.assetmanagement.models import Storage
 from apps.assetmanagement.selectors import AssetSelector, StorageSelector
 from core.audit_service import GenericAuditService
-from core.batch_mixins import BatchOperationMixin
+from core.batch_mixins import BatchOperationMixin, ensure_batch_size
 from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError, match_integrity_error_rules
 
@@ -140,10 +140,7 @@ class StorageService:
         Returns:
             Dict[str, Any]: 批量创建结果
         """
-        if len(storage_data_list) > MAX_BATCH_SIZE:
-            raise AppValidationError(
-                detail=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条", error_code="BATCH_SIZE_EXCEEDED"
-            )
+        ensure_batch_size(len(storage_data_list), MAX_BATCH_SIZE, "批量创建")
 
         def _create_item(idx: int, storage_data: Any) -> Storage:
             return StorageService.create_storage(

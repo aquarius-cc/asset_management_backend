@@ -41,6 +41,25 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
+def ensure_batch_size(count: int, max_size: int, action: str) -> None:
+    """批量长度前置校验(DR-1: 全仓 11 处同形预检唯一实现)
+
+    【文案契约】f"单次{action}不能超过 {max_size} 条" + error_code=BATCH_SIZE_EXCEEDED,
+    各调用点经 action 参数逐字沿用原文案(批量操作/批量创建/批量删除/批量排序/批量保存);
+    分层预检位置不变(service 层前置文案抢先、mixin 层兜底),既有文案与抛出点测试零回归。
+
+    Args:
+        count: 实际条目数
+        max_size: 上限(core.constants.MAX_BATCH_SIZE 或调用方覆盖值)
+        action: 动作文案,组成 "单次{action}不能超过 {max_size} 条"
+
+    Raises:
+        AppValidationError: count 超过 max_size 时抛出 BATCH_SIZE_EXCEEDED
+    """
+    if count > max_size:
+        raise AppValidationError(detail=f"单次{action}不能超过 {max_size} 条", error_code="BATCH_SIZE_EXCEEDED")
+
+
 class BatchOperationMixin:
     """
     批量操作通用 Mixin
@@ -91,8 +110,7 @@ class BatchOperationMixin:
         """
         max_size = max_batch_size or cls.DEFAULT_MAX_BATCH_SIZE
 
-        if len(items) > max_size:
-            raise AppValidationError(detail=f"单次批量操作不能超过 {max_size} 条", error_code="BATCH_SIZE_EXCEEDED")
+        ensure_batch_size(len(items), max_size, "批量操作")
 
         success_items: list[T] = []
         fail_items: list[dict[str, Any]] = []
@@ -170,8 +188,7 @@ class BatchOperationMixin:
         """
         max_size = max_batch_size or cls.DEFAULT_MAX_BATCH_SIZE
 
-        if len(ids) > max_size:
-            raise AppValidationError(detail=f"单次批量删除不能超过 {max_size} 条", error_code="BATCH_SIZE_EXCEEDED")
+        ensure_batch_size(len(ids), max_size, "批量删除")
 
         success_ids: list[str] = []
         fail_items: list[dict[str, Any]] = []

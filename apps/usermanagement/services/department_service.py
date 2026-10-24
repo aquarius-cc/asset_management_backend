@@ -25,7 +25,7 @@ from django.db import IntegrityError, transaction
 from apps.usermanagement.audit_adapter import DepartmentAuditAdapter
 from apps.usermanagement.models import MAX_DEPARTMENT_LEVEL, Department, Employee
 from apps.usermanagement.selectors import DepartmentSelector
-from core.batch_mixins import BatchOperationMixin
+from core.batch_mixins import BatchOperationMixin, ensure_batch_size
 from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError, BusinessLogicError, match_integrity_error_rules
 
@@ -319,10 +319,7 @@ class DepartmentService:
         Raises:
             ValidationError: 部门不存在或批量大小超限
         """
-        if len(items) > MAX_BATCH_SIZE:
-            raise AppValidationError(
-                detail=f"单次批量排序不能超过 {MAX_BATCH_SIZE} 条", error_code="BATCH_SIZE_EXCEEDED"
-            )
+        ensure_batch_size(len(items), MAX_BATCH_SIZE, "批量排序")
 
         updated_count = 0
 
@@ -351,10 +348,7 @@ class DepartmentService:
         复用 DepartmentService.create_department() 单条创建逻辑。
         使用 copy.deepcopy 避免原始数据被修改。
         """
-        if len(dept_data_list) > MAX_BATCH_SIZE:
-            raise AppValidationError(
-                detail=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条", error_code="BATCH_SIZE_EXCEEDED"
-            )
+        ensure_batch_size(len(dept_data_list), MAX_BATCH_SIZE, "批量创建")
 
         # 【DR-1 收敛】循环+异常分类框架复用 BatchOperationMixin.batch_execute
         # (前置 MAX_BATCH_SIZE 校验保留在上方, 保证原错误文案不变)
@@ -374,10 +368,7 @@ class DepartmentService:
         - 部门下不存在员工
         - 部门下不存在子部门
         """
-        if len(department_codes) > MAX_BATCH_SIZE:
-            raise AppValidationError(
-                detail=f"单次批量删除不能超过 {MAX_BATCH_SIZE} 条", error_code="BATCH_SIZE_EXCEEDED"
-            )
+        ensure_batch_size(len(department_codes), MAX_BATCH_SIZE, "批量删除")
 
         # 【DR-1 收敛】逐条删除框架复用 BatchOperationMixin.batch_delete_execute
         # (前置 MAX_BATCH_SIZE 校验保留在上方, 保证原错误文案不变)

@@ -16,7 +16,7 @@ from django.db import IntegrityError, transaction
 from apps.assetmanagement.models import MAX_ASSET_TYPE_LEVEL, AssetType  # type: ignore[attr-defined]
 from apps.assetmanagement.selectors import AssetSelector, AssetTypeSelector
 from core.audit_service import GenericAuditService
-from core.batch_mixins import BatchOperationMixin
+from core.batch_mixins import BatchOperationMixin, ensure_batch_size
 from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError, match_integrity_error_rules
 
@@ -185,10 +185,7 @@ class AssetTypeService:
 
         复用 AssetTypeService.create_asset_type() 单条创建逻辑。
         """
-        if len(asset_type_data_list) > MAX_BATCH_SIZE:
-            raise AppValidationError(
-                detail=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条", error_code="BATCH_SIZE_EXCEEDED"
-            )
+        ensure_batch_size(len(asset_type_data_list), MAX_BATCH_SIZE, "批量创建")
 
         def _create_item(idx: int, asset_type_data: Any) -> AssetType:
             return AssetTypeService.create_asset_type(

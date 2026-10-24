@@ -3,7 +3,7 @@
 import pytest
 
 from apps.assetmanagement.models import Asset
-from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
+from apps.assetmanagement.state_machine import AssetFSM, AssetState, InvalidTransitionError
 
 
 def _make_asset(storage, asset_type, status="in_store", code="A_FSM"):
@@ -386,3 +386,61 @@ def test_state_enum_equivalence():
     from apps.assetmanagement.state_machine import AssetState
 
     assert {state.value for state in AssetState} == {status.value for status in Asset.AssetStatus}
+
+
+@pytest.mark.django_db
+class TestEdgeNameValidation:
+    """M-30 边名唯一化: _validate_transition/_transition 按声明边名校验(BF-142)
+
+    旧实现仅消费转换键,表值(边名)为死数据零消费——红点: 传边名参数即 TypeError、
+    传错边名不拒。REPAIRING→DAMAGED 为双入口共边(tuple): repair_failed 与
+    to_damaged(维修中直接申请报废,既有合法路径)均须通过。
+    """
+
+    def test_validate_accepts_declared_edge_name(self, storage, asset_type):
+        """声明边名(表值 str)通过"""
+        asset = _make_asset(storage, asset_type, "in_store", "A_FSM_EN1")
+        AssetFSM._validate_transition(asset, AssetState.IN_USE, "outasset")
+
+    def test_validate_rejects_undeclared_edge_name(self, storage, asset_type):
+        """未声明边名拒绝(旧签名无此参数,先红: TypeError)"""
+        asset = _make_asset(storage, asset_type, "in_store", "A_FSM_EN2")
+        with pytest.raises(InvalidTransitionError, match="状态转换边不合法"):
+            AssetFSM._validate_transition(asset, AssetState.IN_USE, "mark_broken")
+
+    def test_transition_rejects_wrong_edge_and_keeps_status(self, storage, asset_type):
+        """_transition 边名不符: 抛错且状态不变(不产生半程转换)"""
+        asset = _make_asset(storage, asset_type, "in_store", "A_FSM_EN3")
+        with pytest.raises(InvalidTransitionError, match="状态转换边不合法"):
+            AssetFSM._transition(asset, AssetState.IN_USE, "recycle")
+        assert asset.asset_current_status == "in_store"
+
+    def test_key_missing_keeps_classic_message_with_edge_name(self, storage, asset_type):
+        """键缺失: 保持既有 "状态转换不合法" 文案(边名参数不改变键级异常口径)"""
+        asset = _make_asset(storage, asset_type, "in_store", "A_FSM_EN4")
+        with pytest.raises(InvalidTransitionError, match="状态转换不合法"):
+            AssetFSM._validate_transition(asset, AssetState.SCRAPPED, "approve")
+
+    def test_none_edge_name_keeps_key_only_validation(self, storage, asset_type):
+        """manual 手动改状态路径: 不传边名仅键校验(2-arg 旧调用兼容)"""
+        asset = _make_asset(storage, asset_type, "in_store", "A_FSM_EN5")
+        AssetFSM._transition(asset, AssetState.IN_USE)
+        assert asset.asset_current_status == "in_use"
+
+    @pytest.mark.parametrize("edge", ["repair_failed", "to_damaged"])
+    def test_repairing_damaged_cell_accepts_both_edges(self, storage, asset_type, edge):
+        """REPAIRING→DAMAGED 双入口共边: 两个声明边名均通过"""
+        asset = _make_asset(storage, asset_type, "repairing", "A_FSM_EN6")
+        AssetFSM._validate_transition(asset, AssetState.DAMAGED, edge)
+
+    def test_repairing_damaged_cell_rejects_third_edge(self, storage, asset_type):
+        """双入口 cell 仍拒未声明边名(元组不等于任意放行)"""
+        asset = _make_asset(storage, asset_type, "repairing", "A_FSM_EN7")
+        with pytest.raises(InvalidTransitionError, match="状态转换边不合法"):
+            AssetFSM._validate_transition(asset, AssetState.DAMAGED, "mark_broken")
+
+    def test_to_damaged_from_repairing_via_mixin(self, storage, asset_type):
+        """行为级: repairing 资产直接申请报废(既有合法路径,边名透传零回归)"""
+        asset = _make_asset(storage, asset_type, "repairing", "A_FSM_EN8")
+        AssetFSM.to_damaged(asset)
+        assert asset.asset_current_status == "damaged"

@@ -59,16 +59,41 @@ class AssetFSM(
     # ===================================================================
 
     @classmethod
-    def _validate_transition(cls, asset: "Asset", target_state: AssetState) -> None:
+    def _validate_transition(
+        cls,
+        asset: "Asset",
+        target_state: AssetState,
+        transition_name: str | None = None,
+    ) -> None:
         """
         验证状态转换合法性(不修改状态)
+
+        Args:
+            asset: 资产实例
+            target_state: 目标状态
+            transition_name: 边名(Mixin 方法名)。传入时校验其属于该边的声明值
+                (值为 str 单名或 tuple 多入口共边);None 时仅校验键存在
+                (manual 手动改状态等多入口聚合路径,边名不可单一归属)。
+
+        Raises:
+            InvalidTransitionError: 转换键缺失或边名与声明不符时抛出
         """
         current = AssetState.from_string(asset.asset_current_status)
-        if target_state not in VALID_TRANSITIONS.get(current, {}):
+        allowed = VALID_TRANSITIONS.get(current, {})
+        if target_state not in allowed:
             raise InvalidTransitionError(f"状态转换不合法: {current.value} → {target_state.value}")
+        if transition_name is None:
+            return
+        cell = allowed[target_state]
+        accepted = (cell,) if isinstance(cell, str) else cell
+        if transition_name not in accepted:
+            raise InvalidTransitionError(
+                f"状态转换边不合法: {current.value} → {target_state.value} 未声明边 '{transition_name}',"
+                f"允许边: {list(accepted)}"
+            )
 
     @classmethod
-    def _transition(cls, asset: "Asset", target_state: AssetState) -> None:
+    def _transition(cls, asset: "Asset", target_state: AssetState, transition_name: str | None = None) -> None:
         """
         执行状态转换(内部方法)
         验证合法性后修改 asset.asset_current_status。
@@ -77,9 +102,11 @@ class AssetFSM(
         Args:
             asset: 资产实例
             target_state: 目标状态枚举值
+            transition_name: 边名,透传 _validate_transition(M-30 边名唯一化);
+                None 时仅校验转换键(manual 路径)。
 
         Raises:
-            InvalidTransitionError: 转换不合法时抛出
+            InvalidTransitionError: 转换不合法或边名不符时抛出
         """
-        cls._validate_transition(asset, target_state)
+        cls._validate_transition(asset, target_state, transition_name)
         asset.asset_current_status = target_state.value

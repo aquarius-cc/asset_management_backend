@@ -11,6 +11,7 @@ from django.db import IntegrityError, transaction
 from apps.assetmanagement.audit import AuditLogger
 from apps.assetmanagement.models import Asset, HardDiskSN
 from apps.assetmanagement.selectors import AssetSelector, HardDiskSNSelector
+from core.batch_mixins import ensure_batch_size
 from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError, re_raise_or_map_integrity_error
 
@@ -161,11 +162,7 @@ class HardDiskSNService:
     @staticmethod
     def _validate_payload(disks: list[dict[str, Any]]) -> None:
         """校验批次规模与空列表"""
-        if len(disks) > MAX_BATCH_SIZE:
-            raise AppValidationError(
-                detail=f"单次批量保存不能超过 {MAX_BATCH_SIZE} 条",
-                error_code="BATCH_SIZE_EXCEEDED",
-            )
+        ensure_batch_size(len(disks), MAX_BATCH_SIZE, "批量保存")
         if not disks:
             raise AppValidationError(detail="硬盘列表不能为空", error_code="EMPTY_DISKS")
 

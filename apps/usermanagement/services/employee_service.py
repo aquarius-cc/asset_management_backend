@@ -27,7 +27,7 @@ from django.db import IntegrityError, transaction
 
 from apps.usermanagement.employee_audit_adapter import EmployeeAuditAdapter
 from apps.usermanagement.models import Employee
-from core.batch_mixins import BatchOperationMixin
+from core.batch_mixins import BatchOperationMixin, ensure_batch_size
 from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError, BusinessLogicError, re_raise_or_map_integrity_error
 
@@ -310,10 +310,7 @@ class EmployeeService:
         复用 EmployeeService.create_employee() 单条创建逻辑。
         使用 copy.deepcopy 避免原始数据被修改。
         """
-        if len(employee_data_list) > MAX_BATCH_SIZE:
-            raise AppValidationError(
-                detail=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条", error_code="BATCH_SIZE_EXCEEDED"
-            )
+        ensure_batch_size(len(employee_data_list), MAX_BATCH_SIZE, "批量创建")
 
         # 【DR-1 收敛】循环+异常分类框架复用 BatchOperationMixin.batch_execute
         # (前置 MAX_BATCH_SIZE 校验保留在上方, 保证原错误文案不变)
@@ -336,10 +333,7 @@ class EmployeeService:
         """
         from apps.assetmanagement.selectors import AssetSelector
 
-        if len(employee_jobcodes) > MAX_BATCH_SIZE:
-            raise AppValidationError(
-                detail=f"单次批量删除不能超过 {MAX_BATCH_SIZE} 条", error_code="BATCH_SIZE_EXCEEDED"
-            )
+        ensure_batch_size(len(employee_jobcodes), MAX_BATCH_SIZE, "批量删除")
 
         # 批量预检查:一次查询所有员工
         existing_employees = {

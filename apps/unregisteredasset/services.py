@@ -48,6 +48,7 @@ from apps.unregisteredasset.models import UnregisteredAsset
 from apps.unregisteredasset.selectors import UnregisteredAssetSelector
 from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError
+from utils.update_whitelist import apply_whitelisted_updates, filter_whitelisted_fields
 
 
 logger = logging.getLogger(__name__)
@@ -114,12 +115,8 @@ def _log_create_audit(unregistered: UnregisteredAsset, operator_jobcode: str, op
 
 
 def _apply_whitelist_edits(unregistered: UnregisteredAsset, update_data: dict[str, Any]) -> None:
-    """字段白名单过滤: 非白名单字段直接抛错"""
-    for key, value in update_data.items():
-        if key in UNREGISTERED_UPDATE_ALLOWED_FIELDS:
-            setattr(unregistered, key, value)
-        else:
-            raise AppValidationError(detail=f"不允许修改字段: {key}")
+    """字段白名单过滤: 非白名单字段直接抛错(DR-1 收敛, 严格形态 helper)"""
+    apply_whitelisted_updates(unregistered, update_data, UNREGISTERED_UPDATE_ALLOWED_FIELDS)
 
 
 def _log_update_audit(
@@ -371,10 +368,9 @@ class UnregisteredAssetService:
 
         # 记录变更前数据
         before_data = {}
-        for key in update_data.keys():
-            if key in UNREGISTERED_UPDATE_ALLOWED_FIELDS:
-                value = getattr(unregistered, key)
-                before_data[key] = str(value) if hasattr(value, "pk") else value
+        for key in filter_whitelisted_fields(update_data, UNREGISTERED_UPDATE_ALLOWED_FIELDS):
+            value = getattr(unregistered, key)
+            before_data[key] = str(value) if hasattr(value, "pk") else value
 
         # 字段白名单过滤
         _apply_whitelist_edits(unregistered, update_data)

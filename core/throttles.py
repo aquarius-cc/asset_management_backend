@@ -55,8 +55,13 @@ class LoginRateThrottle(AnonRateThrottle):
     scope = "login"
 
     def get_cache_key(self, request: Any, view: Any) -> Any:
-        """以请求体中的 auth_username 为限流键"""
-        return f"throttle_login_{_extract_login_username(request, 'LoginRateThrottle')}"
+        """以请求体中的 auth_username 为限流键
+
+        【M-32】key 含类名前缀: 本类与 LoginLockoutThrottle 同挂登录视图且同
+        scope="login",共享 throttle_login_{username} 会一请求双计 rate history
+        (实际 ~2.5 次/分,收紧了配置的 5 次/分);类名前缀使两节流各自独立计数。
+        """
+        return f"throttle_{type(self).__name__}_{_extract_login_username(request, 'LoginRateThrottle')}"
 
 
 class LoginLockoutThrottle(AnonRateThrottle):
@@ -77,8 +82,10 @@ class LoginLockoutThrottle(AnonRateThrottle):
         return _extract_login_username(request, "LoginLockoutThrottle")
 
     def get_cache_key(self, request: Any, view: Any) -> Any:
+        """登录锁定 rate history 键(【M-32】类名前缀与 LoginRateThrottle 隔离,
+        避免共享 throttle_login_ 前缀双计;失败计数键 login_fail_ 不受影响)"""
         username = self._get_username(request)
-        return f"throttle_login_{username}"
+        return f"throttle_{type(self).__name__}_{username}"
 
     def allow_request(self, request: Any, view: Any) -> bool:
         username = self._get_username(request)

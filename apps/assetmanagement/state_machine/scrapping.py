@@ -47,7 +47,7 @@ class ScrappingTransitionsMixin:
         Raises:
             InvalidTransitionError: 当前状态不允许申请报废时抛出
         """
-        cls._transition(asset, AssetState.DAMAGED)  # type: ignore[attr-defined]
+        cls._transition(asset, AssetState.DAMAGED, "to_damaged")  # type: ignore[attr-defined]
 
     @classmethod
     def cancel_damaged(cls, asset: "Asset", original_status: str | None = None) -> None:
@@ -95,7 +95,7 @@ class ScrappingTransitionsMixin:
         Raises:
             InvalidTransitionError: 当前状态不是 damaged 时抛出
         """
-        cls._transition(asset, AssetState.SCRAPPED)  # type: ignore[attr-defined]
+        cls._transition(asset, AssetState.SCRAPPED, "approve")  # type: ignore[attr-defined]
 
     @classmethod
     def reject_to_original(cls, asset: "Asset", original_status: str | None) -> None:

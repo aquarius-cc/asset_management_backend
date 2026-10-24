@@ -15,6 +15,7 @@ from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
 from core.batch_mixins import BatchOperationMixin
 from core.exceptions import AppValidationError
 from core.locks import lock_row_or_409
+from utils.update_whitelist import apply_whitelisted_updates
 
 
 # 字段白名单
@@ -233,11 +234,7 @@ class OutAssetService:
             outasset, update_data, applicant, manager
         )
 
-        for key, value in update_data.items():
-            if key in OUTASSET_UPDATE_ALLOWED_FIELDS:
-                setattr(outasset, key, value)
-            else:
-                raise AppValidationError(detail=f"不允许修改字段: {key}", error_code="FIELD_NOT_ALLOWED")
+        apply_whitelisted_updates(outasset, update_data, OUTASSET_UPDATE_ALLOWED_FIELDS, error_code="FIELD_NOT_ALLOWED")
 
         outasset.save()
 

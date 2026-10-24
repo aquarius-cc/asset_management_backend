@@ -10,7 +10,10 @@
 from apps.assetmanagement.state_machine.constants import AssetState
 
 
-# 定义允许的转换: {当前状态: {目标状态: 转换名称}}
+# 定义允许的转换: {当前状态: {目标状态: 转换名称 | 转换名称元组(多入口共边)}}
+# 【M-30】值经 core.py _validate_transition(transition_name=...) 消费为边名:
+# 各 Mixin 方法调用 _transition 时传入自身边名,与声明值不符即拒(边名唯一化);
+# manual 手动改状态等多入口聚合路径传 None,保持仅键校验。
 #
 # 【业务规则】
 # - reject(审批拒绝)回退到申请前状态(由 original_status 决定,见 reject_to_original)
@@ -19,7 +22,7 @@ from apps.assetmanagement.state_machine.constants import AssetState
 # - 维修完成/找回入池:已使用过的资产(维修/找回)统一回到 recycled_pending,
 #   in_store 仅表示首次入库的新资产
 #
-VALID_TRANSITIONS: dict[AssetState, dict[AssetState, str]] = {
+VALID_TRANSITIONS: dict[AssetState, dict[AssetState, str | tuple[str, ...]]] = {
     # 在库 → 在用(首次出库)、已损坏、已遗失
     AssetState.IN_STORE: {
         AssetState.IN_USE: "outasset",
@@ -46,9 +49,12 @@ VALID_TRANSITIONS: dict[AssetState, dict[AssetState, str]] = {
         AssetState.REPAIRING: "repair",
     },
     # 维修中 → 待发放(维修完成,已使用资产修好后重新入待发放池)或 → 待报废(维修失败)
+    # 【M-30 双入口共边】repairing → damaged 同时由 repair_failed(维修失败确认)与
+    # to_damaged(维修中资产直接申请报废,既有合法路径,14 处测试锚定)进入,
+    # 故该 cell 为边名元组,任一入口边名均合法。
     AssetState.REPAIRING: {
         AssetState.RECYCLED_PENDING: "repair_done",
-        AssetState.DAMAGED: "repair_failed",
+        AssetState.DAMAGED: ("repair_failed", "to_damaged"),
     },
     # 已遗失 → 待报废(提交报废)或 → 待发放(找回,重新进入发放池)
     AssetState.LOST: {
@@ -57,8 +63,8 @@ VALID_TRANSITIONS: dict[AssetState, dict[AssetState, str]] = {
     },
     # 待报废 → 已报废(审批通过)、回退申请前状态(审批拒绝)
     # 拒绝回退各边共用 reject_to_original 实现,target 由 original_status 参数表达;
-    # 5 个具名 reject_to_* 实现面已删除(BF-113)。边集不变,值仅作转换名标注(core.py
-    # :67 只消费键,无方法名分派),故同值重复无行为影响
+    # 5 个具名 reject_to_* 实现面已删除(BF-113)。边集不变。reject 各边不经
+    # _transition 校验(其内部自行回退),故同值重复无行为影响(值仍作边名标注)。
     AssetState.DAMAGED: {
         AssetState.SCRAPPED: "approve",
         AssetState.BROKEN: "reject_to_original",

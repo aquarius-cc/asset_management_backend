@@ -50,6 +50,7 @@ def _run_manual_transition(asset: Asset, target_state: AssetState) -> None:
     避免裸异常逃逸服务层导致未处理 500。
     """
     try:
+        # M-30: manual 手动改状态为多入口聚合路径,传边名 None 保持仅转换键校验
         AssetFSM._transition(asset, target_state)
     except InvalidTransitionError as e:
         raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION") from None

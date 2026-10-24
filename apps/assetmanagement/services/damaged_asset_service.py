@@ -20,6 +20,7 @@ from apps.assetmanagement.services.operation_log_service import OperationLogServ
 from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
 from apps.usermanagement.selectors import EmployeeSelector
 from core.exceptions import AppValidationError, re_raise_or_map_integrity_error
+from utils.update_whitelist import filter_whitelisted_fields
 
 
 class DamagedAssetService:
@@ -117,12 +118,11 @@ class DamagedAssetService:
         update_fields = []
         before_data: dict[str, Any] = {}
         after_data: dict[str, Any] = {}
-        for field, value in update_data.items():
-            if field in allowed_fields and value is not None:
-                before_data[field] = getattr(damaged_asset, field)
-                setattr(damaged_asset, field, value)
-                after_data[field] = value
-                update_fields.append(field)
+        for field, value in filter_whitelisted_fields(update_data, allowed_fields, skip_none=True).items():
+            before_data[field] = getattr(damaged_asset, field)
+            setattr(damaged_asset, field, value)
+            after_data[field] = value
+            update_fields.append(field)
 
         if update_fields:
             damaged_asset.save(update_fields=update_fields)

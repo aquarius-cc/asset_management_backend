@@ -17,7 +17,7 @@ from apps.assetmanagement.models import Contract
 from apps.assetmanagement.selectors import AssetSelector, ContractSelector
 from apps.assetmanagement.state_machine.contract_fsm import ContractFSM, ContractInvalidTransitionError
 from core.audit_service import GenericAuditService
-from core.batch_mixins import BatchOperationMixin
+from core.batch_mixins import BatchOperationMixin, ensure_batch_size
 from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError, ResourceConflictError, re_raise_or_map_integrity_error
 
@@ -434,10 +434,7 @@ class ContractService:
         Returns:
             Dict[str, Any]: 批量创建结果
         """
-        if len(contract_data_list) > MAX_BATCH_SIZE:
-            raise AppValidationError(
-                detail=f"单次批量创建不能超过 {MAX_BATCH_SIZE} 条", error_code="BATCH_SIZE_EXCEEDED"
-            )
+        ensure_batch_size(len(contract_data_list), MAX_BATCH_SIZE, "批量创建")
 
         def _create_item(idx: int, contract_data: Any) -> Contract:
             return ContractService.create_contract(

@@ -23,13 +23,13 @@ from __future__ import annotations
 import copy
 from typing import TYPE_CHECKING, Any
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 
 from apps.usermanagement.employee_audit_adapter import EmployeeAuditAdapter
 from apps.usermanagement.models import Employee
 from core.batch_mixins import BatchOperationMixin
 from core.constants import MAX_BATCH_SIZE
-from core.exceptions import AppValidationError, BusinessLogicError
+from core.exceptions import AppValidationError, BusinessLogicError, re_raise_or_map_integrity_error
 
 
 if TYPE_CHECKING:
@@ -245,7 +245,17 @@ class EmployeeService:
                 detail=f"工号 {employee_data['employee_jobcode']} 已存在", error_code="DUPLICATE_EMPLOYEE_JOBCODE"
             )
 
-        employee = Employee.objects.create(**employee_data)
+        # 【BF-139 / M-26】并发重复建号兜底: 内层 atomic(savepoint) + 约束冲突映射业务错误码
+        try:
+            with transaction.atomic():
+                employee = Employee.objects.create(**employee_data)
+        except IntegrityError as exc:
+            re_raise_or_map_integrity_error(
+                exc,
+                "employee_jobcode",
+                "DUPLICATE_EMPLOYEE_JOBCODE",
+                f"工号 {employee_data['employee_jobcode']} 已存在",
+            )
         EmployeeAuditAdapter.log_create(
             employee, employee_data.get("operator_jobcode"), employee_data.get("operator_name")
         )

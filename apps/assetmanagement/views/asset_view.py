@@ -176,17 +176,23 @@ class AssetViewSet(  # type: ignore[misc]
         )
         return success_response(message="删除成功")
 
+    # page/page_size 不显式声明: spectacular 自动推断分页参数(与旧基线一致), 显式声明仅产生键序噪音
     @extend_schema(
         parameters=[
-            OpenApiParameter(name="name", type=OpenApiTypes.STR, location=OpenApiParameter.PATH, required=True)
+            OpenApiParameter(name="name", type=OpenApiTypes.STR, location=OpenApiParameter.PATH, required=True),
         ],
         responses={200: AssetDetailSerializer(many=True)},
     )
     @action(detail=False, methods=["get"], url_path="get_asset_by_name/(?P<name>[^/.]+)")
     def get_asset_by_name(self, request: Any, name: Any = None) -> Response:
+        # 【BF-139 / M-33】全库唯一漏分页资产查询入口, 对齐同文件 search_assets 分页范式
         if not name:
             return success_response(data={"count": 0, "results": []})
         assets = AssetSelector.search_assets(keyword=name, user=self.request.user)
+        page = self.paginate_queryset(assets)
+        if page is not None:
+            serializer = AssetDetailSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
         serializer = AssetDetailSerializer(assets, many=True)
         return success_response(data={"count": assets.count(), "results": serializer.data})
 

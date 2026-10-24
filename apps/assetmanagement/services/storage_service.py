@@ -7,14 +7,14 @@
 import copy
 from typing import Any
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 
 from apps.assetmanagement.models import Storage
 from apps.assetmanagement.selectors import AssetSelector, StorageSelector
 from core.audit_service import GenericAuditService
 from core.batch_mixins import BatchOperationMixin
 from core.constants import MAX_BATCH_SIZE
-from core.exceptions import AppValidationError
+from core.exceptions import AppValidationError, match_integrity_error_rules
 
 
 class StorageService:
@@ -54,7 +54,19 @@ class StorageService:
         if StorageSelector.exists_by_name(storage_name):  # type: ignore[arg-type]
             raise AppValidationError(detail=f"仓库名称 {storage_name} 已存在", error_code="DUPLICATE_STORAGE_NAME")
 
-        storage = Storage.objects.create(**storage_data)
+        # 【BF-139 / M-26】并发重复建号兜底: storage_code + storage_name 双唯一约束,
+        # 内层 atomic(savepoint) + 多规则映射(预检双查, 并发窗口由 DB 兜底)
+        try:
+            with transaction.atomic():
+                storage = Storage.objects.create(**storage_data)
+        except IntegrityError as exc:
+            match_integrity_error_rules(
+                exc,
+                [
+                    ("storage_code", "DUPLICATE_STORAGE_CODE", f"仓库编码 {storage_code} 已存在"),
+                    ("storage_name", "DUPLICATE_STORAGE_NAME", f"仓库名称 {storage_name} 已存在"),
+                ],
+            )
 
         GenericAuditService.log_create(
             record_code=storage.storage_code,

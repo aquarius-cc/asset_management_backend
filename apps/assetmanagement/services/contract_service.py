@@ -10,7 +10,7 @@ import uuid
 from decimal import Decimal
 from typing import Any
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.assetmanagement.models import Contract
@@ -19,7 +19,7 @@ from apps.assetmanagement.state_machine.contract_fsm import ContractFSM, Contrac
 from core.audit_service import GenericAuditService
 from core.batch_mixins import BatchOperationMixin
 from core.constants import MAX_BATCH_SIZE
-from core.exceptions import AppValidationError, ResourceConflictError
+from core.exceptions import AppValidationError, ResourceConflictError, re_raise_or_map_integrity_error
 
 
 def _parse_paid_record(raw: str | None) -> dict[str, Any]:
@@ -174,7 +174,15 @@ class ContractService:
         # 再由 _recalc_paid_amounts 落库,使 amount_paid 恒等于「Σ 非 deleted 付款」——
         # 全路径不再有绕过明细表的裸写,重算因此恒等无损(无需区分「期初基线」,无 DB 迁移)。
         opening_paid = contract_data.pop("amount_paid", None)
-        contract = Contract.objects.create(**contract_data)
+        # 【BF-139 / M-26】锁后并发重复建号兜底: 预检失效窗口内由 DB 约束拦截,
+        # 内层 atomic(savepoint) 保证审计写入不受事务 abort 影响,映射为业务错误码
+        try:
+            with transaction.atomic():
+                contract = Contract.objects.create(**contract_data)
+        except IntegrityError as exc:
+            re_raise_or_map_integrity_error(
+                exc, "contract_code", "DUPLICATE_CONTRACT_CODE", f"合同 {contract_code} 已存在"
+            )
 
         _apply_opening_paid(contract, opening_paid)
 

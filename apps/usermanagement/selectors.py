@@ -330,6 +330,14 @@ class DepartmentSelector:
             return None
 
     @staticmethod
+    def exists_by_code(code: str) -> bool:
+        """部门编码是否已存在(含软删行, 与既有预检语义一致)
+
+        【DR-3】Service 层预检查询收敛至 Selector, 禁止裸 Model.objects.filter。
+        """
+        return Department.objects.filter(department_code=code).exists()
+
+    @staticmethod
     def get_all_departments() -> list[Department]:
         """
         获取所有部门(按排序字段排序)

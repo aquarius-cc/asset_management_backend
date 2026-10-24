@@ -197,6 +197,32 @@ class TestAssetViewSet:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["data"]["count"] >= 1
 
+    def test_get_asset_by_name_is_paginated(self, authenticated_client, asset):
+        """【BF-139 / M-33 回归】全库唯一漏分页资产查询入口已对齐 paginate_queryset
+
+        断言分页信封(total_pages/page/page_size)存在且 page_size 生效——
+        修复前全量序列化, 传 page_size=1 不截断。
+        """
+        Asset.objects.create(
+            asset_code="M33-P2",
+            asset_name=asset.asset_name,
+            asset_purchase_price=Decimal("200.00"),
+            asset_purchase_date="2024-01-01",
+            asset_entry_date="2024-01-02",
+            asset_storage_recordcode=asset.asset_storage_recordcode,
+            asset_type_recordcode=asset.asset_type_recordcode,
+            asset_entry_person_recordcode=asset.asset_entry_person_recordcode,
+            asset_current_status="in_store",
+        )
+        url = reverse("assets-get-asset-by-name", kwargs={"name": asset.asset_name})
+        response = authenticated_client.get(url, {"page": 1, "page_size": 1})
+        assert response.status_code == status.HTTP_200_OK
+        data = response.data["data"]
+        assert data["count"] == 2
+        assert data["page_size"] == 1
+        assert data["total_pages"] == 2
+        assert len(data["results"]) == 1
+
     def test_get_asset_by_recordcode(self, authenticated_client, asset):
         url = reverse("assets-get-asset-by-recordcode", kwargs={"recordcode": asset.recordcode})
         response = authenticated_client.get(url, {"recordcode": asset.recordcode})

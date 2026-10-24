@@ -9,6 +9,7 @@
 - ResourceConflictError: 资源冲突
 """
 
+from collections.abc import Sequence
 from typing import Any, NoReturn
 
 from django.db import IntegrityError
@@ -128,6 +129,8 @@ def re_raise_or_map_integrity_error(
 ) -> NoReturn:
     """唯一约束冲突兜底映射(B-21 收敛,单一实现): 命中列 token → 抛业务异常,未命中 → 原样重抛
 
+    本函数是 :func:`match_integrity_error_rules` 的单规则薄包装(匹配逻辑仍为单一实现, DR-1)。
+
     Args:
         exc: 捕获的 IntegrityError
         column_token: 目标列名(如 "harddisk_sn_code"),作为 str(exc) 的匹配 token
@@ -138,6 +141,31 @@ def re_raise_or_map_integrity_error(
         AppValidationError: 命中 column_token 时抛出(from exc 保留异常链)
         原异常: 未命中时原样重抛
     """
-    if column_token in str(exc):
-        raise AppValidationError(detail=detail, error_code=error_code) from exc
-    raise
+    match_integrity_error_rules(exc, [(column_token, error_code, detail)])
+
+
+def match_integrity_error_rules(
+    exc: IntegrityError,
+    rules: Sequence[tuple[str, str, str]],
+) -> NoReturn:
+    """唯一约束冲突多规则兜底映射【BF-139 / M-26】: 按序匹配首个命中 token → 抛业务异常,全未命中 → 原样重抛
+
+    用于同一落库点存在多个唯一约束的模型(如 code+name 双约束),
+    单 token 包装无法嵌套(未命中即 raise),故提供多规则入口。
+
+    Args:
+        exc: 捕获的 IntegrityError
+        rules: (column_token, error_code, detail) 三元组序列,按声明顺序匹配,
+            首个 column_token ∈ str(exc) 的规则生效
+
+    Raises:
+        AppValidationError: 命中任一 token 时抛出(from exc 保留异常链)
+        原异常: 全部未命中时原样重抛
+    """
+    message = str(exc)
+    for column_token, error_code, detail in rules:
+        if column_token in message:
+            raise AppValidationError(detail=detail, error_code=error_code) from exc
+    # 显式 raise exc 而非裸 raise: 裸 raise 要求本函数必须在 except 块内被调用,
+    # 独立调用(单测直调)会抛 RuntimeError: No active exception to reraise
+    raise exc

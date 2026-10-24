@@ -272,35 +272,19 @@ class Employee(BaseModel):
             self._blacklist_user_tokens()
 
     def _blacklist_user_tokens(self) -> None:
-        """黑名单该用户的所有 Refresh Token,强制重新登录"""
-        import logging
+        """黑名单该用户的所有 Refresh Token,强制重新登录
 
-        logger = logging.getLogger(__name__)
-        try:
-            from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
+        【BF-139 / M-34】逐 token get_or_create N+1 收敛至 core.token_blacklist
+        批量 upsert(DR-1); 失败不中断保存, 升 error 级告警日志。
+        """
+        from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 
-            # 找到该用户的所有未过期 Refresh Token 并加入黑名单
-            outstanding = OutstandingToken.objects.filter(
-                user__auth_username=self.employee_jobcode,
-            )
-            blacklisted_count = 0
-            for token in outstanding:
-                _, created = BlacklistedToken.objects.get_or_create(token=token)
-                if created:
-                    blacklisted_count += 1
+        from core.token_blacklist import blacklist_user_tokens
 
-            if blacklisted_count > 0:
-                logger.info(
-                    "角色变更:已黑名单 %d 个 Token (employee_jobcode=%s)",
-                    blacklisted_count,
-                    self.employee_jobcode,
-                )
-        except Exception:
-            logger.error(
-                "角色变更:Token 黑名单操作失败 (employee_jobcode=%s), 旧 Token 仍可使用直到过期",
-                self.employee_jobcode,
-                exc_info=True,
-            )
+        blacklist_user_tokens(
+            OutstandingToken.objects.filter(user__auth_username=self.employee_jobcode),
+            context=f"角色变更(employee_jobcode={self.employee_jobcode})",
+        )
 
 
 class Role(BaseModel):

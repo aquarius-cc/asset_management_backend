@@ -11,14 +11,14 @@
 import copy
 from typing import Any
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 
 from apps.assetmanagement.models import MAX_ASSET_TYPE_LEVEL, AssetType  # type: ignore[attr-defined]
 from apps.assetmanagement.selectors import AssetSelector, AssetTypeSelector
 from core.audit_service import GenericAuditService
 from core.batch_mixins import BatchOperationMixin
 from core.constants import MAX_BATCH_SIZE
-from core.exceptions import AppValidationError
+from core.exceptions import AppValidationError, match_integrity_error_rules
 
 
 def _resolve_parent_asset_type(asset_type_data: dict[str, Any]) -> AssetType | None:
@@ -102,7 +102,23 @@ class AssetTypeService:
         # 清理已废弃字段
         asset_type_data.pop("parent_code", None)
 
-        asset_type = AssetType.objects.create(**asset_type_data)
+        # 【BF-139 / M-26】并发重复建号兜底: type_code + type_name 双唯一约束,
+        # 内层 atomic(savepoint) + 多规则映射(预检仅覆盖 code, name 由 DB 约束兜底)
+        try:
+            with transaction.atomic():
+                asset_type = AssetType.objects.create(**asset_type_data)
+        except IntegrityError as exc:
+            match_integrity_error_rules(
+                exc,
+                [
+                    ("type_code", "DUPLICATE_ASSET_TYPE_CODE", f"资产类型编码 {type_code} 已存在"),
+                    (
+                        "type_name",
+                        "DUPLICATE_ASSET_TYPE_NAME",
+                        f"资产类型名称 {asset_type_data.get('type_name', '')} 已存在",
+                    ),
+                ],
+            )
 
         GenericAuditService.log_create(
             record_code=asset_type.recordcode,

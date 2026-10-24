@@ -20,14 +20,14 @@ import copy
 from typing import Any
 
 from django.core.cache import cache
-from django.db import transaction
+from django.db import IntegrityError, transaction
 
 from apps.usermanagement.audit_adapter import DepartmentAuditAdapter
 from apps.usermanagement.models import MAX_DEPARTMENT_LEVEL, Department, Employee
 from apps.usermanagement.selectors import DepartmentSelector
 from core.batch_mixins import BatchOperationMixin
 from core.constants import MAX_BATCH_SIZE
-from core.exceptions import AppValidationError, BusinessLogicError
+from core.exceptions import AppValidationError, BusinessLogicError, match_integrity_error_rules
 
 
 class DepartmentService:
@@ -70,7 +70,8 @@ class DepartmentService:
         Raises:
             ValidationError: 部门编码已存在或层级验证失败
         """
-        if Department.objects.filter(department_code=dept_data["department_code"]).exists():
+        # 【BF-139】预检查询收敛 Selector(DR-3), 语义不变(含软删行)
+        if DepartmentSelector.exists_by_code(dept_data["department_code"]):
             raise AppValidationError(
                 detail=f"部门编码 {dept_data['department_code']} 已存在", error_code="DUPLICATE_DEPARTMENT_CODE"
             )
@@ -106,7 +107,23 @@ class DepartmentService:
                 detail=f"部门层级不能超过 {MAX_DEPARTMENT_LEVEL} 层", error_code="DEPARTMENT_LEVEL_EXCEEDED"
             )
 
-        department = Department.objects.create(**dept_data)
+        # 【BF-139 / M-26】并发重复建号兜底: department_code + department_name 双唯一约束,
+        # 内层 atomic(savepoint) + 多规则映射(预检仅覆盖 code, name 由 DB 约束兜底)
+        try:
+            with transaction.atomic():
+                department = Department.objects.create(**dept_data)
+        except IntegrityError as exc:
+            match_integrity_error_rules(
+                exc,
+                [
+                    ("department_code", "DUPLICATE_DEPARTMENT_CODE", f"部门编码 {dept_data['department_code']} 已存在"),
+                    (
+                        "department_name",
+                        "DUPLICATE_DEPARTMENT_NAME",
+                        f"部门名称 {dept_data.get('department_name', '')} 已存在",
+                    ),
+                ],
+            )
         DepartmentAuditAdapter.log_create(department, dept_data.get("operator_jobcode"), dept_data.get("operator_name"))
         return department  # type: ignore[no-any-return]
 

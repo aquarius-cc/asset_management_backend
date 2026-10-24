@@ -286,42 +286,17 @@ class AuthService:
         """
         【BE-02 修复】作废用户全部 refresh token, 防范会话劫持导致的永久占据。
 
-        核心思路:利用 SimpleJWT 的 BlacklistMixin 机制,
-        将用户的所有 OutstandingToken 逐条加入 BlacklistedToken.
-        后续该 Token 的所有验证请求都会被拒绝,即使未过期.
+        【BF-139 / M-34】逐 token get_or_create N+1 收敛至 core.token_blacklist
+        批量 upsert(DR-1); 失败不中断主流程, 升 error 级告警日志。
 
         Args:
             user: 需要作废 refresh token 的用户实例
         """
-        try:
-            from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
+        from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 
-            # 找到该用户的所有未过期 Refresh Token 并加入黑名单
-            outstanding = OutstandingToken.objects.filter(user=user)
-            blacklisted_count = 0
-            for token in outstanding:
-                _, created = BlacklistedToken.objects.get_or_create(token=token)
-                if created:
-                    blacklisted_count += 1
+        from core.token_blacklist import blacklist_user_tokens
 
-            if blacklisted_count > 0:
-                # 记录日志(可选,避免在热路径上产生太多 IO)
-                import logging
-
-                logger = logging.getLogger(__name__)
-                logger.info(
-                    "密码修改:已黑名单 %d 个 refresh token (user_id=%d)",
-                    blacklisted_count,
-                    user.auth_id,
-                )
-        except Exception:
-            # 最坏情况下,保证主流程不因黑名单失败而中断.
-            # 已发放的 token 仍会在自然过期后失效.
-            import logging
-
-            logger = logging.getLogger(__name__)
-            logger.error(
-                "密码修改:refresh token 黑名单操作失败 (user_id=%d)",
-                user.auth_id,
-                exc_info=True,
-            )
+        blacklist_user_tokens(
+            OutstandingToken.objects.filter(user=user),
+            context=f"密码修改(user_id={user.auth_id})",
+        )

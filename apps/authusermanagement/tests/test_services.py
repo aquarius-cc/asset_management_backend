@@ -2,6 +2,8 @@
 认证服务测试
 """
 
+import logging
+
 import pytest
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
@@ -160,14 +162,18 @@ class TestAuthService:
         AuthService.invalidate_user_refresh_tokens(user)
         assert BlacklistedToken.objects.count() == 0
 
-    def test_invalidate_refresh_tokens_error_tolerant(self, monkeypatch):
-        """黑名单写入失败时应静默容错, 不中断改密主流程"""
+    def test_invalidate_refresh_tokens_error_tolerant(self, monkeypatch, caplog):
+        """黑名单写入失败时应静默容错, 不中断改密主流程, 且升 error 级告警【BF-139 / M-34】"""
         user = AuthUser.objects.create_user(auth_username="blerr", password=TEST_PASSWORD, auth_phone="13710010010")
         AuthService.issue_tokens(user)
 
-        def _boom(**kwargs):
+        def _boom(*args, **kwargs):
             raise RuntimeError("blacklist down")
 
-        monkeypatch.setattr(BlacklistedToken.objects, "get_or_create", _boom)
+        monkeypatch.setattr(BlacklistedToken.objects, "bulk_create", _boom)
 
-        AuthService.invalidate_user_refresh_tokens(user)
+        with caplog.at_level(logging.ERROR):
+            AuthService.invalidate_user_refresh_tokens(user)
+
+        assert any("黑名单操作失败" in record.message for record in caplog.records)
+        assert not BlacklistedToken.objects.exists()

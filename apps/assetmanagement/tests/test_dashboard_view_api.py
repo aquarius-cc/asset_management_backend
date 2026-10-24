@@ -7,8 +7,11 @@
 """
 
 import pytest
+from django.http import QueryDict
 from django.urls import reverse
 from rest_framework import status
+
+from apps.assetmanagement.views.dashboard_view import _parse_int_param
 
 
 @pytest.fixture
@@ -279,3 +282,52 @@ class TestDashboardRowIsolation:
         data = response.data["data"]
         assert len(data) == 1
         assert data[0]["asset_code"] == "A001"
+
+
+class TestParseIntParam:
+    """M-28: _parse_int_param 统一解析（limit/days 同形去重）行为锚定。"""
+
+    @staticmethod
+    def _qp(raw: str) -> QueryDict:
+        return QueryDict(raw)
+
+    def test_limit_absent_returns_default(self):
+        assert _parse_int_param(self._qp(""), "limit", 10, 100) == 10
+
+    def test_limit_valid_value_passes_through(self):
+        assert _parse_int_param(self._qp("limit=25"), "limit", 10, 100) == 25
+
+    def test_limit_capped_at_upper(self):
+        assert _parse_int_param(self._qp("limit=999"), "limit", 10, 100) == 100
+
+    def test_limit_non_numeric_returns_default(self):
+        assert _parse_int_param(self._qp("limit=abc"), "limit", 10, 100) == 10
+
+    def test_limit_empty_string_returns_default(self):
+        assert _parse_int_param(self._qp("limit="), "limit", 10, 100) == 10
+
+    def test_days_absent_returns_default(self):
+        assert _parse_int_param(self._qp(""), "days", 30, 365) == 30
+
+    def test_days_capped_at_upper(self):
+        assert _parse_int_param(self._qp("days=999"), "days", 30, 365) == 365
+
+    def test_days_non_numeric_returns_default(self):
+        assert _parse_int_param(self._qp("days=abc"), "days", 30, 365) == 30
+
+    @pytest.mark.django_db
+    def test_recent_out_assets_endpoint_honors_limit(self, authenticated_client, asset, user):
+        """端点集成：limit 经 _parse_int_param 生效（默认返回不超上限）。"""
+        url = reverse("dashboard-recent-out-assets")
+        response = authenticated_client.get(url, {"limit": "1"})
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["code"] == 0
+        assert len(response.data["data"]) <= 1
+
+    @pytest.mark.django_db
+    def test_recent_out_assets_endpoint_invalid_limit_ok(self, authenticated_client, asset, user):
+        """端点集成：非法 limit 回退默认值不报 500。"""
+        url = reverse("dashboard-recent-out-assets")
+        response = authenticated_client.get(url, {"limit": "abc"})
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["code"] == 0

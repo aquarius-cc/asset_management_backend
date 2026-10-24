@@ -4,6 +4,7 @@
 
 from typing import Any
 
+from django.http import QueryDict
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import (
     OpenApiParameter,
@@ -32,6 +33,19 @@ def _limit_parameter() -> OpenApiParameter:
     )
 
 
+def _parse_int_param(query_params: QueryDict, key: str, default: int, upper: int) -> int:
+    """仪表盘 query 参数统一解析（M-28 / BF-140：同形 try/except 去重，DR-1）。
+
+    缺省/空值/非法值回退 default，超 upper 时钳位。limit（默认 10/上限 100）
+    与 days（默认 30/上限 365）共用。两者均为非分页 top-N/时间窗参数，
+    豁免 B4 page/page_size 分页规范（backend-business-rules.md B4 豁免条款）。
+    """
+    try:
+        return min(int(query_params.get(key, default) or default), upper)
+    except (ValueError, TypeError):
+        return default
+
+
 class DashboardViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = DashboardStatSerializer
@@ -43,16 +57,13 @@ class DashboardViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ViewSet):
 
     @extend_schema(
         summary="最近发放",
-        # limit 由本方法自行解析 query_params（带 try/except 兜底与 100 上限），
+        # limit 由 _parse_int_param 解析（缺省/非法回退 10、上限 100），
         # spectacular 无法内省出，故显式声明，避免基线与运行时脱节。
         parameters=[_limit_parameter()],
     )
     @action(detail=False, methods=["get"])
     def recent_out_assets(self, request: Any) -> Response:
-        try:
-            limit = min(int(request.query_params.get("limit", 10) or 10), 100)
-        except (ValueError, TypeError):
-            limit = 10
+        limit = _parse_int_param(request.query_params, "limit", 10, 100)
         result = DashboardSelector.get_recent_out_assets(request.user, limit=limit)
         return success_response(data=result)
 
@@ -62,10 +73,7 @@ class DashboardViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ViewSet):
     )
     @action(detail=False, methods=["get"], url_path="recent_recycle_assets")
     def recent_recycle_assets(self, request: Any) -> Response:
-        try:
-            limit = min(int(request.query_params.get("limit", 10) or 10), 100)
-        except (ValueError, TypeError):
-            limit = 10
+        limit = _parse_int_param(request.query_params, "limit", 10, 100)
         result = DashboardSelector.get_recent_recycle_assets(request.user, limit=limit)
         return success_response(data=result)
 
@@ -76,10 +84,7 @@ class DashboardViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ViewSet):
         if start_date and end_date:
             result = DashboardSelector.get_asset_trend(request.user, start_date=start_date, end_date=end_date)
         else:
-            try:
-                days = min(int(request.query_params.get("days", 30) or 30), 365)
-            except (ValueError, TypeError):
-                days = 30
+            days = _parse_int_param(request.query_params, "days", 30, 365)
             result = DashboardSelector.get_asset_trend(request.user, days=days)
         return success_response(data=result)
 
@@ -95,10 +100,7 @@ class DashboardViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ViewSet):
 
     @action(detail=False, methods=["get"], url_path="expiring_assets")
     def expiring_assets(self, request: Any) -> Response:
-        try:
-            days = min(int(request.query_params.get("days", 30) or 30), 365)
-        except (ValueError, TypeError):
-            days = 30
+        days = _parse_int_param(request.query_params, "days", 30, 365)
         result = DashboardSelector.get_expiring_assets(request.user, days=days)
         return success_response(data=result)
 

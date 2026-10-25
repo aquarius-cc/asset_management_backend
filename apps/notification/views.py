@@ -13,9 +13,9 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from apps.notification.models import Notification
 from apps.notification.selectors import NotificationSelector
 from apps.notification.serializers import NotificationSerializer
+from apps.notification.services import mark_all_notifications_read, mark_notification_read
 from core.pagination import CustomPageNumberPagination
 from utils.response_utils import error_response, success_response
 
@@ -52,7 +52,8 @@ def notification_list(request: Request) -> Response:
 def unread_count(request: Request) -> Response:
     """获取当前用户未读通知数量"""
     jobcode = request.user.auth_username  # type: ignore[union-attr]
-    count = Notification.objects.filter(recipient_jobcode=jobcode, is_read=False).count()
+    # AUD-52: 查询收敛 Selector(含 is_deleted 过滤), 不再直查 ORM
+    count = NotificationSelector.list_for_user(jobcode, is_read="false").count()
     return success_response(data={"count": count})
 
 
@@ -61,13 +62,12 @@ def unread_count(request: Request) -> Response:
 def mark_read(request: Request, notification_id: int) -> Response:
     """标记单条通知为已读"""
     jobcode = request.user.auth_username  # type: ignore[union-attr]
-    try:
-        notification = Notification.objects.get(id=notification_id, recipient_jobcode=jobcode)
-        notification.is_read = True
-        notification.save(update_fields=["is_read"])
-        return success_response(message="已标记为已读")
-    except Notification.DoesNotExist:
+    # AUD-52: 读经 Selector(排除软删), 写下沉 Service
+    notification = NotificationSelector.get_for_user(jobcode, notification_id)
+    if notification is None:
         return error_response(message="通知不存在", status_code=404)
+    mark_notification_read(notification)
+    return success_response(message="已标记为已读")
 
 
 @api_view(["POST"])
@@ -75,5 +75,6 @@ def mark_read(request: Request, notification_id: int) -> Response:
 def mark_all_read(request: Request) -> Response:
     """将当前用户所有未读通知标记为已读"""
     jobcode = request.user.auth_username  # type: ignore[union-attr]
-    count = Notification.objects.filter(recipient_jobcode=jobcode, is_read=False).update(is_read=True)
+    # AUD-52: 写下沉 Service(排除软删)
+    count = mark_all_notifications_read(jobcode)
     return success_response(data={"marked_count": count})

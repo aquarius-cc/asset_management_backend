@@ -26,6 +26,7 @@ from apps.assetmanagement.models import Asset, AssetOperationLog, DamagedAsset, 
 from apps.assetmanagement.selectors import AssetSelector
 from apps.assetmanagement.services.operation_log_service import OperationLogService
 from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
+from apps.notification.models import Notification
 from apps.usermanagement.models import Employee
 from apps.usermanagement.selectors import EmployeeSelector
 from core.exceptions import AppValidationError
@@ -153,10 +154,10 @@ class RepairAssetService:
 
         send_notification_on_commit(
             asset=asset,
-            notification_type="status_change",
+            notification_type=Notification.NotificationType.STATUS_CHANGE,
             title="资产维修完成通知",
             message=f"资产 {asset.asset_code} 维修已完成,已转入待发放状态",
-            priority="medium",
+            priority=Notification.Priority.MEDIUM,
             related_url=f"/main/assetdetails/{asset.asset_code}",
         )
 
@@ -323,10 +324,10 @@ class RepairAssetService:
 
         send_notification_on_commit(
             asset=asset,
-            notification_type="status_change",
+            notification_type=Notification.NotificationType.STATUS_CHANGE,
             title="资产维修失败通知",
             message=f"资产 {asset.asset_code} 维修失败,已转入待报废状态",
-            priority="high",
+            priority=Notification.Priority.HIGH,
             related_url=f"/main/assetdetails/{asset.asset_code}",
         )
 

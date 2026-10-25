@@ -6,6 +6,8 @@
 
 from apps.notification.services.notification_service import (
     database_create_notification,
+    mark_all_notifications_read,
+    mark_notification_read,
     persist_notifications,
     push_notification_ws,
     send_notification,
@@ -15,6 +17,8 @@ from apps.notification.services.notification_service import (
 
 __all__ = [
     "database_create_notification",
+    "mark_all_notifications_read",
+    "mark_notification_read",
     "persist_notifications",
     "push_notification_ws",
     "send_notification",

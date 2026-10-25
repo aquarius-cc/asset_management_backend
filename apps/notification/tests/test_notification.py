@@ -317,3 +317,63 @@ class TestNotificationViews:
         resp = self.client.post("/api/v1/notifications/read-all/")
         assert resp.status_code == 200
         assert resp.data["data"]["marked_count"] == 3
+
+
+@pytest.mark.django_db
+class TestSoftDeletedExclusion:
+    """软删通知查询一致性 (AUD-52/BF-148): 列表/未读/全读三端点均须排除 is_deleted"""
+
+    def setup_method(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(auth_username="EMP010", password=TEST_PASSWORD)
+        self.client.force_authenticate(user=self.user)
+
+    def _make(self, title: str, *, is_read: bool = False) -> Notification:
+        n = Notification.objects.create(
+            recipient_jobcode="EMP010",
+            notification_type="system",
+            title=title,
+            message="msg",
+            is_read=is_read,
+        )
+        return n
+
+    def _soft_delete(self, n: Notification) -> None:
+        n.is_deleted = True
+        n.save(update_fields=["is_deleted"])
+
+    def test_list_excludes_soft_deleted(self):
+        self._make("保留")
+        gone = self._make("软删")
+        self._soft_delete(gone)
+        resp = self.client.get("/api/v1/notifications/")
+        titles = [item["title"] for item in resp.data["data"]["results"]]
+        assert titles == ["保留"], f"列表应排除软删通知: {titles}"
+
+    def test_unread_count_excludes_soft_deleted(self):
+        self._make("未读保留", is_read=False)
+        gone = self._make("未读软删", is_read=False)
+        self._soft_delete(gone)
+        resp = self.client.get("/api/v1/notifications/unread-count/")
+        assert resp.data["data"]["count"] == 1, "未读计数应排除软删通知"
+
+    def test_mark_all_read_skips_soft_deleted(self):
+        keep = self._make("未读保留", is_read=False)
+        gone = self._make("未读软删", is_read=False)
+        self._soft_delete(gone)
+        resp = self.client.post("/api/v1/notifications/read-all/")
+        assert resp.data["data"]["marked_count"] == 1
+        gone.refresh_from_db()
+        assert gone.is_read is False, "软删通知不应被全部已读触碰"
+        keep.refresh_from_db()
+        assert keep.is_read is True
+
+
+def test_notification_type_priority_enum_contract():
+    """契约锚 (AUD-53/BF-149): 枚举成员值与既有字符串字面量恒等, 防值漂移"""
+    assert Notification.NotificationType.APPROVAL == "approval"
+    assert Notification.NotificationType.STATUS_CHANGE == "status_change"
+    assert Notification.NotificationType.SYSTEM == "system"
+    assert Notification.Priority.LOW == "low"
+    assert Notification.Priority.MEDIUM == "medium"
+    assert Notification.Priority.HIGH == "high"

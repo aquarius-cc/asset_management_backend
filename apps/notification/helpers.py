@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from django.db import connection, transaction
 from django.db.transaction import TransactionManagementError
 
+from apps.notification.models import Notification
 from apps.notification.services import persist_notifications, push_notification_ws
 
 
@@ -22,10 +23,10 @@ logger = logging.getLogger(__name__)
 
 def notify_dept_managers(
     asset: "Asset",
-    notification_type: str,
+    notification_type: Notification.NotificationType,
     title: str,
     message: str,
-    priority: str = "medium",
+    priority: Notification.Priority = Notification.Priority.MEDIUM,
     related_url: str | None = None,
 ) -> None:
     """
@@ -71,10 +72,10 @@ def notify_dept_managers(
 
 def send_notification_on_commit(
     asset: "Asset",
-    notification_type: str,
+    notification_type: Notification.NotificationType,
     title: str,
     message: str,
-    priority: str = "medium",
+    priority: Notification.Priority = Notification.Priority.MEDIUM,
     related_url: str | None = None,
 ) -> None:
     """

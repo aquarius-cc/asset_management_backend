@@ -53,7 +53,7 @@ class NotificationSelector:
         keyword: str | None = None,
     ) -> QuerySet[Notification]:
         """按接收人过滤通知列表(惰性 QuerySet, 不物化)"""
-        queryset = Notification.objects.filter(recipient_jobcode=recipient_jobcode)
+        queryset = Notification.objects.filter(recipient_jobcode=recipient_jobcode, is_deleted=False)
 
         if is_read is not None:
             queryset = queryset.filter(is_read=is_read.lower() == "true")
@@ -70,3 +70,15 @@ class NotificationSelector:
             queryset = queryset.filter(title_match | message_match)
 
         return queryset
+
+    @staticmethod
+    def get_for_user(recipient_jobcode: str, notification_id: int) -> Notification | None:
+        """按接收人取单条未删通知(不存在或已软删返回 None)"""
+        return (
+            Notification.objects.filter(
+                recipient_jobcode=recipient_jobcode,
+                id=notification_id,
+                is_deleted=False,
+            )
+            .first()
+        )

@@ -18,6 +18,7 @@ from apps.assetmanagement.selectors import (
 )
 from apps.assetmanagement.services.operation_log_service import OperationLogService
 from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
+from apps.notification.models import Notification
 from apps.usermanagement.selectors import EmployeeSelector
 from core.exceptions import AppValidationError, re_raise_or_map_integrity_error
 from utils.update_whitelist import filter_whitelisted_fields
@@ -204,10 +205,10 @@ class DamagedAssetService:
 
         send_notification_on_commit(
             asset=asset,
-            notification_type="approval",
+            notification_type=Notification.NotificationType.APPROVAL,
             title="待报废审批通过",
             message=f"资产 {asset.asset_code} 的报废申请已审批通过",
-            priority="high",
+            priority=Notification.Priority.HIGH,
             related_url=f"/main/assetdetails/{asset.asset_code}",
         )
 
@@ -304,10 +305,10 @@ class DamagedAssetService:
 
         send_notification_on_commit(
             asset=asset,
-            notification_type="approval",
+            notification_type=Notification.NotificationType.APPROVAL,
             title="待报废审批拒绝",
             message=f"资产 {asset.asset_code} 的报废申请已被拒绝",
-            priority="medium",
+            priority=Notification.Priority.MEDIUM,
             related_url=f"/main/assetdetails/{asset.asset_code}",
         )
 

@@ -53,10 +53,10 @@ def push_notification_ws(notification: Notification) -> None:
 def persist_notifications(
     recipients: Sequence[str],
     *,
-    notification_type: str,
+    notification_type: Notification.NotificationType,
     title: str,
     message: str,
-    priority: str = "medium",
+    priority: Notification.Priority = Notification.Priority.MEDIUM,
     related_asset_code: str | None = None,
     related_url: str | None = None,
 ) -> list[Notification]:
@@ -98,7 +98,7 @@ def persist_notifications(
 def _persist_individually(
     recipients: Sequence[str],
     *,
-    notification_type: str,
+    notification_type: Notification.NotificationType,
     title: str,
     message: str,
     priority: str,
@@ -139,10 +139,25 @@ def _persist_individually(
     return saved
 
 
+def mark_notification_read(notification: Notification) -> None:
+    """单条置已读(写下沉 Service, M-35 范式); 行由 Selector.get_for_user 提供。"""
+    notification.is_read = True
+    notification.save(update_fields=["is_read"])
+
+
+def mark_all_notifications_read(recipient_jobcode: str) -> int:
+    """将接收人全部未读且未软删通知置已读, 返回触碰行数。"""
+    return Notification.objects.filter(
+        recipient_jobcode=recipient_jobcode,
+        is_read=False,
+        is_deleted=False,
+    ).update(is_read=True)
+
+
 def _create_notification(
     recipient_jobcode: str,
     *,
-    notification_type: str,
+    notification_type: Notification.NotificationType,
     title: str,
     message: str,
     priority: str,
@@ -164,10 +179,10 @@ def _create_notification(
 
 def send_notification_sync(
     recipient_jobcode: str,
-    notification_type: str,
+    notification_type: Notification.NotificationType,
     title: str,
     message: str,
-    priority: str = "medium",
+    priority: Notification.Priority = Notification.Priority.MEDIUM,
     related_asset_code: str | None = None,
     related_url: str | None = None,
 ) -> Notification:
@@ -192,10 +207,10 @@ def send_notification_sync(
 
 async def send_notification(
     recipient_jobcode: str,
-    notification_type: str,
+    notification_type: Notification.NotificationType,
     title: str,
     message: str,
-    priority: str = "medium",
+    priority: Notification.Priority = Notification.Priority.MEDIUM,
     related_asset_code: str | None = None,
     related_url: str | None = None,
 ) -> Notification:
@@ -241,7 +256,7 @@ async def send_notification(
 @database_sync_to_async
 def database_create_notification(
     recipient_jobcode: str,
-    notification_type: str,
+    notification_type: Notification.NotificationType,
     title: str,
     message: str,
     priority: str,

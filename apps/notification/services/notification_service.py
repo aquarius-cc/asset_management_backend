@@ -84,22 +84,43 @@ def persist_notifications(
     except Exception as e:
         logger.warning(f"通知批量持久化失败,降级逐条写入: {e}")
 
+    return _persist_individually(
+        recipients,
+        notification_type=notification_type,
+        title=title,
+        message=message,
+        priority=priority,
+        related_asset_code=related_asset_code,
+        related_url=related_url,
+    )
+
+
+def _persist_individually(
+    recipients: Sequence[str],
+    *,
+    notification_type: str,
+    title: str,
+    message: str,
+    priority: str,
+    related_asset_code: str | None,
+    related_url: str | None,
+) -> list[Notification]:
+    """降级逐条写入(bulk 失败后调用): 单次重试应对瞬时 DB 抖动, 仍失败留 error 级死信日志。"""
     saved: list[Notification] = []
     for recipient_jobcode in recipients:
-        for attempt in (1, 2):  # 单次重试:应对瞬时 DB 抖动
+        for attempt in (1, 2):
             try:
-                with transaction.atomic():
-                    saved.append(
-                        _create_notification(
-                            recipient_jobcode=recipient_jobcode,
-                            notification_type=notification_type,
-                            title=title,
-                            message=message,
-                            priority=priority,
-                            related_asset_code=related_asset_code,
-                            related_url=related_url,
-                        )
+                saved.append(
+                    _create_notification(
+                        recipient_jobcode=recipient_jobcode,
+                        notification_type=notification_type,
+                        title=title,
+                        message=message,
+                        priority=priority,
+                        related_asset_code=related_asset_code,
+                        related_url=related_url,
                     )
+                )
                 break
             except Exception as e:
                 if attempt == 2:

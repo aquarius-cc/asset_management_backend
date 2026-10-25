@@ -2,14 +2,24 @@
 部门服务覆盖率测试
 """
 
+import threading
+
 import pytest
+from django.db import connection, transaction
 
 from apps.usermanagement.models import MAX_DEPARTMENT_LEVEL, Department
+from apps.usermanagement.selectors import DepartmentSelector
 from apps.usermanagement.services import DepartmentService
 from core.exceptions import AppValidationError, BusinessLogicError
 
 
 ValidationError = AppValidationError
+
+# 【M-27】SQLite 不支持 select_for_update 行级锁,跳过真并发用例(CI 是 Postgres)
+requires_row_lock = pytest.mark.skipif(
+    connection.vendor == "sqlite",
+    reason="SQLite 不支持 select_for_update 行级锁,跳过真并发用例(CI 是 Postgres)",
+)
 
 
 @pytest.mark.django_db
@@ -252,3 +262,112 @@ class TestDepartmentServiceExtra:
 
         assert result["fail_count"] == 1
         assert result["fail_items"][0]["error_code"] == "INTERNAL_ERROR"
+
+
+@pytest.mark.django_db
+class TestMoveDepartmentRowLock:
+    """【M-27】移动部门行锁 + 前态复检"""
+
+    def test_lock_rows_for_move_returns_both_rows(self, db):
+        Department.objects.create(
+            department_code="LOCKA", department_name="锁A", department_information="", level=0, path="/LOCKA"
+        )
+        Department.objects.create(
+            department_code="LOCKB", department_name="锁B", department_information="", level=0, path="/LOCKB"
+        )
+
+        locked = DepartmentSelector.lock_rows_for_move("LOCKA", "LOCKB")
+
+        assert set(locked) == {"LOCKA", "LOCKB"}
+        assert locked["LOCKA"].path == "/LOCKA"
+        assert locked["LOCKB"].path == "/LOCKB"
+
+    def test_lock_rows_for_move_single_row_when_moving_to_root(self, db):
+        Department.objects.create(
+            department_code="LOCKR", department_name="锁根", department_information="", level=0, path="/LOCKR"
+        )
+
+        locked = DepartmentSelector.lock_rows_for_move("LOCKR", None)
+
+        assert set(locked) == {"LOCKR"}
+
+    def test_lock_rows_for_move_missing_target_absent_from_mapping(self, db):
+        Department.objects.create(
+            department_code="LOCKM", department_name="锁M", department_information="", level=0, path="/LOCKM"
+        )
+
+        locked = DepartmentSelector.lock_rows_for_move("LOCKM", "GHOST_TARGET")
+
+        assert set(locked) == {"LOCKM"}
+
+    def test_move_department_acquires_row_lock(self, department, child_department, monkeypatch):
+        """【回归屏障】move_department 必须经 lock_rows_for_move 行锁入口,
+        手植去掉锁调用即红。"""
+        calls: list[tuple[str, str | None]] = []
+        original = DepartmentSelector.lock_rows_for_move
+
+        def spy(department_code: str, target_parent_code: str | None):
+            calls.append((department_code, target_parent_code))
+            return original(department_code, target_parent_code)
+
+        monkeypatch.setattr(DepartmentSelector, "lock_rows_for_move", spy)
+
+        DepartmentService.move_department(child_department.department_code, department.department_code)
+
+        assert calls == [(child_department.department_code, department.department_code)]
+
+    @requires_row_lock
+    def test_move_department_sql_emits_for_update(self, department, child_department):
+        """【回归屏障】移动查询必须携带 FOR UPDATE(去掉 select_for_update 即红)"""
+        from django.test.utils import CaptureQueriesContext
+
+        with CaptureQueriesContext(connection) as ctx:
+            DepartmentService.move_department(child_department.department_code, department.department_code)
+
+        assert any("FOR UPDATE" in q["sql"] for q in ctx.captured_queries), "行锁查询未发出 FOR UPDATE"
+
+
+@pytest.mark.django_db(transaction=True)
+class TestMoveDepartmentConcurrency:
+    """【M-27】互换移动真并发(PG)"""
+
+    @requires_row_lock
+    def test_concurrent_swap_move_cannot_form_cycle(self):
+        """A→B 与 B→A 并发:定序行锁串行化 + 锁内复检,
+        恰一方成功、另一方 CIRCULAR_REFERENCE,终态无环。"""
+        Department.objects.create(
+            department_code="SWA", department_name="甲部门", department_information="", level=0, path="/SWA"
+        )
+        Department.objects.create(
+            department_code="SWB", department_name="乙部门", department_information="", level=0, path="/SWB"
+        )
+
+        results: list[str] = []
+
+        def move(src: str, dst: str) -> None:
+            try:
+                with transaction.atomic():
+                    DepartmentService.move_department(src, dst)
+                results.append(f"{src}->{dst}:ok")
+            except Exception as exc:
+                results.append(f"{src}->{dst}:{type(exc).__name__}:{getattr(exc, 'error_code', '')}")
+
+        t1 = threading.Thread(target=move, args=("SWA", "SWB"))
+        t2 = threading.Thread(target=move, args=("SWB", "SWA"))
+        t1.start()
+        t2.start()
+        t1.join(timeout=30)
+        t2.join(timeout=30)
+
+        ok = [r for r in results if r.endswith(":ok")]
+        failed = [r for r in results if not r.endswith(":ok")]
+        assert len(ok) == 1, f"互换移动应恰一方成功: {results}"
+        assert len(failed) == 1 and "CIRCULAR_REFERENCE" in failed[0], results
+
+        # 终态无环:沿 parent 链走到根,不得自闭合
+        node = Department.objects.get(department_code="SWA")
+        seen: set[str] = set()
+        while node is not None:
+            assert node.department_code not in seen, f"终态存在环: {results}"
+            seen.add(node.department_code)
+            node = node.parent

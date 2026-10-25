@@ -154,8 +154,8 @@ def test_sort_response_is_bare_array(employee_schema):
 def test_sort_declares_no_runtime_unused_params(employee_schema):
     """反向护栏（OS-5）：``sort`` 端点不得声明任何查询参数。
 
-    ``batch_sort`` 是 ``methods=["put"]``，直接调 ``EmployeeSelector.batch_update_sort``，
-    **全程不跑 ``filter_queryset``**。一旦 ``_is_list_view()`` 被翻 True，
+    ``batch_sort`` 是 ``methods=["put"]``，直接调 ``EmployeeService.batch_update_sort``（M-35 后写
+    在 Service、读在 Selector），**全程不跑 ``filter_queryset``**。一旦 ``_is_list_view()`` 被翻 True，
     ``get_filter_backends()`` 会给它加上 department_code /
     employee_department__department_code / employee_status / ordering / search
     共 5 条运行时从不消费的参数——「文档有、运行时无」的反向失真。

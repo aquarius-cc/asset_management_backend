@@ -157,9 +157,15 @@ class DepartmentService:
         2. 检查循环引用
         3. 验证层级约束(不超过 6 层)
         4. 更新当前部门及所有子部门的层级和路径
+
+        【M-27】并发安全:先经 Selector 单查询定序锁定移动双方行(防互换移动死锁),
+        锁内读取即前态复检基线——存在性/循环/层级校验全部基于持锁状态执行。
+        取舍:子孙/祖先链行不入锁面(其变更方各自持「移动双方」锁互斥),环检在持锁
+        复检点完成;三节点互换环由两两共享锁点串行化后被锁内复检拦截。
         """
-        # 获取要移动的部门
-        department = DepartmentSelector.get_department_by_code(department_code)
+        # 获取要移动的部门(行锁内读取)
+        locked = DepartmentSelector.lock_rows_for_move(department_code, target_parent_code)
+        department = locked.get(department_code)
         if not department:
             raise AppValidationError(detail=f"部门 {department_code} 不存在", error_code="DEPARTMENT_NOT_FOUND")
 
@@ -175,9 +181,13 @@ class DepartmentService:
             DepartmentService._invalidate_ancestors_cache(old_ancestor_codes)
             return result
 
-        target_parent, new_level = DepartmentService._validate_move_hierarchy(
-            department_code, department, target_parent_code
-        )
+        target_parent = locked.get(target_parent_code)
+        if not target_parent:
+            raise AppValidationError(
+                detail=f"目标父部门 {target_parent_code} 不存在", error_code="PARENT_DEPARTMENT_NOT_FOUND"
+            )
+
+        new_level = DepartmentService._validate_move_hierarchy(department_code, department, target_parent)
 
         # 更新部门信息
         department.parent = target_parent
@@ -200,24 +210,20 @@ class DepartmentService:
             cache.delete(f"dept:{rc}:descendants")
 
     @staticmethod
-    def _validate_move_hierarchy(
-        department_code: str, department: Department, target_parent_code: str
-    ) -> tuple[Department, int]:
-        """验证移动层级合法性:目标存在、无循环引用、深度不超限,返回目标父部门与新层级"""
-        target_parent = DepartmentSelector.get_department_by_code(target_parent_code)
-        if not target_parent:
-            raise AppValidationError(
-                detail=f"目标父部门 {target_parent_code} 不存在", error_code="PARENT_DEPARTMENT_NOT_FOUND"
-            )
+    def _validate_move_hierarchy(department_code: str, department: Department, target_parent: Department) -> int:
+        """验证移动层级合法性:无循环引用、深度不超限,返回新层级
 
+        【M-27】入参 target_parent 为锁内读取实例(不存在性已在调用方锁内判过),
+        本方法只做持锁状态下的前态复检,不再自行查询。
+        """
         # 检查循环引用:不能移动到自己
-        if target_parent_code == department_code:
+        if target_parent.department_code == department_code:
             raise BusinessLogicError(detail="不能将部门移动到自己下面", error_code="CIRCULAR_REFERENCE")
 
         # 检查循环引用:不能移动到自己的子部门下
         # get_all_descendants() 返回 department_code 字符串列表
         descendants_codes = department.get_all_descendants()
-        if target_parent_code in descendants_codes:
+        if target_parent.department_code in descendants_codes:
             raise BusinessLogicError(
                 detail="不能将部门移动到自己的子部门下面,这会形成循环引用", error_code="CIRCULAR_REFERENCE"
             )
@@ -235,7 +241,7 @@ class DepartmentService:
                 detail=f"移动后部门层级将超过 {MAX_DEPARTMENT_LEVEL} 层限制", error_code="DEPARTMENT_LEVEL_EXCEEDED"
             )
 
-        return target_parent, new_level
+        return new_level
 
     @staticmethod
     def _move_to_root(department: Department, old_path: str, old_level: int) -> Department:

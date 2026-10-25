@@ -262,44 +262,18 @@ class EmployeeSelector:
         }
 
     @staticmethod
-    def batch_update_sort(sort_data_list: list[dict[str, Any]]) -> QuerySet[Employee]:
+    def get_employees_by_jobcodes(jobcodes: list[str]) -> dict[str, Employee]:
+        """按工号集合一次取回员工,返回 工号->员工 映射
+
+        【M-35/DR-3】批量排序的读查询收敛至 Selector;写(bulk_update)在 Service 层,
+        Selector 不得含 atomic/bulk_update 等写操作(五层铁律)。
         """
-        批量更新员工排序字段
+        return {emp.employee_jobcode: emp for emp in Employee.objects.filter(employee_jobcode__in=jobcodes)}
 
-        Args:
-            sort_data_list: list of dict [{"employee_jobcode": "J001", "sort_order": 1}, ...]
-
-        Returns:
-            更新后的 Employee QuerySet(按 sort_order 升序)
-        """
-        from django.db import transaction
-
-        from apps.usermanagement.models import Employee
-
-        # 收集需要更新的员工对象
-        employees_to_update = []
-        jobcode_list = [item["employee_jobcode"] for item in sort_data_list]
-
-        # 一次查询出所有相关员工(减少数据库交互)
-        existing_employees = {
-            emp.employee_jobcode: emp for emp in Employee.objects.filter(employee_jobcode__in=jobcode_list)
-        }
-
-        with transaction.atomic():
-            for item in sort_data_list:
-                jobcode = item["employee_jobcode"]
-                sort_order = item["sort_order"]
-                emp = existing_employees.get(jobcode)
-                if emp:
-                    emp.sort_order = sort_order
-                    employees_to_update.append(emp)
-                # 如果 jobcode 不存在,可以忽略或抛异常(根据业务决定)
-
-            # 批量更新(只更新 sort_order 字段)
-            Employee.objects.bulk_update(employees_to_update, ["sort_order"])
-
-        # 返回更新后的员工列表(按 sort_order 排序)
-        return Employee.objects.filter(employee_jobcode__in=jobcode_list).order_by("sort_order")
+    @staticmethod
+    def get_employees_ordered_by_sort(jobcodes: list[str]) -> QuerySet[Employee]:
+        """按工号集合取员工并按 sort_order 升序(批量排序完成后的回读)"""
+        return Employee.objects.filter(employee_jobcode__in=jobcodes).order_by("sort_order")
 
 
 class DepartmentSelector:
@@ -336,6 +310,20 @@ class DepartmentSelector:
         【DR-3】Service 层预检查询收敛至 Selector, 禁止裸 Model.objects.filter。
         """
         return Department.objects.filter(department_code=code).exists()
+
+    @staticmethod
+    def lock_rows_for_move(department_code: str, target_parent_code: str | None) -> dict[str, Department]:
+        """select_for_update 定序锁定移动双方行,返回 编码->部门 映射
+
+        【M-27】move_department 专用:单查询按 department_code 升序取行,
+        两行在同一定序下获取,避免「互换移动」双向持锁死锁。
+        须在调用方 @transaction.atomic 内使用;移为根(None)或自身移动时只锁单行。
+        """
+        codes = {department_code}
+        if target_parent_code is not None:
+            codes.add(target_parent_code)
+        rows = Department.objects.select_for_update().filter(department_code__in=codes).order_by("department_code")
+        return {row.department_code: row for row in rows}
 
     @staticmethod
     def get_all_departments() -> list[Department]:

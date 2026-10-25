@@ -12,10 +12,11 @@
   - change_employee_status: 更改员工状态
   - batch_create_employee: 批量创建员工(逐条执行,返回详情)
   - batch_delete_employee: 批量删除员工(含关联资产预检查)
+  - batch_update_sort: 批量更新员工排序(写在 Service,读经 Selector)
 
 调用链:
   本模块被 views/employee_view.py 调用
-  本模块依赖 models.Employee、employee_audit_adapter.EmployeeAuditAdapter
+  本模块依赖 models.Employee、employee_audit_adapter.EmployeeAuditAdapter、selectors.EmployeeSelector
 """
 
 from __future__ import annotations
@@ -24,9 +25,11 @@ import copy
 from typing import TYPE_CHECKING, Any
 
 from django.db import IntegrityError, transaction
+from django.db.models import QuerySet
 
 from apps.usermanagement.employee_audit_adapter import EmployeeAuditAdapter
 from apps.usermanagement.models import Employee
+from apps.usermanagement.selectors import EmployeeSelector
 from core.batch_mixins import BatchOperationMixin, ensure_batch_size
 from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError, BusinessLogicError, re_raise_or_map_integrity_error
@@ -360,3 +363,35 @@ class EmployeeService:
             EmployeeAuditAdapter.log_delete(employee.employee_jobcode, employee.employee_name)
 
         return BatchOperationMixin.batch_delete_execute(employee_jobcodes, _delete_one)
+
+    @staticmethod
+    @transaction.atomic
+    def batch_update_sort(sort_data_list: list[dict[str, Any]]) -> QuerySet[Employee]:
+        """
+        批量更新员工排序字段
+
+        【M-35】写操作自 EmployeeSelector 下沉至 Service(五层铁律:Selector 只读),
+        读查询经 Selector 收敛(DR-3);行为与原实现一致。
+
+        Args:
+            sort_data_list: 排序项列表 [{"employee_jobcode": "J001", "sort_order": 1}, ...]
+
+        Returns:
+            更新后的员工查询集(按 sort_order 升序)
+
+        说明:不存在的工号忽略(不抛错,与原实现语义一致)。
+        """
+        jobcode_list = [item["employee_jobcode"] for item in sort_data_list]
+        existing_employees = EmployeeSelector.get_employees_by_jobcodes(jobcode_list)
+
+        employees_to_update = []
+        for item in sort_data_list:
+            emp = existing_employees.get(item["employee_jobcode"])
+            if emp:
+                emp.sort_order = item["sort_order"]
+                employees_to_update.append(emp)
+
+        # [HALT] 批量更新: 仅写 sort_order 字段
+        Employee.objects.bulk_update(employees_to_update, ["sort_order"])
+
+        return EmployeeSelector.get_employees_ordered_by_sort(jobcode_list)

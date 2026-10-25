@@ -12679,7 +12679,7 @@
         "/api/v1/users/employees/sort/": {
             "put": {
                 "operationId": "v1_users_employees_sort_update",
-                "description": "批量更新员工排序字段\n\n【AGENTS 规范 - P3-45】批量更新逻辑已迁移到 EmployeeSelector.batch_update_sort(),\n批量更新员工排序(前端传入列表,每个元素包含 employee_jobcode 和 sort_order)\n视图层仅负责调用 Selector 和返回成功响应。\n\n【修复】使用 EmployeeBatchSortSerializer 提供批量大小限制和重复校验",
+                "description": "批量更新员工排序字段\n\n【AGENTS 规范 - P3-45 / M-35】批量更新逻辑在 EmployeeService.batch_update_sort(),\n批量更新员工排序(前端传入列表,每个元素包含 employee_jobcode 和 sort_order)\n视图层仅负责调用 Service 和返回成功响应(五层铁律:写操作在 Service 层)。\n\n【修复】使用 EmployeeBatchSortSerializer 提供批量大小限制和重复校验",
                 "summary": "批量更新员工排序",
                 "tags": [
                     "v1"

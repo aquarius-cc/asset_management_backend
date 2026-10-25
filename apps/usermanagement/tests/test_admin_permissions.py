@@ -193,3 +193,45 @@ class TestDepartmentMoveGate:
             format="json",
         )
         assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.django_db
+class TestEmployeeSortGate:
+    """【M-35】员工批量排序端点:仅 system_admin(batch_sort 在 IsSystemAdmin 白名单)"""
+
+    def test_sort_denied_for_regular_user(self, api_client, regular_user, dept):
+        api_client.force_authenticate(user=regular_user)
+        response = api_client.put(
+            reverse("employees-batch-sort"),
+            {"items": [{"employee_jobcode": "adm_ru", "sort_order": 1}]},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_sort_allowed_and_updates_for_system_admin(self, api_client, sys_admin, dept):
+        e1 = Employee.objects.create(
+            employee_jobcode="SRTA",
+            employee_name="排序A",
+            employee_department=dept,
+            sort_order=0,
+            employee_phone="13900000001",
+        )
+        e2 = Employee.objects.create(
+            employee_jobcode="SRTB",
+            employee_name="排序B",
+            employee_department=dept,
+            sort_order=1,
+            employee_phone="13900000002",
+        )
+        api_client.force_authenticate(user=sys_admin)
+
+        response = api_client.put(
+            reverse("employees-batch-sort"),
+            {"items": [{"employee_jobcode": "SRTA", "sort_order": 7}, {"employee_jobcode": "SRTB", "sort_order": 3}]},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        e1.refresh_from_db()
+        e2.refresh_from_db()
+        assert (e1.sort_order, e2.sort_order) == (7, 3)

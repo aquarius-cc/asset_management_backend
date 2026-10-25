@@ -63,11 +63,11 @@ class EmployeeViewSet(  # type: ignore[misc]
     员工管理视图集
 
     继承 ResponseWrapperMixin 自动处理统一的响应格式:
-    - list: 分页/不分页均返回 {code, msg, data}
-    - create: 返回 {code, msg, data}
-    - retrieve: 返回 {code, msg, data}
-    - update/partial_update: 返回 {code, msg, data}
-    - destroy: 返回 {code, msg, data}
+    - list: 分页/不分页均返回 {code, message, data}
+    - create: 返回 {code, message, data}
+    - retrieve: 返回 {code, message, data}
+    - update/partial_update: 返回 {code, message, data}
+    - destroy: 返回 {code, message, data}
 
     自定义 action 中手动调用 success_response/error_response 保持统一格式
 
@@ -400,7 +400,7 @@ class EmployeeViewSet(  # type: ignore[misc]
         # 置为 None，使 :1486 恒判 False，整条「数组+分页」推断分支一并跳过。
         # 副作用同样被跳过：补 many=True 会翻转 `_is_list_view()`，进而打开
         # get_filter_backends()，给本端点凭空加上 5 条运行时从不消费的筛选参数
-        # （batch_sort 是 PUT，直接调 Selector，全程不跑 filter_queryset）——
+        # （batch_sort 是 PUT，直接调 Service，全程不跑 filter_queryset）——
         # 那正是 OS-5 双向红线所说的「文档超前于运行时」反向失真。
         #
         # 【耦合点】下方组件名与 EmployeeSerializer 绑定：若该序列化器的组件名变更
@@ -414,17 +414,17 @@ class EmployeeViewSet(  # type: ignore[misc]
         """
         批量更新员工排序字段
 
-        【AGENTS 规范 - P3-45】批量更新逻辑已迁移到 EmployeeSelector.batch_update_sort(),
+        【AGENTS 规范 - P3-45 / M-35】批量更新逻辑在 EmployeeService.batch_update_sort(),
         批量更新员工排序(前端传入列表,每个元素包含 employee_jobcode 和 sort_order)
-        视图层仅负责调用 Selector 和返回成功响应。
+        视图层仅负责调用 Service 和返回成功响应(五层铁律:写操作在 Service 层)。
 
         【修复】使用 EmployeeBatchSortSerializer 提供批量大小限制和重复校验
         """
         serializer = EmployeeBatchSortSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # 【AGENTS 规范 - P3-45】调用 Selector 批量更新
-        updated_employees = EmployeeSelector.batch_update_sort(serializer.validated_data["items"])
+        # 【M-35】写操作经 Service(五层铁律),读查询在 Selector
+        updated_employees = EmployeeService.batch_update_sort(serializer.validated_data["items"])
         # 返回更新后的员工数据
         response_serializer = self.get_serializer(updated_employees, many=True)
         return success_response(

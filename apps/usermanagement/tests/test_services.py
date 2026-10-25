@@ -66,6 +66,47 @@ class TestEmployeeService:
         assert employee is not None
         assert employee.employee_jobcode == "UTEST"
 
+    def test_batch_update_sort_updates_and_returns_ordered(self, department):
+        """【M-35】写在 Service:两员工排序对调落库,回读按 sort_order 升序"""
+        e1 = Employee.objects.create(
+            employee_jobcode="SRT1",
+            employee_name="排序甲",
+            employee_department=department,
+            sort_order=5,
+            employee_phone="13900000011",
+        )
+        e2 = Employee.objects.create(
+            employee_jobcode="SRT2",
+            employee_name="排序乙",
+            employee_department=department,
+            sort_order=6,
+            employee_phone="13900000012",
+        )
+
+        result = EmployeeService.batch_update_sort(
+            [{"employee_jobcode": "SRT1", "sort_order": 2}, {"employee_jobcode": "SRT2", "sort_order": 1}]
+        )
+
+        e1.refresh_from_db()
+        e2.refresh_from_db()
+        assert (e1.sort_order, e2.sort_order) == (2, 1)
+        assert [emp.employee_jobcode for emp in result] == ["SRT2", "SRT1"]
+
+    def test_batch_update_sort_ignores_unknown_jobcode(self, test_employee):
+        """【M-35】不存在的工号静默忽略(与原实现语义一致),不整批失败"""
+        result = EmployeeService.batch_update_sort(
+            [{"employee_jobcode": "UTEST", "sort_order": 9}, {"employee_jobcode": "GHOST", "sort_order": 1}]
+        )
+
+        test_employee.refresh_from_db()
+        assert test_employee.sort_order == 9
+        assert [emp.employee_jobcode for emp in result] == ["UTEST"]
+
+    def test_batch_sort_write_lives_in_service_not_selector(self):
+        """【M-35 回归屏障】Selector 禁写:batch_update_sort 下沉 Service 后不得回潮"""
+        assert not hasattr(EmployeeSelector, "batch_update_sort")
+        assert hasattr(EmployeeService, "batch_update_sort")
+
 
 @pytest.mark.django_db
 class TestDepartmentService:

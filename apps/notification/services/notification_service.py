@@ -90,7 +90,7 @@ def persist_notifications(
             try:
                 with transaction.atomic():
                     saved.append(
-                        Notification.objects.create(
+                        _create_notification(
                             recipient_jobcode=recipient_jobcode,
                             notification_type=notification_type,
                             title=title,
@@ -116,6 +116,29 @@ def persist_notifications(
                         e,
                     )
     return saved
+
+
+def _create_notification(
+    recipient_jobcode: str,
+    *,
+    notification_type: str,
+    title: str,
+    message: str,
+    priority: str,
+    related_asset_code: str | None,
+    related_url: str | None,
+) -> Notification:
+    """单条建库(降级路径专用, 内层 atomic): 失败由调用方捕获重试/死信。"""
+    with transaction.atomic():
+        return Notification.objects.create(
+            recipient_jobcode=recipient_jobcode,
+            notification_type=notification_type,
+            title=title,
+            message=message,
+            priority=priority,
+            related_asset_code=related_asset_code,
+            related_url=related_url,
+        )
 
 
 def send_notification_sync(

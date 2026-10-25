@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from django.db import connection, transaction
 from django.db.transaction import TransactionManagementError
 
-from apps.notification.services import send_notification_sync
+from apps.notification.services import persist_notifications, push_notification_ws
 
 
 if TYPE_CHECKING:
@@ -55,19 +55,18 @@ def notify_dept_managers(
         is_deleted=False,
     ).values_list("employee_jobcode", flat=True)
 
-    for jobcode in managers:
-        try:
-            send_notification_sync(
-                recipient_jobcode=jobcode,
-                notification_type=notification_type,
-                title=title,
-                message=message,
-                priority=priority,
-                related_asset_code=asset.asset_code,
-                related_url=related_url,
-            )
-        except Exception as e:
-            logger.warning(f"通知发送失败 (to={jobcode}): {e}")
+    # 批量持久化(失败降级逐条+单次重试,死信留痕) → WS 推送与持久化解耦
+    created = persist_notifications(
+        list(managers),
+        notification_type=notification_type,
+        title=title,
+        message=message,
+        priority=priority,
+        related_asset_code=asset.asset_code,
+        related_url=related_url,
+    )
+    for notification in created:
+        push_notification_ws(notification)
 
 
 def send_notification_on_commit(

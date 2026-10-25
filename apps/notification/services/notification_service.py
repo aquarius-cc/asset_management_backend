@@ -8,15 +8,114 @@
 """
 
 import logging
+from collections.abc import Sequence
 
 from asgiref.sync import async_to_sync
 from channels.db import database_sync_to_async
 from channels.layers import get_channel_layer
+from django.db import transaction
 
 from apps.notification.models import Notification
 
 
 logger = logging.getLogger(__name__)
+
+
+def push_notification_ws(notification: Notification) -> None:
+    """推送单条已持久化通知到其收件人 WebSocket 群组。
+
+    失败仅 warning 降级:通知已落库,用户刷新/重进仍可见,不构成数据丢失。
+    """
+    try:
+        channel_layer = get_channel_layer()
+        if channel_layer is None:
+            raise RuntimeError("channel layer 未配置")
+        async_to_sync(channel_layer.group_send)(
+            f"notifications_{notification.recipient_jobcode}",
+            {
+                "type": "notification",
+                "data": {
+                    "id": notification.id,
+                    "type": notification.notification_type,
+                    "title": notification.title,
+                    "message": notification.message,
+                    "priority": notification.priority,
+                    "related_asset_code": notification.related_asset_code,
+                    "related_url": notification.related_url,
+                    "created_at": notification.created_at.isoformat(),
+                },
+            },
+        )
+    except Exception as e:
+        logger.warning(f"WebSocket 推送失败(通知已持久化): {e}")
+
+
+def persist_notifications(
+    recipients: Sequence[str],
+    *,
+    notification_type: str,
+    title: str,
+    message: str,
+    priority: str = "medium",
+    related_asset_code: str | None = None,
+    related_url: str | None = None,
+) -> list[Notification]:
+    """
+    批量持久化通知(BF-145/AUD-45): 一次 bulk_create,批失败降级逐条(单次重试),仍失败留死信日志。
+
+    供 on_commit 回调(事务外)调用:内层 atomic 保证批写入原子;WS 推送由调用方
+    对返回实例循环 push_notification_ws 承担,与持久化解耦。
+    任何持久化失败不向调用方抛异常——通知丢失以 error 级死信日志(含完整重建载荷)兜底。
+    """
+    def _build(recipient_jobcode: str) -> Notification:
+        return Notification(
+            recipient_jobcode=recipient_jobcode,
+            notification_type=notification_type,
+            title=title,
+            message=message,
+            priority=priority,
+            related_asset_code=related_asset_code,
+            related_url=related_url,
+        )
+
+    try:
+        with transaction.atomic():
+            return list(Notification.objects.bulk_create([_build(r) for r in recipients]))
+    except Exception as e:
+        logger.warning(f"通知批量持久化失败,降级逐条写入: {e}")
+
+    saved: list[Notification] = []
+    for recipient_jobcode in recipients:
+        for attempt in (1, 2):  # 单次重试:应对瞬时 DB 抖动
+            try:
+                with transaction.atomic():
+                    saved.append(
+                        Notification.objects.create(
+                            recipient_jobcode=recipient_jobcode,
+                            notification_type=notification_type,
+                            title=title,
+                            message=message,
+                            priority=priority,
+                            related_asset_code=related_asset_code,
+                            related_url=related_url,
+                        )
+                    )
+                break
+            except Exception as e:
+                if attempt == 2:
+                    logger.error(
+                        "通知持久化失败(死信,请人工补偿): recipient=%s type=%s title=%s "
+                        "message=%s priority=%s related_asset_code=%s related_url=%s: %s",
+                        recipient_jobcode,
+                        notification_type,
+                        title,
+                        message,
+                        priority,
+                        related_asset_code,
+                        related_url,
+                        e,
+                    )
+    return saved
 
 
 def send_notification_sync(
@@ -43,30 +142,7 @@ def send_notification_sync(
         related_asset_code=related_asset_code,
         related_url=related_url,
     )
-
-    try:
-        channel_layer = get_channel_layer()
-        if channel_layer is None:
-            raise RuntimeError("channel layer 未配置")
-        async_to_sync(channel_layer.group_send)(
-            f"notifications_{recipient_jobcode}",
-            {
-                "type": "notification",
-                "data": {
-                    "id": notification.id,
-                    "type": notification_type,
-                    "title": title,
-                    "message": message,
-                    "priority": priority,
-                    "related_asset_code": related_asset_code,
-                    "related_url": related_url,
-                    "created_at": notification.created_at.isoformat(),
-                },
-            },
-        )
-    except Exception as e:
-        logger.warning(f"WebSocket 推送失败(通知已持久化): {e}")
-
+    push_notification_ws(notification)
     return notification
 
 

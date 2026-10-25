@@ -260,7 +260,8 @@ class UnregisteredAsset(BaseModel):
         verbose_name = "未登记资产管理"
         verbose_name_plural = "未登记资产管理"
         db_table = "am_unregistered_asset"
-        ordering = ["-created_at"]
+        # AUD-46: 补 -id 决胜键 (M-02 同型): 同毫秒 created_at 并列时跨页次序未定义
+        ordering = ["-created_at", "-id"]
         indexes = [
             # 按编码查询
             models.Index(fields=["unregistered_code"]),

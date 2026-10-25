@@ -143,6 +143,57 @@ class TestNotifyDeptManagers:
 
 
 @pytest.mark.django_db
+class TestPersistNotifications:
+    """persist_notifications 批量持久化(AUD-45/BF-145): bulk → 失败降级逐条+单次重试 → 死信日志"""
+
+    CALL_KWARGS = {
+        "notification_type": "approval",
+        "title": "批量标题",
+        "message": "批量消息",
+    }
+
+    def _call(self, recipients):
+        from apps.notification.services import persist_notifications
+
+        return persist_notifications(recipients, **self.CALL_KWARGS)
+
+    def test_bulk_persists_all_with_id_and_created_at(self):
+        """bulk_create 路径:全部落库且 id/created_at 回填(WS 载荷与分页依赖)"""
+        created = self._call(["MGR101", "MGR102"])
+        assert len(created) == 2
+        assert all(n.id is not None for n in created)
+        assert all(n.created_at is not None for n in created)
+        assert Notification.objects.filter(title="批量标题").count() == 2
+
+    def test_bulk_failure_degrades_to_per_row(self):
+        """bulk 整批失败 → 降级逐条补偿,仍全部落库(补偿单点收敛)"""
+        with patch(
+            "apps.notification.services.notification_service.Notification.objects.bulk_create",
+            side_effect=Exception("db glitch"),
+        ):
+            created = self._call(["MGR201", "MGR202"])
+        assert len(created) == 2
+        assert Notification.objects.filter(title="批量标题").count() == 2
+
+    def test_persistence_failure_logs_dead_letter(self, caplog):
+        """bulk 与逐条(含单次重试)均失败 → error 级死信日志,不向调用方抛异常"""
+        with patch(
+            "apps.notification.services.notification_service.Notification.objects.bulk_create",
+            side_effect=Exception("db down"),
+        ):
+            with patch(
+                "apps.notification.services.notification_service.Notification.objects.create",
+                side_effect=Exception("still down"),
+            ):
+                with caplog.at_level(logging.ERROR, logger="apps.notification.services.notification_service"):
+                    created = self._call(["MGR301", "MGR302"])
+        assert created == []
+        dead = [r for r in caplog.records if "MGR301" in r.getMessage() or "MGR302" in r.getMessage()]
+        assert dead, "应留死信日志(含完整重建载荷)"
+        assert all(r.levelno == logging.ERROR for r in dead)
+
+
+@pytest.mark.django_db
 class TestSendNotificationOnCommit:
     """send_notification_on_commit 事务提交后发送(B6)"""
 

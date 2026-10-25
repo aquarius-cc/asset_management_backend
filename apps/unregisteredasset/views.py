@@ -128,7 +128,9 @@ class UnregisteredAssetViewSet(  # type: ignore[misc]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ["scenario_type", "approval_status", "discovery_person", "related_asset"]
     ordering_fields = ["unregistered_code", "asset_name"]
-    ordering = ["-discovery_date"]
+    # AUD-46: 视图默认序补 -id 决胜键 (M-02 同型)。-id 仅入默认序、不入
+    # ordering_fields —— 视图默认序不受其约束, 避免扩大客户端可排序面 (契约变更)。
+    ordering = ["-discovery_date", "-id"]
     lookup_field = "unregistered_code"
     # 【P2-05 修复】移除未使用的 filter_mappings(DRF DjangoFilterBackend 已通过 filterset_fields 处理)
 

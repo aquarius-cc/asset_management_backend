@@ -69,7 +69,8 @@ class Notification(models.Model):
         verbose_name = "通知"
         verbose_name_plural = "通知"
         db_table = "am_notification"
-        ordering = ["-created_at"]
+        # AUD-46: 补 -id 决胜键 (M-02 同型): created_at 并列 (批量落库) 时跨页次序未定义
+        ordering = ["-created_at", "-id"]
         indexes = [
             models.Index(fields=["recipient_jobcode", "is_read"]),
             models.Index(fields=["created_at"]),

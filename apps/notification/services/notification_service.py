@@ -67,6 +67,7 @@ def persist_notifications(
     对返回实例循环 push_notification_ws 承担,与持久化解耦。
     任何持久化失败不向调用方抛异常——通知丢失以 error 级死信日志(含完整重建载荷)兜底。
     """
+
     def _build(recipient_jobcode: str) -> Notification:
         return Notification(
             recipient_jobcode=recipient_jobcode,

@@ -74,11 +74,8 @@ class NotificationSelector:
     @staticmethod
     def get_for_user(recipient_jobcode: str, notification_id: int) -> Notification | None:
         """按接收人取单条未删通知(不存在或已软删返回 None)"""
-        return (
-            Notification.objects.filter(
-                recipient_jobcode=recipient_jobcode,
-                id=notification_id,
-                is_deleted=False,
-            )
-            .first()
-        )
+        return Notification.objects.filter(
+            recipient_jobcode=recipient_jobcode,
+            id=notification_id,
+            is_deleted=False,
+        ).first()

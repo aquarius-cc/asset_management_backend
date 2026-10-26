@@ -39,8 +39,10 @@ django-filter==25.1
 psycopg[binary]==3.3.4
 
 # 图像处理
-# 版本说明：Pillow 12.3.0 修复25个已知CVE
-pillow==12.3.0
+# 版本说明：Pillow 13.0.0 —— 修复 2026-10-26 pip-audit 实测 37 项已知漏洞
+# （含 GHSA-78g4-xqwv-q3g8 CVSS 8.1）；12→13 大版本，调用面仅 qrcode[pil]
+# （asset_service QR 生成），qrcode 8.2 约束 pillow>=9.1.0 无上限
+pillow==13.0.0
 
 # 二维码生成（HIGH-15）
 qrcode[pil]==8.2

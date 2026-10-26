@@ -13,6 +13,8 @@ from typing import Any
 from django.core.cache import cache
 from rest_framework.throttling import AnonRateThrottle
 
+from core.request_context import RequestContextMiddleware
+
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +33,26 @@ def _extract_login_username(request: Any, owner: str) -> str:
     except Exception as exc:
         logger.warning("%s: 无法读取请求数据: %s", owner, exc)
     return username or "anonymous"
+
+
+def _client_ip(request: Any) -> str:
+    """【M-48】登录失败键的客户端 IP
+
+    复用中间件 _get_client_ip 单一信任边界(TRUST_PROXY_HEADERS 决定 XFF 是否可信);
+    无 META 的构造请求(单测 SimpleNamespace)回退 "unknown",不抛异常。
+    """
+    if not hasattr(request, "META"):
+        return "unknown"
+    return RequestContextMiddleware._get_client_ip(request) or "unknown"
+
+
+def _fail_key(username: str, request: Any) -> str:
+    """【M-48】登录失败计数键 = username+IP 复合(单一实现 DR-1)
+
+    allow_request / record_failure / record_success 三处调用点收敛到此,
+    任一处改键格式三处同步,防 key 漂移导致锁定失效或泄漏。
+    """
+    return f"login_fail_{username}_{_client_ip(request)}"
 
 
 class RegisterRateThrottle(AnonRateThrottle):
@@ -89,10 +111,11 @@ class LoginLockoutThrottle(AnonRateThrottle):
 
     def allow_request(self, request: Any, view: Any) -> bool:
         username = self._get_username(request)
-        fail_key = f"login_fail_{username}"
+        ip = _client_ip(request)
+        fail_key = _fail_key(username, request)
         fail_count = cache.get(fail_key, 0)
         if fail_count >= self.LOCKOUT_THRESHOLD:
-            logger.warning(f"登录锁定: {username} 已失败 {fail_count} 次,锁定中")
+            logger.warning(f"登录锁定: {username}@{ip} 已失败 {fail_count} 次,锁定中")
             return False
         return super().allow_request(request, view)
 
@@ -116,14 +139,14 @@ class LoginLockoutThrottle(AnonRateThrottle):
     def record_failure(self, request: Any, view: Any) -> None:
         """登录失败时调用（原子计数 + 滚动窗口刷新）"""
         username = self._get_username(request)
-        fail_key = f"login_fail_{username}"
+        ip = _client_ip(request)
+        fail_key = _fail_key(username, request)
         count = self._increment_fail_count(fail_key)
         # 滚动窗口: 每次失败刷新 15 分钟过期（复刻原 set 刷新 TTL 语义）
         cache.touch(fail_key, self.LOCKOUT_DURATION)
         if count >= self.LOCKOUT_THRESHOLD:
-            logger.warning(f"登录锁定触发: {username} 连续失败 {count} 次,锁定 15 分钟")
+            logger.warning(f"登录锁定触发: {username}@{ip} 连续失败 {count} 次,锁定 15 分钟")
 
     def record_success(self, request: Any, view: Any) -> None:
-        """登录成功时调用"""
-        username = self._get_username(request)
-        cache.delete(f"login_fail_{username}")
+        """登录成功时调用(仅清当前 IP 桶,【M-48】不误删其他 IP 的失败计数)"""
+        cache.delete(_fail_key(self._get_username(request), request))

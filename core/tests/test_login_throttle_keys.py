@@ -6,7 +6,8 @@ throttle_login_{username}: 同一 rate-history 键被两节流各插一次,一�
 → 5 次/分配置实际 ~2.5 次/分(收紧方向,报告 M-32/AUD-37)。
 
 修复: key 加 type(self).__name__ 类名前缀,两节流 history 各自独立;
-login_fail_{username} 失败计数键不动(BF-137 锚定,见 test_login_lockout_throttle)。
+login_fail_{username}_{ip} 失败计数键已按 M-48 改为 username+IP 复合
+(BF-137 原子计数语义不变,见 test_login_lockout_throttle)。
 
 红点(对共享 key 旧实现必红):
 - test_keys_are_distinct_and_class_prefixed —— 同 request 两 get_cache_key 相等。

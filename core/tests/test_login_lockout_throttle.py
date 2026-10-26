@@ -30,11 +30,12 @@ from django.core.cache import cache
 from core.throttles import LoginLockoutThrottle
 
 
-FAIL_KEY = "login_fail_lock_u1"
+# 【M-48】失败键 = username+IP 复合;_request() 默认无 META → IP 回退 unknown
+FAIL_KEY = "login_fail_lock_u1_unknown"
 
 
-def _request(username: str = "lock_u1") -> SimpleNamespace:
-    return SimpleNamespace(data={"auth_username": username})
+def _request(username: str = "lock_u1", ip: str | None = None) -> SimpleNamespace:
+    return SimpleNamespace(data={"auth_username": username}, META={"REMOTE_ADDR": ip} if ip else {})
 
 
 def _throttle() -> LoginLockoutThrottle:
@@ -159,6 +160,29 @@ class TestLoginLockoutBehavior:
         with pytest.MonkeyPatch.context() as mp:
             mp.setattr(type(throttle).__mro__[1], "allow_request", lambda self, req, view: True)
             assert throttle.allow_request(request, None) is False
+
+    def test_same_username_different_ips_count_independently(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """【M-48】同用户名跨 IP 独立计数:单 IP 连败锁定不影响该用户名其他 IP"""
+        monkeypatch.setattr(LoginLockoutThrottle, "rate", "1000/minute", raising=False)
+        throttle = _throttle()
+        req_a = _request(ip="198.51.100.1")
+        req_b = _request(ip="198.51.100.2")
+        for _ in range(LoginLockoutThrottle.LOCKOUT_THRESHOLD):
+            throttle.record_failure(req_a, None)
+        assert throttle.allow_request(req_a, None) is False
+        assert throttle.allow_request(req_b, None) is True
+
+    def test_record_success_clears_only_current_ip_bucket(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """【M-48】成功解锁只清当前 IP 桶,不误删其他 IP 的失败计数"""
+        monkeypatch.setattr(LoginLockoutThrottle, "rate", "1000/minute", raising=False)
+        throttle = _throttle()
+        req_a = _request(ip="198.51.100.1")
+        req_b = _request(ip="198.51.100.2")
+        for _ in range(LoginLockoutThrottle.LOCKOUT_THRESHOLD):
+            throttle.record_failure(req_a, None)
+        throttle.record_success(req_b, None)
+        assert throttle.allow_request(req_a, None) is False
+        assert throttle.allow_request(req_b, None) is True
 
 
 class TestHelperCallChain:

@@ -2,7 +2,9 @@
 并发重复建号兜底回归测试【BF-139 / M-26】
 
 锚定 5 处 exists→create 落库点的 IntegrityError → 业务 error_code 映射:
-- contract_code / employee_jobcode 单约束(re_raise_or_map_integrity_error 单 token)
+- contract_code 单约束(re_raise_or_map_integrity_error 单 token);
+  employee 三约束 jobcode/phone/auth_user(match_integrity_error_rules 三规则,
+  【M-45/BF-154】phone/auth_user 由原样重抛改为映射,原 500 → 400)
 - department(code+name) / storage(code+name) / asset_type(code+name) 双约束
   (match_integrity_error_rules 多规则按序匹配)
 - 双消息形锚定: PG 约束名形(duplicate key value violates unique constraint "...") +
@@ -178,9 +180,25 @@ class TestEmployeeCreateRace:
                 EmployeeService.create_employee(_employee_data())
         assert info.value.error_code == "DUPLICATE_EMPLOYEE_JOBCODE"
 
+    def test_phone_and_auth_user_messages_map_to_business_codes(self) -> None:
+        """【M-45/BF-154】phone/auth_user 冲突由原样重抛(500)改为业务错误码映射(400)"""
+        with patch.object(
+            Employee.objects, "create", side_effect=IntegrityError(_sqlite_message(Employee, "employee_phone"))
+        ):
+            with pytest.raises(AppValidationError) as info:
+                EmployeeService.create_employee(_employee_data())
+        assert info.value.error_code == "DUPLICATE_EMPLOYEE_PHONE"
+
+        with patch.object(
+            Employee.objects, "create", side_effect=IntegrityError(_sqlite_message(Employee, "auth_user"))
+        ):
+            with pytest.raises(AppValidationError) as info:
+                EmployeeService.create_employee(_employee_data())
+        assert info.value.error_code == "DUPLICATE_EMPLOYEE_AUTH_USER"
+
     def test_other_column_integrity_error_propagates(self) -> None:
-        """employee 唯一约束含 phone/auth_user, 仅 jobcode 命中映射, 其余原样重抛"""
-        other = IntegrityError(_sqlite_message(Employee, "employee_phone"))
+        """非映射列(employee_name 等)完整性错误仍原样重抛, 不误标为重复"""
+        other = IntegrityError(_sqlite_message(Employee, "employee_name"))
         with patch.object(Employee.objects, "create", side_effect=other):
             with pytest.raises(IntegrityError) as info:
                 EmployeeService.create_employee(_employee_data())

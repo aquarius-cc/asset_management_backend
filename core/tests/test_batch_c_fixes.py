@@ -135,13 +135,24 @@ class TestM09PermissionFailClosed:
         )
         assert isinstance(result[0], IsSystemAdmin)
 
-    def test_empty_admin_actions_defaults_authenticated(self):
-        """admin_actions 为空 → 缺省 IsAuthenticated, 即便写方法 (原行为不变)"""
+    def test_empty_admin_actions_write_fails_closed(self):
+        """【M-49 方案B】admin_actions 为空 + 写方法 → admin_permission, 与是否为空无关
+        (空清单原缺省 IsAuthenticated 的越权窗口已封堵)"""
         result = resolve_viewset_permissions(
             "some_action",
             admin_actions=[],
             admin_permission=IsSystemAdmin,
             method="POST",
+        )
+        assert isinstance(result[0], IsSystemAdmin)
+
+    def test_empty_admin_actions_read_stays_authenticated(self):
+        """【M-49 读路径屏障】admin_actions 为空 + 读方法 → 仍缺省 IsAuthenticated, 读面语义不变"""
+        result = resolve_viewset_permissions(
+            "some_action",
+            admin_actions=[],
+            admin_permission=IsSystemAdmin,
+            method="GET",
         )
         assert isinstance(result[0], permissions.IsAuthenticated)
 

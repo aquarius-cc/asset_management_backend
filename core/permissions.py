@@ -218,9 +218,10 @@ def resolve_viewset_permissions(
     优先级: export_excel → action_overrides → admin_actions → [M-09] 写方法
     fail-closed → 默认 IsAuthenticated。
 
-    [M-09/NEW-07] fail-closed: admin_actions 非空的 ViewSet, 未登记 action 遇写方法
-    (POST/PUT/PATCH/DELETE)或方法未知(method=None)时缺省返回 admin_permission——
-    新增管理动作漏登记即对全体登录用户开放的越权窗口已封堵。
+    [M-09/NEW-07] fail-closed: 未登记 action 遇写方法(POST/PUT/PATCH/DELETE)或
+    方法未知(method=None)时缺省返回 admin_permission, 与 admin_actions 是否为空
+    无关(【M-49 方案B】原「非空才生效」使空清单 ViewSet 的新增写动作默认对全体
+    登录用户开放)——新增管理动作漏登记的越权窗口已封堵。
     读方法(GET/HEAD/OPTIONS)缺省保持 IsAuthenticated, 读面语义不变。
     例外: 方法为写但语义只读的端点须经 action_overrides 显式登记为 IsAuthenticated
     (如 HardDiskSNViewSet.search_by_serial_number)。
@@ -231,7 +232,7 @@ def resolve_viewset_permissions(
         return [action_overrides[action]()]
     if action is not None and action in admin_actions:
         return [admin_permission()]
-    # [M-09] fail-closed: 未登记 action + 写方法(或方法未知) → admin_permission
-    if admin_actions and action is not None and (method is None or method.upper() not in _SAFE_METHODS):
+    # [M-09/M-49] fail-closed: 未登记 action + 写方法(或方法未知) → admin_permission(与 admin_actions 是否为空无关)
+    if action is not None and (method is None or method.upper() not in _SAFE_METHODS):
         return [admin_permission()]
     return [permissions.IsAuthenticated()]

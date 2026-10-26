@@ -6,6 +6,7 @@ from typing import Any, cast
 
 from django.db.models import Count, Q, QuerySet
 
+from apps.authusermanagement.models import AuthUser
 from apps.usermanagement.models import Department, Employee
 from core.department_scope import get_employee_scoped_queryset_for_user
 
@@ -274,6 +275,26 @@ class EmployeeSelector:
     def get_employees_ordered_by_sort(jobcodes: list[str]) -> QuerySet[Employee]:
         """按工号集合取员工并按 sort_order 升序(批量排序完成后的回读)"""
         return Employee.objects.filter(employee_jobcode__in=jobcodes).order_by("sort_order")
+
+    @staticmethod
+    def exists_by_jobcode(jobcode: str) -> bool:
+        """【M-50/DR-3】工号唯一性预检(原 Service 裸 filter().exists() 下沉,行为零变更)"""
+        return Employee.objects.filter(employee_jobcode=jobcode).exists()
+
+    @staticmethod
+    def get_employee_by_auth_user(auth_user: AuthUser, exclude_jobcode: str) -> Employee | None:
+        """【M-50/DR-3】取认证账号绑定的员工(排除指定工号,bind/replace 冲突检查整链下沉)"""
+        employee = (
+            Employee.objects.filter(auth_user=auth_user, is_deleted=False)
+            .exclude(employee_jobcode=exclude_jobcode)
+            .first()
+        )
+        return cast("Employee | None", employee)
+
+    @staticmethod
+    def exists_by_department(department: Department) -> bool:
+        """【M-50/DR-3】部门下是否仍有员工(删除守卫;SoftDeleteManager 排除已删除,与原查询一致)"""
+        return Employee.objects.filter(employee_department=department).exists()
 
 
 class DepartmentSelector:

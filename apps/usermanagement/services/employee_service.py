@@ -64,11 +64,7 @@ class EmployeeService:
                 error_code="AUTH_USER_NOT_FOUND",
             )
 
-        existing_binding = (
-            Employee.objects.filter(auth_user=auth_user, is_deleted=False)
-            .exclude(employee_jobcode=current_jobcode)
-            .first()
-        )
+        existing_binding = EmployeeSelector.get_employee_by_auth_user(auth_user, current_jobcode)
         if existing_binding:
             raise BusinessLogicError(
                 detail=f"认证账号 {auth_username} 已绑定到员工 {existing_binding.employee_jobcode}",
@@ -243,7 +239,7 @@ class EmployeeService:
         Returns:
             创建的员工实例
         """
-        if Employee.objects.filter(employee_jobcode=employee_data["employee_jobcode"]).exists():
+        if EmployeeSelector.exists_by_jobcode(employee_data["employee_jobcode"]):
             raise AppValidationError(
                 detail=f"工号 {employee_data['employee_jobcode']} 已存在", error_code="DUPLICATE_EMPLOYEE_JOBCODE"
             )
@@ -338,10 +334,8 @@ class EmployeeService:
 
         ensure_batch_size(len(employee_jobcodes), MAX_BATCH_SIZE, "批量删除")
 
-        # 批量预检查:一次查询所有员工
-        existing_employees = {
-            emp.employee_jobcode: emp for emp in Employee.objects.filter(employee_jobcode__in=employee_jobcodes)
-        }
+        # 批量预检查:一次查询所有员工(【M-50/DR-3】复用既有 Selector,不新建)
+        existing_employees = EmployeeSelector.get_employees_by_jobcodes(employee_jobcodes)
 
         # 批量预检查:一次查询所有关联资产的员工
         # 【修复】FK to_field="recordcode",需提取 recordcode 而非模型实例

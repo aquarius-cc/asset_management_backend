@@ -23,8 +23,8 @@ from django.core.cache import cache
 from django.db import IntegrityError, transaction
 
 from apps.usermanagement.audit_adapter import DepartmentAuditAdapter
-from apps.usermanagement.models import MAX_DEPARTMENT_LEVEL, Department, Employee
-from apps.usermanagement.selectors import DepartmentSelector
+from apps.usermanagement.models import MAX_DEPARTMENT_LEVEL, Department
+from apps.usermanagement.selectors import DepartmentSelector, EmployeeSelector
 from core.batch_mixins import BatchOperationMixin, ensure_batch_size
 from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError, BusinessLogicError, match_integrity_error_rules
@@ -384,7 +384,7 @@ class DepartmentService:
             if not department or department.is_deleted:
                 raise AppValidationError(detail=f"部门 {dept_code} 不存在或已删除", error_code="NOT_FOUND")
             # 检查下属员工(SoftDeleteManager 自动排除已删除)
-            if Employee.objects.filter(employee_department=department).exists():
+            if EmployeeSelector.exists_by_department(department):
                 raise AppValidationError(
                     detail="部门下存在员工,不允许删除",
                     error_code="DEPT_HAS_EMPLOYEES",  # 4002

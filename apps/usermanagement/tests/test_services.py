@@ -4,6 +4,7 @@
 
 import pytest
 
+from apps.authusermanagement.models import AuthUser
 from apps.usermanagement.models import MAX_DEPARTMENT_LEVEL, Department, Employee
 from apps.usermanagement.selectors import DepartmentSelector, EmployeeSelector
 from apps.usermanagement.services import DepartmentService, EmployeeService
@@ -36,6 +37,51 @@ class TestEmployeeService:
                     "employee_department": test_employee.employee_department,
                 }
             )
+
+    def test_create_duplicate_phone_maps_integrity_error(self, department):
+        """【M-45/BF-154】并发手机号重复 → IntegrityError 映射 DUPLICATE_EMPLOYEE_PHONE(而非裸 500)"""
+        EmployeeService.create_employee(
+            {
+                "employee_jobcode": "PH01",
+                "employee_name": "手机甲",
+                "employee_department": department,
+                "employee_phone": "13900000021",
+            }
+        )
+        with pytest.raises(ValidationError) as exc_info:
+            EmployeeService.create_employee(
+                {
+                    "employee_jobcode": "PH02",
+                    "employee_name": "手机乙",
+                    "employee_department": department,
+                    "employee_phone": "13900000021",
+                }
+            )
+        assert exc_info.value.error_code == "DUPLICATE_EMPLOYEE_PHONE"
+
+    def test_create_duplicate_auth_user_maps_integrity_error(self, department):
+        """【M-45/BF-154】并发认证账号重复绑定 → IntegrityError 映射 DUPLICATE_EMPLOYEE_AUTH_USER(而非裸 500)"""
+        auth_user = AuthUser.objects.create_user(auth_username="m45_dup_user", password="Str0ngPass!123")
+        EmployeeService.create_employee(
+            {
+                "employee_jobcode": "AU01",
+                "employee_name": "绑定甲",
+                "employee_department": department,
+                "employee_phone": "13900000031",
+                "auth_user": auth_user,
+            }
+        )
+        with pytest.raises(ValidationError) as exc_info:
+            EmployeeService.create_employee(
+                {
+                    "employee_jobcode": "AU02",
+                    "employee_name": "绑定乙",
+                    "employee_department": department,
+                    "employee_phone": "13900000032",
+                    "auth_user": auth_user,
+                }
+            )
+        assert exc_info.value.error_code == "DUPLICATE_EMPLOYEE_AUTH_USER"
 
     def test_get_employee_by_jobcode(self, test_employee):
         """测试通过工号获取员工"""

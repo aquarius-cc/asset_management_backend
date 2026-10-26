@@ -32,7 +32,7 @@ from apps.usermanagement.models import Employee
 from apps.usermanagement.selectors import EmployeeSelector
 from core.batch_mixins import BatchOperationMixin, ensure_batch_size
 from core.constants import MAX_BATCH_SIZE
-from core.exceptions import AppValidationError, BusinessLogicError, re_raise_or_map_integrity_error
+from core.exceptions import AppValidationError, BusinessLogicError, match_integrity_error_rules
 
 
 if TYPE_CHECKING:
@@ -249,11 +249,27 @@ class EmployeeService:
             with transaction.atomic():
                 employee = Employee.objects.create(**employee_data)
         except IntegrityError as exc:
-            re_raise_or_map_integrity_error(
+            # AI_REVIEW_NEEDED: auth_user 同为 FK 与唯一约束,token 无法区分 unique/FK 违例
+            # (正常路径已被 DRF 序列化器 PK 校验挡住;matcher 加 unique-constraint 前提单列后续项)
+            match_integrity_error_rules(
                 exc,
-                "employee_jobcode",
-                "DUPLICATE_EMPLOYEE_JOBCODE",
-                f"工号 {employee_data['employee_jobcode']} 已存在",
+                [
+                    (
+                        "employee_jobcode",
+                        "DUPLICATE_EMPLOYEE_JOBCODE",
+                        f"工号 {employee_data['employee_jobcode']} 已存在",
+                    ),
+                    (
+                        "employee_phone",
+                        "DUPLICATE_EMPLOYEE_PHONE",
+                        f"手机号 {employee_data.get('employee_phone', '')} 已存在",
+                    ),
+                    (
+                        "auth_user",
+                        "DUPLICATE_EMPLOYEE_AUTH_USER",
+                        "该认证账号已绑定到其他员工",
+                    ),
+                ],
             )
         EmployeeAuditAdapter.log_create(
             employee, employee_data.get("operator_jobcode"), employee_data.get("operator_name")

@@ -5,6 +5,9 @@
 状态流转图详见 constants.py 模块文档。
 转换方法的实现见同目录各 Mixin(out_recycle/scrapping/unregistered/broken_lost_repair)
 与核心组合类 core.py。
+
+unregistered.py 内 3 处直写 asset_current_status(:56/:88/:126)为已声明例外
+(各处均有前置状态守卫),非旁路;审计留痕见 Merge-audit M-60 行。
 """
 
 from apps.assetmanagement.state_machine.constants import AssetState

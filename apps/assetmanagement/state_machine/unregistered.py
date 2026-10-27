@@ -54,6 +54,7 @@ class UnregisteredTransitionsMixin:
             raise InvalidTransitionError(f"未登记资产创建时状态必须为空白或'in_store',当前: {current_status}")
         # 直接设置为目标状态(跳过常规状态流转)
         asset.asset_current_status = AssetState.RECYCLED_PENDING.value
+        # 已声明例外(前置状态守卫),审计留痕见 Merge-audit M-60 行
 
     @classmethod
     def unregistered_create_and_damaged(cls, asset: "Asset") -> None:
@@ -86,6 +87,7 @@ class UnregisteredTransitionsMixin:
         if current_status and current_status != AssetState.IN_STORE.value:
             raise InvalidTransitionError(f"未登记资产创建时状态必须为空白或'in_store',当前: {current_status}")
         asset.asset_current_status = AssetState.DAMAGED.value
+        # 已声明例外(前置状态守卫),审计留痕见 Merge-audit M-60 行
 
     @classmethod
     def force_recycle_from_any(cls, asset: "Asset") -> None:
@@ -124,3 +126,4 @@ class UnregisteredTransitionsMixin:
             raise InvalidTransitionError("已报废资产无法强制回收,当前状态: scrapped")
         # 直接设置状态,跳过常规流转校验
         asset.asset_current_status = AssetState.RECYCLED_PENDING.value
+        # 已声明例外(前置状态守卫),审计留痕见 Merge-audit M-60 行

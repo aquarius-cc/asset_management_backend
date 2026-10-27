@@ -15,11 +15,15 @@
 Django==6.0.8
 
 # Django REST Framework
-# 版本说明：DRF 3.17.2 - 修复 pip-audit 高危的版本线，亦为 3.17.x 上限
-# 【红线】不得升至 3.18.x：3.18 将 many=True 的错误响应由 list 改为 dict，
-# 直接破坏跨端响应契约（根级 §3），须走 §5 变更流程评估后方可升版
-# 【已核实】3.17 移除 coreapi 支持，本仓库全仓 0 处 coreapi 引用，无影响
-djangorestframework==3.17.2
+# 版本说明：DRF 3.18.3 - 3.18.x 最新稳定补丁（3.18.2 含三处安全修复：
+# GHSA-33wh-fxxf-88vv Accept DoS / GHSA-3547-9m27-7rxg JSONParser /
+# GHSA-xw6w-gcfp-cf8m TokenProxy；3.18.3 为 order_by_precedence 回归修复）
+# 原红线（不得升 3.18.x，many=True 错误响应 list→dict 破坏跨端契约）已按根级
+# §5 变更流程于 2026-10-27 完成评估，案 A 定案：采纳 dict 新形态，37 格双版
+# 快照实测 23 格零漂移 + 14 子项格仅 data.items 值形态漂移，envelope 根
+# {code,message,data} 恒稳；前端 formatFieldErrors 配套 dict 分支（M-40/BF-159）
+# 【已核实】coreapi 全仓 0 处引用；TokenProxy（GHSA-xw6w-gcfp-cf8m）全仓 0 命中
+djangorestframework==3.18.3
 
 # Django 扩展
 # 版本说明：base.py INSTALLED_APPS 按 P1-38 无条件加载 django_extensions

@@ -14705,6 +14705,7 @@
                     "auth_is_active": {
                         "type": "boolean",
                         "readOnly": true,
+                        "default": true,
                         "title": "是否激活",
                         "description": "用户账户是否激活"
                     },
@@ -17420,6 +17421,7 @@
                     "is_deleted": {
                         "type": "boolean",
                         "readOnly": true,
+                        "default": false,
                         "title": "是否删除",
                         "description": "软删除标记"
                     }
@@ -17627,6 +17629,7 @@
                     },
                     "is_deleted": {
                         "type": "boolean",
+                        "default": false,
                         "title": "是否删除",
                         "description": "软删除标记"
                     },
@@ -21476,6 +21479,7 @@
                                 "$ref": "#/components/schemas/RepairStatusEnum"
                             }
                         ],
+                        "default": "in_progress",
                         "title": "维修状态",
                         "description": "维修状态:维修中/已完成/维修失败\n\n* `in_progress` - 维修中\n* `completed` - 已完成\n* `failed` - 维修失败"
                     },
@@ -22676,6 +22680,7 @@
                                 "$ref": "#/components/schemas/RepairStatusEnum"
                             }
                         ],
+                        "default": "in_progress",
                         "title": "维修状态",
                         "description": "维修状态:维修中/已完成/维修失败\n\n* `in_progress` - 维修中\n* `completed` - 已完成\n* `failed` - 维修失败"
                     },
@@ -22821,6 +22826,7 @@
                             }
                         ],
                         "readOnly": true,
+                        "default": "in_progress",
                         "title": "维修状态",
                         "description": "维修状态:维修中/已完成/维修失败\n\n* `in_progress` - 维修中\n* `completed` - 已完成\n* `failed` - 维修失败"
                     },
@@ -22893,6 +22899,7 @@
                                 "$ref": "#/components/schemas/RepairStatusEnum"
                             }
                         ],
+                        "default": "in_progress",
                         "title": "维修状态",
                         "description": "维修状态:维修中/已完成/维修失败\n\n* `in_progress` - 维修中\n* `completed` - 已完成\n* `failed` - 维修失败"
                     },
@@ -22985,6 +22992,7 @@
                                 "$ref": "#/components/schemas/RepairStatusEnum"
                             }
                         ],
+                        "default": "in_progress",
                         "title": "维修状态",
                         "description": "维修状态:维修中/已完成/维修失败\n\n* `in_progress` - 维修中\n* `completed` - 已完成\n* `failed` - 维修失败"
                     },

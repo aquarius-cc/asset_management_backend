@@ -9,8 +9,9 @@
 - API 视图:列表、未读计数、标记已读、全部已读
 """
 
+import asyncio
 import logging
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -377,3 +378,107 @@ def test_notification_type_priority_enum_contract():
     assert Notification.Priority.LOW == "low"
     assert Notification.Priority.MEDIUM == "medium"
     assert Notification.Priority.HIGH == "high"
+
+
+@pytest.mark.django_db(transaction=True)
+class TestSendNotificationAsync:
+    """BF-160/M-46: 异步路径 send_notification 覆盖盲区(:220-253)"""
+
+    ARGS: dict = {
+        "recipient_jobcode": "EMP_ASYNC",
+        "notification_type": "status_change",
+        "title": "异步通知",
+        "message": "资产 AST900 已出库",
+        "priority": "high",
+        "related_asset_code": "AST900",
+        "related_url": "/assets/AST900",
+    }
+
+    def _send(self):
+        from apps.notification.services import send_notification
+
+        return asyncio.run(send_notification(**self.ARGS))
+
+    @patch("apps.notification.services.notification_service.get_channel_layer")
+    def test_persists_and_pushes_8_field_payload(self, mock_channel):
+        """持久化 + WS 载荷 8 字段逐字段断言(固化异步路径自身契约)"""
+        captured = []
+
+        async def _capture(group, payload):
+            captured.append((group, payload))
+
+        channel = MagicMock()
+        channel.group_send = AsyncMock(side_effect=_capture)
+        mock_channel.return_value = channel
+
+        n = self._send()
+
+        assert n.id is not None
+        assert Notification.objects.filter(recipient_jobcode="EMP_ASYNC").count() == 1
+        assert len(captured) == 1
+        group, payload = captured[0]
+        assert group == "notifications_EMP_ASYNC"
+        assert payload["type"] == "notification"
+        data = payload["data"]
+        assert set(data.keys()) == {
+            "id",
+            "type",
+            "title",
+            "message",
+            "priority",
+            "related_asset_code",
+            "related_url",
+            "created_at",
+        }
+        assert data["id"] == n.id
+        assert data["type"] == "status_change"
+        assert data["title"] == "异步通知"
+        assert data["message"] == "资产 AST900 已出库"
+        assert data["priority"] == "high"
+        assert data["related_asset_code"] == "AST900"
+        assert data["related_url"] == "/assets/AST900"
+        assert data["created_at"] == n.created_at.isoformat()
+
+    @patch("apps.notification.services.notification_service.get_channel_layer")
+    def test_ws_payload_consistent_with_push_notification_ws(self, mock_channel):
+        """可选升级: 异步路径 WS 载荷与 push_notification_ws 逐字段一致(同实例双通道对齐)"""
+        async_payloads = []
+        sync_payloads = []
+
+        async def _capture_async(group, payload):
+            async_payloads.append(payload)
+
+        def _capture_sync(group, payload):
+            sync_payloads.append(payload)
+
+        channel = MagicMock()
+        channel.group_send = AsyncMock(side_effect=_capture_async)
+        mock_channel.return_value = channel
+
+        n = self._send()
+
+        from apps.notification.services import push_notification_ws
+
+        channel.group_send = MagicMock(side_effect=_capture_sync)
+        push_notification_ws(n)
+
+        assert len(sync_payloads) == 1
+        # 同实例双通道: 除包装结构外 data 逐字段恒等
+        assert async_payloads[0] == sync_payloads[0]
+
+    @patch("apps.notification.services.notification_service.get_channel_layer", side_effect=Exception("channel error"))
+    def test_ws_failure_does_not_break_and_logs_warning(self, mock_channel, caplog):
+        """WS 失败仅 warning 降级, 通知已持久化(同步版同款兜底语义)"""
+        with caplog.at_level(logging.WARNING, logger="apps.notification.services.notification_service"):
+            n = self._send()
+        assert n.id is not None
+        assert Notification.objects.filter(recipient_jobcode="EMP_ASYNC").count() == 1
+        assert any("WebSocket 推送失败(通知已持久化)" in r.message for r in caplog.records)
+
+    @patch("apps.notification.services.notification_service.get_channel_layer", return_value=None)
+    def test_channel_layer_none_logs_warning_and_persists(self, mock_channel, caplog):
+        """channel layer 未配置 → RuntimeError 被吞为 warning, 持久化不受影响"""
+        with caplog.at_level(logging.WARNING, logger="apps.notification.services.notification_service"):
+            n = self._send()
+        assert n.id is not None
+        assert any("WebSocket 推送失败(通知已持久化)" in r.message for r in caplog.records)

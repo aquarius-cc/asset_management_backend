@@ -371,3 +371,36 @@ class TestMoveDepartmentConcurrency:
             assert node.department_code not in seen, f"终态存在环: {results}"
             seen.add(node.department_code)
             node = node.parent
+
+
+@pytest.mark.django_db
+class TestCollectAncestorRecordcodesLogging:
+    """BF-160/M-47: 祖先收集 DoesNotExist 分支补 warning 日志(原裸 pass)"""
+
+    def test_missing_ancestor_logs_warning(self, caplog):
+        import logging
+
+        from apps.usermanagement.services.department_service import logger as svc_logger
+
+        with caplog.at_level(logging.WARNING, logger=svc_logger.name):
+            codes = DepartmentService._collect_ancestor_recordcodes("/no/such/path")
+        assert codes == []
+        records = [r for r in caplog.records if "祖先部门不存在" in r.getMessage()]
+        assert len(records) >= 1
+        assert "ancestor_path=/no" in records[0].getMessage()
+
+    def test_existing_ancestor_no_warning(self, department, caplog):
+        import logging
+
+        from apps.usermanagement.services.department_service import logger as svc_logger
+
+        parent = Department.objects.create(
+            department_code="DEPT_LOG_PARENT",
+            department_name="日志父部门",
+            path=f"/{department.recordcode}" if hasattr(department, "recordcode") else "/P1",
+            level=1,
+        )
+        path = f"/{parent.path.strip('/')}/CHILD"
+        with caplog.at_level(logging.WARNING, logger=svc_logger.name):
+            DepartmentService._collect_ancestor_recordcodes(path)
+        assert not [r for r in caplog.records if "祖先部门不存在" in r.getMessage()]

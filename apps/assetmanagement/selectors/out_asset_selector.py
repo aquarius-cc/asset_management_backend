@@ -4,6 +4,7 @@
 提供出库记录的查询方法。
 """
 
+import logging
 from collections.abc import Iterable
 from datetime import date
 from typing import Any, cast
@@ -14,6 +15,9 @@ from django.db.models import Q, QuerySet
 from apps.assetmanagement.models import Asset, OutAsset, RecycleAsset
 from core.department_scope import get_asset_linked_queryset_for_user
 from core.locks import guard_lock_conflict
+
+
+logger = logging.getLogger(__name__)
 
 
 class OutAssetSelector:
@@ -115,7 +119,7 @@ class OutAssetSelector:
                     threshold_date = date.today() - relativedelta(years=years_int)
                     queryset = queryset.filter(outasset_date__lte=threshold_date)
             except (ValueError, TypeError):
-                pass
+                logger.warning("出库记录年数过滤参数非法,忽略: years=%r", years)
 
         # 排序
         ordering = filters.get("ordering")

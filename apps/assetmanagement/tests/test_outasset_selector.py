@@ -191,3 +191,31 @@ class TestOutAssetSelector:
         assert "total_outassets" in stats
         assert "by_type" in stats
         assert stats["total_outassets"] == 1
+
+
+@pytest.mark.django_db
+class TestOutAssetSelectorYearsFilterLog:
+    """BF-160/M-47: years 非法时 warning 留痕(原 except pass 静默)"""
+
+    def test_invalid_years_logs_warning(self, caplog):
+        import logging
+
+        from apps.assetmanagement.selectors.out_asset_selector import logger as selector_logger
+
+        qs = OutAsset.objects.all()
+        with caplog.at_level(logging.WARNING, logger=selector_logger.name):
+            OutAssetSelector._apply_filters(qs, {"years": "not-a-number"})  # type: ignore[arg-type]
+        records = [r for r in caplog.records if "年数过滤参数非法" in r.getMessage()]
+        assert len(records) == 1
+        assert "years='not-a-number'" in records[0].getMessage()
+
+    def test_zero_years_no_warning_no_filter(self, caplog):
+        """years<=0 不进过滤分支, 也不应触发 warning"""
+        import logging
+
+        from apps.assetmanagement.selectors.out_asset_selector import logger as selector_logger
+
+        qs = OutAsset.objects.all()
+        with caplog.at_level(logging.WARNING, logger=selector_logger.name):
+            OutAssetSelector._apply_filters(qs, {"years": "0"})  # type: ignore[arg-type]
+        assert not [r for r in caplog.records if "年数过滤参数非法" in r.getMessage()]

@@ -17,6 +17,7 @@
 """
 
 import copy
+import logging
 from typing import Any
 
 from django.core.cache import cache
@@ -28,6 +29,9 @@ from apps.usermanagement.selectors import DepartmentSelector, EmployeeSelector
 from core.batch_mixins import BatchOperationMixin, ensure_batch_size
 from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError, BusinessLogicError, match_integrity_error_rules
+
+
+logger = logging.getLogger(__name__)
 
 
 class DepartmentService:
@@ -143,7 +147,7 @@ class DepartmentService:
                 ancestor = Department.objects.get(path=ancestor_path)
                 codes.append(ancestor.recordcode)
             except Department.DoesNotExist:
-                pass
+                logger.warning("祖先部门不存在: path=%s ancestor_path=%s", path, ancestor_path)
         return codes
 
     @staticmethod

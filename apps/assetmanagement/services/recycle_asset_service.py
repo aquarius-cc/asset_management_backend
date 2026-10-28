@@ -30,6 +30,24 @@ RECYCLE_ASSET_UPDATE_ALLOWED_FIELDS = frozenset(
 )
 
 
+def _ensure_recycle_visible(user: Any | None, record_code: str) -> None:
+    """RBAC 行级隔离(B12): user 提供时, 跨部门不可见记录按不存在处理。
+
+    从 batch_delete_recycle_asset 抽出(BF-058: 逻辑行 55>50, 拆分而非登记)。
+    """
+    if user is None:
+        return
+    from core.department_scope import get_asset_linked_queryset_for_user
+
+    visible = (
+        get_asset_linked_queryset_for_user(user, RecycleAsset.objects.filter(is_deleted=False))
+        .filter(recordcode=record_code)
+        .exists()
+    )
+    if not visible:
+        raise AppValidationError(detail=f"回收记录 {record_code} 不存在", error_code="NOT_FOUND")
+
+
 class RecycleAssetService:
     """
     回收资产管理服务
@@ -350,7 +368,10 @@ class RecycleAssetService:
 
     @staticmethod
     def batch_delete_recycle_asset(
-        recordcodes: list[str], operator_jobcode: str | None = None, operator_name: str | None = None
+        recordcodes: list[str],
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+        user: Any | None = None,
     ) -> dict[str, Any]:
         from core.batch_mixins import BatchOperationMixin
 
@@ -360,6 +381,9 @@ class RecycleAssetService:
             )
             if not recycle_asset:
                 raise AppValidationError(detail=f"回收记录 {record_code} 不存在", error_code="NOT_FOUND")
+
+            # RBAC 行级隔离(B12): user 提供时, 跨部门不可见记录按不存在处理
+            _ensure_recycle_visible(user, record_code)
 
             asset = Asset.objects.select_for_update().get(pk=recycle_asset.asset_recordcode.pk)
             if asset.asset_current_status != Asset.AssetStatus.RECYCLED_PENDING:

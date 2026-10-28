@@ -131,7 +131,9 @@ class RecycleAssetViewSet(  # type: ignore[misc]
         )
 
     def update(self, request: Any, *args: Any, **kwargs: Any) -> Response:
-        recordcode = self.kwargs.get("recordcode")
+        # RBAC 行级隔离: 经 get_object() 走 get_queryset_for_user, 跨部门对象 404(与 destroy 对齐)
+        recycle = self.get_object()
+        recordcode = recycle.recordcode
         serializer = RecycleAssetUpdateSerializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         recycle = RecycleAssetService.update_recycle_asset(
@@ -228,6 +230,8 @@ class RecycleAssetViewSet(  # type: ignore[misc]
 
     batch_delete_serializer = RecycleAssetBatchDeleteSerializer
     batch_delete_service = RecycleAssetService.batch_delete_recycle_asset
+    # RBAC 行级隔离(B12): 批量删除传 user, Service 内对跨部门不可见记录按不存在处理
+    batch_delete_passes_user = True
 
     @action(detail=True, methods=["post"], url_path="cancel", permission_classes=[IsAssetAdminOrAbove])
     def cancel_recycle(self, request: Any, recordcode: Any = None) -> Response:
@@ -250,8 +254,10 @@ class RecycleAssetViewSet(  # type: ignore[misc]
     @action(detail=True, methods=["post"], url_path="reissue", permission_classes=[IsAssetAdminOrAbove])
     def reissue(self, request: Any, recordcode: Any = None) -> Response:
         """POST /recycle-assets/{recordcode}/reissue/ — 重新发放已回收资产"""
+        # RBAC 行级隔离: 经 get_object() 走 get_queryset_for_user, 跨部门对象 404
+        recycle = self.get_object()
         outasset = RecycleAssetService.reissue_recycle_asset(
-            recordcode=recordcode,
+            recordcode=recycle.recordcode,
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
         )

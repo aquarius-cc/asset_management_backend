@@ -27,16 +27,26 @@ class HardDiskSNService:
     @staticmethod
     @transaction.atomic
     def create(
-        data: dict[str, Any], operator_jobcode: str | None = None, operator_name: str | None = None
+        data: dict[str, Any],
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+        user: Any | None = None,
     ) -> HardDiskSN:
         """
         创建单条硬盘记录
         - 校验序列号唯一性
         - 校验关联资产存在
+        - user 提供时校验目标资产行级可见性(B12/M-RC-04, 与 batch_save 同一实现)
         """
         sn_code = data.get("harddisk_sn_code", "").strip()
         if not sn_code:
             raise AppValidationError(detail="硬盘序列号不能为空", error_code="MISSING_SN_CODE")
+
+        # FK 反序列化产物可能是 Asset 对象, 归一化为 recordcode 字符串后再校验可见性
+        asset_ref = data.get("asset_recordcode")
+        asset_recordcode = asset_ref.recordcode if isinstance(asset_ref, Asset) else asset_ref
+        if user is not None and asset_recordcode:
+            HardDiskSNService._resolve_asset(asset_recordcode, user=user)
 
         if HardDiskSNSelector.exists_by_sn_code(sn_code):
             raise AppValidationError(

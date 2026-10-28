@@ -87,6 +87,7 @@ class HardDiskSNViewSet(  # type: ignore[misc]
             data=serializer.validated_data,
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
+            user=request.user,
         )
         return success_response(
             data=HardDiskSNSerializer(harddisk).data,
@@ -95,7 +96,9 @@ class HardDiskSNViewSet(  # type: ignore[misc]
         )
 
     def update(self, request: Any, *args: Any, **kwargs: Any) -> Response:
-        recordcode = self.kwargs.get("recordcode")
+        # RBAC 行级隔离: 经 get_object() 走 get_queryset_for_user, 跨部门对象 404
+        harddisk = self.get_object()
+        recordcode = harddisk.recordcode
         serializer = self.get_serializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         harddisk = HardDiskSNService.update(
@@ -110,7 +113,9 @@ class HardDiskSNViewSet(  # type: ignore[misc]
         return self.update(request, *args, **kwargs)
 
     def destroy(self, request: Any, *args: Any, **kwargs: Any) -> Response:
-        recordcode = self.kwargs.get("recordcode")
+        # RBAC 行级隔离: 经 get_object() 走 get_queryset_for_user, 跨部门对象 404
+        harddisk = self.get_object()
+        recordcode = harddisk.recordcode
         HardDiskSNService.delete(
             recordcode=recordcode,  # type: ignore[arg-type]
             operator_jobcode=resolve_operator(request.user)[0],

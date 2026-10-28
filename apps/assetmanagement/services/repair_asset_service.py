@@ -18,7 +18,7 @@ Class:
 import logging
 from typing import Any
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.assetmanagement.audit import AuditLogger
@@ -29,7 +29,7 @@ from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
 from apps.notification.models import Notification
 from apps.usermanagement.models import Employee
 from apps.usermanagement.selectors import EmployeeSelector
-from core.exceptions import AppValidationError
+from core.exceptions import AppValidationError, re_raise_or_map_integrity_error
 from core.locks import lock_row_or_409
 
 
@@ -189,14 +189,25 @@ class RepairAssetService:
             operator_jobcode,
         )
 
-        repair_record = RepairAsset.objects.create(
-            asset_recordcode=asset,
-            repair_date=repair_date,
-            repair_reason=repair_reason,
-            repair_description=repair_description or None,
-            operator_employee=operator,
-            physical_grade_before=asset.physical_grade,
-        )
+        try:
+            with transaction.atomic():
+                repair_record = RepairAsset.objects.create(
+                    asset_recordcode=asset,
+                    repair_date=repair_date,
+                    repair_reason=repair_reason,
+                    repair_description=repair_description or None,
+                    operator_employee=operator,
+                    physical_grade_before=asset.physical_grade,
+                )
+        except IntegrityError as exc:
+            # M-RC-02 兜底:行锁串行化后的漏网并发(理论上不可达,防 500),
+            # 唯一约束 uniq_active_repair_per_asset 冲突映射为业务 4xx
+            re_raise_or_map_integrity_error(
+                exc,
+                "uniq_active_repair_per_asset",
+                "DUPLICATE_REPAIR_IN_PROGRESS",
+                f"资产 {asset_code} 已有进行中的维修记录,不可重复送修",
+            )
 
         RepairAssetService._log_repair_audit(
             asset,

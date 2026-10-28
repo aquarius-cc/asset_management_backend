@@ -79,6 +79,9 @@ class RepairAssetUpdateSerializer(serializers.ModelSerializer):  # type: ignore[
             "physical_grade_after",
         ]
         extra_kwargs = {"repair_reason": {"required": False}}
+        # M-RC-02: repair_status 状态机旁路收口 — 仅允许经 Service(repair-done/repair-failed)
+        # 流转,客户端 PATCH/PUT 携带该字段时 DRF 静默忽略
+        read_only_fields = ["repair_status"]
 
 
 class RepairAssetDetailSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]

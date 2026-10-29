@@ -361,3 +361,66 @@ class TestRepairAssetViewSet:
         assert data["fail_items"][0]["error_code"] == "NOT_FOUND"
         assert response.data["message"] == "批量删除完成,成功 1 条,失败 1 条"
         assert not RepairAsset.objects.filter(recordcode=repair_asset.recordcode, is_deleted=False).exists()
+
+
+class TestLifecycleUpdateAudit:
+    """【M-RC-05】update/partial_update 走 Service 委托后落 UPDATE 审计行(正反用例)"""
+
+    def test_update_broken_writes_operation_log(self, admin_authenticated_client, broken_asset):
+        """更新损坏记录 → 200 且落 UPDATE 审计行"""
+        url = reverse("broken-assets-detail", kwargs={"recordcode": broken_asset.recordcode})
+        response = admin_authenticated_client.put(url, {"broken_reason": "审计后原因"}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["message"] == "更新成功"
+        log = AssetOperationLog.objects.filter(
+            asset_code=broken_asset.asset_recordcode.asset_code,
+            operation_type=AssetOperationLog.OperationType.UPDATE,
+        ).latest("operation_time")
+        assert log.related_record_code == broken_asset.recordcode
+        assert log.related_record_type == "BrokenAsset"
+
+    def test_partial_update_lost_writes_operation_log(self, admin_authenticated_client, lost_asset):
+        """部分更新遗失记录 → 200 且落 UPDATE 审计行"""
+        url = reverse("lost-assets-detail", kwargs={"recordcode": lost_asset.recordcode})
+        response = admin_authenticated_client.patch(url, {"lost_reason": "审计后遗失原因"}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        log = AssetOperationLog.objects.filter(
+            asset_code=lost_asset.asset_recordcode.asset_code,
+            operation_type=AssetOperationLog.OperationType.UPDATE,
+        ).latest("operation_time")
+        assert log.related_record_code == lost_asset.recordcode
+        assert log.related_record_type == "LostAsset"
+
+    def test_update_found_writes_operation_log(self, admin_authenticated_client, found_asset):
+        """更新找回记录 → 200 且落 UPDATE 审计行"""
+        url = reverse("found-assets-detail", kwargs={"recordcode": found_asset.recordcode})
+        response = admin_authenticated_client.put(
+            url, {"found_location": "审计后找回地点"}, format="json"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        log = AssetOperationLog.objects.filter(
+            asset_code=found_asset.asset_recordcode.asset_code,
+            operation_type=AssetOperationLog.OperationType.UPDATE,
+        ).latest("operation_time")
+        assert log.related_record_code == found_asset.recordcode
+        assert log.related_record_type == "FoundAsset"
+
+    def test_update_by_regular_user_forbidden_no_log(self, authenticated_client, broken_asset):
+        """普通认证用户 PUT → 403 且不写审计行(防覆写绕过权限分支)"""
+        url = reverse("broken-assets-detail", kwargs={"recordcode": broken_asset.recordcode})
+        response = authenticated_client.put(url, {"broken_reason": "越权"}, format="json")
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert not AssetOperationLog.objects.filter(
+            asset_code=broken_asset.asset_recordcode.asset_code,
+            operation_type=AssetOperationLog.OperationType.UPDATE,
+        ).exists()
+
+    def test_update_nonexistent_recordcode_no_log(self, admin_authenticated_client, broken_asset):
+        """不存在的 recordcode → 404 且不写审计行(防异常分支误写审计)"""
+        url = reverse("broken-assets-detail", kwargs={"recordcode": "RC-NOT-EXIST"})
+        response = admin_authenticated_client.put(url, {"broken_reason": "x"}, format="json")
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert not AssetOperationLog.objects.filter(
+            asset_code=broken_asset.asset_recordcode.asset_code,
+            operation_type=AssetOperationLog.OperationType.UPDATE,
+        ).exists()

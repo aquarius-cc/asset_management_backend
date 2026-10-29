@@ -57,6 +57,7 @@ class BrokenAssetViewSet(AssetLifecycleViewSetBase):
     detail_serializer = BrokenAssetDetailSerializer  # type: ignore[assignment]
     delete_service_method = "delete_broken_asset"
     create_service_method = "mark_asset_broken"
+    update_label = "损坏资产"  # 【M-RC-05】update 审计描述用
     batch_delete_serializer = BrokenAssetBatchDeleteSerializer
     search_fields_extra = ("broken_reason",)
     ordering_field = "broken_date"
@@ -98,6 +99,7 @@ class LostAssetViewSet(AssetLifecycleViewSetBase):
     detail_serializer = LostAssetDetailSerializer  # type: ignore[assignment]
     delete_service_method = "delete_lost_asset"
     create_service_method = "mark_asset_lost"
+    update_label = "遗失资产"  # 【M-RC-05】update 审计描述用
     batch_delete_serializer = LostAssetBatchDeleteSerializer
     search_fields_extra = ("lost_reason",)
     ordering_field = "lost_date"
@@ -142,6 +144,7 @@ class FoundAssetViewSet(AssetLifecycleViewSetBase):
     detail_serializer = FoundAssetDetailSerializer  # type: ignore[assignment]
     delete_service_method = "delete_found_asset"
     create_service_method = "find_and_return_asset"
+    update_label = "找回资产"  # 【M-RC-05】update 审计描述用
     batch_delete_serializer = FoundAssetBatchDeleteSerializer
     ordering_field = "found_date"
 

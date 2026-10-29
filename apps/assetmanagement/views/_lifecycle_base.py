@@ -70,6 +70,8 @@ class AssetLifecycleViewSetBase(  # type: ignore[misc]
     # mark_asset_broken / mark_asset_lost / find_and_return_asset),
     # 覆盖 DRF 默认 serializer.save() 直落库绕过 FSM/审计/行级隔离的缺口
     create_service_method: str = ""
+    # 【M-RC-05】update 审计描述用的记录中文名(子类注入: 损坏资产/遗失资产/找回资产)
+    update_label: str = ""
     batch_delete_serializer: Any = None
     batch_delete_service = AssetLifecycleMixin.batch_delete_lifecycle_asset
     batch_delete_passes_user = True
@@ -156,6 +158,30 @@ class AssetLifecycleViewSetBase(  # type: ignore[misc]
             **self.build_create_kwargs(validated),
         )
         return success_response(data=self.create_serializer(record).data, message="创建成功", status_code=201)
+
+    def update(self, request: Any, *args: Any, partial: bool = False, **kwargs: Any) -> Response:
+        """【M-RC-05】update/partial_update 委托 update_lifecycle_record(与 create/destroy 同范式)
+
+        覆盖 DRF 默认 serializer.save() 直落库绕过行级隔离与审计的缺口:
+        走 select_for_update + BEQ-02 行级隔离 + OperationLogService UPDATE 审计。
+        响应契约不变: 200 + code=0 + UpdateSerializer(record).data + "更新成功"
+        (对齐 ResponseWrapperMixin.update, partial kwarg 由 DRF partial_update 透传)。
+        """
+        partial = bool(kwargs.pop("partial", False)) or partial
+        obj = self.get_object()
+        serializer = self.update_serializer(obj, data=request.data, partial=partial)  # type: ignore[attr-defined]
+        serializer.is_valid(raise_exception=True)
+        operator_jobcode, operator_name = resolve_operator(request.user)
+        record = AssetLifecycleMixin.update_lifecycle_record(
+            model=self.model,  # type: ignore[attr-defined]
+            recordcode=obj.recordcode,
+            update_data=dict(serializer.validated_data),
+            record_label=self.update_label,
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+            user=request.user,
+        )
+        return success_response(data=self.update_serializer(record).data, message="更新成功")  # type: ignore[attr-defined]
 
     def batch_delete_invoke(self, ids: list[str], **kwargs: Any) -> dict[str, Any]:
         """编排注入: 三子类差异仅 delete_service_method 字符串(子类属性注入)"""

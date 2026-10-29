@@ -351,6 +351,54 @@ class AssetLifecycleMixin:
         return {"recordcode": recordcode, "status": "deleted"}
 
     @staticmethod
+    # [M-RC-05] 更新生命周期记录并落 UPDATE 审计(审计与业务同事务, 同生共死)
+    @transaction.atomic
+    def update_lifecycle_record(
+        model: type,
+        recordcode: str,
+        update_data: dict[str, Any],
+        record_label: str,
+        operator_jobcode: str = "",
+        operator_name: str = "",
+        user: Any | None = None,
+    ) -> Any:
+        """更新生命周期事件记录(Broken/Lost/Found 通用, [M-RC-05])
+
+        覆盖 update/partial_update 走 DRF 默认 serializer.save() 无审计的缺口:
+        - select_for_update 防并发丢更新; is_deleted=False 过滤软删
+        - BEQ-02 行级隔离: 更新前校验关联资产在用户可见范围(与 delete_* 同口径)
+        - 审计直调 OperationLogService.log_operation(与 create 同款), 不用
+          AuditLogger._safe_log(吞异常返回 False)——update 在事务内, 审计写失败
+          必须随业务一起回滚, 否则正是 RC-05 要补的「更新已提交审计静默丢失」
+        """
+        obj = model.objects.select_for_update().get(recordcode=recordcode, is_deleted=False)
+
+        # BEQ-02 行级隔离: 与 delete_* 同口径
+        if user is not None and obj.asset_recordcode is not None:
+            AssetSelector.ensure_asset_visible(obj.asset_recordcode, user)
+
+        before_data = {field: getattr(obj, field) for field in update_data}
+        for field, value in update_data.items():
+            setattr(obj, field, value)
+        obj.save(update_fields=[*update_data.keys(), "updated_at"])
+
+        asset = obj.asset_recordcode
+        OperationLogService.log_operation(
+            asset_code=asset.asset_code,  # type: ignore[union-attr]
+            operation_type=AssetOperationLog.OperationType.UPDATE,
+            description=f"{record_label}记录更新: {recordcode}",
+            asset_name=asset.asset_name,  # type: ignore[union-attr]
+            asset_specification=asset.asset_specification,  # type: ignore[union-attr]
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+            before_data=before_data,
+            after_data=dict(update_data),
+            related_record_code=recordcode,
+            related_record_type=model.__name__,
+        )
+        return obj
+
+    @staticmethod
     def batch_create_broken_assets(
         items: list[dict[str, Any]],
         operator_jobcode: str = "",

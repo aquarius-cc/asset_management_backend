@@ -2,7 +2,7 @@
 # =============================================================================
 # Docker 入口脚本 - 数据库迁移和服务启动
 # =============================================================================
-set -uo pipefail
+set -euo pipefail
 
 echo "============================================"
 echo " 资产管理系统 Docker 启动脚本"
@@ -57,21 +57,21 @@ wait_for_db
 echo "[2/4] 执行数据库迁移..."
 
 cd /app
-python manage.py migrate --noinput
+python manage.py migrate --noinput || exit 1
 
 # =============================================================================
 # 收集静态文件
 # =============================================================================
 echo "[3/4] 收集静态文件..."
 
-python manage.py collectstatic --noinput --clear
+python manage.py collectstatic --noinput --clear || exit 1
 
 # =============================================================================
 # 创建超级管理员（如果环境变量设置了）
 # =============================================================================
 echo "[4/4] 检查超级管理员..."
 
-if [ -n "$DJANGO_SUPERUSER_USERNAME" ] && [ -n "$DJANGO_SUPERUSER_PASSWORD" ]; then
+if [ -n "${DJANGO_SUPERUSER_USERNAME:-}" ] && [ -n "${DJANGO_SUPERUSER_PASSWORD:-}" ]; then
     echo "创建超级管理员..."
     python manage.py createsuperuser --noinput || true
 else

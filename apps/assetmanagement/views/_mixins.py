@@ -6,11 +6,14 @@
 - AdminWritePermissionMixin: 写操作限制为管理员
 """
 
+import logging
 from typing import Any
 
 from django.http import Http404
 
 from core.permissions import IsSystemAdmin, request_method, resolve_viewset_permissions
+
+logger = logging.getLogger(__name__)
 
 
 class RecordcodeLookupMixin:
@@ -30,7 +33,9 @@ class RecordcodeLookupMixin:
                 self.check_object_permissions(self.request, obj)  # type: ignore[attr-defined]
                 return obj
             except self.queryset.model.DoesNotExist:  # type: ignore[attr-defined]
-                pass
+                # [M-AUD-4] pk 未命中是 digit 值回落 recordcode 查找的正常路径（非异常），
+                # debug 级留痕对齐 M-47 范式；真正抛 404 的是下方 recordcode 也未命中分支
+                logger.debug("pk 未命中, 回落 recordcode 查找: %s", lookup_value)
 
         try:
             obj = queryset.get(**{self.lookup_field: lookup_value})  # type: ignore[attr-defined]

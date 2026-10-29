@@ -25,6 +25,7 @@ from apps.authusermanagement.models import AuthUser
 from apps.usermanagement.models import Department, Employee
 from core.tests import TEST_PASSWORD
 
+
 pytestmark = pytest.mark.django_db
 
 LIST_URL = reverse("employees-list")

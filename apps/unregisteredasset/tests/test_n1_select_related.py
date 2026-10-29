@@ -17,6 +17,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
+
 pytestmark = pytest.mark.django_db(transaction=True)
 
 BATCH = 3  # 第二轮比第一轮多造的行数
@@ -55,8 +56,9 @@ def _count_list_queries(admin_auth_user) -> int:
 
 
 def _count_export_queries(admin_auth_user) -> int:
-    from apps.unregisteredasset.views import UnregisteredAssetViewSet
     from rest_framework.test import APIRequestFactory, force_authenticate
+
+    from apps.unregisteredasset.views import UnregisteredAssetViewSet
 
     url = reverse("unregisteredasset:unregisteredasset-export-excel")
     request = APIRequestFactory().get(url)
@@ -114,6 +116,5 @@ class TestDetailBounded:
             response = client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert len(ctx.captured_queries) <= 5, (
-            f"M-04: 详情查询数 {len(ctx.captured_queries)} 超过上限 5，"
-            "详情序列化出现意外逐字段查询"
+            f"M-04: 详情查询数 {len(ctx.captured_queries)} 超过上限 5，详情序列化出现意外逐字段查询"
         )

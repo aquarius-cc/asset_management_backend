@@ -102,7 +102,7 @@ class HardDiskSNViewSet(  # type: ignore[misc]
         serializer = self.get_serializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         harddisk = HardDiskSNService.update(
-            recordcode=recordcode,  # type: ignore[arg-type]
+            recordcode=recordcode,
             update_data=serializer.validated_data,
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
@@ -117,7 +117,7 @@ class HardDiskSNViewSet(  # type: ignore[misc]
         harddisk = self.get_object()
         recordcode = harddisk.recordcode
         HardDiskSNService.delete(
-            recordcode=recordcode,  # type: ignore[arg-type]
+            recordcode=recordcode,
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
         )

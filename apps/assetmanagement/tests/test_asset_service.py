@@ -411,9 +411,7 @@ class TestCreateAssetIntegrityFallback:
     ) -> None:
         """撞 unique_asset_code_not_deleted → 400 + error_code=DUPLICATE_ASSET_CODE（Fact-1 订正：现状非 500）"""
         # 模拟 race 绕过 pre-check：generate_with_unique_check 返回已存在编码
-        monkeypatch.setattr(
-            AssetCodeGenerator, "generate_with_unique_check", lambda *a, **kw: ["A001"]
-        )
+        monkeypatch.setattr(AssetCodeGenerator, "generate_with_unique_check", lambda *a, **kw: ["A001"])
         with pytest.raises(AppValidationError) as exc_info:
             AssetService.create_asset(
                 self._asset_data(asset_type, storage, user),
@@ -426,9 +424,7 @@ class TestCreateAssetIntegrityFallback:
         self, monkeypatch: Any, asset: Any, asset_type: Any, storage: Any, user: Any
     ) -> None:
         """撞约束后 savepoint 回滚 → 无残留半成品行（purchase_number>1 多行场景）"""
-        monkeypatch.setattr(
-            AssetCodeGenerator, "generate_with_unique_check", lambda *a, **kw: ["A001", "NEW01"]
-        )
+        monkeypatch.setattr(AssetCodeGenerator, "generate_with_unique_check", lambda *a, **kw: ["A001", "NEW01"])
         data = self._asset_data(asset_type, storage, user)
         data["asset_purchase_number"] = 2
         with pytest.raises(AppValidationError):
@@ -440,9 +436,7 @@ class TestCreateAssetIntegrityFallback:
         self, monkeypatch: Any, asset: Any, asset_type: Any, storage: Any, user: Any
     ) -> None:
         """连续 MAX_RETRY 次冲突 → 400 + ASSET_CODE_GENERATION_FAILED（原 RuntimeError 真 500 路径消除）"""
-        monkeypatch.setattr(
-            AssetCodeGenerator, "generate", lambda *a, **kw: ["A001"]
-        )
+        monkeypatch.setattr(AssetCodeGenerator, "generate", lambda *a, **kw: ["A001"])
         with pytest.raises(AppValidationError) as exc_info:
             AssetService.create_asset(
                 self._asset_data(asset_type, storage, user),

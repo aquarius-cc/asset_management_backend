@@ -137,7 +137,7 @@ class RecycleAssetViewSet(  # type: ignore[misc]
         serializer = RecycleAssetUpdateSerializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         recycle = RecycleAssetService.update_recycle_asset(
-            recordcode=recordcode,  # type: ignore[arg-type]
+            recordcode=recordcode,
             update_data=serializer.validated_data,
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],

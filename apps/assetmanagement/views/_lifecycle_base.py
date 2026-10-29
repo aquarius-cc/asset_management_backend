@@ -169,11 +169,11 @@ class AssetLifecycleViewSetBase(  # type: ignore[misc]
         """
         partial = bool(kwargs.pop("partial", False)) or partial
         obj = self.get_object()
-        serializer = self.update_serializer(obj, data=request.data, partial=partial)  # type: ignore[attr-defined]
+        serializer = self.update_serializer(obj, data=request.data, partial=partial)  # type: ignore[misc]
         serializer.is_valid(raise_exception=True)
         operator_jobcode, operator_name = resolve_operator(request.user)
         record = AssetLifecycleMixin.update_lifecycle_record(
-            model=self.model,  # type: ignore[attr-defined]
+            model=self.model,  # type: ignore[arg-type]
             recordcode=obj.recordcode,
             update_data=dict(serializer.validated_data),
             record_label=self.update_label,
@@ -181,7 +181,7 @@ class AssetLifecycleViewSetBase(  # type: ignore[misc]
             operator_name=operator_name,
             user=request.user,
         )
-        return success_response(data=self.update_serializer(record).data, message="更新成功")  # type: ignore[attr-defined]
+        return success_response(data=self.update_serializer(record).data, message="更新成功")  # type: ignore[misc]
 
     def batch_delete_invoke(self, ids: list[str], **kwargs: Any) -> dict[str, Any]:
         """编排注入: 三子类差异仅 delete_service_method 字符串(子类属性注入)"""

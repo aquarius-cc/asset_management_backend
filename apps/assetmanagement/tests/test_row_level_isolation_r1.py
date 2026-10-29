@@ -13,9 +13,9 @@ R-1 行级隔离收口回归测试(M-RC-01/03/04 + reissue + batch_delete)
 from typing import Any, cast
 
 import pytest
+from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
-from django.urls import reverse
 
 from apps.assetmanagement.models import Asset, AssetType, HardDiskSN, OutAsset, RecycleAsset, Storage
 from apps.authusermanagement.models import AuthUser
@@ -109,9 +109,7 @@ class TestRowLevelIsolationWriteScope:
 
     # ---------- M-RC-01: hard_disk PATCH/DELETE 跨部门 404 ----------
 
-    def test_hard_disk_cross_dept_patch_404(
-        self, api_client: APIClient, admin_a: AuthUser, disk_b: HardDiskSN
-    ) -> None:
+    def test_hard_disk_cross_dept_patch_404(self, api_client: APIClient, admin_a: AuthUser, disk_b: HardDiskSN) -> None:
         api_client.force_authenticate(user=admin_a)
         url = reverse("harddisk-sn-detail", kwargs={"recordcode": disk_b.recordcode})
         resp = api_client.patch(url, {"harddisk_description": "越权"}, format="json")
@@ -128,9 +126,7 @@ class TestRowLevelIsolationWriteScope:
         assert resp.status_code == status.HTTP_404_NOT_FOUND
         assert HardDiskSN.objects.filter(recordcode=disk_b.recordcode).exists()
 
-    def test_hard_disk_in_scope_patch_ok(
-        self, api_client: APIClient, admin_a: AuthUser, disk_a: HardDiskSN
-    ) -> None:
+    def test_hard_disk_in_scope_patch_ok(self, api_client: APIClient, admin_a: AuthUser, disk_a: HardDiskSN) -> None:
         """正对照:部门内 PATCH 正常,防止整体 404 掩盖权限问题"""
         api_client.force_authenticate(user=admin_a)
         url = reverse("harddisk-sn-detail", kwargs={"recordcode": disk_a.recordcode})
@@ -178,9 +174,7 @@ class TestRowLevelIsolationWriteScope:
         assert "ASSET_NOT_FOUND" in str(resp.data)
         assert not HardDiskSN.objects.filter(harddisk_sn_code="SN-RI-NEW1").exists()
 
-    def test_hard_disk_create_in_scope_ok(
-        self, api_client: APIClient, admin_a: AuthUser, asset_a: Asset
-    ) -> None:
+    def test_hard_disk_create_in_scope_ok(self, api_client: APIClient, admin_a: AuthUser, asset_a: Asset) -> None:
         """正对照:部门内创建正常"""
         api_client.force_authenticate(user=admin_a)
         resp = api_client.post(
@@ -202,9 +196,7 @@ class TestRowLevelIsolationWriteScope:
     ) -> None:
         from apps.assetmanagement.services import RecycleAssetService
 
-        result = RecycleAssetService.batch_delete_recycle_asset(
-            [recycle_b.recordcode], user=admin_a
-        )
+        result = RecycleAssetService.batch_delete_recycle_asset([recycle_b.recordcode], user=admin_a)
         assert result["fail_count"] == 1
         assert result["fail_items"][0]["error_code"] == "NOT_FOUND"
         assert RecycleAsset.objects.filter(recordcode=recycle_b.recordcode).exists()

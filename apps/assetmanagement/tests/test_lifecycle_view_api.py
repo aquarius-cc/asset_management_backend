@@ -394,9 +394,7 @@ class TestLifecycleUpdateAudit:
     def test_update_found_writes_operation_log(self, admin_authenticated_client, found_asset):
         """更新找回记录 → 200 且落 UPDATE 审计行"""
         url = reverse("found-assets-detail", kwargs={"recordcode": found_asset.recordcode})
-        response = admin_authenticated_client.put(
-            url, {"found_location": "审计后找回地点"}, format="json"
-        )
+        response = admin_authenticated_client.put(url, {"found_location": "审计后找回地点"}, format="json")
         assert response.status_code == status.HTTP_200_OK
         log = AssetOperationLog.objects.filter(
             asset_code=found_asset.asset_recordcode.asset_code,

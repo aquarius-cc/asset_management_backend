@@ -6,8 +6,12 @@
 转换方法的实现见同目录各 Mixin(out_recycle/scrapping/unregistered/broken_lost_repair)
 与核心组合类 core.py。
 
-unregistered.py 内 3 处直写 asset_current_status(:56/:88/:126)为已声明例外
-(各处均有前置状态守卫),非旁路;审计留痕见 Merge-audit M-60 行。
+unregistered.py 内 3 处直写 asset_current_status 为已声明例外(各处均有
+前置状态守卫),非旁路;审计留痕见 Merge-audit M-60 行。三处锚点(方法名,
+勿用行号——行号随注释增删漂移,M-AUD-1):
+- unregistered_create_and_recycle → RECYCLED_PENDING
+- unregistered_create_and_damaged → DAMAGED
+- force_recycle_from_any → RECYCLED_PENDING
 """
 
 from apps.assetmanagement.state_machine.constants import AssetState

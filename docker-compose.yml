@@ -127,7 +127,7 @@ services:
       - "443:443"
     environment:
       - DOMAIN=${DOMAIN:-localhost}
-      - CERT_PATH=/etc/nginx/letsencrypt
+      - CERT_PATH=/etc/nginx/letsencrypt/live/${DOMAIN:-localhost}
     volumes:
       - static_volume:/app/staticfiles:ro
       - media_volume:/app/media:ro

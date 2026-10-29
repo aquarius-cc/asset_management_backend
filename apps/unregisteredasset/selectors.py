@@ -114,7 +114,12 @@ class UnregisteredAssetSelector:
         from apps.usermanagement.models import EmployeeRole
         from core.department_scope import get_department_codes_for_user, get_employee_for_user
 
-        queryset = UnregisteredAsset.objects.filter(is_deleted=False)
+        # M-04 N+1 收口: 列表(ListSerializer discovery_person.employee_name)与导出
+        # (export_columns discovery_person__*)两条读链共用本入口, 统一预加载发现人,
+        # 使 query 数与行数 N 无关。仅加 discovery_person: approver 列表/导出均不消费,
+        # related_asset/result_asset 仅详情 O(1) 消费, 加宽表 JOIN 反而白付;
+        # 严禁在此叠 select_for_update 共存的宽联表(FOR UPDATE 外联限制, 审批并发路径)。
+        queryset = UnregisteredAsset.objects.filter(is_deleted=False).select_related("discovery_person")
 
         if getattr(user, "is_superuser", False):
             return queryset

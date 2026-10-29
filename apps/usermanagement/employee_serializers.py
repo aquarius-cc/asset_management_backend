@@ -41,6 +41,11 @@ class EmployeeSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
             "employee_department_name",
             "employee_department_level",
             "employee_phone",
+            # 【M-03 业务口径锚点】employee_phone 对所有 IsAuthenticated 用户明文返回为
+            # 业务确认结论（通讯录按手机号检索为既定诉求，见 docs/BugFixed 活账本 BF-165）。
+            # 若未来引入隐私口径，必须同步改造 list(EmployeeSerializer) /
+            # detail(EmployeeDetailSerializer fields="__all__") / search(global_search
+            # 走 get_serializer_class 默认 EmployeeSerializer) 三处，单点脱敏必被同源端点绕过。
             "employee_location",
             "employee_description",
             "sort_order",
@@ -69,6 +74,9 @@ class EmployeeDetailSerializer(serializers.ModelSerializer):  # type: ignore[typ
 
     class Meta:
         model = Employee
+        # 【M-03 业务口径锚点】fields="__all__" 含 employee_phone 明文，与列表口径
+        # 同源（业务确认，BF-165）。隐私口径若引入，本序列化器与 EmployeeSerializer
+        # / global_search 必须三处同步改造，否则单点脱敏被同源端点绕过。
         fields = "__all__"
         # 【P1-19 修复】Detail 序列化器标记关键字段为只读,防止意外写入
         read_only_fields = ["id", "recordcode", "employee_jobcode", "employee_department"]

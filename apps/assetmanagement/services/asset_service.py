@@ -9,7 +9,7 @@ import string
 import uuid
 from typing import Any
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 
 from apps.assetmanagement.audit import AuditLogger
 from apps.assetmanagement.models import Asset
@@ -17,7 +17,7 @@ from apps.assetmanagement.selectors import AssetSelector, DamagedAssetSelector, 
 from apps.assetmanagement.state_machine import AssetFSM, AssetState, InvalidTransitionError
 from apps.usermanagement.selectors import EmployeeSelector
 from core.batch_mixins import BatchOperationMixin
-from core.exceptions import AppValidationError, NotFoundError
+from core.exceptions import AppValidationError, NotFoundError, match_integrity_error_rules
 
 from .asset_lifecycle_mixin import AssetLifecycleMixin
 
@@ -112,7 +112,11 @@ class AssetCodeGenerator:
             existing = Asset.objects.filter(asset_code__in=codes).values_list("asset_code", flat=True)
             if not existing:
                 return codes
-        raise RuntimeError(f"生成资产编码失败:连续 {cls.MAX_RETRY} 次尝试均存在唯一性冲突")
+        # [M-RC-06] 原 RuntimeError 未映射 → 全局 handler 兜底真 500；改业务异常映射为 400
+        raise AppValidationError(
+            detail=f"生成资产编码失败:连续 {cls.MAX_RETRY} 次尝试均存在唯一性冲突,请重试",
+            error_code="ASSET_CODE_GENERATION_FAILED",
+        )
 
 
 class AssetService(AssetLifecycleMixin, BatchOperationMixin):
@@ -154,7 +158,18 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
                         "scan_type": "asset_detail",
                     }
                 )
-            asset = Asset.objects.create(**single_data)
+            # [M-RC-06] 并发撞 unique_asset_code_not_deleted 兜底: 内层 atomic(savepoint)
+            # 防止 IntegrityError 毁掉外层事务(镜像 storage_service BF-139 范式);
+            # 全局 handler 对未命中规则的 IntegrityError 已有 400 通用兜底,
+            # 此处映射换来精准文案 + error_code 结构化透传(#41)
+            try:
+                with transaction.atomic():
+                    asset = Asset.objects.create(**single_data)
+            except IntegrityError as exc:
+                match_integrity_error_rules(
+                    exc,
+                    [("asset_code", "DUPLICATE_ASSET_CODE", f"资产编码 {code} 已存在,请重试")],
+                )
             AuditLogger.log_asset_create(
                 asset=asset,
                 operator_jobcode=operator_jobcode,

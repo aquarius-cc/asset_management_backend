@@ -16,7 +16,7 @@ from apps.assetmanagement.models import (
     AssetOperationLog,
     DamagedAsset,
 )
-from apps.assetmanagement.services.asset_service import AssetService
+from apps.assetmanagement.services.asset_service import AssetCodeGenerator, AssetService
 from apps.usermanagement.models import Employee
 from core.exceptions import AppValidationError, NotFoundError
 
@@ -389,3 +389,64 @@ class TestGenerateQrCodeImage:
     def test_url_uses_passed_base_url(self, asset: Any) -> None:
         data = AssetService.generate_qr_code_image(asset, "https://example.com")
         assert data.startswith(b"\x89PNG")
+
+
+class TestCreateAssetIntegrityFallback:
+    """【M-RC-06】create_asset 并发撞唯一约束映射与 RuntimeError 消除（正反用例）"""
+
+    @staticmethod
+    def _asset_data(asset_type: Any, storage: Any, user: Any) -> dict[str, Any]:
+        return {
+            "asset_name": "并发兜底测试资产",
+            "asset_type_recordcode": asset_type,
+            "asset_storage_recordcode": storage,
+            "asset_purchase_price": 1000.00,
+            "asset_purchase_date": "2024-01-01",
+            "asset_entry_date": "2024-01-15",
+            "asset_entry_person_recordcode": user,
+        }
+
+    def test_duplicate_code_maps_to_400_with_error_code(
+        self, monkeypatch: Any, asset: Any, asset_type: Any, storage: Any, user: Any
+    ) -> None:
+        """撞 unique_asset_code_not_deleted → 400 + error_code=DUPLICATE_ASSET_CODE（Fact-1 订正：现状非 500）"""
+        # 模拟 race 绕过 pre-check：generate_with_unique_check 返回已存在编码
+        monkeypatch.setattr(
+            AssetCodeGenerator, "generate_with_unique_check", lambda *a, **kw: ["A001"]
+        )
+        with pytest.raises(AppValidationError) as exc_info:
+            AssetService.create_asset(
+                self._asset_data(asset_type, storage, user),
+                operator_jobcode="E001",
+                operator_name="测试操作员",
+            )
+        assert exc_info.value.error_code == "DUPLICATE_ASSET_CODE"
+
+    def test_rollback_no_partial_rows(
+        self, monkeypatch: Any, asset: Any, asset_type: Any, storage: Any, user: Any
+    ) -> None:
+        """撞约束后 savepoint 回滚 → 无残留半成品行（purchase_number>1 多行场景）"""
+        monkeypatch.setattr(
+            AssetCodeGenerator, "generate_with_unique_check", lambda *a, **kw: ["A001", "NEW01"]
+        )
+        data = self._asset_data(asset_type, storage, user)
+        data["asset_purchase_number"] = 2
+        with pytest.raises(AppValidationError):
+            AssetService.create_asset(data, operator_jobcode="E001", operator_name="测试操作员")
+        # fixture 占 1 条；A001 撞约束 → 整个 create_asset 事务回滚，无 "NEW01" 半成品
+        assert Asset.objects.filter(asset_name="并发兜底测试资产").count() == 0
+
+    def test_max_retry_exhausted_maps_to_400_not_500(
+        self, monkeypatch: Any, asset: Any, asset_type: Any, storage: Any, user: Any
+    ) -> None:
+        """连续 MAX_RETRY 次冲突 → 400 + ASSET_CODE_GENERATION_FAILED（原 RuntimeError 真 500 路径消除）"""
+        monkeypatch.setattr(
+            AssetCodeGenerator, "generate", lambda *a, **kw: ["A001"]
+        )
+        with pytest.raises(AppValidationError) as exc_info:
+            AssetService.create_asset(
+                self._asset_data(asset_type, storage, user),
+                operator_jobcode="E001",
+                operator_name="测试操作员",
+            )
+        assert exc_info.value.error_code == "ASSET_CODE_GENERATION_FAILED"

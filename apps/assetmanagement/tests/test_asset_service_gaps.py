@@ -81,7 +81,7 @@ class TestAssetCodeGeneratorKills:
         assert path == expected
 
     def test_unique_check_retry_limit_and_message(self, asset_type, db):
-        """持续冲突: 恰好重试 MAX_RETRY(3) 次后抛错且文案逐字"""
+        """持续冲突: 恰好重试 MAX_RETRY(3) 次后抛业务异常且文案逐字（[M-RC-06] RuntimeError→AppValidationError）"""
         fixed_hex = "DEADBEEF"
         with mock.patch.object(AssetCodeGenerator, "_generate_uuid_hex", return_value=fixed_hex) as mock_gen:
             Asset.objects.create(
@@ -92,10 +92,11 @@ class TestAssetCodeGeneratorKills:
                 asset_entry_date="2024-01-01",
                 asset_type_recordcode=asset_type,
             )
-            with pytest.raises(RuntimeError) as exc:
+            with pytest.raises(AppValidationError) as exc:
                 AssetCodeGenerator.generate_with_unique_check(asset_type, 1)
         assert mock_gen.call_count == 3
-        assert str(exc.value) == "生成资产编码失败:连续 3 次尝试均存在唯一性冲突"
+        assert str(exc.value) == "生成资产编码失败:连续 3 次尝试均存在唯一性冲突,请重试"
+        assert exc.value.error_code == "ASSET_CODE_GENERATION_FAILED"
 
     def test_unique_check_detects_existing_collision(self, asset_type, db):
         """唯一性检查真实生效: 冲突时换码成功而非原样返回"""

@@ -58,6 +58,12 @@ class StorageViewSet(  # type: ignore[misc]
 ):
     queryset = Storage.objects.all()
     serializer_class = StorageSerializer
+    # [M-07 去伪] 此处 IsAuthenticated 仅为 DRF 兜底默认值，永不生效——真实门禁在
+    # AdminWritePermissionMixin.get_permissions()（本类混入）按 admin_actions
+    # (create/update/partial_update/destroy/change_status/batch_create/batch_delete)
+    # 分发 IsSystemAdmin。回归断言见 tests/test_storage_view_rbac.py
+    # （regular_user/dept_manager 写操作 → 403）。改动真实门槛请改 admin_actions，
+    # 勿动本行（改了也不会生效，仅制造双源误导）。
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = CustomPageNumberPagination
     lookup_field = "recordcode"

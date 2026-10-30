@@ -47,6 +47,8 @@ def _parse_int_param(query_params: QueryDict, key: str, default: int, upper: int
 
 
 class DashboardViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ViewSet):
+    # [M-07 去伪] 全部 7 个 action 均为 methods=["get"]（只读聚合），本类无写操作，
+    # IsAuthenticated 即真实门禁；不存在「写操作仅认证」的越权面（批次2 M-07 核查结论）
     permission_classes = [IsAuthenticated]
     serializer_class = DashboardStatSerializer
 

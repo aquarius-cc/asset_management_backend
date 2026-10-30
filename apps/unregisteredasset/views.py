@@ -121,7 +121,11 @@ class UnregisteredAssetViewSet(  # type: ignore[misc]
     ]
     export_filename = "unregistered_assets_export.xlsx"
     export_sheet_name = "未登记资产"
-    # 角色门禁按 4.5 矩阵经 get_permissions 分发;此处仅保留认证兜底默认值
+    # [M-07 去伪] 角色门禁按 4.5 矩阵经 get_permissions 分发（admin_actions 空集时
+    # resolve_viewset_permissions 对写方法仍 fail-closed 兜底，见 core/permissions.py
+    # M-09/M-49）；此处 IsAuthenticated 仅为认证兜底默认值，永不作为写门禁生效。
+    # 改动真实门槛请改 _ACTION_PERMISSION_OVERRIDES / resolve_viewset_permissions 参数，
+    # 勿动本行（改了也不会生效，仅制造双源误导）。
     permission_classes = [IsAuthenticated]
 
     # filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]

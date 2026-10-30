@@ -8,8 +8,10 @@
 模块结构:
 - __init__.py: 统一导入入口,保持向后兼容
 - asset_selector.py: 资产查询选择器 (AssetSelector, AssetTypeSelector)
-- outasset_selector.py: 出库/回收/报废查询选择器
-    (OutAssetSelector, RecycleAssetSelector, DamagedAssetSelector, WasteAssetSelector)
+- broken_asset_selector.py / found_asset_selector.py / lost_asset_selector.py /
+  repair_asset_selector.py: 破损/失物/遗失/送修查询选择器
+- out_asset_selector.py / recycle_asset_selector.py / damaged_asset_selector.py /
+  waste_asset_selector.py: 出库/回收/待报废/已报废查询选择器
 - base_selector.py: 基础查询选择器 (StorageSelector, ContractSelector, HardDiskSNSelector, DashboardSelector)
 
 使用方式:
@@ -31,16 +33,14 @@ from apps.assetmanagement.selectors.base_selector import (
     HardDiskSNSelector,
     StorageSelector,
 )
-from apps.assetmanagement.selectors.outasset_selector import (
-    BrokenAssetSelector,
-    DamagedAssetSelector,
-    FoundAssetSelector,
-    LostAssetSelector,
-    OutAssetSelector,
-    RecycleAssetSelector,
-    RepairAssetSelector,
-    WasteAssetSelector,
-)
+from apps.assetmanagement.selectors.broken_asset_selector import BrokenAssetSelector
+from apps.assetmanagement.selectors.damaged_asset_selector import DamagedAssetSelector
+from apps.assetmanagement.selectors.found_asset_selector import FoundAssetSelector
+from apps.assetmanagement.selectors.lost_asset_selector import LostAssetSelector
+from apps.assetmanagement.selectors.out_asset_selector import OutAssetSelector
+from apps.assetmanagement.selectors.recycle_asset_selector import RecycleAssetSelector
+from apps.assetmanagement.selectors.repair_asset_selector import RepairAssetSelector
+from apps.assetmanagement.selectors.waste_asset_selector import WasteAssetSelector
 
 
 __all__ = [

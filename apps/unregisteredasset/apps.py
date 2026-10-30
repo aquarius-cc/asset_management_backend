@@ -43,6 +43,4 @@ class UnregisteredAssetConfig(AppConfig):
         【当前实现】
         暂不注册信号,保持简单。如需审计信号可在此扩展。
         """
-        # 延迟导入避免循环依赖
-        # from . import signals
         pass

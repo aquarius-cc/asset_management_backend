@@ -21,7 +21,10 @@
 - Bug 修复
 
 ### 移除 (Removed)
-- 移除的功能
+- 删除 `apps/assetmanagement/signals.py`（merge-audit 批次 5 / M-08）。该文件原含
+  post_save/post_delete 处理器，在 P0-02 修复中因「Service 与信号双重触发 + 隐式调用难追踪」
+  被移除，仅遗留纯注释壳（0 逻辑行）作历史记录；现随仓库卫生清理一并删除，历史结论以本条
+  为准。状态变更逻辑仍统一由 Service 层显式调用 AssetStateManager，无任何运行时引用变化。
 
 ### 安全 (Security)
 - 安全相关变更

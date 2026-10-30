@@ -1993,7 +1993,7 @@
             },
             "put": {
                 "operationId": "v1_assets_broken_assets_update",
-                "description": "更新资源响应(统一格式)\n支持全量更新(PUT)和部分更新(PATCH)\n流程:\n1. 获取资源实例\n2. 验证请求数据\n3. 调用 perform_update 方法更新资源\n4. 返回成功响应",
+                "description": "【M-RC-05】update/partial_update 委托 update_lifecycle_record(与 create/destroy 同范式)\n\n覆盖 DRF 默认 serializer.save() 直落库绕过行级隔离与审计的缺口:\n走 select_for_update + BEQ-02 行级隔离 + OperationLogService UPDATE 审计。\n响应契约不变: 200 + code=0 + UpdateSerializer(record).data + \"更新成功\"\n(对齐 ResponseWrapperMixin.update, partial kwarg 由 DRF partial_update 透传)。",
                 "parameters": [
                     {
                         "in": "path",
@@ -3964,7 +3964,7 @@
             },
             "put": {
                 "operationId": "v1_assets_found_assets_update",
-                "description": "更新资源响应(统一格式)\n支持全量更新(PUT)和部分更新(PATCH)\n流程:\n1. 获取资源实例\n2. 验证请求数据\n3. 调用 perform_update 方法更新资源\n4. 返回成功响应",
+                "description": "【M-RC-05】update/partial_update 委托 update_lifecycle_record(与 create/destroy 同范式)\n\n覆盖 DRF 默认 serializer.save() 直落库绕过行级隔离与审计的缺口:\n走 select_for_update + BEQ-02 行级隔离 + OperationLogService UPDATE 审计。\n响应契约不变: 200 + code=0 + UpdateSerializer(record).data + \"更新成功\"\n(对齐 ResponseWrapperMixin.update, partial kwarg 由 DRF partial_update 透传)。",
                 "parameters": [
                     {
                         "in": "path",
@@ -5153,7 +5153,7 @@
             },
             "put": {
                 "operationId": "v1_assets_lost_assets_update",
-                "description": "更新资源响应(统一格式)\n支持全量更新(PUT)和部分更新(PATCH)\n流程:\n1. 获取资源实例\n2. 验证请求数据\n3. 调用 perform_update 方法更新资源\n4. 返回成功响应",
+                "description": "【M-RC-05】update/partial_update 委托 update_lifecycle_record(与 create/destroy 同范式)\n\n覆盖 DRF 默认 serializer.save() 直落库绕过行级隔离与审计的缺口:\n走 select_for_update + BEQ-02 行级隔离 + OperationLogService UPDATE 审计。\n响应契约不变: 200 + code=0 + UpdateSerializer(record).data + \"更新成功\"\n(对齐 ResponseWrapperMixin.update, partial kwarg 由 DRF partial_update 透传)。",
                 "parameters": [
                     {
                         "in": "path",
@@ -21473,16 +21473,6 @@
                         "title": "实际完成日期",
                         "description": "实际维修完成日期"
                     },
-                    "repair_status": {
-                        "allOf": [
-                            {
-                                "$ref": "#/components/schemas/RepairStatusEnum"
-                            }
-                        ],
-                        "default": "in_progress",
-                        "title": "维修状态",
-                        "description": "维修状态:维修中/已完成/维修失败\n\n* `in_progress` - 维修中\n* `completed` - 已完成\n* `failed` - 维修失败"
-                    },
                     "repair_reason": {
                         "type": "string",
                         "minLength": 1,
@@ -22899,6 +22889,7 @@
                                 "$ref": "#/components/schemas/RepairStatusEnum"
                             }
                         ],
+                        "readOnly": true,
                         "default": "in_progress",
                         "title": "维修状态",
                         "description": "维修状态:维修中/已完成/维修失败\n\n* `in_progress` - 维修中\n* `completed` - 已完成\n* `failed` - 维修失败"
@@ -22959,7 +22950,8 @@
                 "required": [
                     "asset_recordcode",
                     "recordcode",
-                    "repair_date"
+                    "repair_date",
+                    "repair_status"
                 ]
             },
             "RepairAssetUpdateRequest": {
@@ -22985,16 +22977,6 @@
                         "nullable": true,
                         "title": "实际完成日期",
                         "description": "实际维修完成日期"
-                    },
-                    "repair_status": {
-                        "allOf": [
-                            {
-                                "$ref": "#/components/schemas/RepairStatusEnum"
-                            }
-                        ],
-                        "default": "in_progress",
-                        "title": "维修状态",
-                        "description": "维修状态:维修中/已完成/维修失败\n\n* `in_progress` - 维修中\n* `completed` - 已完成\n* `failed` - 维修失败"
                     },
                     "repair_reason": {
                         "type": "string",

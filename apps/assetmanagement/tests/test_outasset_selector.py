@@ -7,9 +7,7 @@ import pytest
 from apps.assetmanagement.models import (
     OutAsset,
 )
-from apps.assetmanagement.selectors.outasset_selector import (
-    OutAssetSelector,
-)
+from apps.assetmanagement.selectors.out_asset_selector import OutAssetSelector
 from apps.authusermanagement.models import AuthUser
 from core.tests import TEST_PASSWORD
 
@@ -50,7 +48,7 @@ class TestOutAssetSelector:
     def test_get_recyclable_outassets_rbac_isolation(self, asset, user):
         """C-2 验证: get_recyclable_outassets 传入 user 后启用 RBAC 行级隔离"""
         from apps.assetmanagement.models import Asset, OutAsset
-        from apps.assetmanagement.selectors.outasset_selector import OutAssetSelector
+        from apps.assetmanagement.selectors.out_asset_selector import OutAssetSelector
         from apps.usermanagement.models import Department, Employee
 
         # 创建第二个部门和用户

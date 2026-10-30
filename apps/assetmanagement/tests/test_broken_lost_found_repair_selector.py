@@ -5,12 +5,10 @@
 import pytest
 
 from apps.assetmanagement.models import BrokenAsset, FoundAsset, LostAsset, RepairAsset
-from apps.assetmanagement.selectors.outasset_selector import (
-    BrokenAssetSelector,
-    FoundAssetSelector,
-    LostAssetSelector,
-    RepairAssetSelector,
-)
+from apps.assetmanagement.selectors.broken_asset_selector import BrokenAssetSelector
+from apps.assetmanagement.selectors.found_asset_selector import FoundAssetSelector
+from apps.assetmanagement.selectors.lost_asset_selector import LostAssetSelector
+from apps.assetmanagement.selectors.repair_asset_selector import RepairAssetSelector
 from apps.authusermanagement.models import AuthUser
 from core.tests import TEST_PASSWORD
 

@@ -3,7 +3,7 @@
 
 功能:
 - 有 page/page_size 参数时启用分页
-- 无参数时返回全部数据
+- 无参数时强制分页返回第一页(单页上限 100,与 constants.py 一致,防止大数据量内存溢出)
 - 所有分页响应均通过 success_response 包装,确保统一格式
 """
 
@@ -117,28 +117,3 @@ class CustomPageNumberPagination(PageNumberPagination):
             },
         }
 
-    # def get_paginated_response(self, data):
-    #     """返回包含总页数的分页响应"""
-    #     return Response({
-    #         'count': self.page.paginator.count,  # 总记录数
-    #         'total_pages': self.page.paginator.num_pages,  # 👈 总页数
-    #         'page': self.page.number,  # 👈 当前页码
-    #         'page_size': self.get_page_size(self.request),  # 👈 每页大小
-    #         'next': self.get_next_link(),
-    #         'previous': self.get_previous_link(),
-    #         'results': data
-    #     })
-
-    # def get_next_link(self):
-    #     if not self.page.has_next():
-    #         return None
-    #     url = self.request.build_absolute_uri()
-    #     page_number = self.page.next_page_number()
-    #     return replace_query_param(url, self.page_query_param, page_number)
-
-    # def get_previous_link(self):
-    #     if not self.page.has_previous():
-    #         return None
-    #     url = self.request.build_absolute_uri()
-    #     page_number = self.page.previous_page_number()
-    #     return replace_query_param(url, self.page_query_param, page_number)

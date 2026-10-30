@@ -182,7 +182,6 @@ assetmanagement/
 │
 ├── selectors.py           # 查询层(所有Selector集中)
 ├── interfaces.py          # 跨应用接口契约
-├── signals.py             # 信号(仅审计)
 ├── audit.py               # 显式审计模块
 ├── operation_log_service.py  # 操作日志服务
 ├── operation_log_views.py    # 操作日志视图

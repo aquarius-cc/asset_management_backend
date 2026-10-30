@@ -5,11 +5,9 @@
 import pytest
 
 from apps.assetmanagement.models import DamagedAsset, OutAsset, RecycleAsset, WasteAsset
-from apps.assetmanagement.selectors.outasset_selector import (
-    DamagedAssetSelector,
-    RecycleAssetSelector,
-    WasteAssetSelector,
-)
+from apps.assetmanagement.selectors.damaged_asset_selector import DamagedAssetSelector
+from apps.assetmanagement.selectors.recycle_asset_selector import RecycleAssetSelector
+from apps.assetmanagement.selectors.waste_asset_selector import WasteAssetSelector
 from apps.authusermanagement.models import AuthUser
 from core.tests import TEST_PASSWORD
 

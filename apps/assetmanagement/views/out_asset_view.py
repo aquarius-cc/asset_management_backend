@@ -4,7 +4,7 @@
 
 from typing import Any
 
-from django.db.models import Q, QuerySet
+from django.db.models import QuerySet
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.openapi import OpenApiParameter  # type: ignore[attr-defined]
 from drf_spectacular.types import OpenApiTypes
@@ -98,22 +98,8 @@ class OutAssetViewSet(  # type: ignore[misc]
         search_type = self.request.query_params.get("searchType", "all").lower()
         status_filter = self.request.query_params.get("asset_current_status", "").strip()
 
-        if keyword:
-            asset_cond = Q(asset_recordcode__asset_code__icontains=keyword) | Q(
-                asset_recordcode__asset_name__icontains=keyword
-            )
-            user_cond = (
-                Q(asset_recordcode__asset_applicant_recordcode__employee_jobcode__icontains=keyword)
-                | Q(asset_recordcode__asset_applicant_recordcode__employee_name__icontains=keyword)
-                | Q(asset_recordcode__asset_manager_recordcode__employee_jobcode__icontains=keyword)
-                | Q(asset_recordcode__asset_manager_recordcode__employee_name__icontains=keyword)
-            )
-            if search_type == "asset":
-                qs = qs.filter(asset_cond)
-            elif search_type == "user":
-                qs = qs.filter(user_cond)
-            else:
-                qs = qs.filter(asset_cond | user_cond)
+        # [B-28/M-06] 关键词过滤统一走 Selector 唯一实现（View 层不再手写 ORM 过滤链）
+        qs = OutAssetSelector.apply_keyword_filter(qs, keyword, search_type)
 
         if status_filter:
             qs = qs.filter(asset_recordcode__asset_current_status=status_filter)

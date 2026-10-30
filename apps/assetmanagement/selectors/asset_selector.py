@@ -5,12 +5,16 @@
 """
 
 from collections.abc import Iterable
-from typing import Any, cast
+from typing import Any, TypeVar, cast
 
 from django.db.models import Count, Q, QuerySet, Sum
 
 from apps.assetmanagement.models import Asset, AssetOperationLog, AssetType, Contract, Storage
 from core.department_scope import build_asset_owned_department_q, get_department_codes_for_user
+
+
+# [B-28/M-06] 关键词过滤透传 QuerySet 子类（AssetQuerySet 等），保 select_related 链类型
+AssetQS = TypeVar("AssetQS", bound=QuerySet[Asset])
 
 
 def _build_fuzzy_q(field_filters: dict[str, str]) -> Q | None:
@@ -247,6 +251,23 @@ class AssetSelector:
             return None
 
     @staticmethod
+    def apply_keyword_filter(queryset: AssetQS, keyword: str) -> AssetQS:
+        """[B-28/M-06] 资产 4 字段关键词过滤唯一实现（空串短路，无谓词改写）。
+
+        字段集为列表/搜索契约的一部分：asset_code / asset_name / asset_brand /
+        asset_specification。View 层禁止再手写该 Q 链（DR-1）。
+        """
+        kw = keyword.strip()
+        if not kw:
+            return queryset
+        return queryset.filter(
+            Q(asset_code__icontains=kw)
+            | Q(asset_name__icontains=kw)
+            | Q(asset_brand__icontains=kw)
+            | Q(asset_specification__icontains=kw)
+        )
+
+    @staticmethod
     def search_assets(
         keyword: str | None = None,
         status: str | None = None,
@@ -260,12 +281,7 @@ class AssetSelector:
             "asset_type_recordcode", "asset_storage_recordcode", "asset_contract_recordcode"
         )
         if keyword:
-            queryset = queryset.filter(
-                Q(asset_code__icontains=keyword)
-                | Q(asset_name__icontains=keyword)
-                | Q(asset_brand__icontains=keyword)
-                | Q(asset_specification__icontains=keyword)
-            )
+            queryset = AssetSelector.apply_keyword_filter(queryset, keyword)
         if status:
             queryset = queryset.filter(asset_current_status=status)
         if asset_type:

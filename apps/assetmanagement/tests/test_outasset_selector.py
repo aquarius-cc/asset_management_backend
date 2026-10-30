@@ -219,3 +219,29 @@ class TestOutAssetSelectorYearsFilterLog:
         with caplog.at_level(logging.WARNING, logger=selector_logger.name):
             OutAssetSelector._apply_filters(qs, {"years": "0"})  # type: ignore[arg-type]
         assert not [r for r in caplog.records if "年数过滤参数非法" in r.getMessage()]
+
+
+@pytest.mark.django_db
+class TestOutApplyKeywordFilter:
+    """[B-28/M-06] 出库关键词过滤唯一实现：空串短路 + searchType 三分支"""
+
+    def test_empty_string_short_circuit(self, outasset):
+        qs = OutAsset.objects.all()
+        assert OutAssetSelector.apply_keyword_filter(qs, "", "all") is qs
+
+    def test_asset_branch_hits_asset_code(self, outasset):
+        qs = OutAssetSelector.apply_keyword_filter(OutAsset.objects.all(), "A001", "asset")
+        assert qs.count() == 1
+
+    def test_user_branch_hits_applicant_name(self, outasset):
+        qs = OutAssetSelector.apply_keyword_filter(OutAsset.objects.all(), "测试用户", "user")
+        assert qs.count() == 1
+
+    def test_user_branch_excludes_asset_code(self, outasset):
+        """search_type=user 时资产编码不得命中（分支隔离）"""
+        qs = OutAssetSelector.apply_keyword_filter(OutAsset.objects.all(), "A001", "user")
+        assert qs.count() == 0
+
+    def test_all_branch_hits_either(self, outasset):
+        qs = OutAssetSelector.apply_keyword_filter(OutAsset.objects.all(), "A001", "all")
+        assert qs.count() == 1

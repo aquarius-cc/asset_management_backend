@@ -332,3 +332,24 @@ class TestReferencedEmployeeRecordcodes:
         assert AssetSelector.referenced_employee_recordcodes([linked.recordcode, unrelated.recordcode]) == {
             linked.recordcode
         }
+
+
+@pytest.mark.django_db
+class TestApplyKeywordFilter:
+    """[B-28/M-06] 资产关键词过滤唯一实现：命中/不命中/空串短路"""
+
+    def test_hit_by_code(self, asset):
+        qs = AssetSelector.apply_keyword_filter(Asset.objects.all(), "A001")
+        assert qs.filter(pk=asset.pk).exists()
+
+    def test_hit_by_name(self, asset):
+        qs = AssetSelector.apply_keyword_filter(Asset.objects.all(), "测试资产")
+        assert qs.filter(pk=asset.pk).exists()
+
+    def test_miss(self, asset):
+        qs = AssetSelector.apply_keyword_filter(Asset.objects.all(), "ZZZ-NOMATCH")
+        assert not qs.filter(pk=asset.pk).exists()
+
+    def test_empty_string_short_circuit(self, asset):
+        qs = Asset.objects.all()
+        assert AssetSelector.apply_keyword_filter(qs, "   ") is qs

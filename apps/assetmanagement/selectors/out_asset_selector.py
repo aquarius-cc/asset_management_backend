@@ -28,6 +28,32 @@ class OutAssetSelector:
         """RBAC 行级过滤"""
         return get_asset_linked_queryset_for_user(user, OutAsset.objects.for_list().filter(is_deleted=False))
 
+    @staticmethod
+    def apply_keyword_filter(
+        queryset: QuerySet[OutAsset], keyword: str, search_type: str = "all"
+    ) -> QuerySet[OutAsset]:
+        """[B-28/M-06] 出库关键词过滤唯一实现（空串短路，无谓词改写）。
+
+        字段集为列表/搜索契约：asset_cond（asset_code/asset_name 两字段）+
+        user_cond（applicant/manager 的 jobcode/name 四字段），按 searchType
+        三分支（asset/user/all）。View 层禁止再手写该 Q 链（DR-1）。
+        """
+        kw = keyword.strip()
+        if not kw:
+            return queryset
+        asset_cond = Q(asset_recordcode__asset_code__icontains=kw) | Q(asset_recordcode__asset_name__icontains=kw)
+        user_cond = (
+            Q(asset_recordcode__asset_applicant_recordcode__employee_jobcode__icontains=kw)
+            | Q(asset_recordcode__asset_applicant_recordcode__employee_name__icontains=kw)
+            | Q(asset_recordcode__asset_manager_recordcode__employee_jobcode__icontains=kw)
+            | Q(asset_recordcode__asset_manager_recordcode__employee_name__icontains=kw)
+        )
+        if search_type == "asset":
+            return queryset.filter(asset_cond)
+        if search_type == "user":
+            return queryset.filter(user_cond)
+        return queryset.filter(asset_cond | user_cond)
+
     # 搜索参数配置:前端参数名 → 数据库查询字段
     # icontains: 模糊匹配, exact: 精确匹配
     RECYCLABLE_FILTER_CONFIG = {

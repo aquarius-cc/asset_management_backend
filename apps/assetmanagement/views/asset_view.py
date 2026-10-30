@@ -4,7 +4,7 @@
 
 from typing import Any
 
-from django.db.models import Q, QuerySet
+from django.db.models import QuerySet
 from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.openapi import OpenApiParameter  # type: ignore[attr-defined]
@@ -121,12 +121,8 @@ class AssetViewSet(  # type: ignore[misc]
 
         keyword = self.request.GET.get("keyword", "").strip()
         if keyword:
-            qs = qs.filter(
-                Q(asset_code__icontains=keyword)
-                | Q(asset_name__icontains=keyword)
-                | Q(asset_brand__icontains=keyword)
-                | Q(asset_specification__icontains=keyword)
-            )
+            # [B-28/M-06] 关键词过滤统一走 Selector 唯一实现（View 层不再手写 ORM 过滤链）
+            qs = AssetSelector.apply_keyword_filter(qs, keyword)
         return qs
 
     def _scoped(self, queryset: QuerySet[Asset]) -> QuerySet[Asset]:

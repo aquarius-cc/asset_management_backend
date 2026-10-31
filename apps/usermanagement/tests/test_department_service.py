@@ -404,3 +404,59 @@ class TestCollectAncestorRecordcodesLogging:
         with caplog.at_level(logging.WARNING, logger=svc_logger.name):
             DepartmentService._collect_ancestor_recordcodes(path)
         assert not [r for r in caplog.records if "祖先部门不存在" in r.getMessage()]
+
+
+@pytest.mark.django_db
+class TestDepartmentSaveCacheInvalidation:
+    """[M-11] models.save 祖先缓存批量失效（save 后失效，竞态自愈口径）
+
+    缺陷史：原内联循环拼 ancestor_path 缺前导 '/' → Department.objects.get 永不命中
+    → except DoesNotExist: pass 吞异常 → 祖先缓存从未失效（每次整树重查）。
+    修复：save 后经 DepartmentService._collect_ancestor_recordcodes + _invalidate_ancestors_cache
+    （delete_many 唯一失效点，DR-1）。
+    """
+
+    def test_save_invalidates_ancestor_descendants_cache(self, department):
+        from django.core.cache import cache
+
+        parent = Department.objects.create(
+            department_code="M11_PARENT",
+            department_name="M11父部门",
+            path=f"/{department.recordcode}",
+            level=1,
+        )
+        child = Department(
+            department_code="M11_CHILD",
+            department_name="M11子部门",
+            parent=parent,
+            path=f"/{department.recordcode}/{parent.recordcode}",
+            level=2,
+        )
+        child.save()
+        # 预置祖先与自身的后代缓存
+        ancestor_key = f"dept:{parent.recordcode}:descendants"
+        cache.set(ancestor_key, ["stale-ancestor-list"])
+        cache.set(f"dept:{child.recordcode}:descendants", ["stale-self-list"])
+
+        child.save()  # 触发 save 缓存失效逻辑
+
+        # 红：原实现 ancestor_path 缺前导 '/' → 祖先键从未被清
+        assert cache.get(ancestor_key) is None
+        assert cache.get(f"dept:{child.recordcode}:descendants") is None
+
+    def test_save_with_dirty_path_logs_warning(self, caplog):
+        import logging
+
+        from apps.usermanagement.services.department_service import logger as svc_logger
+
+        orphan = Department(
+            department_code="M11_ORPHAN",
+            department_name="M11脏路径部门",
+            path="/no/such/ancestor/ORPHAN",
+            level=3,
+        )
+        with caplog.at_level(logging.WARNING, logger=svc_logger.name):
+            orphan.save()
+        records = [r for r in caplog.records if "祖先部门不存在" in r.getMessage()]
+        assert len(records) >= 1
+        assert "ancestor_path=/no" in records[0].getMessage()

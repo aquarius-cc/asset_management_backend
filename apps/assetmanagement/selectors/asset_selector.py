@@ -238,6 +238,8 @@ class AssetSelector:
 
     @staticmethod
     def get_asset_detail_by_code(asset_code: str, *, user: Any) -> Asset | None:
+        """[M-14] 显式软删除契约：filter 自带 is_deleted=False，不依赖
+        SoftDeleteManager 的隐式行为（防 manager 行为回退时软删资产泄漏）。"""
         try:
             queryset = Asset.objects.select_related(
                 "asset_type_recordcode",
@@ -245,7 +247,7 @@ class AssetSelector:
                 "asset_contract_recordcode",
                 "asset_entry_person_recordcode",
                 "asset_manager_recordcode",
-            ).filter(asset_code=asset_code)
+            ).filter(asset_code=asset_code, is_deleted=False)
             return AssetSelector.apply_user_scope(queryset, user).get()
         except Asset.DoesNotExist:
             return None

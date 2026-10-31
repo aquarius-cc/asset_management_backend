@@ -136,17 +136,25 @@ class DepartmentService:
 
     @staticmethod
     def _collect_ancestor_recordcodes(path: str) -> list[str]:
-        """从物化路径收集祖先部门的 recordcode 列表(不含自身)。"""
+        """从物化路径收集祖先部门的 recordcode 列表(不含自身)。
+
+        [M-11] 由逐层 get(path=…)(O(depth) 单查)改单条 filter(path__in=…) 批量取,
+        命中 idx_department_path;缺失祖先逐条 warning 留痕(不静默吞,文本与
+        BF-160/M-47 断言兼容)。
+        """
         if not path:
             return []
         parts = path.strip("/").split("/")
+        ancestor_paths = ["/" + "/".join(parts[:i]) for i in range(1, len(parts))]
+        if not ancestor_paths:
+            return []
+        found = dict(Department.objects.filter(path__in=ancestor_paths).values_list("path", "recordcode"))
         codes: list[str] = []
-        for i in range(1, len(parts)):
-            ancestor_path = "/" + "/".join(parts[:i])
-            try:
-                ancestor = Department.objects.get(path=ancestor_path)
-                codes.append(ancestor.recordcode)
-            except Department.DoesNotExist:
+        for ancestor_path in ancestor_paths:
+            recordcode = found.get(ancestor_path)
+            if recordcode is not None:
+                codes.append(recordcode)
+            else:
                 logger.warning("祖先部门不存在: path=%s ancestor_path=%s", path, ancestor_path)
         return codes
 
@@ -209,9 +217,14 @@ class DepartmentService:
 
     @staticmethod
     def _invalidate_ancestors_cache(recordcodes: list[str]) -> None:
-        """批量失效祖先部门的 descendants 缓存。"""
-        for rc in recordcodes:
-            cache.delete(f"dept:{rc}:descendants")
+        """批量失效祖先部门的 descendants 缓存。
+
+        [M-11] delete_many 成为后代缓存失效的唯一实现点(DR-1):
+        models.save 与本服务均不得再内联 cache.delete 循环。
+        """
+        if not recordcodes:
+            return
+        cache.delete_many([f"dept:{rc}:descendants" for rc in recordcodes])
 
     @staticmethod
     def _validate_move_hierarchy(department_code: str, department: Department, target_parent: Department) -> int:

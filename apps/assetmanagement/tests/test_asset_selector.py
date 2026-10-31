@@ -353,3 +353,25 @@ class TestApplyKeywordFilter:
     def test_empty_string_short_circuit(self, asset):
         qs = Asset.objects.all()
         assert AssetSelector.apply_keyword_filter(qs, "   ") is qs
+
+
+@pytest.mark.django_db
+class TestGetAssetDetailByCodeSoftDelete:
+    """[M-14] 软删除显式契约：不依赖 SoftDeleteManager 隐式行为"""
+
+    def test_soft_deleted_asset_not_visible(self, asset, admin_auth_user):
+        """行为契约：软删除资产对详情查询不可见"""
+        asset.delete()  # SoftDeleteModel: is_deleted=True
+        assert AssetSelector.get_asset_detail_by_code(asset.asset_code, user=admin_auth_user) is None
+
+    def test_query_carries_explicit_is_deleted_filter(self, asset, admin_auth_user):
+        """[M-14] 显式契约断言：查询 SQL 必须自带 is_deleted 过滤（防 manager 行为回退）。
+
+        红基线：原实现仅靠 SoftDeleteManager 隐式过滤，SQL 无 is_deleted 谓词。
+        """
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        with CaptureQueriesContext(connection) as ctx:
+            AssetSelector.get_asset_detail_by_code(asset.asset_code, user=admin_auth_user)
+        assert any("is_deleted" in q["sql"] for q in ctx.captured_queries)

@@ -11,8 +11,12 @@ from datetime import date
 
 import pytest
 
-from apps.assetmanagement.models import Asset, OutAsset, RecycleAsset, Storage
-from apps.unregisteredasset.handlers import _handle_s1_create_and_recycle, _handle_s3_correct_and_recycle
+from apps.assetmanagement.models import Asset, AssetOperationLog, OutAsset, RecycleAsset, Storage
+from apps.unregisteredasset.handlers import (
+    _handle_s1_create_and_recycle,
+    _handle_s2_supplement_and_recycle,
+    _handle_s3_correct_and_recycle,
+)
 from apps.unregisteredasset.models import UnregisteredAsset
 from core.exceptions import AppValidationError
 
@@ -105,3 +109,27 @@ class TestUnregisteredAssetHandlers:
         with pytest.raises(AppValidationError) as exc_info:
             _handle_s3_correct_and_recycle(unreg, "EMP001")
         assert "必须有关联资产" in str(exc_info.value.detail)
+
+
+@pytest.mark.django_db
+class TestForceRecycleStateChangeAudit:
+    """[M-16] S2/S3 强制回收前态留痕：force_recycle_from_any 为 M-60 声明例外的
+    FSM 旁路，必须在 helper 内补 state_change 审计（before_data 含原状态）。"""
+
+    def test_s2_writes_state_change_log(self, unregistered_asset_s2, admin_employee):
+        result = _handle_s2_supplement_and_recycle(unregistered_asset_s2, admin_employee)
+        asset = Asset.objects.get(asset_code=result["asset_code"])
+        log = AssetOperationLog.objects.filter(asset_code=asset.asset_code, operation_type="state_change").latest(
+            "operation_time"
+        )
+        assert log.before_data["asset_current_status"] == "in_store"
+        assert log.after_data["asset_current_status"] == "recycled_pending"
+
+    def test_s3_writes_state_change_log(self, unregistered_asset_s3, admin_employee):
+        result = _handle_s3_correct_and_recycle(unregistered_asset_s3, admin_employee)
+        asset = Asset.objects.get(asset_code=result["asset_code"])
+        log = AssetOperationLog.objects.filter(asset_code=asset.asset_code, operation_type="state_change").latest(
+            "operation_time"
+        )
+        assert log.before_data["asset_current_status"] == "in_store"
+        assert log.after_data["asset_current_status"] == "recycled_pending"

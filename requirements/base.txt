@@ -112,4 +112,7 @@ python-dateutil==2.9.0.post0
 # pip install -r requirements/base.txt -i https://mirrors.aliyun.com/pypi/simple/
 
 # ==================== 错误追踪 ====================
-sentry-sdk[django]>=2.0,<3.0
+# [M-15] 精确钉版（v2.2：PyPI JSON API 权威取版 2.x 最高补丁 2.73.0；OSV API 核验
+# 2026-10-31 无已知 advisory，pip-audit 本机不可用降级 OSV 同源核验）。
+# 与全量 == 策略对齐；升级需经同一取版+advisory 链路。
+sentry-sdk[django]==2.73.0

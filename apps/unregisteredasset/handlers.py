@@ -118,16 +118,36 @@ def _create_recycle_record(
     return RecycleAsset.objects.create(**recycle_data)  # type: ignore[no-any-return]
 
 
-def _force_finalize_recycle(unregistered: UnregisteredAsset, asset: Asset) -> tuple[Asset, str]:
-    """行级锁强制回收并更新目标仓库(S2/S3 共用),返回 (asset, 原状态)"""
+def _force_finalize_recycle(unregistered: UnregisteredAsset, asset: Asset, operator_jobcode: Any) -> tuple[Asset, str]:
+    """行级锁强制回收并更新目标仓库(S2/S3 共用),返回 (asset, 原状态)
+
+    [M-16] force_recycle_from_any 为 M-60 声明例外的 FSM 旁路,前态留痕在
+    helper 内补 state_change 审计(audit.py log_state_change,同事务内)。
+    注:沿 S1/S2/S3 既有形态,operator_jobcode 形参实际承载 Employee 实例
+    (下游 _create_recycle_record 以 FK 消费),此处取 employee_jobcode 传给
+    log_state_change(其签名收 str)。
+    """
+    # [M-16] audit 不得直连导入：audit:33→services/__init__→asset_service:14→audit
+    # 构成入口次序敏感环（audit 直连即 ImportError）。先经 operation_log_service
+    # 链完整加载 audit（audit_adapter 同款模式），再取 AuditLogger。
+    from apps.assetmanagement.audit import AuditLogger
     from apps.assetmanagement.models import Asset
-    from apps.assetmanagement.state_machine import AssetFSM
+    from apps.assetmanagement.services.operation_log_service import OperationLogService  # noqa: F401
+    from apps.assetmanagement.state_machine import AssetFSM, AssetState
 
     asset = Asset.objects.select_for_update().get(pk=asset.pk)
     old_status = asset.asset_current_status
     AssetFSM.force_recycle_from_any(asset)
     asset.asset_storage_recordcode = unregistered.unregistered_asset_storage
     asset.save(update_fields=["asset_current_status", "asset_storage_recordcode"])
+    jobcode = getattr(operator_jobcode, "employee_jobcode", operator_jobcode)
+    AuditLogger.log_state_change(
+        asset=asset,
+        from_state=old_status,
+        to_state=AssetState.RECYCLED_PENDING.value,
+        trigger="force_recycle",
+        operator_jobcode=jobcode,
+    )
     return asset, old_status
 
 
@@ -218,7 +238,7 @@ def _handle_s2_supplement_and_recycle(unregistered: UnregisteredAsset, operator_
         raise AppValidationError(detail="S2场景必须有关联资产")
 
     outasset = _create_receive_outasset(unregistered, asset, f"补建出库记录,来源: {unregistered.unregistered_code}")
-    asset, _ = _force_finalize_recycle(unregistered, asset)
+    asset, _ = _force_finalize_recycle(unregistered, asset, operator_jobcode)
 
     recycle = _create_recycle_record(
         asset, outasset, operator_jobcode, f"不在账资产回收(补建出库),来源: {unregistered.unregistered_code}"
@@ -253,7 +273,7 @@ def _handle_s3_correct_and_recycle(unregistered: UnregisteredAsset, operator_job
     outasset = _create_receive_outasset(
         unregistered, asset, f"不在账资产出库(状态修正),来源: {unregistered.unregistered_code}"
     )
-    asset, old_status = _force_finalize_recycle(unregistered, asset)
+    asset, old_status = _force_finalize_recycle(unregistered, asset, operator_jobcode)
 
     recycle = _create_recycle_record(
         asset,

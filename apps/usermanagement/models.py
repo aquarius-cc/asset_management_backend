@@ -89,22 +89,24 @@ class Department(BaseModel):
         return str(self.department_name)
 
     def save(self, *args: Any, **kwargs: Any) -> None:
-        """保存时清除自身及所有祖先的后代缓存"""
+        """保存时清除自身及所有祖先的后代缓存。
+
+        [M-11] 缓存失效统一收敛到 DepartmentService(延迟导入避免 model↔service
+        循环依赖),本方法不再内联遍历(原实现 ancestor_path 缺前导 '/' 且
+        except: pass 吞异常,祖先缓存从未失效)。
+        [v2.2 决策] 失效时机在 save 之后:cache-aside 竞态窗口反转为
+        「误删新值 → 下次读回填(自愈)」,优于「先删后存」的「旧值驻留至 TTL」。
+        """
+        super().save(*args, **kwargs)
+
         from django.core.cache import cache
 
-        # 清除自身缓存
         cache.delete(f"dept:{self.recordcode}:descendants")
-        # 清除所有祖先的缓存(因为后代列表可能变化)
         if self.path:
-            parts = self.path.strip("/").split("/")
-            for i in range(1, len(parts)):
-                ancestor_path = "/".join(parts[:i])
-                try:
-                    ancestor = Department.objects.get(path=ancestor_path)
-                    cache.delete(f"dept:{ancestor.recordcode}:descendants")
-                except Department.DoesNotExist:
-                    pass
-        super().save(*args, **kwargs)
+            from apps.usermanagement.services.department_service import DepartmentService
+
+            ancestor_codes = DepartmentService._collect_ancestor_recordcodes(self.path)
+            DepartmentService._invalidate_ancestors_cache(ancestor_codes)
 
     def clean(self) -> None:
         """

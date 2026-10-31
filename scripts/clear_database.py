@@ -41,6 +41,7 @@ from datetime import datetime
 from pathlib import Path
 
 from django.db import connection, transaction
+from psycopg import sql
 
 
 # =============================================================================
@@ -138,11 +139,19 @@ def _validate_table_name(table_name: str) -> None:
         raise RuntimeError(f"表 '{table_name}' 是系统保护表，禁止操作")
 
 
+def _build_identifier_sql(template: str, table_name: str):
+    """[M-17] 标识符纵深加固：表名经 psycopg sql.Identifier 组合（白名单为第一道闸，
+    本函数为第二道——即使白名单被绕过，标识符仍经驱动转义，杜绝拼接注入面）。
+    返回 Composed 对象，调用方必须 .as_string(connection) 编译为 str 再传
+    cursor.execute（Django cursor 不接受 Composed）。"""
+    return sql.SQL(template).format(sql.Identifier(table_name))
+
+
 def get_table_count(table_name: str) -> int:
     """获取指定表的数据行数"""
     _validate_table_name(table_name)
     with connection.cursor() as cursor:
-        cursor.execute(f'SELECT COUNT(*) FROM "{table_name}"')
+        cursor.execute(_build_identifier_sql("SELECT COUNT(*) FROM {}", table_name).as_string(connection))
         return cursor.fetchone()[0]
 
 
@@ -207,7 +216,7 @@ def clear_table(table_name: str) -> int:
     # 白名单已按子表先清顺序排列（含 token_blacklist 对调），PG 外键约束下普通 DELETE 即可
     with transaction.atomic():
         with connection.cursor() as cursor:
-            cursor.execute(f'DELETE FROM "{table_name}"')
+            cursor.execute(_build_identifier_sql("DELETE FROM {}", table_name).as_string(connection))
             deleted = cursor.rowcount
 
     return deleted

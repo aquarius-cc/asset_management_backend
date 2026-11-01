@@ -268,17 +268,7 @@ class TestHardDiskSNSelector:
 
 @pytest.mark.django_db
 class TestDashboardSelector:
-    """仪表盘选择器测试类"""
-
-    @pytest.fixture
-    def full_scope_user(self, db):
-        """全量范围用户(superuser 无部门限制),保持既有全库断言语义"""
-        from apps.authusermanagement.models import AuthUser
-        from core.tests import TEST_PASSWORD
-
-        return AuthUser.objects.create_superuser(
-            auth_username="fullscope", password=TEST_PASSWORD, auth_phone="13800000001"
-        )
+    """仪表盘选择器测试类(full_scope_user 夹具已提升至 conftest,DR-4)"""
 
     def test_get_statistics(self, asset, full_scope_user):
         """获取统计信息"""

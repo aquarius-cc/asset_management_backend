@@ -98,7 +98,7 @@ class ContractViewSet(
         {"header": "合同名称", "field": "contract_name"},
         {"header": "合同金额", "field": "contract_amount"},
         {"header": "合同状态", "field": "contract_status"},
-        {"header": "签订日期", "field": "contract_sign_date"},
+        {"header": "签订日期", "field": "contract_start_date"},
         {"header": "到期日期", "field": "contract_end_date"},
     ]
     export_filename = "contracts_export.xlsx"

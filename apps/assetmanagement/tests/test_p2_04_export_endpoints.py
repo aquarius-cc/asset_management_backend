@@ -9,6 +9,7 @@ xlsx 断言先例: test_operation_log_export_scope.py(load_workbook 解析内容
 """
 
 import io
+from datetime import date, datetime
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -68,6 +69,31 @@ def _export_first_column(view_cls, url_name, user, sheet_name):
         response.close()
     sheet = load_workbook(io.BytesIO(payload))[sheet_name]
     return {row[0] for row in sheet.iter_rows(min_row=2, max_col=1, values_only=True) if row[0] is not None}
+
+
+def _export_column_by_header(view_cls, url_name, user, sheet_name, header):
+    """调用导出端点并按表头定位列, 返回该列非空单元格值列表(排除表头)。
+
+    不硬编码列序号: 列序是导出配置的自由, 断言应绑定表头语义(M-04)。
+    """
+    url = reverse(url_name)
+    request = APIRequestFactory().get(url)
+    force_authenticate(request, user=user)
+    response = view_cls.as_view({"get": "export_excel"})(request)
+    assert response.status_code == 200, getattr(response, "data", response.status_code)
+    try:
+        payload = b"".join(response.streaming_content)
+    finally:
+        response.close()
+    sheet = load_workbook(io.BytesIO(payload))[sheet_name]
+    headers = [cell.value for cell in next(sheet.iter_rows(min_row=1, max_row=1))]
+    assert header in headers, f"表头 {header!r} 不在导出列 {headers} 中"
+    idx = headers.index(header) + 1
+    return [
+        row[0]
+        for row in sheet.iter_rows(min_row=2, min_col=idx, max_col=idx, values_only=True)
+        if row[0] is not None
+    ]
 
 
 # --------------------------------------------------------------------------
@@ -164,3 +190,24 @@ class TestHardDiskSNExport:
         force_authenticate(request, user=user)
         response = HardDiskSNViewSet.as_view({"get": "export_excel"})(request)
         assert response.status_code == 403
+
+
+# --------------------------------------------------------------------------
+# M-04: 导出列按表头语义断言(原 field 拼错 damaged_asset_date 致「损坏日期」列恒空)
+# --------------------------------------------------------------------------
+
+
+def test_damaged_export_damaged_date_cell_matches_db(damaged_asset):
+    """「损坏日期」列非空且等于库值。
+
+    field 拼错为 damaged_asset_date 时该列恒空: 修复前必红(断言 len==1 失败)。
+    """
+    user = _make_user("exp-dmg-date", EmployeeRole.SYSTEM_ADMIN)
+    values = _export_column_by_header(
+        DamagedAssetViewSet, "damaged-assets-export-excel", user, "待报废资产", "损坏日期"
+    )
+    assert len(values) == 1
+    got = values[0]
+    # openpyxl 写入 date 后回读为 datetime, 归一后再比较
+    got_date = got.date() if isinstance(got, datetime) else got
+    assert got_date == date(2024, 6, 1)  # conftest damaged_asset 夹具值

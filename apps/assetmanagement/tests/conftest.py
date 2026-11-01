@@ -28,6 +28,18 @@ User = get_user_model()
 
 
 @pytest.fixture
+def full_scope_user(db):
+    """全量范围用户(superuser 无部门限制), 供需跨部门断言的选择器测试共用。
+
+    原为 TestDashboardSelector 的类内夹具, 提升至本文件与
+    test_dashboard_alert_window.py 共用单一定义(DR-4)。
+    """
+    return AuthUser.objects.create_superuser(
+        auth_username="fullscope", password=TEST_PASSWORD, auth_phone="13800000001"
+    )
+
+
+@pytest.fixture
 def api_client():
     """
     API 测试客户端

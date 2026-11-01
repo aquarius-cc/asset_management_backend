@@ -64,7 +64,7 @@ class DamagedAssetViewSet(  # type: ignore[misc]
         {"header": "审批状态", "field": "approval_status"},
         {"header": "原状态", "field": "original_status"},
         {"header": "损坏数量", "field": "damaged_asset_number"},
-        {"header": "损坏日期", "field": "damaged_asset_date"},
+        {"header": "损坏日期", "field": "damaged_date"},
     ]
     export_filename = "damaged_assets_export.xlsx"
     export_sheet_name = "待报废资产"

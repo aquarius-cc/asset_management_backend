@@ -6,7 +6,7 @@
 
 from typing import Any
 
-from django.db.models import Count, QuerySet, Sum
+from django.db.models import Count, Max, QuerySet, Sum
 
 from apps.assetmanagement.models import Asset, Contract
 from core.department_scope import (
@@ -14,6 +14,10 @@ from core.department_scope import (
     get_asset_linked_queryset_for_user,
     get_department_codes_for_user,
 )
+
+
+# 预警类列表统一截断上限(到期预警排序后取前 N;维护提醒保持既有截断语义)
+_ALERT_LIMIT = 50
 
 
 class DashboardSelector:
@@ -289,33 +293,47 @@ class DashboardSelector:
         返回格式对齐前端 types/dashboard.ts ExpiringAsset：
         [{"id": int, "asset_code": str, "asset_name": str, "expire_date": str, "days_until_expire": int}]
         """
-        from datetime import date
+        from datetime import date, timedelta
 
         from dateutil.relativedelta import relativedelta
 
-        expiring_assets = (
-            DashboardSelector._scoped_asset_queryset(user)
-            .filter(asset_warranty_period__gt=0, asset_purchase_date__isnull=False)
-            .order_by("asset_purchase_date")[:50]
+        today = date.today()
+        scoped = DashboardSelector._scoped_asset_queryset(user).filter(
+            asset_warranty_period__gt=0, asset_purchase_date__isnull=False
         )
+        max_warranty = scoped.aggregate(max_n=Max("asset_warranty_period"))["max_n"]
+        if not max_warranty:
+            return []
+
+        # 超集窗口(纯标量日期, 不写 DB 端日期加法, SQLite/PostgreSQL 行为一致):
+        #   到期日 >= today      => 采购日 >= today - 12*max_warranty 个月
+        #   到期日 <= today+days => 采购日 <= today + days - 12 个月(N>=1 时不超过 today)
+        # ±31 天吸收 relativedelta 月末钳位差异; 精确判定仍在下方 Python 复筛。
+        # 先窗口超集过滤再 Python 复筛, 截断必须在排序之后(M-03: 修复先截断后过滤的漏报)。
+        window_start = today - relativedelta(months=12 * max_warranty) - timedelta(days=31)
+        window_end = today + timedelta(days=days) - relativedelta(months=12) + timedelta(days=31)
 
         result = []
-        for asset in expiring_assets:
-            warranty_end = asset.asset_purchase_date + relativedelta(months=asset.asset_warranty_period * 12)
-            days_remaining = (warranty_end - date.today()).days
+        rows = scoped.filter(asset_purchase_date__range=(window_start, window_end)).values(
+            "id", "asset_code", "asset_name", "asset_purchase_date", "asset_warranty_period"
+        )
+        for row in rows:
+            warranty_end = row["asset_purchase_date"] + relativedelta(months=row["asset_warranty_period"] * 12)
+            days_remaining = (warranty_end - today).days
 
             if 0 <= days_remaining <= days:
                 result.append(
                     {
-                        "id": asset.id,
-                        "asset_code": asset.asset_code,
-                        "asset_name": asset.asset_name,
+                        "id": row["id"],
+                        "asset_code": row["asset_code"],
+                        "asset_name": row["asset_name"],
                         "expire_date": warranty_end.isoformat(),
                         "days_until_expire": days_remaining,
                     }
                 )
 
-        return sorted(result, key=lambda x: x["days_until_expire"])
+        result.sort(key=lambda x: (x["days_until_expire"], x["id"]))
+        return result[:_ALERT_LIMIT]
 
     @staticmethod
     def get_maintenance_reminders(user: Any) -> list[dict[str, Any]]:
@@ -332,7 +350,7 @@ class DashboardSelector:
         assets = (
             DashboardSelector._scoped_asset_queryset(user)
             .filter(asset_current_status=Asset.AssetStatus.IN_USE, asset_entry_date__isnull=False)
-            .order_by("asset_entry_date")[:50]
+            .order_by("asset_entry_date")[:_ALERT_LIMIT]
         )
 
         result = []

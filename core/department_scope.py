@@ -77,6 +77,23 @@ def get_department_codes_for_user(user: Any) -> list[str] | None:
     return [department.department_code]
 
 
+def is_department_visible(department_code: str | None, user: Any) -> bool:
+    """
+    判断用户是否可见指定部门(BF-170 OP-01:员工域行级隔离旁路修复)。
+
+    三态语义与 get_department_codes_for_user 完全同源(DR-1:唯一实现于本文件):
+    - None(superuser / system_admin / auditor):不限,恒可见
+    - 空列表(无 Employee / 部门级角色无部门,AUD-21 最严兜底):恒不可见
+    - 非空列表:DEPT_MANAGER 已含 get_all_descendants 下级,成员判断即达
+    """
+    codes = get_department_codes_for_user(user)
+    if codes is None:
+        return True
+    if not department_code:
+        return False
+    return department_code in codes
+
+
 def get_effective_data_scope_for_user(user: Any) -> dict[str, Any]:
     """
     计算用户的有效数据范围(G1-B flavor a:直接派生自 Employee,零漂移)。

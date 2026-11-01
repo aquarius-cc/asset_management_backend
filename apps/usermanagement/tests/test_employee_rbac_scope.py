@@ -300,3 +300,54 @@ def test_by_auth_user_with_malformed_id_returns_404(dept_root, three_employees):
     caller = _make_requester("MGR-ROOT", EmployeeRole.DEPT_MANAGER, dept_root)
     url = reverse("employees-by-auth-user", kwargs={"auth_id": "not-a-number"})
     assert _get(caller, url).status_code == 404
+
+
+# --------------------------------------------------------------------------
+# BF-170 OP-01：部门员工枚举端点行级隔离（departments/{code}/employees/）
+# --------------------------------------------------------------------------
+
+
+def test_department_employees_regular_user_cross_dept_404(dept_root, three_employees):
+    """普通用户访问他部门员工枚举 → 404（与部门不存在同形，不泄露存在性）。"""
+    user = _make_requester("REG-ROOT", EmployeeRole.REGULAR_USER, dept_root)
+    url = reverse("departments-employees", kwargs={"department_code": "DEPT-OTHER"})
+    assert _get(user, url).status_code == 404
+
+
+def test_department_employees_manager_cross_dept_404(dept_root, three_employees):
+    """dept_manager 访问无隶属的他部门 → 404。"""
+    user = _make_requester("MGR-ROOT", EmployeeRole.DEPT_MANAGER, dept_root)
+    url = reverse("departments-employees", kwargs={"department_code": "DEPT-OTHER"})
+    assert _get(user, url).status_code == 404
+
+
+def test_department_employees_manager_own_dept_200(dept_root, three_employees):
+    """dept_manager 访问本部门 → 200 且行集为该部门员工。
+
+    响应形态为 data.employees（含 department / employees_count 元数据），非分页 results。
+    """
+    user = _make_requester("MGR-ROOT", EmployeeRole.DEPT_MANAGER, dept_root)
+    url = reverse("departments-employees", kwargs={"department_code": "DEPT-ROOT"})
+    response = _get(user, url)
+    assert response.status_code == 200, response.status_code
+    rows = response.data["data"]["employees"]
+    # 行集含请求者本人（MGR-ROOT 亦是本部门在职员工）
+    assert {row["employee_jobcode"] for row in rows} == {"EMP-ROOT", "MGR-ROOT"}
+    assert response.data["data"]["employees_count"] == 2
+
+
+def test_department_employees_manager_descendant_200(dept_child, three_employees):
+    """dept_manager 访问下级子部门 → 200（descendants 展开后成员判断即达）。"""
+    user = _make_requester("MGR-ROOT", EmployeeRole.DEPT_MANAGER, dept_child.parent)
+    url = reverse("departments-employees", kwargs={"department_code": "DEPT-CHILD"})
+    response = _get(user, url)
+    assert response.status_code == 200, response.status_code
+    rows = response.data["data"]["employees"]
+    assert {row["employee_jobcode"] for row in rows} == {"EMP-CHILD"}
+
+
+def test_department_employees_no_department_user_404(dept_root, three_employees):
+    """无部门用户（AUD-21 最严兜底，codes=[]）访问任意部门 → 404。"""
+    user = _make_requester("NODEPT", EmployeeRole.REGULAR_USER, None)
+    url = reverse("departments-employees", kwargs={"department_code": "DEPT-ROOT"})
+    assert _get(user, url).status_code == 404

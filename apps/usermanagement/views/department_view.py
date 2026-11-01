@@ -4,6 +4,7 @@
 
 from typing import Any
 
+from django.http import Http404
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.openapi import OpenApiParameter  # type: ignore[attr-defined]
 from drf_spectacular.types import OpenApiTypes
@@ -26,6 +27,7 @@ from apps.usermanagement.serializers import (
 )
 from apps.usermanagement.services import DepartmentService
 from core.batch_mixins import BatchDeleteViewMixin, BatchResponseHelper
+from core.department_scope import is_department_visible
 from core.mixins import LoggingMixin, ResponseWrapperMixin
 from core.pagination import CustomPageNumberPagination
 from core.permissions import IsSystemAdmin
@@ -105,6 +107,9 @@ class DepartmentViewSet(  # type: ignore[misc]
             status: 员工状态筛选(可选): active/left/retirement
         """
         department: Department = self.get_object()
+        # BF-170 OP-01:员工域行级隔离——越权访问与部门不存在同形 404(不泄露存在性)
+        if not is_department_visible(department.department_code, request.user):
+            raise Http404("部门不存在")
         employees = EmployeeSelector.get_employees_by_department_instance(department)
 
         status_filter: str | None = request.query_params.get("status")

@@ -90,9 +90,7 @@ def _export_column_by_header(view_cls, url_name, user, sheet_name, header):
     assert header in headers, f"表头 {header!r} 不在导出列 {headers} 中"
     idx = headers.index(header) + 1
     return [
-        row[0]
-        for row in sheet.iter_rows(min_row=2, min_col=idx, max_col=idx, values_only=True)
-        if row[0] is not None
+        row[0] for row in sheet.iter_rows(min_row=2, min_col=idx, max_col=idx, values_only=True) if row[0] is not None
     ]
 
 

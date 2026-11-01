@@ -44,7 +44,7 @@ def _payload(asset, applicant=None, manager=None, using_location="地点"):
 class TestDeleteOneFsmBranchMutants:
     """_delete_one FSM 异常分支(#40-46):previous_status 非法 → detail 逐字"""
 
-    def test_fsm_invalid_previous_status_detail_verbatim(self, asset, user, employee):
+    def test_fsm_invalid_previous_status_detail_verbatim(self, asset, user, employee, full_scope_user):
         """previous_status 非 in_store/recycled_pending → FSM 抛错 → detail=str(e)"""
         asset.asset_applicant_recordcode = employee
         asset.asset_manager_recordcode = employee
@@ -62,7 +62,7 @@ class TestDeleteOneFsmBranchMutants:
             outasset_previous_status="unknown_state",
         )
         with pytest.raises(AppValidationError) as exc:
-            OutAssetService._delete_one(oa.recordcode)
+            OutAssetService._delete_one(oa.recordcode, user=full_scope_user)
         assert exc.value.error_code == "INVALID_STATE_TRANSITION"
         assert "unknown_state" in str(exc.value.detail)
         assert exc.value.detail != "None"

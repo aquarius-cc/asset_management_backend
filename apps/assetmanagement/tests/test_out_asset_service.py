@@ -139,7 +139,7 @@ class TestOutAssetLockAndUsageType:
         fresh = Asset.objects.get(asset_code=asset.asset_code)
         assert fresh.usage_type == "used"
 
-    def test_cancel_outasset_lock_timeout_lands_in_fail_items(self, storage, asset_type, user, employee):
+    def test_cancel_outasset_lock_timeout_lands_in_fail_items(self, storage, asset_type, user, employee, full_scope_user):
         """AC-65: cancel 行锁超时 → fail_items ASSET_LOCKED,不落 INTERNAL_ERROR/500"""
         asset = _make_asset(storage, asset_type, "in_store", "OUT_SVC_CLK")
         outasset = OutAssetService.create_outasset(
@@ -152,7 +152,7 @@ class TestOutAssetLockAndUsageType:
             side_effect=OperationalError("database is locked"),
         ):
             result = OutAssetService.batch_delete_outasset(
-                [outasset.recordcode], operator_jobcode=user.employee_jobcode
+                [outasset.recordcode], operator_jobcode=user.employee_jobcode, user=full_scope_user
             )
         assert result["fail_count"] == 1
         assert result["fail_items"][0]["error_code"] == "ASSET_LOCKED"
@@ -196,7 +196,9 @@ class TestOutAssetLockAndUsageType:
         assert exc.value.status_code == 409
         assert exc.value.error_code == "ASSET_LOCKED"
 
-    def test_batch_delete_mixed_guard_conflict_routes_to_fail_items(self, storage, asset_type, user, employee):
+    def test_batch_delete_mixed_guard_conflict_routes_to_fail_items(
+        self, storage, asset_type, user, employee, full_scope_user
+    ):
         """F-P2-8 续:批量删除混合批——一条关联资产锁超时→fail_items ASSET_LOCKED,其余正常取消"""
         ok_asset = _make_asset(storage, asset_type, "in_store", "OUT_SVC_MIX_OK")
         boom_asset = _make_asset(storage, asset_type, "in_store", "OUT_SVC_MIX_BM")
@@ -219,7 +221,9 @@ class TestOutAssetLockAndUsageType:
 
         with mock.patch.object(qs_type, "get", autospec=True, side_effect=fake_get):
             result = OutAssetService.batch_delete_outasset(
-                [ok_out.recordcode, boom_out.recordcode], operator_jobcode=user.employee_jobcode
+                [ok_out.recordcode, boom_out.recordcode],
+                operator_jobcode=user.employee_jobcode,
+                user=full_scope_user,
             )
         assert result["success_count"] == 1
         assert result["fail_count"] == 1
@@ -249,7 +253,7 @@ class TestOutAssetLockAndUsageType:
 class TestCancelOutAssetService:
     """取消出库(batch_delete_outasset):快照 original_* 恢复核心契约"""
 
-    def test_cancel_restores_original_fields(self, storage, asset_type, user, employee):
+    def test_cancel_restores_original_fields(self, storage, asset_type, user, employee, full_scope_user):
         asset = _make_asset(
             storage,
             asset_type,
@@ -269,7 +273,9 @@ class TestCancelOutAssetService:
         assert asset.asset_current_status == "in_use"
         assert asset.asset_storage_recordcode is None
 
-        result = OutAssetService.batch_delete_outasset([outasset.recordcode], operator_jobcode=user.employee_jobcode)
+        result = OutAssetService.batch_delete_outasset(
+            [outasset.recordcode], operator_jobcode=user.employee_jobcode, user=full_scope_user
+        )
         assert result["success_count"] == 1
 
         asset.refresh_from_db()
@@ -280,7 +286,7 @@ class TestCancelOutAssetService:
         assert asset.asset_using_location == "原地点"
         assert asset.usage_type == "used"  # F-P2-9 回归锚:取消出库不还原 usage_type
 
-    def test_cancel_from_recycled_pending_not_restore_storage(self, storage, asset_type, user, employee):
+    def test_cancel_from_recycled_pending_not_restore_storage(self, storage, asset_type, user, employee, full_scope_user):
         asset = _make_asset(
             storage,
             asset_type,
@@ -295,7 +301,9 @@ class TestCancelOutAssetService:
         asset.refresh_from_db()
         assert asset.asset_storage_recordcode is None
 
-        result = OutAssetService.batch_delete_outasset([outasset.recordcode], operator_jobcode=user.employee_jobcode)
+        result = OutAssetService.batch_delete_outasset(
+            [outasset.recordcode], operator_jobcode=user.employee_jobcode, user=full_scope_user
+        )
         assert result["success_count"] == 1
 
         asset.refresh_from_db()
@@ -324,9 +332,9 @@ class TestBatchOutAssetService:
         assert valid.asset_current_status == "in_use"  # 首条成功:批量独立性
         assert illegal.asset_current_status == "in_use"  # 失败条保持原状
 
-    def test_batch_delete_fail_items_structure(self, storage, asset_type, employee):
+    def test_batch_delete_fail_items_structure(self, storage, asset_type, employee, full_scope_user):
         result = OutAssetService.batch_delete_outasset(
-            ["OUT-NOT-EXIST-123"], operator_jobcode=employee.employee_jobcode
+            ["OUT-NOT-EXIST-123"], operator_jobcode=employee.employee_jobcode, user=full_scope_user
         )
         assert result["total"] == 1
         assert result["success_count"] == 0

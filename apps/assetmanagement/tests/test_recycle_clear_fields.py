@@ -10,6 +10,7 @@ from django.test import TestCase
 
 from apps.assetmanagement.models import Asset, AssetOperationLog, AssetType, Storage
 from apps.assetmanagement.services import OutAssetService, RecycleAssetService
+from apps.authusermanagement.models import AuthUser
 from apps.usermanagement.models import Department, Employee
 
 
@@ -177,11 +178,15 @@ class TestOutAssetDeleteClearFields(TestCase):
         self.assertEqual(self.asset.asset_using_location, "测试使用地点", "出库后 asset_using_location 应有值")
         self.assertEqual(self.asset.asset_current_status, "in_use", "出库后状态应为 in_use")
 
-        # 删除出库记录
+        # 删除出库记录（BF-170 OP-02：服务签名 user kw-only 必填；
+        # TestCase 无法注入 pytest 夹具，此处内联 superuser——codes=None，ensure 恒过）
         result = OutAssetService.batch_delete_outasset(
             recordcodes=[self.outasset.recordcode],
             operator_jobcode=self.user.employee_jobcode,
             operator_name=self.user.employee_name,
+            user=AuthUser.objects.create_superuser(
+                auth_username="RC-SU", password="TestPass123!", auth_phone="13000000001"
+            ),
         )
 
         # 验证删除成功

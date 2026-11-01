@@ -337,22 +337,22 @@ class TestBatchCreateOutassetMutants:
 class TestDeleteOneMutants:
     """_delete_one(31):detail/error_code 逐字 + 审计 trigger + 守卫"""
 
-    def test_not_found_detail_verbatim(self):
+    def test_not_found_detail_verbatim(self, full_scope_user):
         with pytest.raises(AppValidationError) as exc:
-            OutAssetService._delete_one("NON-EXIST-CODE")
+            OutAssetService._delete_one("NON-EXIST-CODE", user=full_scope_user)
         assert exc.value.detail == "出库记录 NON-EXIST-CODE 不存在"
         assert exc.value.error_code == "NOT_FOUND"
 
-    def test_status_not_allowed_detail_verbatim(self, asset, storage, user):
+    def test_status_not_allowed_detail_verbatim(self, asset, storage, user, full_scope_user):
         asset.asset_applicant_recordcode = user
         asset.save(update_fields=["asset_applicant_recordcode"])
         oa = OutAsset.objects.create(asset_recordcode=asset, outasset_date="2024-07-01")
         with pytest.raises(AppValidationError) as exc:
-            OutAssetService._delete_one(oa.recordcode)
+            OutAssetService._delete_one(oa.recordcode, user=full_scope_user)
         assert exc.value.detail == f"关联资产当前状态为 {asset.asset_current_status},不允许删除出库记录"
         assert exc.value.error_code == "STATUS_NOT_ALLOWED"
 
-    def test_has_recycle_records_detail_verbatim(self, asset, outasset, employee):
+    def test_has_recycle_records_detail_verbatim(self, asset, outasset, employee, full_scope_user):
         RecycleAsset.objects.create(
             outasset_recordcode=outasset,
             asset_recordcode=asset,
@@ -361,11 +361,11 @@ class TestDeleteOneMutants:
             operator_employee=employee,
         )
         with pytest.raises(AppValidationError) as exc:
-            OutAssetService._delete_one(outasset.recordcode)
+            OutAssetService._delete_one(outasset.recordcode, user=full_scope_user)
         assert exc.value.detail == "出库记录存在关联回收记录,不允许删除"
         assert exc.value.error_code == "HAS_RECYCLE_RECORDS"
 
-    def test_cancel_audit_trigger_verbatim(self, asset, user, employee):
+    def test_cancel_audit_trigger_verbatim(self, asset, user, employee, full_scope_user):
         asset.asset_applicant_recordcode = employee
         asset.asset_manager_recordcode = employee
         asset.asset_using_location = "旧地"
@@ -380,7 +380,7 @@ class TestDeleteOneMutants:
             _outasset_payload(asset, applicant=user, manager=user, using_location="新地")
         )
         with patch(AUDIT) as mock_audit:
-            OutAssetService._delete_one(oa.recordcode, operator_jobcode="OP1", operator_name="张三")
+            OutAssetService._delete_one(oa.recordcode, operator_jobcode="OP1", operator_name="张三", user=full_scope_user)
         assert mock_audit.log_state_change.call_count == 1
         kwargs = mock_audit.log_state_change.call_args.kwargs
         assert kwargs["trigger"] == "cancel_outasset"
@@ -425,12 +425,12 @@ class TestApplyOutassetToAssetMutants:
 class TestBatchDeleteOutassetMutants:
     """batch_delete_outasset(2):lambda 转发 operator_name"""
 
-    def test_operator_name_forwarded_to_delete(self, asset, user, employee):
+    def test_operator_name_forwarded_to_delete(self, asset, user, employee, full_scope_user):
         """先出库到 in_use，再删除转发 operator_name"""
         oa = OutAssetService.create_outasset(_outasset_payload(asset, applicant=employee, manager=employee))
         with patch(AUDIT) as mock_audit:
             result = OutAssetService.batch_delete_outasset(
-                [oa.recordcode], operator_jobcode="OP1", operator_name="李四"
+                [oa.recordcode], operator_jobcode="OP1", operator_name="李四", user=full_scope_user
             )
         assert result["success_count"] == 1
         kwargs = mock_audit.log_state_change.call_args.kwargs

@@ -294,17 +294,25 @@ class OutAssetService:
 
     @staticmethod
     def batch_delete_outasset(
-        recordcodes: list[str], operator_jobcode: str | None = None, operator_name: str | None = None
+        recordcodes: list[str],
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+        *,
+        user: Any,
     ) -> dict[str, Any]:
         from core.batch_mixins import BatchOperationMixin
 
         return BatchOperationMixin.batch_delete_execute(
             ids=recordcodes,
-            process_fn=lambda recordcode: OutAssetService._delete_one(recordcode, operator_jobcode, operator_name),
+            process_fn=lambda recordcode: OutAssetService._delete_one(
+                recordcode, operator_jobcode, operator_name, user=user
+            ),
         )
 
     @staticmethod
-    def _delete_one(recordcode: str, operator_jobcode: str | None = None, operator_name: str | None = None) -> None:
+    def _delete_one(
+        recordcode: str, operator_jobcode: str | None = None, operator_name: str | None = None, *, user: Any
+    ) -> None:
         outasset = OutAssetSelector.get_outasset_for_update(recordcode)
         if not outasset:
             raise AppValidationError(detail=f"出库记录 {recordcode} 不存在", error_code="NOT_FOUND")
@@ -314,6 +322,8 @@ class OutAssetService:
             Asset.objects.select_for_update(),
             pk=outasset.asset_recordcode.pk,  # type: ignore[union-attr]
         )
+        # BF-170 OP-02:行级隔离(B14)——锁内校验资产可见性(TOCTOU 模板,与 asset 链同口径,DR-1)
+        AssetSelector.ensure_asset_visible(asset, user)
         if asset.asset_current_status != Asset.AssetStatus.IN_USE:
             raise AppValidationError(
                 detail=f"关联资产当前状态为 {asset.asset_current_status},不允许删除出库记录",

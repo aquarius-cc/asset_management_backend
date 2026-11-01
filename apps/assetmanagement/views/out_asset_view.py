@@ -282,6 +282,7 @@ class OutAssetViewSet(  # type: ignore[misc]
             recordcodes=[outasset.recordcode],
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
+            user=request.user,
         )
         if result["fail_count"] > 0:
             fail_item = result["fail_items"][0]
@@ -294,6 +295,8 @@ class OutAssetViewSet(  # type: ignore[misc]
 
     batch_delete_serializer = OutAssetBatchDeleteSerializer
     batch_delete_service = OutAssetService.batch_delete_outasset
+    # BF-170 OP-02:B14 逐条校验——mixin 以 kwargs["user"]=request.user 传入(kw 形式)
+    batch_delete_passes_user = True
 
     @extend_schema(
         parameters=[
@@ -332,6 +335,7 @@ class OutAssetViewSet(  # type: ignore[misc]
             recordcodes=[outasset.recordcode],
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
+            user=request.user,
         )
         if result["fail_count"] > 0:
             fail_item = result["fail_items"][0]

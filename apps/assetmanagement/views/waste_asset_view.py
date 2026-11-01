@@ -205,3 +205,5 @@ class WasteAssetViewSet(  # type: ignore[misc]
 
     batch_delete_serializer = WasteAssetBatchDeleteSerializer
     batch_delete_service = WasteAssetService.batch_delete_waste_assets
+    # BF-170 OP-03:B14 逐条校验——mixin 以 kwargs["user"]=request.user 传入(kw 形式)
+    batch_delete_passes_user = True

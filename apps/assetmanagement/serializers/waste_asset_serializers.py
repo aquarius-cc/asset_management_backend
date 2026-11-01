@@ -134,4 +134,8 @@ WasteAssetSerializer = WasteAssetListSerializer
 class WasteAssetBatchDeleteSerializer(BaseBatchDeleteSerializer):
     """已报废资产批量删除请求校验"""
 
-    ids = serializers.ListField(child=serializers.CharField(), required=True, help_text="已报废记录编码列表")
+    ids = serializers.ListField(
+        child=serializers.CharField(),
+        required=True,
+        help_text="已报废记录编码列表（B14 逐条校验：无权限条目跳过并计入 fail_items，可能部分成功）",
+    )

@@ -50,7 +50,7 @@ class TestCancelWasteAsset:
             waste_asset_date=date.today(),
         )
 
-    def test_cancel_success(self, storage, asset_type, user):
+    def test_cancel_success(self, storage, asset_type, user, full_scope_user):
         """取消报废:WasteAsset 记录被删除,资产状态保持 scrapped(终态不可逆)"""
         asset = Asset.objects.create(
             asset_code="A_CANCEL",
@@ -73,18 +73,19 @@ class TestCancelWasteAsset:
             asset.asset_code,
             operator_jobcode="U001",
             operator_name="操作人",
+            user=full_scope_user,
         )
         assert not WasteAsset.objects.filter(recordcode=waste_rc, is_deleted=False).exists()
         asset.refresh_from_db()
         # scrapped 是终态,取消报废不改变资产状态
         assert asset.asset_current_status == "scrapped"
 
-    def test_cancel_nonexistent_raises(self):
+    def test_cancel_nonexistent_raises(self, full_scope_user):
         with pytest.raises(AppValidationError) as exc_info:
-            WasteAssetService.cancel_waste_asset("NONEXIST")
+            WasteAssetService.cancel_waste_asset("NONEXIST", user=full_scope_user)
         assert exc_info.value.error_code == "WASTE_ASSET_NOT_FOUND"
 
-    def test_cancel_non_scrapped_asset(self, storage, asset_type, user, approved_damaged_asset):
+    def test_cancel_non_scrapped_asset(self, storage, asset_type, user, approved_damaged_asset, full_scope_user):
         """资产非 scrapped 状态时,取消仅删除记录不改状态"""
         asset = Asset.objects.create(
             asset_code="A_NS",
@@ -109,6 +110,6 @@ class TestCancelWasteAsset:
             waste_asset_number=1,
             waste_asset_date=date.today(),
         )
-        WasteAssetService.cancel_waste_asset(asset.asset_code)
+        WasteAssetService.cancel_waste_asset(asset.asset_code, user=full_scope_user)
         asset.refresh_from_db()
         assert asset.asset_current_status == "in_use"

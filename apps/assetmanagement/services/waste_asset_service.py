@@ -10,6 +10,7 @@ from django.db import transaction
 
 from apps.assetmanagement.audit import AuditLogger
 from apps.assetmanagement.models import WasteAsset
+from apps.assetmanagement.selectors.asset_selector import AssetSelector
 from core.exceptions import AppValidationError
 
 
@@ -23,7 +24,7 @@ class WasteAssetService:
     @staticmethod
     @transaction.atomic
     def cancel_waste_asset(
-        waste_asset_code: str, operator_jobcode: str | None = None, operator_name: str | None = None
+        waste_asset_code: str, operator_jobcode: str | None = None, operator_name: str | None = None, *, user: Any
     ) -> None:
         """
         取消已报废记录(软删除已报废记录,不改变资产状态)
@@ -38,6 +39,9 @@ class WasteAssetService:
             raise AppValidationError(detail=f"已报废记录 {waste_asset_code} 不存在", error_code="WASTE_ASSET_NOT_FOUND")
 
         asset = waste_asset.asset_recordcode
+
+        # BF-170 OP-03:行级隔离(B14)——资产不在调用者可见范围则拒绝(与 asset/recycle/damaged 链同口径,DR-1)
+        AssetSelector.ensure_asset_visible(asset, user)
 
         # [HALT] 取消报废:scrapped 是终态,不可逆
         # 只删除 WasteAsset 记录,不改变资产状态
@@ -55,7 +59,11 @@ class WasteAssetService:
 
     @staticmethod
     def batch_delete_waste_assets(
-        waste_asset_codes: list[str], operator_jobcode: str | None, operator_name: str | None
+        waste_asset_codes: list[str],
+        operator_jobcode: str | None,
+        operator_name: str | None,
+        *,
+        user: Any,
     ) -> dict[str, Any]:
         """
         批量删除报废记录(DR-1 收敛)
@@ -73,6 +81,7 @@ class WasteAssetService:
                     waste_asset_code,
                     operator_jobcode=operator_jobcode,
                     operator_name=operator_name,
+                    user=user,
                 )
             except WasteAsset.DoesNotExist:
                 raise AppValidationError(

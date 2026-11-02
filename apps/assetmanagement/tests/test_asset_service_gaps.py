@@ -142,22 +142,22 @@ class TestCreateAssetKills:
             "asset_type_recordcode": AssetType.objects.get(type_code="AT001"),
         }
 
-    def test_create_default_purchase_number_is_one(self, asset_type, db):
+    def test_create_default_purchase_number_is_one(self, asset_type, db, full_scope_user):
         """未传 asset_purchase_number: 只建 1 条"""
-        created = AssetService.create_asset(self._data())
+        created = AssetService.create_asset(self._data(), user=full_scope_user)
         assert len(created) == 1
 
-    def test_qr_code_json_payload_exact(self, asset_type, db):
+    def test_qr_code_json_payload_exact(self, asset_type, db, full_scope_user):
         """自动生成 qr_code: JSON 键值逐字"""
-        created = AssetService.create_asset(self._data())
+        created = AssetService.create_asset(self._data(), user=full_scope_user)
         payload = json.loads(created[0].qr_code)
         assert payload == {"asset_code": created[0].asset_code, "scan_type": "asset_detail"}
 
-    def test_preset_qr_code_preserved(self, asset_type, db):
+    def test_preset_qr_code_preserved(self, asset_type, db, full_scope_user):
         """调用方预设 qr_code: 不被覆盖"""
         data = self._data()
         data["qr_code"] = "preset-value"
-        created = AssetService.create_asset(data)
+        created = AssetService.create_asset(data, user=full_scope_user)
         assert created[0].qr_code == "preset-value"
 
 
@@ -302,7 +302,7 @@ class TestQrImageKills:
 class TestAtomicRollbackKills:
     """中途审计失败全量回滚(杀伤 @transaction.atomic 删除变异)"""
 
-    def test_create_asset_rolls_back_on_audit_failure(self, asset_type, db):
+    def test_create_asset_rolls_back_on_audit_failure(self, asset_type, db, full_scope_user):
         from apps.assetmanagement.audit import AuditLogger
 
         data = {
@@ -315,7 +315,7 @@ class TestAtomicRollbackKills:
         }
         with mock.patch.object(AuditLogger, "log_asset_create", side_effect=RuntimeError("boom")):
             with pytest.raises(RuntimeError):
-                AssetService.create_asset(data)
+                AssetService.create_asset(data, user=full_scope_user)
         assert Asset.objects.filter(asset_name="回滚资产").count() == 0
 
     def test_update_asset_rolls_back_on_audit_failure(self, asset, admin_auth_user):

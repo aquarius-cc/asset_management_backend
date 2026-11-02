@@ -17,7 +17,7 @@ class TestAssetService:
     资产服务测试
     """
 
-    def test_create_asset(self, storage, asset_type):
+    def test_create_asset(self, storage, asset_type, full_scope_user):
         """
         测试创建资产服务
 
@@ -35,7 +35,7 @@ class TestAssetService:
             "asset_purchase_number": 1,
         }
 
-        assets = AssetService.create_asset(asset_data)
+        assets = AssetService.create_asset(asset_data, user=full_scope_user)
 
         # 【AGENTS 规范】返回统一数组格式
         assert isinstance(assets, list)
@@ -49,7 +49,7 @@ class TestAssetService:
         asset.refresh_from_db()
         assert asset.asset_current_status == Asset.AssetStatus.IN_STORE
 
-    def test_create_asset_forces_initial_status(self, storage, asset_type):
+    def test_create_asset_forces_initial_status(self, storage, asset_type, full_scope_user):
         """【P0-1 回归】即使入参指定非法初始状态,落库后仍为 in_store(绕过 FSM 防线,CT-3)"""
         asset_data = {
             "asset_name": "新资产",
@@ -63,7 +63,7 @@ class TestAssetService:
         }
         original = dict(asset_data)
 
-        assets = AssetService.create_asset(asset_data)
+        assets = AssetService.create_asset(asset_data, user=full_scope_user)
 
         assert len(assets) == 1
         asset = assets[0]
@@ -73,7 +73,7 @@ class TestAssetService:
         assert asset_data == original
         assert original["asset_current_status"] == "scrapped"
 
-    def test_create_asset_batch(self, storage, asset_type):
+    def test_create_asset_batch(self, storage, asset_type, full_scope_user):
         """
         测试批量创建资产
 
@@ -91,7 +91,7 @@ class TestAssetService:
             "asset_purchase_number": 3,
         }
 
-        assets = AssetService.create_asset(asset_data)
+        assets = AssetService.create_asset(asset_data, user=full_scope_user)
 
         assert isinstance(assets, list)
         assert len(assets) == 3
@@ -109,7 +109,7 @@ class TestAssetService:
         # 不覆写则录入 3 台会落成 3×3=9 台,汇总条数与实物数量自相矛盾。
         assert [a.asset_purchase_number for a in assets] == [1, 1, 1]
 
-    def test_create_asset_duplicate_code(self, asset, storage, asset_type):
+    def test_create_asset_duplicate_code(self, asset, storage, asset_type, full_scope_user):
         """
         测试创建重复编码资产
 
@@ -128,12 +128,12 @@ class TestAssetService:
         }
 
         # 创建第一条
-        assets1 = AssetService.create_asset(asset_data)
+        assets1 = AssetService.create_asset(asset_data, user=full_scope_user)
         assert len(assets1) == 1
         code1 = assets1[0].asset_code
 
         # 创建第二条,编码应不同
-        assets2 = AssetService.create_asset(asset_data)
+        assets2 = AssetService.create_asset(asset_data, user=full_scope_user)
         assert len(assets2) == 1
         code2 = assets2[0].asset_code
 

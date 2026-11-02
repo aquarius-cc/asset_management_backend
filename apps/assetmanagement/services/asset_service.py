@@ -130,8 +130,16 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
     @staticmethod
     @transaction.atomic
     def create_asset(
-        asset_data: dict[str, Any], operator_jobcode: str | None = None, operator_name: str | None = None
+        asset_data: dict[str, Any],
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+        *,
+        user: Any,
     ) -> list[Asset]:
+        # BF-170 M-01:写侧越权兜底(D1/D2 拍板口径)——入口第一行校验归属范围
+        from core.department_scope import ensure_asset_attribution_in_scope
+
+        ensure_asset_attribution_in_scope(user, asset_data)
         asset_data = dict(asset_data)
         asset_data.pop("asset_code", None)
         asset_type = asset_data.get("asset_type_recordcode")
@@ -210,6 +218,18 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
         for key in update_data:
             if key in ASSET_UPDATE_IMMUTABLE_FIELDS:
                 raise AppValidationError(detail=f"不允许修改字段: {key}", error_code="FIELD_NOT_ALLOWED")
+
+        # BF-170 M-01:写侧越权兜底——按"合并后状态"校验归属范围
+        # (现有三 FK 实例 + update_data 覆盖项合成后判定,OR 交集语义与读面一致)
+        from core.department_scope import ensure_asset_attribution_in_scope
+
+        _ATTRIBUTION_KEYS = ("asset_manager_recordcode", "asset_entry_person_recordcode", "asset_storage_recordcode")
+        merged_attribution = {key: getattr(asset, key) for key in _ATTRIBUTION_KEYS}
+        for key in _ATTRIBUTION_KEYS:
+            if key in update_data:
+                merged_attribution[key] = update_data[key]
+        ensure_asset_attribution_in_scope(user, merged_attribution)
+
         before_data = {key: getattr(asset, key) for key in update_data}
         for key, value in update_data.items():
             setattr(asset, key, value)
@@ -269,7 +289,11 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
 
     @staticmethod
     def batch_create_asset(
-        asset_data_list: list[dict[str, Any]], operator_jobcode: str | None = None, operator_name: str | None = None
+        asset_data_list: list[dict[str, Any]],
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+        *,
+        user: Any,
     ) -> dict[str, Any]:
         def _create_item(idx: int, asset_data: dict[str, Any]) -> Asset | None:
             import copy
@@ -278,6 +302,7 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
                 asset_data=copy.deepcopy(asset_data),
                 operator_jobcode=operator_jobcode,
                 operator_name=operator_name,
+                user=user,
             )
             return result[0] if result else None
 
@@ -394,6 +419,17 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
             raise NotFoundError(detail=f"员工 {manager_jobcode} 不存在")
         asset.asset_applicant_recordcode = applicant_employee
         asset.asset_manager_recordcode = manager_employee
+        # BF-170 M-01:写侧越权兜底——按"变更后归属"校验(R7:View 已传 user,仅 Service 内加校验)
+        from core.department_scope import ensure_asset_attribution_in_scope
+
+        ensure_asset_attribution_in_scope(
+            user,
+            {
+                "asset_manager_recordcode": asset.asset_manager_recordcode,
+                "asset_entry_person_recordcode": asset.asset_entry_person_recordcode,
+                "asset_storage_recordcode": asset.asset_storage_recordcode,
+            },
+        )
         AuditLogger.log_asset_update(
             asset=asset,
             before_data={"asset_applicant": str(old_applicant), "asset_manager": str(old_manager)},

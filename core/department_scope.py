@@ -17,6 +17,16 @@ from django.db.models import Q, QuerySet
 from apps.usermanagement.models import Employee, EmployeeRole
 
 
+# 资产归属三路径唯一事实源(DR-1:读面 Q 过滤与写面校验共用,禁止第二份路径字面量)。
+# 每条路径为属性跳转链,末段 "department_code" 为目标编码字段:
+# manager 保管人 → entry_person 入库人 → storage.storage_manager 仓库管理员。
+_ASSET_ATTRIBUTION_CHAIN: tuple[tuple[str, ...], ...] = (
+    ("asset_manager_recordcode", "employee_department", "department_code"),
+    ("asset_entry_person_recordcode", "employee_department", "department_code"),
+    ("asset_storage_recordcode", "storage_manager", "employee_department", "department_code"),
+)
+
+
 def get_employee_for_user(user: Any) -> Employee | None:
     """
     获取用户对应的 Employee 记录(带请求级缓存)。
@@ -180,6 +190,95 @@ def resolve_asset_department_codes(asset: Any) -> list[str] | None:
     return None
 
 
+def _resolve_attribution_codes_from_instances(owner: Any) -> set[str] | None:
+    """按 _ASSET_ATTRIBUTION_CHAIN 对"持有归属属性的实例"解析候选部门码。
+
+    返回语义与 asset_attribution_codes 一致:None = 无任何归属路径键(无从判定),
+    set() = 路径键存在但全部为空(三路全空)。
+    """
+    seen_any_key = False
+    codes: set[str] = set()
+    for hops in _ASSET_ATTRIBUTION_CHAIN:
+        current = owner
+        ok = True
+        for hop in hops[:-1]:
+            if current is None:
+                ok = False
+                break
+            if not hasattr(current, hop):
+                ok = False
+                break
+            current = getattr(current, hop)
+        if not ok:
+            continue
+        seen_any_key = True
+        if current is not None:
+            code = getattr(current, hops[-1], None)
+            if code:
+                codes.add(code)
+    return codes if seen_any_key else None
+
+
+def asset_attribution_codes(asset_data: Any) -> set[str] | None:
+    """
+    按三路径解析"待写入资产数据"的候选归属部门码(BF-170 M-01 写侧越权兜底)。
+
+    asset_data 为 validated_data(Mapping):归属字段携带 Employee/Storage 模型实例。
+    取码走实例属性遍历,任一环为 None/缺失即跳过该路径;禁止为取码再发 ORM filter
+    (N+1 + 第二条实现路径)。返回语义:
+    - None: asset_data 无任何归属路径键(无从判定,放行语义,与读面
+      resolve_asset_department_codes 三态对齐)
+    - set(): 路径键存在但全部为空(三路全空,D2 fail-closed 交由调用方定 400)
+    - 非空 set: 候选归属部门码集合(OR 判定,与读面 _build_department_scope_q 一致)
+    """
+    seen_any_key = False
+    codes: set[str] = set()
+    for hops in _ASSET_ATTRIBUTION_CHAIN:
+        if hops[0] not in asset_data:
+            continue
+        seen_any_key = True
+        current = asset_data[hops[0]]
+        for hop in hops[1:-1]:
+            if current is None:
+                break
+            current = getattr(current, hop, None)
+        if current is not None:
+            code = getattr(current, hops[-1], None)
+            if code:
+                codes.add(code)
+    return codes if seen_any_key else None
+
+
+def ensure_asset_attribution_in_scope(user: Any, asset_data: Any) -> None:
+    """
+    写侧越权兜底(BF-170 M-01,D1/D2 拍板口径):
+    - codes is None → 放行(如仅挂 asset_type,无任何归属路径)
+    - codes == set()(三路全空)→ NO_DEPARTMENT_SCOPE(400,D2 fail-closed;
+      system_admin 不受限,codes=None 分支在前)
+    - codes 非空但与用户范围无交集 → ASSET_ATTRIBUTION_OUT_OF_SCOPE(400,D1)
+
+    判定用 OR(交集非空即过),与读面 _build_department_scope_q 一致;
+    禁止用 AND——会把存量跨部门资产的任何编辑打成 400(回归面爆炸)。
+    """
+    from core.exceptions import AppValidationError
+
+    codes = asset_attribution_codes(asset_data)
+    if codes is None:
+        return
+    user_codes = get_department_codes_for_user(user)
+    if user_codes is None:
+        return  # superuser / system_admin / auditor:不限
+    if not codes:
+        raise AppValidationError(
+            detail="资产归属三路径(保管人/入库人/仓库)全为空,请至少指定一项归属",
+            error_code="NO_DEPARTMENT_SCOPE",
+        )
+    if codes.isdisjoint(user_codes):
+        raise AppValidationError(
+            detail="资产归属部门不在您的管理范围内", error_code="ASSET_ATTRIBUTION_OUT_OF_SCOPE"
+        )
+
+
 def filter_queryset_by_department(
     queryset: QuerySet[Any, Any], dept_codes: list[str] | None, department_field: str = "department"
 ) -> QuerySet[Any, Any]:
@@ -205,23 +304,20 @@ def _build_department_scope_q(dept_codes: list[str], field_prefix: str) -> Q:
     资产三路径部门归属过滤的唯一实现(DR-1):
     manager 保管人 → entry_person 入库人 → storage.storage_manager 仓库管理员。
 
+    路径清单唯一事实源为 _ASSET_ATTRIBUTION_CHAIN(读面 Q 与写面校验共用)。
+
     field_prefix 用于区分查询主体:
     - "asset_recordcode": 通过 asset_recordcode FK 关联 Asset 的模型(HardDiskSN/OutAsset 等)
     - "": 直接查询 Asset 自身(字段本身即归属路径)
     """
 
-    def path(field: str) -> str:
-        return f"{field_prefix}__{field}" if field_prefix else field
+    def path(fields: str) -> str:
+        return f"{field_prefix}__{fields}" if field_prefix else fields
 
-    return (
-        Q(**{f"{path('asset_manager_recordcode')}__employee_department__department_code__in": dept_codes})
-        | Q(**{f"{path('asset_entry_person_recordcode')}__employee_department__department_code__in": dept_codes})
-        | Q(
-            **{
-                f"{path('asset_storage_recordcode')}__storage_manager__employee_department__department_code__in": dept_codes
-            }
-        )
-    )
+    q = Q()
+    for hops in _ASSET_ATTRIBUTION_CHAIN:
+        q |= Q(**{f"{path('__'.join(hops))}__in": dept_codes})
+    return q
 
 
 def build_asset_department_q(dept_codes: list[str]) -> Q:

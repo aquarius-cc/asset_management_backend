@@ -407,7 +407,7 @@ class TestCreateAssetIntegrityFallback:
         }
 
     def test_duplicate_code_maps_to_400_with_error_code(
-        self, monkeypatch: Any, asset: Any, asset_type: Any, storage: Any, user: Any
+        self, monkeypatch: Any, asset: Any, asset_type: Any, storage: Any, user: Any, full_scope_user: Any
     ) -> None:
         """撞 unique_asset_code_not_deleted → 400 + error_code=DUPLICATE_ASSET_CODE（Fact-1 订正：现状非 500）"""
         # 模拟 race 绕过 pre-check：generate_with_unique_check 返回已存在编码
@@ -417,23 +417,24 @@ class TestCreateAssetIntegrityFallback:
                 self._asset_data(asset_type, storage, user),
                 operator_jobcode="E001",
                 operator_name="测试操作员",
+                user=full_scope_user,
             )
         assert exc_info.value.error_code == "DUPLICATE_ASSET_CODE"
 
     def test_rollback_no_partial_rows(
-        self, monkeypatch: Any, asset: Any, asset_type: Any, storage: Any, user: Any
+        self, monkeypatch: Any, asset: Any, asset_type: Any, storage: Any, user: Any, full_scope_user: Any
     ) -> None:
         """撞约束后 savepoint 回滚 → 无残留半成品行（purchase_number>1 多行场景）"""
         monkeypatch.setattr(AssetCodeGenerator, "generate_with_unique_check", lambda *a, **kw: ["A001", "NEW01"])
         data = self._asset_data(asset_type, storage, user)
         data["asset_purchase_number"] = 2
         with pytest.raises(AppValidationError):
-            AssetService.create_asset(data, operator_jobcode="E001", operator_name="测试操作员")
+            AssetService.create_asset(data, operator_jobcode="E001", operator_name="测试操作员", user=full_scope_user)
         # fixture 占 1 条；A001 撞约束 → 整个 create_asset 事务回滚，无 "NEW01" 半成品
         assert Asset.objects.filter(asset_name="并发兜底测试资产").count() == 0
 
     def test_max_retry_exhausted_maps_to_400_not_500(
-        self, monkeypatch: Any, asset: Any, asset_type: Any, storage: Any, user: Any
+        self, monkeypatch: Any, asset: Any, asset_type: Any, storage: Any, user: Any, full_scope_user: Any
     ) -> None:
         """连续 MAX_RETRY 次冲突 → 400 + ASSET_CODE_GENERATION_FAILED（原 RuntimeError 真 500 路径消除）"""
         monkeypatch.setattr(AssetCodeGenerator, "generate", lambda *a, **kw: ["A001"])
@@ -442,5 +443,6 @@ class TestCreateAssetIntegrityFallback:
                 self._asset_data(asset_type, storage, user),
                 operator_jobcode="E001",
                 operator_name="测试操作员",
+                user=full_scope_user,
             )
         assert exc_info.value.error_code == "ASSET_CODE_GENERATION_FAILED"

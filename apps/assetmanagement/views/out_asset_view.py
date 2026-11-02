@@ -244,6 +244,7 @@ class OutAssetViewSet(  # type: ignore[misc]
             recordcode=outasset.recordcode,
             update_data=serializer.validated_data,
             **self.get_operator_context(),
+            user=request.user,
         )
         return success_response(data=OutAssetDetailSerializer(updated).data, message="更新成功")
 
@@ -255,6 +256,7 @@ class OutAssetViewSet(  # type: ignore[misc]
             recordcode=outasset.recordcode,
             update_data=serializer.validated_data,
             **self.get_operator_context(),
+            user=request.user,
         )
         return success_response(data=OutAssetDetailSerializer(updated).data, message="更新成功")
 

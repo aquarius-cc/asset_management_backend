@@ -18,6 +18,7 @@ from django.db import OperationalError
 from apps.assetmanagement.models import Asset, OutAsset
 from apps.assetmanagement.selectors.out_asset_selector import OutAssetSelector
 from apps.assetmanagement.services.out_asset_service import OutAssetService
+from apps.usermanagement.models import Department, Employee
 from core.exceptions import AppValidationError, ResourceConflictError
 
 
@@ -175,7 +176,9 @@ class TestOutAssetLockAndUsageType:
 
         with mock.patch.object(qs_type, "get", autospec=True, side_effect=fake_get):
             with pytest.raises(ResourceConflictError) as exc:
-                OutAssetService.update_outasset(outasset.recordcode, {"outasset_using_location": "更新地点"})
+                OutAssetService.update_outasset(
+                    outasset.recordcode, {"outasset_using_location": "更新地点"}, user=user
+                )
         assert exc.value.status_code == 409
         assert exc.value.error_code == "ASSET_LOCKED"
 
@@ -369,3 +372,155 @@ class TestBatchOutAssetService:
         boom.refresh_from_db()
         assert ok.asset_current_status == "in_use"
         assert boom.asset_current_status == "in_store"
+
+
+@pytest.mark.django_db
+class TestOutAssetPersonScope:
+    """D-5: 出库使用人/保管人写侧归属校验(口径 2026-11-02: 禁止跨部门借用)
+
+    范围主体 auth_user(Employee 绑定 D001, regular_user → 仅本部门);
+    跨部门员工 X002 属 D002,不在其可见范围内。
+    """
+
+    @pytest.fixture
+    def cross_dept_employee(self):
+        dept2 = Department.objects.create(department_code="D002", department_name="跨部门")
+        return Employee.objects.create(
+            employee_jobcode="X002",
+            employee_name="跨部门员工",
+            employee_department=dept2,
+            employee_phone="13800131099",
+        )
+
+    @staticmethod
+    def _make_outasset(storage, asset_type, employee, code):
+        """合法出库(同部门人员, 不传 user 直调——与 25 处既有直调同形)"""
+        asset = _make_asset(storage, asset_type, "in_store", code, applicant=employee, manager=employee)
+        return OutAssetService.create_outasset(
+            _outasset_payload(asset, applicant=employee, manager=employee),
+            operator_jobcode=employee.employee_jobcode,
+        )
+
+    def test_create_cross_dept_applicant_raises(self, storage, asset_type, employee, auth_user, cross_dept_employee):
+        asset = _make_asset(storage, asset_type, "in_store", "OUT_PSN_APP", applicant=employee, manager=employee)
+        with pytest.raises(AppValidationError) as exc_info:
+            OutAssetService.create_outasset(
+                _outasset_payload(asset, applicant=cross_dept_employee, manager=employee),
+                operator_jobcode=employee.employee_jobcode,
+                user=auth_user,
+            )
+        assert exc_info.value.error_code == "OUTASSET_PERSON_OUT_OF_SCOPE"
+
+    def test_create_cross_dept_manager_raises(self, storage, asset_type, employee, auth_user, cross_dept_employee):
+        asset = _make_asset(storage, asset_type, "in_store", "OUT_PSN_MGR", applicant=employee, manager=employee)
+        with pytest.raises(AppValidationError) as exc_info:
+            OutAssetService.create_outasset(
+                _outasset_payload(asset, applicant=employee, manager=cross_dept_employee),
+                operator_jobcode=employee.employee_jobcode,
+                user=auth_user,
+            )
+        assert exc_info.value.error_code == "OUTASSET_PERSON_OUT_OF_SCOPE"
+
+    def test_create_same_dept_person_allowed(self, storage, asset_type, employee, auth_user):
+        asset = _make_asset(storage, asset_type, "in_store", "OUT_PSN_OK", applicant=employee, manager=employee)
+        outasset = OutAssetService.create_outasset(
+            _outasset_payload(asset, applicant=employee, manager=employee),
+            operator_jobcode=employee.employee_jobcode,
+            user=auth_user,
+        )
+        asset.refresh_from_db()
+        assert outasset.outasset_applicant_recordcode == employee
+        assert asset.asset_current_status == "in_use"
+
+    def test_create_without_user_skips_person_check(self, storage, asset_type, cross_dept_employee):
+        """user 仍为可选(25 处直调零改动): 跨部门人员不校验, 放行语义锁定"""
+        asset = _make_asset(storage, asset_type, "in_store", "OUT_PSN_NU")
+        outasset = OutAssetService.create_outasset(
+            _outasset_payload(asset, applicant=cross_dept_employee, manager=cross_dept_employee)
+        )
+        assert outasset.outasset_applicant_recordcode == cross_dept_employee
+
+    def test_create_superuser_cross_dept_allowed(
+        self, storage, asset_type, employee, admin_auth_user, cross_dept_employee
+    ):
+        asset = _make_asset(storage, asset_type, "in_store", "OUT_PSN_SA", applicant=employee, manager=employee)
+        outasset = OutAssetService.create_outasset(
+            _outasset_payload(asset, applicant=cross_dept_employee),
+            operator_jobcode=employee.employee_jobcode,
+            user=admin_auth_user,
+        )
+        assert outasset.outasset_applicant_recordcode == cross_dept_employee
+
+    def test_create_no_department_employee_raises(self, storage, asset_type, employee, auth_user):
+        """无部门员工: 部门级角色恒不可见(is_department_visible 同源, 不设单独分支)"""
+        emp_no_dept = Employee.objects.create(
+            employee_jobcode="X003", employee_name="无部门员工", employee_phone="13800131098"
+        )
+        asset = _make_asset(storage, asset_type, "in_store", "OUT_PSN_ND", applicant=employee, manager=employee)
+        with pytest.raises(AppValidationError) as exc_info:
+            OutAssetService.create_outasset(
+                _outasset_payload(asset, applicant=emp_no_dept, manager=employee),
+                operator_jobcode=employee.employee_jobcode,
+                user=auth_user,
+            )
+        assert exc_info.value.error_code == "OUTASSET_PERSON_OUT_OF_SCOPE"
+
+    def test_batch_create_cross_dept_row_routed_to_fail_items(
+        self, storage, asset_type, employee, auth_user, cross_dept_employee
+    ):
+        """批量端点 user 透传: 跨部门行逐行报错进 fail_items, 其余行不受影响"""
+        ok = _make_asset(storage, asset_type, "in_store", "OUT_PSN_BA", applicant=employee, manager=employee)
+        bad = _make_asset(storage, asset_type, "in_store", "OUT_PSN_BB", applicant=employee, manager=employee)
+        result = OutAssetService.batch_create_outasset(
+            [
+                _outasset_payload(ok, applicant=employee, manager=employee),
+                _outasset_payload(bad, applicant=cross_dept_employee, manager=employee),
+            ],
+            operator_jobcode=employee.employee_jobcode,
+            user=auth_user,
+        )
+        assert result["success_count"] == 1
+        assert result["fail_count"] == 1
+        assert result["fail_items"][0]["error_code"] == "OUTASSET_PERSON_OUT_OF_SCOPE"
+
+    def test_update_cross_dept_applicant_raises(
+        self, storage, asset_type, employee, auth_user, cross_dept_employee
+    ):
+        outasset = self._make_outasset(storage, asset_type, employee, "OUT_PSN_UP1")
+        with pytest.raises(AppValidationError) as exc_info:
+            OutAssetService.update_outasset(
+                outasset.recordcode, {"outasset_applicant": cross_dept_employee}, user=auth_user
+            )
+        assert exc_info.value.error_code == "OUTASSET_PERSON_OUT_OF_SCOPE"
+
+    def test_update_only_using_location_skips_person_check(self, storage, asset_type, employee, auth_user):
+        """partial_update 未提交人员字段为 None 自动跳过: 只改使用地点不误拦"""
+        outasset = self._make_outasset(storage, asset_type, employee, "OUT_PSN_UP2")
+        updated = OutAssetService.update_outasset(
+            outasset.recordcode, {"outasset_using_location": "新地点"}, user=auth_user
+        )
+        updated.refresh_from_db()
+        assert updated.outasset_using_location == "新地点"
+        assert updated.outasset_applicant_recordcode == employee
+
+    def test_update_superuser_cross_dept_allowed(
+        self, storage, asset_type, employee, admin_auth_user, cross_dept_employee
+    ):
+        outasset = self._make_outasset(storage, asset_type, employee, "OUT_PSN_UP3")
+        updated = OutAssetService.update_outasset(
+            outasset.recordcode, {"outasset_applicant": cross_dept_employee}, user=admin_auth_user
+        )
+        assert updated.outasset_applicant_recordcode == cross_dept_employee
+
+    def test_illegal_status_error_precedes_person_check(
+        self, storage, asset_type, employee, auth_user, cross_dept_employee
+    ):
+        """校验插入在 _validate_outasset_source 之后: 非法状态先报 ILLEGAL_OUTASSET(错误码优先级不变)"""
+        asset = _make_asset(storage, asset_type, "in_use", "OUT_PSN_PRI", applicant=employee, manager=employee)
+        with pytest.raises(AppValidationError) as exc_info:
+            OutAssetService.create_outasset(
+                _outasset_payload(asset, applicant=cross_dept_employee, manager=employee),
+                operator_jobcode=employee.employee_jobcode,
+                user=auth_user,
+            )
+        assert exc_info.value.error_code == "ILLEGAL_OUTASSET"

@@ -10,6 +10,7 @@ get_queryset_for_user() 统一调用此模块。
 - resolve_asset_department_codes(asset): 动态解析资产归属部门
 """
 
+from collections.abc import Iterable
 from typing import Any
 
 from django.db.models import Q, QuerySet
@@ -277,6 +278,31 @@ def ensure_asset_attribution_in_scope(user: Any, asset_data: Any) -> None:
         raise AppValidationError(
             detail="资产归属部门不在您的管理范围内", error_code="ASSET_ATTRIBUTION_OUT_OF_SCOPE"
         )
+
+
+def ensure_employees_in_scope(user: Any, employees: Iterable[Any]) -> None:
+    """
+    出库使用人/保管人写侧归属校验(D-5;口径 2026-11-02:禁止跨部门借用)。
+
+    - user is None → 放行(create_outasset 的 user 仍为可选,沿用 ensure_asset_visible 守卫)
+    - employees 中某项为 None → 跳过(本次未指定该人员,不构成写入;
+      update 的 partial_update 未提交人员字段即此情形,不会误拦「只改使用地点」)
+    - 员工无部门 → is_department_visible 返回 False(部门级角色);与 EmployeeSelector
+      的部门过滤同源(无部门员工本就不在候选列表内),故不设单独分支(DR-1)
+    """
+    if user is None:
+        return
+    from core.exceptions import AppValidationError
+
+    for emp in employees:
+        if emp is None:
+            continue
+        dept = getattr(emp, "employee_department", None)
+        if not is_department_visible(dept.department_code if dept else None, user):
+            raise AppValidationError(
+                detail=f"人员 {emp.employee_jobcode} 所属部门不在您的管理范围内",
+                error_code="OUTASSET_PERSON_OUT_OF_SCOPE",
+            )
 
 
 def filter_queryset_by_department(

@@ -402,6 +402,9 @@ class RecycleAssetService:
                 raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
 
             # 恢复资产的申请人、保管人、使用地点(从出库记录恢复)
+            # 【D-5 口径 2026-11-02】此处为导数写入,不加 ensure_employees_in_scope:
+            # 人员归属在出库入口(create/update_outasset)已按「禁止跨部门借用」拦截,
+            # 回收仅回填出库时已校验过的人员,不构成新的越权写入面。
             update_fields = ["asset_current_status"]
             if outasset:
                 if outasset.outasset_applicant_recordcode:

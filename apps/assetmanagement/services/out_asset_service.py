@@ -64,6 +64,12 @@ class OutAssetService:
         manager = outasset_data.pop("outasset_manager", None)
         using_location = outasset_data.pop("outasset_using_location", None)
 
+        # D-5: 禁止跨部门借用(口径 2026-11-02);插入在 _validate_outasset_source 之后,
+        # 非法状态先报 ILLEGAL_OUTASSET, 既有 400 断言的错误码优先级不变
+        from core.department_scope import ensure_employees_in_scope
+
+        ensure_employees_in_scope(user, (applicant, manager))
+
         # 设置 OutAsset 表的 FK 字段
         outasset_data["outasset_applicant_recordcode"] = applicant
         outasset_data["outasset_manager_recordcode"] = manager
@@ -221,6 +227,8 @@ class OutAssetService:
         update_data: dict[str, Any],
         operator_jobcode: str | None = None,
         operator_name: str | None = None,
+        *,
+        user: Any,
     ) -> OutAsset:
         outasset = OutAssetSelector.get_outasset_by_record_code(recordcode)
         if not outasset:
@@ -229,6 +237,13 @@ class OutAssetService:
 
         applicant = update_data.pop("outasset_applicant", None)
         manager = update_data.pop("outasset_manager", None)
+
+        # D-5: 禁止跨部门借用(口径 2026-11-02);此时 outasset 已持锁(:228),异常整体回滚。
+        # user 为 kw-only 必填——不加 if user is None 守卫,防「忘传即放行」退化为可选。
+        # partial_update 未提交的人员字段为 None,函数内自动跳过,不会误拦「只改使用地点」。
+        from core.department_scope import ensure_employees_in_scope
+
+        ensure_employees_in_scope(user, (applicant, manager))
 
         before_data, after_data = OutAssetService._build_update_audit_snapshot(
             outasset, update_data, applicant, manager

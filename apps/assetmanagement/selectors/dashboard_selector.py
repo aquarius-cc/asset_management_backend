@@ -56,8 +56,13 @@ class DashboardSelector:
         }
 
     @staticmethod
-    def get_overview_statistics(user: Any) -> dict[str, Any]:
-        """获取仪表盘概览统计 — 资产 + 合同 + 状态分布 + 月度/累计操作数(按用户范围)"""
+    def get_overview_statistics(user: Any, *, can_view_contracts: bool) -> dict[str, Any]:
+        """获取仪表盘概览统计 — 资产 + 合同 + 状态分布 + 月度/累计操作数(按用户范围)
+
+        BF-170 批次 3 M-12:合同聚合口径与 BF-127 合同读权限(system_admin-only)对齐——
+        can_view_contracts 由 View 层注入 is_system_admin(request.user),非 system_admin
+        恒为 0;Selector 不 import permissions(D3 拍板,依赖方向不变)。
+        """
         from django.utils import timezone
 
         from apps.assetmanagement.models import OutAsset, RecycleAsset
@@ -66,7 +71,11 @@ class DashboardSelector:
 
         assets = DashboardSelector._scoped_asset_queryset(user)
         asset_stats = assets.aggregate(total=Count("id"), total_value=Sum("asset_purchase_price"))
-        contract_stats = Contract.objects.filter(is_deleted=False).aggregate(total=Count("id"))
+        contract_stats = (
+            Contract.objects.filter(is_deleted=False).aggregate(total=Count("id"))
+            if can_view_contracts
+            else {"total": 0}
+        )
 
         # 按状态分组（一次查询覆盖全部 8 种状态）
         status_counts = dict(

@@ -18,6 +18,7 @@ from rest_framework.response import Response
 from apps.assetmanagement.selectors import DashboardSelector
 from apps.assetmanagement.serializers import DashboardStatSerializer  # type: ignore[attr-defined]
 from core.mixins import LoggingMixin, ResponseWrapperMixin
+from core.permissions import is_system_admin
 from utils.response_utils import success_response
 
 
@@ -54,7 +55,11 @@ class DashboardViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ViewSet):
 
     @action(detail=False, methods=["get"])
     def overview(self, request: Any) -> Response:
-        stats = DashboardSelector.get_overview_statistics(request.user)
+        # BF-170 批次 3 M-12:合同聚合可见性与 BF-127(合同读=system_admin-only)对齐;
+        # D3 拍板——Selector 不 import permissions,由 View 注入布尔
+        stats = DashboardSelector.get_overview_statistics(
+            request.user, can_view_contracts=is_system_admin(request.user)
+        )
         return success_response(data=stats)
 
     @extend_schema(

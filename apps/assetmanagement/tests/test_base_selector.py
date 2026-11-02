@@ -283,8 +283,8 @@ class TestDashboardSelector:
         assert stats["total_assets"] == 1
 
     def test_get_overview_statistics(self, asset, full_scope_user):
-        """获取概览统计信息"""
-        stats = DashboardSelector.get_overview_statistics(full_scope_user)
+        """获取概览统计信息（full_scope_user 为 superuser，can_view_contracts=True 走真值口径）"""
+        stats = DashboardSelector.get_overview_statistics(full_scope_user, can_view_contracts=True)
         assert "total_assets" in stats
         assert "total_value" in stats
         assert "total_contracts" in stats

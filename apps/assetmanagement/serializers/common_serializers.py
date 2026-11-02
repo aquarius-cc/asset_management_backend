@@ -25,7 +25,9 @@ class DashboardStatSerializer(serializers.Serializer):  # type: ignore[type-arg]
         decimal_places=2,
         help_text="用户可见范围内资产采购价合计",
     )
-    total_contracts = serializers.IntegerField(help_text="未删除合同总数（不按用户范围隔离）")
+    total_contracts = serializers.IntegerField(
+        help_text="未删除合同总数（仅 system_admin 返回全量，其余角色恒为 0，BF-170 M-12 与合同读权限对齐）"
+    )
     active_assets = serializers.IntegerField(help_text="在用（in_use）资产数")
     in_stock_assets = serializers.IntegerField(help_text="在库（in_store）资产数")
     monthly_distributed = serializers.IntegerField(help_text="本月发放数")

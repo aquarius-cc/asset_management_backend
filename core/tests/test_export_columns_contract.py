@@ -21,7 +21,7 @@ MODULES = (
     "apps.unregisteredasset.urls",
 )
 
-_MIN_CHECKED = 50  # 实测 61 列; 下限防枚举失效后护栏恒绿
+_MIN_CHECKED = 78  # 实测 82 列(2026-11-02 D-4: 四生命周期端点补 21 列, 61→82); 下限防枚举失效后护栏恒绿
 
 
 def _iter_export_views():

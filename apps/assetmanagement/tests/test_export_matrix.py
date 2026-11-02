@@ -63,6 +63,17 @@ def dept():
     return Department.objects.create(department_code="DEPT-MX", department_name="矩阵部门", path="/DEPT-MX")
 
 
+# D-4: 四生命周期端点此前挂 ExportExcelMixin 未配列(权限通过后必 500), 补列后入矩阵
+# 强断言: 与其它资产域端点同口径(system_admin 200 / regular_user 精确 403),
+# 不做 (200,403,404) 宽断言——本域导出行集与列表同口径, regular_user 必被权限层拒绝
+LIFECYCLE_EXPORT_STRICT = [
+    ("broken-assets-export-excel", "资产域"),
+    ("lost-assets-export-excel", "资产域"),
+    ("found-assets-export-excel", "资产域"),
+    ("repair-assets-export-excel", "资产域"),
+]
+
+
 @pytest.mark.parametrize("url_name,domain", EXPORT_MATRIX)
 def test_export_matrix_roles_unaffected(url_name, domain, dept, db):
     """其余导出端点 × {system_admin, regular_user} 行为零变化（局部覆写不外溢）。"""
@@ -85,3 +96,24 @@ def test_export_matrix_roles_unaffected(url_name, domain, dept, db):
     assert regular_response.status_code in (200, 403, 404), (
         f"{url_name} regular_user: {regular_response.status_code}"
     )
+
+
+@pytest.mark.parametrize("url_name,domain", LIFECYCLE_EXPORT_STRICT)
+def test_lifecycle_export_strict(url_name, domain, dept, db):
+    """D-4: 四生命周期导出端点补列后, 行为对齐资产域口径(强断言, 非宽断言)。
+
+    补列前该矩阵红: system_admin 命中 500「未配置导出列」(MissingColumnsError)。
+    """
+    su = _make_user(f"S-LC-{url_name[:6]}", EmployeeRole.SYSTEM_ADMIN, None)
+    regular = _make_user(f"R-LC-{url_name[:6]}", EmployeeRole.REGULAR_USER, dept)
+
+    url = reverse(url_name)
+    client = APIClient()
+    client.force_authenticate(user=su)
+    su_response = client.get(url)
+    assert su_response.status_code == 200, f"{url_name} system_admin: {su_response.status_code}"
+
+    client2 = APIClient()
+    client2.force_authenticate(user=regular)
+    regular_response = client2.get(url)
+    assert regular_response.status_code == 403, f"{url_name} regular_user: {regular_response.status_code}"

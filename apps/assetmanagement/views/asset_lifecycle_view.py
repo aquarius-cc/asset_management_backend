@@ -62,6 +62,17 @@ class BrokenAssetViewSet(AssetLifecycleViewSetBase):
     search_fields_extra = ("broken_reason",)
     ordering_field = "broken_date"
 
+    # 导出配置（D-4: 此前挂 ExportExcelMixin 未配列, export 必 500「未配置导出列」）
+    export_columns = [
+        {"header": "资产编码", "field": "asset_recordcode__asset_code"},
+        {"header": "资产名称", "field": "asset_recordcode__asset_name"},
+        {"header": "损坏日期", "field": "broken_date"},
+        {"header": "损坏原因", "field": "broken_reason"},
+        {"header": "操作人", "field": "operator_employee__employee_name"},
+    ]
+    export_filename = "broken_assets_export.xlsx"
+    export_sheet_name = "损坏记录"
+
     def build_create_kwargs(self, validated_data: dict[str, Any]) -> dict[str, Any]:
         return {
             "broken_reason": validated_data["broken_reason"],
@@ -103,6 +114,17 @@ class LostAssetViewSet(AssetLifecycleViewSetBase):
     batch_delete_serializer = LostAssetBatchDeleteSerializer
     search_fields_extra = ("lost_reason",)
     ordering_field = "lost_date"
+
+    # 导出配置（D-4: 此前挂 ExportExcelMixin 未配列, export 必 500「未配置导出列」）
+    export_columns = [
+        {"header": "资产编码", "field": "asset_recordcode__asset_code"},
+        {"header": "资产名称", "field": "asset_recordcode__asset_name"},
+        {"header": "遗失日期", "field": "lost_date"},
+        {"header": "最后已知位置", "field": "last_known_location"},
+        {"header": "操作人", "field": "operator_employee__employee_name"},
+    ]
+    export_filename = "lost_assets_export.xlsx"
+    export_sheet_name = "遗失记录"
 
     def build_create_kwargs(self, validated_data: dict[str, Any]) -> dict[str, Any]:
         return {
@@ -147,6 +169,17 @@ class FoundAssetViewSet(AssetLifecycleViewSetBase):
     update_label = "找回资产"  # 【M-RC-05】update 审计描述用
     batch_delete_serializer = FoundAssetBatchDeleteSerializer
     ordering_field = "found_date"
+
+    # 导出配置（D-4: 此前挂 ExportExcelMixin 未配列, export 必 500「未配置导出列」）
+    export_columns = [
+        {"header": "资产编码", "field": "asset_recordcode__asset_code"},
+        {"header": "资产名称", "field": "asset_recordcode__asset_name"},
+        {"header": "找回日期", "field": "found_date"},
+        {"header": "找回位置", "field": "found_location"},
+        {"header": "操作人", "field": "operator_employee__employee_name"},
+    ]
+    export_filename = "found_assets_export.xlsx"
+    export_sheet_name = "找回记录"
 
     def build_create_kwargs(self, validated_data: dict[str, Any]) -> dict[str, Any]:
         from core.exceptions import AppValidationError

@@ -125,6 +125,18 @@ class RepairAssetViewSet(  # type: ignore[misc]
     ordering_fields = ["repair_date", "created_at"]
     ordering = ["-repair_date"]
 
+    # 导出配置（D-4: 此前挂 ExportExcelMixin 未配列, export 必 500「未配置导出列」）
+    export_columns = [
+        {"header": "资产编码", "field": "asset_recordcode__asset_code"},
+        {"header": "资产名称", "field": "asset_recordcode__asset_name"},
+        {"header": "送修日期", "field": "repair_date"},
+        {"header": "预计完成日期", "field": "expected_return_date"},
+        {"header": "维修状态", "field": "repair_status", "display_map": dict(RepairAsset.RepairStatus.choices)},
+        {"header": "维修操作人", "field": "operator_employee__employee_name"},
+    ]
+    export_filename = "repair_assets_export.xlsx"
+    export_sheet_name = "维修记录"
+
     def get_permissions(self) -> Any:
         return resolve_viewset_permissions(
             self.action, self.admin_actions, IsAssetAdminOrAbove, method=request_method(self)

@@ -79,6 +79,13 @@ class ContractViewSet(
 
     def get_permissions(self) -> Any:
         """RBAC: 读写均收口 IsSystemAdmin(矩阵 :144 合同=仅 system_admin;BF-127 读面收口)"""
+        # BF-170 批次 3 OP-04:合同导出绕过收口——公共 resolve 中 export_excel 短路
+        # 优先于 action_overrides,dept_manager/asset_admin/auditor 持 CanExportExcel
+        # 即可导出全量合同(金额/起止日期),绕过 BF-127。局部覆写:公共 resolve 优先级
+        # 不动(控制回归面,impact=53 符号)。全仓无任何 ViewSet 在 action_overrides
+        # 声明过 export_excel,故局部修与改公共优先级行为等价,选局部修仅为控面。
+        if self.action == "export_excel":
+            return [IsSystemAdmin()]
         return resolve_viewset_permissions(
             self.action,
             self.admin_actions,

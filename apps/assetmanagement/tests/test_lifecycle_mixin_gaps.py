@@ -6,7 +6,7 @@
 - 默认参数 ""→"XXXX"(描述/位置/操作人, 直写日志无归一化)
 - 审计文案逐字(标记损坏/遗失/找回)
 - 软删返回 dict 键值逐字 + 删除审计文案
-- 批量参数: item.get 键名/默认值、max_batch_size=100
+- 批量参数: item.get 键名/默认值、DEFAULT_MAX_BATCH_SIZE(= core.constants.MAX_BATCH_SIZE)默认回落
 - BEQ-02 行级守卫真实调用(杀 is not None→is None)
 - 事务回滚: 审计写失败不落库(杀 @transaction.atomic 删除)
 """
@@ -232,7 +232,7 @@ class TestSoftDeleteContract:
 
 @pytest.mark.django_db
 class TestBatchContracts:
-    """批量创建: item 键名/默认值/max_batch_size/操作人默认"""
+    """批量创建: item 键名/默认值/DEFAULT_MAX_BATCH_SIZE/操作人默认"""
 
     @staticmethod
     def _make_asset(code: str, asset_type) -> Asset:
@@ -272,7 +272,7 @@ class TestBatchContracts:
         assert records[1].lost_description == ""
 
     def test_batch_broken_exceeds_limit(self):
-        """批量上限 100: 101 条立即拒绝(杀 max_batch_size→101)"""
+        """批量上限 100: 101 条立即拒绝(杀 DEFAULT_MAX_BATCH_SIZE→101)"""
         items = [{"asset_code": f"A{i}", "broken_reason": "x"} for i in range(101)]
         with pytest.raises(AppValidationError) as exc:
             AssetLifecycleMixin.batch_create_broken_assets(items)

@@ -22,6 +22,7 @@ from rest_framework.test import APIClient
 from apps.notification.helpers import notify_dept_managers, send_notification_on_commit
 from apps.notification.models import Notification
 from apps.notification.services import send_notification_sync
+from apps.usermanagement.models import Department, Employee, EmployeeRole, EmployeeStatus
 from core.tests import TEST_PASSWORD
 
 
@@ -141,6 +142,59 @@ class TestNotifyDeptManagers:
                 )
                 # 通知仍应被持久化
                 assert Notification.objects.filter(recipient_jobcode="MGR001").count() == 1
+
+
+@pytest.mark.django_db
+class TestNotifyDeptManagersRealDb:
+    """真库用例(M-08 CT-1):直接校验 notify_dept_managers 的 Employee filter kwargs 维度。
+
+    既有 TestNotifyDeptManagers 以 mock 整类替换 Employee,不校验 kwargs——
+    若 rec 途角色/状态字面量漂移(如改 employee_status 或 role 键值),mock 形态测试不红。
+    """
+
+    @staticmethod
+    def _seed(jobcode: str, role: str, status: str, dept: Department | None) -> Employee:
+        return Employee.objects.create(
+            employee_jobcode=jobcode,
+            employee_name=f"{jobcode}员工",
+            employee_department=dept,
+            role=role,
+            employee_status=status,
+            employee_phone=f"139{hash(jobcode) % 100000000:08d}",
+        )
+
+    def _notify(self, dept_code: str = "NTF-DEPT") -> None:
+        mock_asset = MagicMock()
+        mock_asset.asset_code = "AST-NTF"
+        with patch("apps.notification.services.notification_service.get_channel_layer", return_value=MagicMock()):
+            with patch("core.department_scope.resolve_asset_department_codes", return_value=[dept_code]):
+                notify_dept_managers(
+                    asset=mock_asset,
+                    notification_type="approval",
+                    title="真库审批",
+                    message="真库用例",
+                )
+
+    def test_active_dept_manager_collected(self):
+        """同部门 dept_manager + active → 收到(现有行为锚定)。"""
+        dept = Department.objects.create(department_code="NTF-DEPT", department_name="通知部门")
+        self._seed("NTFDM", EmployeeRole.DEPT_MANAGER, EmployeeStatus.ACTIVE, dept)
+        self._notify()
+        assert Notification.objects.filter(recipient_jobcode="NTFDM", title="真库审批").count() == 1
+
+    def test_left_dept_manager_not_collected(self):
+        """同部门 dept_manager + left → 不收(维度有效性的反例:全收即红)。"""
+        dept = Department.objects.create(department_code="NTF-DEPT-L", department_name="通知部门")
+        self._seed("NTFDML", EmployeeRole.DEPT_MANAGER, EmployeeStatus.LEFT, dept)
+        self._notify("NTF-DEPT-L")
+        assert not Notification.objects.filter(recipient_jobcode="NTFDML").exists()
+
+    def test_asset_admin_not_collected(self):
+        """同部门 asset_admin + active → 不收(role 维度有效性的反例)。"""
+        dept = Department.objects.create(department_code="NTF-DEPT-A", department_name="通知部门")
+        self._seed("NTFAA", EmployeeRole.ASSET_ADMIN, EmployeeStatus.ACTIVE, dept)
+        self._notify("NTF-DEPT-A")
+        assert not Notification.objects.filter(recipient_jobcode="NTFAA").exists()
 
 
 @pytest.mark.django_db

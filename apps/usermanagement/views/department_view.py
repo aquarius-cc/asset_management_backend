@@ -15,7 +15,7 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
 
-from apps.usermanagement.models import Department
+from apps.usermanagement.models import Department, EmployeeStatus
 from apps.usermanagement.selectors import DepartmentSelector, EmployeeSelector
 from apps.usermanagement.serializers import (
     DepartmentBatchCreateSerializer,
@@ -114,7 +114,7 @@ class DepartmentViewSet(  # type: ignore[misc]
 
         status_filter: str | None = request.query_params.get("status")
         if status_filter:
-            valid_statuses: list[str] = ["active", "left", "retirement"]
+            valid_statuses: list[str] = list(EmployeeStatus.values)
             if status_filter not in valid_statuses:
                 return error_response(
                     message=f"无效的状态值: {status_filter},有效值为: {', '.join(valid_statuses)}",

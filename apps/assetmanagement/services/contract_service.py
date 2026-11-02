@@ -303,7 +303,6 @@ class ContractService:
         return BatchOperationMixin.batch_execute(
             items=payments,
             process_fn=_add_item,
-            max_batch_size=MAX_BATCH_SIZE,
         )
 
     @staticmethod
@@ -446,7 +445,6 @@ class ContractService:
         return BatchOperationMixin.batch_execute(
             items=contract_data_list,
             process_fn=_create_item,
-            max_batch_size=MAX_BATCH_SIZE,
         )
 
     @staticmethod
@@ -469,7 +467,6 @@ class ContractService:
         return BatchOperationMixin.batch_delete_execute(
             ids=contract_codes,
             process_fn=_delete_item,
-            max_batch_size=100,
         )
 
     @staticmethod

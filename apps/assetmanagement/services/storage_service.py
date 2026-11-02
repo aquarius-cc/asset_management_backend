@@ -152,7 +152,6 @@ class StorageService:
         return BatchOperationMixin.batch_execute(
             items=storage_data_list,
             process_fn=_create_item,
-            max_batch_size=MAX_BATCH_SIZE,
         )
 
     @staticmethod
@@ -177,5 +176,4 @@ class StorageService:
         return BatchOperationMixin.batch_delete_execute(
             ids=storage_codes,
             process_fn=_delete_item,
-            max_batch_size=100,
         )

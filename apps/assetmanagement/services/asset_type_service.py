@@ -197,7 +197,6 @@ class AssetTypeService:
         return BatchOperationMixin.batch_execute(
             items=asset_type_data_list,
             process_fn=_create_item,
-            max_batch_size=MAX_BATCH_SIZE,
         )
 
     @staticmethod
@@ -220,5 +219,4 @@ class AssetTypeService:
         return BatchOperationMixin.batch_delete_execute(
             ids=asset_type_codes,
             process_fn=_delete_item,
-            max_batch_size=100,
         )

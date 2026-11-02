@@ -351,3 +351,36 @@ def test_department_employees_no_department_user_404(dept_root, three_employees)
     user = _make_requester("NODEPT", EmployeeRole.REGULAR_USER, None)
     url = reverse("departments-employees", kwargs={"department_code": "DEPT-ROOT"})
     assert _get(user, url).status_code == 404
+
+
+def test_department_employees_status_active_filter(dept_root, three_employees):
+    """?status=active → 200 且仅在职行（M-08 CT-1:白名单 filter 现收编 list(EmployeeStatus.values)）。
+
+    同部门并置一名 left 员工作为反例（mock 盲区修复后若 filter 丢失则 left 也被收 → 红）。
+    """
+    user = _make_requester("MGR-ROOT", EmployeeRole.DEPT_MANAGER, dept_root)
+    Employee.objects.create(
+        employee_jobcode="EMP-LEFT",
+        employee_name="离职员工",
+        employee_department=dept_root,
+        role=EmployeeRole.REGULAR_USER,
+        employee_status=EmployeeStatus.LEFT,
+        employee_phone=_phone(),
+    )
+    url = reverse("departments-employees", kwargs={"department_code": "DEPT-ROOT"}) + "?status=active"
+    response = _get(user, url)
+    assert response.status_code == 200, response.status_code
+    rows = response.data["data"]["employees"]
+    codes = {row["employee_jobcode"] for row in rows}
+    assert codes == {"EMP-ROOT", "MGR-ROOT"}
+    assert "EMP-LEFT" not in codes
+
+
+def test_department_employees_status_invalid_400(dept_root, three_employees):
+    """?status=bogus → 400 且文案含完整白名单（端点 status 白名单历史零覆盖 → CT-1 锁）。"""
+    user = _make_requester("MGR-ROOT", EmployeeRole.DEPT_MANAGER, dept_root)
+    url = reverse("departments-employees", kwargs={"department_code": "DEPT-ROOT"})
+    response = _get(user, url + "?status=bogus")
+    assert response.status_code == 400, response.status_code
+    assert "有效值为" in response.data["message"]
+    assert "active, left, retirement" in response.data["message"]

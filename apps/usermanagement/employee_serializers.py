@@ -6,7 +6,7 @@ from typing import Any
 
 from rest_framework import serializers
 
-from apps.usermanagement.models import Department, Employee
+from apps.usermanagement.models import Department, Employee, EmployeeStatus
 from core.batch_mixins import BaseBatchDeleteSerializer
 from core.constants import MAX_BATCH_SIZE as DEFAULT_MAX_BATCH_SIZE
 
@@ -171,7 +171,7 @@ class EmployeeBatchItemSerializer(serializers.Serializer):  # type: ignore[type-
     row_number = serializers.IntegerField(required=False, help_text="Excel 行号")
     employee_jobcode = serializers.CharField(required=True)
     employee_name = serializers.CharField(required=True)
-    employee_status = serializers.CharField(required=False, default="active")
+    employee_status = serializers.CharField(required=False, default=EmployeeStatus.ACTIVE)
     employee_department_code = serializers.SlugRelatedField(
         source="employee_department", slug_field="department_code", queryset=Department.objects.all(), required=False
     )

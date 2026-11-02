@@ -309,7 +309,6 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
         return BatchOperationMixin.batch_execute(
             items=asset_data_list,
             process_fn=_create_item,
-            max_batch_size=100,
             use_transaction=False,
         )
 

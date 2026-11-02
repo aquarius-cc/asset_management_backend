@@ -303,7 +303,6 @@ class OutAssetService:
         return BatchOperationMixin.batch_execute(
             items=outasset_data_list,
             process_fn=_create_item,
-            max_batch_size=100,
             use_transaction=False,
         )
 

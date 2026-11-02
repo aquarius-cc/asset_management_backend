@@ -6,7 +6,7 @@
   _restore #14/#15 manager fallback 键、#63 update_fields=None、
   _apply #33 update_fields=None
 - B 等价(13):审计快照 fallback getattr 死分支、snapshot or True 分支、
-  batch max_batch_size=None/101、use_transaction=None/True(值不改变可观察行为)、
+  batch DEFAULT_MAX_BATCH_SIZE=None/101、use_transaction=None/True(值不改变可观察行为)、
   _delete_one 守卫参数(None/True/False 无数据差异)
 
 杀灭手法:

@@ -7,7 +7,7 @@ from typing import Any, cast
 from django.db.models import Count, Q, QuerySet
 
 from apps.authusermanagement.models import AuthUser
-from apps.usermanagement.models import Department, Employee
+from apps.usermanagement.models import Department, Employee, EmployeeStatus
 from core.department_scope import get_employee_scoped_queryset_for_user
 
 
@@ -198,7 +198,7 @@ class EmployeeSelector:
         Returns:
             在职员工查询集
         """
-        return Employee.objects.filter(employee_status="active").select_related("employee_department")
+        return Employee.objects.filter(employee_status=EmployeeStatus.ACTIVE).select_related("employee_department")
 
     @staticmethod
     def get_employee_statistics(queryset: QuerySet[Employee] | None = None) -> dict[str, Any]:
@@ -233,7 +233,7 @@ class EmployeeSelector:
         base = queryset if queryset is not None else Employee.objects.all()
 
         # 使用 aggregate 一次查询获取总数和在职数
-        stats = base.aggregate(total=Count("id"), active=Count("id", filter=Q(employee_status="active")))
+        stats = base.aggregate(total=Count("id"), active=Count("id", filter=Q(employee_status=EmployeeStatus.ACTIVE)))
 
         # 使用 annotate 按状态分组,一次查询完成
         status_stats = {}

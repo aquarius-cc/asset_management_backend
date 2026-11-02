@@ -423,7 +423,6 @@ class AssetLifecycleMixin:
         return BatchOperationMixin.batch_execute(
             items=items,
             process_fn=_create_one,
-            max_batch_size=100,
             use_transaction=False,
         )
 
@@ -451,7 +450,6 @@ class AssetLifecycleMixin:
         return BatchOperationMixin.batch_execute(
             items=items,
             process_fn=_create_one,
-            max_batch_size=100,
             use_transaction=False,
         )
 

@@ -46,7 +46,6 @@ from apps.unregisteredasset.handlers import (
 )
 from apps.unregisteredasset.models import UnregisteredAsset
 from apps.unregisteredasset.selectors import UnregisteredAssetSelector
-from core.constants import MAX_BATCH_SIZE
 from core.exceptions import AppValidationError
 from utils.update_whitelist import apply_whitelisted_updates, filter_whitelisted_fields
 
@@ -330,7 +329,6 @@ class UnregisteredAssetService:
         result = BatchOperationMixin.batch_execute(
             items=data_list,
             process_fn=_create_item,
-            max_batch_size=MAX_BATCH_SIZE,
             use_transaction=False,
         )
         # 【契约锁定】本端点 fail_items 契约与迁移前手写版一致(快照测试逐键锁定):
@@ -507,4 +505,4 @@ class UnregisteredAssetService:
                 operator_name=operator_name,
             )
 
-        return BatchOperationMixin.batch_delete_execute(ids=ids, process_fn=_delete_item, max_batch_size=MAX_BATCH_SIZE)
+        return BatchOperationMixin.batch_delete_execute(ids=ids, process_fn=_delete_item)

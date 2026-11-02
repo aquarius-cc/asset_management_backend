@@ -23,7 +23,7 @@ from collections.abc import Iterator
 from typing import Any
 
 from apps.assetmanagement.interfaces import EmployeeDTO, EmployeeProvider
-from apps.usermanagement.models import Employee
+from apps.usermanagement.models import Employee, EmployeeStatus
 from apps.usermanagement.serializers import EmployeeSerializer
 
 
@@ -34,7 +34,7 @@ class DjangoEmployeeProvider(EmployeeProvider):
 
     def get_employee_queryset(self) -> Any:
         """获取员工QuerySet(已过滤 employee_status='active')"""
-        return Employee.objects.filter(employee_status="active")
+        return Employee.objects.filter(employee_status=EmployeeStatus.ACTIVE)
 
     def get_serializer_class(self) -> type:
         """获取员工序列化器类"""

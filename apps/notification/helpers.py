@@ -40,7 +40,7 @@ def notify_dept_managers(
         priority: 优先级(low/medium/high)
         related_url: 关联页面路径
     """
-    from apps.usermanagement.models import Employee
+    from apps.usermanagement.models import Employee, EmployeeRole, EmployeeStatus
     from core.department_scope import resolve_asset_department_codes
 
     dept_codes = resolve_asset_department_codes(asset)
@@ -51,8 +51,8 @@ def notify_dept_managers(
     # 查找该部门的所有 dept_manager
     managers = Employee.objects.filter(
         employee_department__department_code__in=dept_codes,
-        role="dept_manager",
-        employee_status="active",
+        role=EmployeeRole.DEPT_MANAGER,
+        employee_status=EmployeeStatus.ACTIVE,
         is_deleted=False,
     ).values_list("employee_jobcode", flat=True)
 

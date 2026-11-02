@@ -18,7 +18,6 @@
             return BatchOperationMixin.batch_execute(
                 items=asset_data_list,
                 process_fn=_create_item,
-                max_batch_size=100,
                 use_transaction=False,  # 创建方法自身已有 @transaction.atomic
             )
 """
@@ -91,7 +90,7 @@ class BatchOperationMixin:
             items: 待处理的条目列表
             process_fn: 单条处理函数,签名 fn(index, item) -> result
                        成功时返回结果对象,失败时抛出 AppValidationError
-            max_batch_size: 最大批量大小,默认 100
+            max_batch_size: 最大批量大小,省略时回落 DEFAULT_MAX_BATCH_SIZE(= core.constants.MAX_BATCH_SIZE; 生产代码已统一走默认回落,无显式实参)
             use_transaction: 是否为每条记录包裹 transaction.atomic
             item_key: fail_items 中用于标识条目的键名('index' 或 'id')
 
@@ -174,7 +173,7 @@ class BatchOperationMixin:
             ids: 待删除的 ID 列表
             process_fn: 单条删除函数,签名 fn(id) -> None
                        成功时无返回,失败时抛出 AppValidationError
-            max_batch_size: 最大批量大小,默认 100
+            max_batch_size: 最大批量大小,省略时回落 DEFAULT_MAX_BATCH_SIZE(= core.constants.MAX_BATCH_SIZE; 生产代码已统一走默认回落,无显式实参)
 
         Returns:
             Dict[str, Any]: 统一格式的批量删除结果

@@ -400,14 +400,14 @@ class TestBatchCreateRecycleMutants:
         assert "is_broken" in items[0]
 
     def test_batch_rejects_101_items(self, recycle_data):
-        """101 条触发批量上限(杀 max_batch_size 数值放宽变体)"""
+        """101 条触发批量上限(杀 DEFAULT_MAX_BATCH_SIZE 数值放宽变体)"""
         items = [dict(recycle_data) for _ in range(101)]
         with pytest.raises(AppValidationError) as exc_info:
             RecycleAssetService.batch_create_recycle_asset(recycle_data_list=items)
         assert exc_info.value.error_code == "BATCH_SIZE_EXCEEDED"
 
     def test_batch_accepts_exactly_100_items(self, recycle_data):
-        """恰 100 条不触发上限(杀 max_batch_size 收紧变体)"""
+        """恰 100 条不触发上限(杀 DEFAULT_MAX_BATCH_SIZE 收紧变体)"""
         items = [dict(recycle_data) for _ in range(100)]
         result = RecycleAssetService.batch_create_recycle_asset(recycle_data_list=items)
         assert result["total"] == 100

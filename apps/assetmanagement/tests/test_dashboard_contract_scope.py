@@ -32,9 +32,7 @@ def _phone() -> str:
 
 def _make_user(username: str, role: EmployeeRole | None, department: Department | None) -> AuthUser:
     """按角色构造 AuthUser + Employee（role=None 仅 AuthUser，superuser 语义）。"""
-    user = AuthUser.objects.create_user(
-        auth_username=username, password=TEST_PASSWORD, auth_phone=_phone()
-    )
+    user = AuthUser.objects.create_user(auth_username=username, password=TEST_PASSWORD, auth_phone=_phone())
     if role is not None:
         Employee.objects.create(
             employee_jobcode=username,
@@ -86,9 +84,7 @@ def test_overview_total_contracts_by_role(username, role, expected, dept, two_co
 
 def test_overview_superuser_sees_full_contracts(two_contracts):
     """superuser（is_superuser 绕过）返回真值。"""
-    su = AuthUser.objects.create_superuser(
-        auth_username="SU-CT", password=TEST_PASSWORD, auth_phone=_phone()
-    )
+    su = AuthUser.objects.create_superuser(auth_username="SU-CT", password=TEST_PASSWORD, auth_phone=_phone())
     client = APIClient()
     client.force_authenticate(user=su)
     response = client.get(OVERVIEW_URL)

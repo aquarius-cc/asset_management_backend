@@ -37,9 +37,7 @@ _phones = _phone_seq()
 
 def _make_manager(username: str, department: Department) -> AuthUser:
     """部门经理（AuthUser + Employee 同名关联）。"""
-    user = AuthUser.objects.create_user(
-        auth_username=username, password=TEST_PASSWORD, auth_phone=next(_phones)
-    )
+    user = AuthUser.objects.create_user(auth_username=username, password=TEST_PASSWORD, auth_phone=next(_phones))
     Employee.objects.create(
         employee_jobcode=username,
         employee_name=f"{username}经理",

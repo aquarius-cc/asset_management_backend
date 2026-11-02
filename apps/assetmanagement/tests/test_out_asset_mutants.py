@@ -380,7 +380,9 @@ class TestDeleteOneMutants:
             _outasset_payload(asset, applicant=user, manager=user, using_location="新地")
         )
         with patch(AUDIT) as mock_audit:
-            OutAssetService._delete_one(oa.recordcode, operator_jobcode="OP1", operator_name="张三", user=full_scope_user)
+            OutAssetService._delete_one(
+                oa.recordcode, operator_jobcode="OP1", operator_name="张三", user=full_scope_user
+            )
         assert mock_audit.log_state_change.call_count == 1
         kwargs = mock_audit.log_state_change.call_args.kwargs
         assert kwargs["trigger"] == "cancel_outasset"

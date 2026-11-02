@@ -275,9 +275,7 @@ def ensure_asset_attribution_in_scope(user: Any, asset_data: Any) -> None:
             error_code="NO_DEPARTMENT_SCOPE",
         )
     if codes.isdisjoint(user_codes):
-        raise AppValidationError(
-            detail="资产归属部门不在您的管理范围内", error_code="ASSET_ATTRIBUTION_OUT_OF_SCOPE"
-        )
+        raise AppValidationError(detail="资产归属部门不在您的管理范围内", error_code="ASSET_ATTRIBUTION_OUT_OF_SCOPE")
 
 
 def ensure_employees_in_scope(user: Any, employees: Iterable[Any]) -> None:

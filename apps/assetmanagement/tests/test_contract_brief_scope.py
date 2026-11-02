@@ -29,9 +29,7 @@ def _phone() -> str:
 
 
 def _make_manager(username: str, department: Department) -> AuthUser:
-    user = AuthUser.objects.create_user(
-        auth_username=username, password=TEST_PASSWORD, auth_phone=_phone()
-    )
+    user = AuthUser.objects.create_user(auth_username=username, password=TEST_PASSWORD, auth_phone=_phone())
     Employee.objects.create(
         employee_jobcode=username,
         employee_name=f"{username}经理",

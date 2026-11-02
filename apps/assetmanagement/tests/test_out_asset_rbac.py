@@ -37,9 +37,7 @@ _phones = _phone_seq()
 
 def _make_manager(username: str, department: Department) -> AuthUser:
     """部门经理（AuthUser + Employee 同名关联）。"""
-    user = AuthUser.objects.create_user(
-        auth_username=username, password=TEST_PASSWORD, auth_phone=next(_phones)
-    )
+    user = AuthUser.objects.create_user(auth_username=username, password=TEST_PASSWORD, auth_phone=next(_phones))
     Employee.objects.create(
         employee_jobcode=username,
         employee_name=f"{username}经理",
@@ -149,17 +147,13 @@ class TestOutAssetSingleEndpointRBAC:
     def test_cross_department_destroy_404(self, storage, asset_type, manager_a, manager_b):
         """跨部门单条 DELETE → get_object()（scoped）404，不泄露存在性。"""
         out_b = _make_scoped_outasset(storage, asset_type, manager_b, "B03")
-        response = self._client(manager_a).delete(
-            f"/api/v1/assets/out-assets/{out_b.recordcode}/"
-        )
+        response = self._client(manager_a).delete(f"/api/v1/assets/out-assets/{out_b.recordcode}/")
         assert response.status_code == 404, response.status_code
         assert OutAsset.objects.filter(recordcode=out_b.recordcode, is_deleted=False).exists()
 
     def test_cross_department_cancel_404(self, storage, asset_type, manager_a, manager_b):
         """跨部门单条 cancel → get_object()（scoped）404（存在性不泄露）。"""
         out_b = _make_scoped_outasset(storage, asset_type, manager_b, "B04")
-        response = self._client(manager_a).post(
-            f"/api/v1/assets/out-assets/{out_b.recordcode}/cancel/"
-        )
+        response = self._client(manager_a).post(f"/api/v1/assets/out-assets/{out_b.recordcode}/cancel/")
         assert response.status_code == 404, response.status_code
         assert OutAsset.objects.filter(recordcode=out_b.recordcode, is_deleted=False).exists()

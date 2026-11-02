@@ -31,9 +31,7 @@ def _phone() -> str:
 
 
 def _make_user(username: str, role: EmployeeRole, department: Department | None) -> AuthUser:
-    user = AuthUser.objects.create_user(
-        auth_username=username, password=TEST_PASSWORD, auth_phone=_phone()
-    )
+    user = AuthUser.objects.create_user(auth_username=username, password=TEST_PASSWORD, auth_phone=_phone())
     Employee.objects.create(
         employee_jobcode=username,
         employee_name=f"{username}本人",
@@ -93,9 +91,7 @@ def test_export_matrix_roles_unaffected(url_name, domain, dept, db):
     assert su_response.status_code == 200, f"{url_name} system_admin: {su_response.status_code}"
     # regular_user 被拒：403（权限层）/ 404（行级隔离不泄露存在性，§4.5 unregisteredasset 语义）/
     # 200（行级空集）——三者均为改前既有行为，锁定不漂移
-    assert regular_response.status_code in (200, 403, 404), (
-        f"{url_name} regular_user: {regular_response.status_code}"
-    )
+    assert regular_response.status_code in (200, 403, 404), f"{url_name} regular_user: {regular_response.status_code}"
 
 
 @pytest.mark.parametrize("url_name,domain", LIFECYCLE_EXPORT_STRICT)

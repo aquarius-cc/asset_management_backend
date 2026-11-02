@@ -35,9 +35,7 @@ def _phone() -> str:
 
 
 def _make_user(username: str, role: EmployeeRole | None, department: Department | None) -> AuthUser:
-    user = AuthUser.objects.create_user(
-        auth_username=username, password=TEST_PASSWORD, auth_phone=_phone()
-    )
+    user = AuthUser.objects.create_user(auth_username=username, password=TEST_PASSWORD, auth_phone=_phone())
     if role is not None:
         Employee.objects.create(
             employee_jobcode=username,

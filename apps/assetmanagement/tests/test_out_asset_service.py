@@ -140,7 +140,9 @@ class TestOutAssetLockAndUsageType:
         fresh = Asset.objects.get(asset_code=asset.asset_code)
         assert fresh.usage_type == "used"
 
-    def test_cancel_outasset_lock_timeout_lands_in_fail_items(self, storage, asset_type, user, employee, full_scope_user):
+    def test_cancel_outasset_lock_timeout_lands_in_fail_items(
+        self, storage, asset_type, user, employee, full_scope_user
+    ):
         """AC-65: cancel 行锁超时 → fail_items ASSET_LOCKED,不落 INTERNAL_ERROR/500"""
         asset = _make_asset(storage, asset_type, "in_store", "OUT_SVC_CLK")
         outasset = OutAssetService.create_outasset(
@@ -176,9 +178,7 @@ class TestOutAssetLockAndUsageType:
 
         with mock.patch.object(qs_type, "get", autospec=True, side_effect=fake_get):
             with pytest.raises(ResourceConflictError) as exc:
-                OutAssetService.update_outasset(
-                    outasset.recordcode, {"outasset_using_location": "更新地点"}, user=user
-                )
+                OutAssetService.update_outasset(outasset.recordcode, {"outasset_using_location": "更新地点"}, user=user)
         assert exc.value.status_code == 409
         assert exc.value.error_code == "ASSET_LOCKED"
 
@@ -289,7 +289,9 @@ class TestCancelOutAssetService:
         assert asset.asset_using_location == "原地点"
         assert asset.usage_type == "used"  # F-P2-9 回归锚:取消出库不还原 usage_type
 
-    def test_cancel_from_recycled_pending_not_restore_storage(self, storage, asset_type, user, employee, full_scope_user):
+    def test_cancel_from_recycled_pending_not_restore_storage(
+        self, storage, asset_type, user, employee, full_scope_user
+    ):
         asset = _make_asset(
             storage,
             asset_type,
@@ -483,9 +485,7 @@ class TestOutAssetPersonScope:
         assert result["fail_count"] == 1
         assert result["fail_items"][0]["error_code"] == "OUTASSET_PERSON_OUT_OF_SCOPE"
 
-    def test_update_cross_dept_applicant_raises(
-        self, storage, asset_type, employee, auth_user, cross_dept_employee
-    ):
+    def test_update_cross_dept_applicant_raises(self, storage, asset_type, employee, auth_user, cross_dept_employee):
         outasset = self._make_outasset(storage, asset_type, employee, "OUT_PSN_UP1")
         with pytest.raises(AppValidationError) as exc_info:
             OutAssetService.update_outasset(

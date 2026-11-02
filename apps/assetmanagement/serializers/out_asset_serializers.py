@@ -146,7 +146,9 @@ class OutAssetDetailSerializer(serializers.ModelSerializer[OutAsset]):
     asset_code = serializers.CharField(source="asset_recordcode.asset_code", read_only=True)
     asset_name = serializers.CharField(source="asset_recordcode.asset_name", read_only=True)
     asset_specification = serializers.CharField(source="asset_recordcode.asset_specification", read_only=True)
-    contract = ContractBriefSerializer(source="asset_recordcode.asset_contract_recordcode", read_only=True, allow_null=True)
+    contract = ContractBriefSerializer(
+        source="asset_recordcode.asset_contract_recordcode", read_only=True, allow_null=True
+    )
     outasset_current_status = serializers.CharField(source="asset_recordcode.asset_current_status", read_only=True)
     outasset_applicant = get_employee_serializer_class()(
         source="asset_recordcode.asset_applicant_recordcode", read_only=True, allow_null=True

@@ -16,7 +16,7 @@ from rest_framework import serializers
 
 from apps.assetmanagement.interfaces import get_employee_queryset, get_employee_serializer_class
 from apps.assetmanagement.models import Asset, OutAsset
-from apps.assetmanagement.serializers.base_model_serializers import ContractSerializer
+from apps.assetmanagement.serializers.base_model_serializers import ContractBriefSerializer
 from core.batch_mixins import BaseBatchDeleteSerializer
 from core.constants import MAX_BATCH_SIZE as DEFAULT_MAX_BATCH_SIZE
 
@@ -146,7 +146,7 @@ class OutAssetDetailSerializer(serializers.ModelSerializer[OutAsset]):
     asset_code = serializers.CharField(source="asset_recordcode.asset_code", read_only=True)
     asset_name = serializers.CharField(source="asset_recordcode.asset_name", read_only=True)
     asset_specification = serializers.CharField(source="asset_recordcode.asset_specification", read_only=True)
-    contract = ContractSerializer(source="asset_recordcode.asset_contract_recordcode", read_only=True, allow_null=True)
+    contract = ContractBriefSerializer(source="asset_recordcode.asset_contract_recordcode", read_only=True, allow_null=True)
     outasset_current_status = serializers.CharField(source="asset_recordcode.asset_current_status", read_only=True)
     outasset_applicant = get_employee_serializer_class()(
         source="asset_recordcode.asset_applicant_recordcode", read_only=True, allow_null=True

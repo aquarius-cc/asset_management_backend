@@ -255,6 +255,39 @@ class ContractUpdateSerializer(serializers.ModelSerializer[Contract]):
 ContractSerializer = ContractCreateSerializer
 
 
+class ContractBriefSerializer(serializers.ModelSerializer[Contract]):
+    """
+    合同摘要序列化器（白名单式，BF-170 批次 3 D4 拍板）
+
+    用途:资产上下文的合同嵌套展示（资产详情 asset_contract / 出库详情 contract）。
+    白名单仅含非财务展示字段,剔除 contract_amount / settlemented_price /
+    amount_paid / amount_unpaid / paid_record 五个财务字段——资产上下文不应
+    泄露合同财务域数据（合同读权限 BF-127 = system_admin-only）。
+
+    豁免说明（R4 拍板,与 M-07 处置呼应）:contract_by_asset 端点数据主体为
+    合同财务域,资产仅作查询索引条件,不构成跨域耦合,豁免剥离;保护性断言
+    见 tests/test_contract_brief_scope.py（认证 + 资产行级隔离门禁仍在）。
+    """
+
+    class Meta:
+        model = Contract
+        fields = [
+            "recordcode",
+            "contract_code",
+            "contract_name",
+            "contract_type",
+            "supplier_name",
+            "contract_total_quantity",
+            "contract_start_date",
+            "contract_end_date",
+            "contract_status",
+            "contract_description",
+            "sort_order",
+            "is_active",
+        ]
+        read_only_fields = fields
+
+
 class HardDiskSNSimpleSerializer(serializers.ModelSerializer[HardDiskSN]):
     """硬盘序列号精简序列化器(用于 Asset 详情嵌套)"""
 

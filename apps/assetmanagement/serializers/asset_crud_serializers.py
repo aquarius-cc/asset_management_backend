@@ -18,7 +18,7 @@ from apps.assetmanagement.models import Asset, AssetOperationLog, AssetType, Con
 from apps.assetmanagement.selectors import AssetSelector
 from apps.assetmanagement.serializers.base_model_serializers import (
     AssetTypeSerializer,
-    ContractSerializer,
+    ContractBriefSerializer,
     HardDiskSNSimpleSerializer,
     StorageSerializer,
     StrictUnknownFieldMixin,
@@ -91,7 +91,7 @@ AssetSerializer = AssetListSerializer
 class AssetDetailSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     # 使用 source 参数映射后端字段名到前端字段名(读取时)
     asset_type = AssetTypeSerializer(source="asset_type_recordcode", read_only=True)
-    asset_contract = ContractSerializer(source="asset_contract_recordcode", read_only=True)
+    asset_contract = ContractBriefSerializer(source="asset_contract_recordcode", read_only=True)
     asset_storage = StorageSerializer(source="asset_storage_recordcode", read_only=True)
     asset_entry_person = get_employee_serializer_class()(source="asset_entry_person_recordcode", read_only=True)
     asset_applicant = get_employee_serializer_class()(source="asset_applicant_recordcode", read_only=True)

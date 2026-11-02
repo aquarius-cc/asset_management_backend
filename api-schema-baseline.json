@@ -13724,7 +13724,7 @@
                     "asset_contract": {
                         "allOf": [
                             {
-                                "$ref": "#/components/schemas/ContractCreate"
+                                "$ref": "#/components/schemas/ContractBrief"
                             }
                         ],
                         "readOnly": true
@@ -15162,6 +15162,118 @@
                 },
                 "required": [
                     "items"
+                ]
+            },
+            "ContractBrief": {
+                "type": "object",
+                "description": "合同摘要序列化器（白名单式，BF-170 批次 3 D4 拍板）\n\n用途:资产上下文的合同嵌套展示（资产详情 asset_contract / 出库详情 contract）。\n白名单仅含非财务展示字段,剔除 contract_amount / settlemented_price /\namount_paid / amount_unpaid / paid_record 五个财务字段——资产上下文不应\n泄露合同财务域数据（合同读权限 BF-127 = system_admin-only）。\n\n豁免说明（R4 拍板,与 M-07 处置呼应）:contract_by_asset 端点数据主体为\n合同财务域,资产仅作查询索引条件,不构成跨域耦合,豁免剥离;保护性断言\n见 tests/test_contract_brief_scope.py（认证 + 资产行级隔离门禁仍在）。",
+                "properties": {
+                    "recordcode": {
+                        "type": "string",
+                        "readOnly": true,
+                        "nullable": true,
+                        "title": "记录编码",
+                        "description": "后端生成的全局唯一编码,用于外键引用"
+                    },
+                    "contract_code": {
+                        "type": "string",
+                        "readOnly": true,
+                        "title": "合同编号",
+                        "description": "合同唯一编码"
+                    },
+                    "contract_name": {
+                        "type": "string",
+                        "readOnly": true,
+                        "title": "合同名称",
+                        "description": "合同的完整名称"
+                    },
+                    "contract_type": {
+                        "readOnly": true,
+                        "nullable": true,
+                        "title": "合同类型",
+                        "description": "合同类型:招标采购/服务/信息化建设/直接采购\n\n* `tender_procurement` - 招标采购合同\n* `service` - 服务合同\n* `information_construction` - 信息化建设合同\n* `direct_procurement` - 直接采购合同",
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/ContractTypeEnum"
+                            },
+                            {
+                                "$ref": "#/components/schemas/NullEnum"
+                            }
+                        ]
+                    },
+                    "supplier_name": {
+                        "type": "string",
+                        "readOnly": true,
+                        "nullable": true,
+                        "title": "供应商名称",
+                        "description": "供应商名称"
+                    },
+                    "contract_total_quantity": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "nullable": true,
+                        "title": "合同总数量",
+                        "description": "合同约定的总数量"
+                    },
+                    "contract_start_date": {
+                        "type": "string",
+                        "format": "date",
+                        "readOnly": true,
+                        "nullable": true,
+                        "title": "合同开始日期",
+                        "description": "合同开始日期"
+                    },
+                    "contract_end_date": {
+                        "type": "string",
+                        "format": "date",
+                        "readOnly": true,
+                        "nullable": true,
+                        "title": "合同结束日期",
+                        "description": "合同结束日期"
+                    },
+                    "contract_status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ContractStatusEnum"
+                            }
+                        ],
+                        "readOnly": true,
+                        "title": "合同状态",
+                        "description": "合同状态:供货中/供货完成/到货验收/初步验收/结算中/结算完成/最终验收/项目结束\n\n* `purchasing` - 供货中\n* `purchase_finished` - 供货完成\n* `receive_check` - 到货验收\n* `initial_check` - 初步验收\n* `project_settlement` - 结算中\n* `settlement_done` - 结算完成\n* `final_check` - 最终验收\n* `project_finished` - 项目结束"
+                    },
+                    "contract_description": {
+                        "type": "string",
+                        "readOnly": true,
+                        "nullable": true,
+                        "title": "合同描述",
+                        "description": "补充说明"
+                    },
+                    "sort_order": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "title": "排序",
+                        "description": "排序字段"
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "title": "是否启用",
+                        "description": "控制记录是否激活"
+                    }
+                },
+                "required": [
+                    "contract_code",
+                    "contract_description",
+                    "contract_end_date",
+                    "contract_name",
+                    "contract_start_date",
+                    "contract_status",
+                    "contract_total_quantity",
+                    "contract_type",
+                    "is_active",
+                    "recordcode",
+                    "sort_order",
+                    "supplier_name"
                 ]
             },
             "ContractCreate": {
@@ -17015,7 +17127,7 @@
                     },
                     "total_contracts": {
                         "type": "integer",
-                        "description": "未删除合同总数（不按用户范围隔离）"
+                        "description": "未删除合同总数（仅 system_admin 返回全量，其余角色恒为 0，BF-170 M-12 与合同读权限对齐）"
                     },
                     "active_assets": {
                         "type": "integer",
@@ -17091,7 +17203,7 @@
                     },
                     "total_contracts": {
                         "type": "integer",
-                        "description": "未删除合同总数（不按用户范围隔离）"
+                        "description": "未删除合同总数（仅 system_admin 返回全量，其余角色恒为 0，BF-170 M-12 与合同读权限对齐）"
                     },
                     "active_assets": {
                         "type": "integer",
@@ -19243,7 +19355,7 @@
                     "contract": {
                         "allOf": [
                             {
-                                "$ref": "#/components/schemas/ContractCreate"
+                                "$ref": "#/components/schemas/ContractBrief"
                             }
                         ],
                         "readOnly": true,

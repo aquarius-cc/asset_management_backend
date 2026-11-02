@@ -401,6 +401,9 @@ class AssetViewSet(  # type: ignore[misc]
         contract = asset.asset_contract_recordcode
         if contract is None:
             return error_response(message=f"资产 {asset_code} 未关联合同", status_code=404)
+        # BF-170 批次 3 D4/R4 拍板豁免:本端点数据主体为合同财务域,资产仅作查询索引
+        # 条件,不构成跨域耦合,故保留 ContractDetailSerializer(含财务字段);
+        # 保护性断言见 tests/test_contract_brief_scope.py(认证 + 资产行级隔离门禁仍在)。
         serializer = ContractDetailSerializer(contract)
         return success_response(data=serializer.data, message="查询成功")
 

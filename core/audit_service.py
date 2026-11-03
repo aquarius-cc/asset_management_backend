@@ -9,6 +9,8 @@ from typing import Any
 
 from django.db import transaction
 
+from core.audit_sanitizer import mask_sensitive_snapshot
+from core.metrics import AUDIT_WRITE_FAILED
 from core.models_audit import AuditLog
 from core.request_context import get_current_ip
 
@@ -43,6 +45,11 @@ class GenericAuditService:
         TransactionManagementError/500)。回调体兜底 + robust=True 双保险,失败仅 logger.error
         留痕不传播;延迟后无法返回实例,恒返回 None(既有调用方均未消费返回值)。
         """
+        # 【OP-05 / OC-3】审计快照入库前脱敏, 唯一收口点(DR-1)。BF-165 的明文口径仅限
+        # API 响应体; 落库快照的消费方只有 IsAuditorOrAdmin, 且手机号仍可经员工端点取得,
+        # 故此处脱敏不推翻 BF-165, 也不减少任何既有能力。
+        before_data = mask_sensitive_snapshot(before_data)
+        after_data = mask_sensitive_snapshot(after_data)
 
         def _write_audit() -> None:
             try:
@@ -58,6 +65,8 @@ class GenericAuditService:
                     ip_address=ip_address or get_current_ip(),
                 )
             except Exception as e:
+                # 【M-19】审计写入失败属合规事件, 计入指标供告警, 保留 error 日志不上抛
+                AUDIT_WRITE_FAILED.labels(channel="generic_audit_log").inc()
                 logger.error(f"通用审计日志记录失败: {e}", exc_info=True)
 
         transaction.on_commit(_write_audit, robust=True)

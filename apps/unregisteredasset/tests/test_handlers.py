@@ -13,6 +13,7 @@ import pytest
 
 from apps.assetmanagement.models import Asset, AssetOperationLog, OutAsset, RecycleAsset, Storage
 from apps.unregisteredasset.handlers import (
+    _handle_s1_create_and_damaged,
     _handle_s1_create_and_recycle,
     _handle_s2_supplement_and_recycle,
     _handle_s3_correct_and_recycle,
@@ -133,3 +134,39 @@ class TestForceRecycleStateChangeAudit:
         )
         assert log.before_data["asset_current_status"] == "in_store"
         assert log.after_data["asset_current_status"] == "recycled_pending"
+
+
+@pytest.mark.django_db
+class TestS1CreateAuditTrail:
+    """[OP-10] S1 场景裸 Asset.objects.create + FSM 旁路补痕: 与 M-16 范式对齐,
+    创建(create) + 状态变更(state_change) 两条审计事件构成完整链路。"""
+
+    def test_s1_recycle_writes_create_and_state_change_log(self, unregistered_asset_s1, admin_employee):
+        result = _handle_s1_create_and_recycle(unregistered_asset_s1, admin_employee)
+        asset = Asset.objects.get(asset_code=result["asset_code"])
+
+        # 创建痕迹: after_data 如实为 in_store(FSM 前), 与 state_change 构成完整前态
+        create_log = AssetOperationLog.objects.filter(asset_code=asset.asset_code, operation_type="create").latest("id")
+        assert create_log.after_data["asset_current_status"] == "in_store"
+
+        # 状态变更痕迹: in_store → recycled_pending, trigger 可追溯
+        state_log = AssetOperationLog.objects.filter(asset_code=asset.asset_code, operation_type="state_change").latest(
+            "id"
+        )
+        assert state_log.before_data["asset_current_status"] == "in_store"
+        assert state_log.after_data["asset_current_status"] == "recycled_pending"
+        assert "unregistered_create_and_recycle" in state_log.description
+
+    def test_s1_damaged_writes_create_and_state_change_log(self, unregistered_asset_s1, admin_employee):
+        result = _handle_s1_create_and_damaged(unregistered_asset_s1, admin_employee)
+        asset = Asset.objects.get(asset_code=result["asset_code"])
+
+        create_log = AssetOperationLog.objects.filter(asset_code=asset.asset_code, operation_type="create").latest("id")
+        assert create_log.after_data["asset_current_status"] == "in_store"
+
+        state_log = AssetOperationLog.objects.filter(asset_code=asset.asset_code, operation_type="state_change").latest(
+            "id"
+        )
+        assert state_log.before_data["asset_current_status"] == "in_store"
+        assert state_log.after_data["asset_current_status"] == "damaged"
+        assert "unregistered_create_and_damaged" in state_log.description

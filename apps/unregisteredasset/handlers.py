@@ -118,6 +118,24 @@ def _create_recycle_record(
     return RecycleAsset.objects.create(**recycle_data)  # type: ignore[no-any-return]
 
 
+def _asset_audit_logger() -> Any:
+    """审计入口延迟加载(DR-1 唯一实现, S1 补痕与 _force_finalize_recycle 共用)。
+
+    [M-16] audit 不得直连导入: audit:33 → services/__init__ → asset_service:14 → audit
+    构成入口次序敏感环, 冷直连即 ImportError。必须随链完整加载 operation_log_service,
+    再取 AuditLogger(导入次序沿既有 isort 字母序: audit 在前)。
+    """
+    from apps.assetmanagement.audit import AuditLogger
+    from apps.assetmanagement.services.operation_log_service import OperationLogService  # noqa: F401
+
+    return AuditLogger
+
+
+def _resolve_jobcode(operator: Any) -> Any:
+    """operator 形参沿 S1/S2/S3 既有形态承载 Employee 实例; 审计签名收 str。"""
+    return getattr(operator, "employee_jobcode", operator)
+
+
 def _force_finalize_recycle(unregistered: UnregisteredAsset, asset: Asset, operator_jobcode: Any) -> tuple[Asset, str]:
     """行级锁强制回收并更新目标仓库(S2/S3 共用),返回 (asset, 原状态)
 
@@ -127,12 +145,9 @@ def _force_finalize_recycle(unregistered: UnregisteredAsset, asset: Asset, opera
     (下游 _create_recycle_record 以 FK 消费),此处取 employee_jobcode 传给
     log_state_change(其签名收 str)。
     """
-    # [M-16] audit 不得直连导入：audit:33→services/__init__→asset_service:14→audit
-    # 构成入口次序敏感环（audit 直连即 ImportError）。先经 operation_log_service
-    # 链完整加载 audit（audit_adapter 同款模式），再取 AuditLogger。
-    from apps.assetmanagement.audit import AuditLogger
+    # [M-16] audit 不得直连导入(入口次序敏感环), 经 _asset_audit_logger 延迟加载(DR-1)。
+    audit = _asset_audit_logger()
     from apps.assetmanagement.models import Asset
-    from apps.assetmanagement.services.operation_log_service import OperationLogService  # noqa: F401
     from apps.assetmanagement.state_machine import AssetFSM, AssetState
 
     asset = Asset.objects.select_for_update().get(pk=asset.pk)
@@ -140,8 +155,8 @@ def _force_finalize_recycle(unregistered: UnregisteredAsset, asset: Asset, opera
     AssetFSM.force_recycle_from_any(asset)
     asset.asset_storage_recordcode = unregistered.unregistered_asset_storage
     asset.save(update_fields=["asset_current_status", "asset_storage_recordcode"])
-    jobcode = getattr(operator_jobcode, "employee_jobcode", operator_jobcode)
-    AuditLogger.log_state_change(
+    jobcode = _resolve_jobcode(operator_jobcode)
+    audit.log_state_change(
         asset=asset,
         from_state=old_status,
         to_state=AssetState.RECYCLED_PENDING.value,
@@ -162,13 +177,27 @@ def _handle_s1_create_and_recycle(unregistered: UnregisteredAsset, operator_jobc
     Returns:
         Dict[str, Any]: 处理结果
     """
-    from apps.assetmanagement.state_machine import AssetFSM
+    from apps.assetmanagement.state_machine import AssetFSM, AssetState
 
     asset = _create_unregistered_asset(unregistered)
+    audit = _asset_audit_logger()
+    jobcode = _resolve_jobcode(operator_jobcode)
+    # [OP-10] 创建痕迹: 此刻仍为 in_store, 与后续 state_change 构成完整前态
+    audit.log_asset_create(asset=asset, operator_jobcode=jobcode)
+
     outasset = _create_receive_outasset(unregistered, asset, f"不在账资产出库,来源: {unregistered.unregistered_code}")
 
+    old_status = asset.asset_current_status
     AssetFSM.unregistered_create_and_recycle(asset)
     asset.save(update_fields=["asset_current_status"])
+    # [OP-10] unregistered_create_and_recycle 为 M-60 声明例外的 FSM 旁路, 必须留前态
+    audit.log_state_change(
+        asset=asset,
+        from_state=old_status,
+        to_state=AssetState.RECYCLED_PENDING.value,
+        trigger="unregistered_create_and_recycle",
+        operator_jobcode=jobcode,
+    )
 
     recycle = _create_recycle_record(
         asset, outasset, operator_jobcode, f"不在账资产回收,来源: {unregistered.unregistered_code}"
@@ -196,12 +225,25 @@ def _handle_s1_create_and_damaged(unregistered: UnregisteredAsset, operator_jobc
         Dict[str, Any]: 处理结果
     """
     from apps.assetmanagement.models import DamagedAsset
-    from apps.assetmanagement.state_machine import AssetFSM
+    from apps.assetmanagement.state_machine import AssetFSM, AssetState
 
     asset = _create_unregistered_asset(unregistered)
+    audit = _asset_audit_logger()
+    jobcode = _resolve_jobcode(operator_jobcode)
+    # [OP-10] 创建痕迹: 此刻仍为 in_store, 与后续 state_change 构成完整前态
+    audit.log_asset_create(asset=asset, operator_jobcode=jobcode)
 
+    old_status = asset.asset_current_status
     AssetFSM.unregistered_create_and_damaged(asset)
     asset.save(update_fields=["asset_current_status"])
+    # [OP-10] unregistered_create_and_damaged 为 M-60 声明例外的 FSM 旁路, 必须留前态
+    audit.log_state_change(
+        asset=asset,
+        from_state=old_status,
+        to_state=AssetState.DAMAGED.value,
+        trigger="unregistered_create_and_damaged",
+        operator_jobcode=jobcode,
+    )
 
     damaged_data = {
         "asset_recordcode": asset,

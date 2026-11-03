@@ -182,6 +182,8 @@ class DamagedAssetService:
         asset.save(update_fields=["asset_current_status", "updated_at"])
 
         # 审计日志
+        # 【M-19】报废审批属合规关键流转: 审计写失败必须整体回滚, 不得"批准了但无痕"
+        # (方法为 @transaction.atomic, strict 抛出即整单回滚: 单据仍 pending、资产仍 damaged)
         AuditLogger.log_state_change(
             asset=asset,
             from_state=Asset.AssetStatus.DAMAGED,
@@ -189,6 +191,7 @@ class DamagedAssetService:
             trigger="approve",
             operator_jobcode=approver_jobcode,
             operator_name=operator_name,
+            strict=True,
         )
 
         DamagedAssetService._notify_waste_approved(asset)

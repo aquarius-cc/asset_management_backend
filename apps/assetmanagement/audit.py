@@ -31,6 +31,7 @@ from django.utils import timezone
 
 from apps.assetmanagement.models.operation_log import AssetOperationLog
 from apps.assetmanagement.services.operation_log_service import OperationLogService
+from core.metrics import AUDIT_WRITE_FAILED
 from core.request_context import get_current_ip
 
 
@@ -90,17 +91,20 @@ class AuditLogger:
     """
 
     @staticmethod
-    def _safe_log(log_func: Callable[..., Any], *args: Any, **kwargs: Any) -> bool:
-        """
-        安全执行日志记录
+    def _safe_log(log_func: Callable[..., Any], *args: Any, strict: bool = False, **kwargs: Any) -> bool:
+        """安全执行日志记录(容错); strict=True 时写失败向上抛出, 由外层事务整体回滚。
 
-        【容错设计】日志记录失败不应影响主业务流程。
+        【M-19】失败即计 asset_mgmt_audit_write_failed_total 并保留 error 日志;
+        strict 仅用于合规不可缺痕的关键流转(approve 报废), 其余保持容错契约。
         """
         try:
             log_func(*args, **kwargs)
             return True
         except Exception as e:
+            AUDIT_WRITE_FAILED.labels(channel="asset_operation_log").inc()
             logger.error(f"日志记录失败: {e}", exc_info=True)
+            if strict:
+                raise
             return False
 
     @staticmethod
@@ -171,11 +175,14 @@ class AuditLogger:
         operator_name: str | None = None,
         ip_address: str | None = None,
         description: str = "",
+        strict: bool = False,
     ) -> bool:
         """记录状态变更日志
 
         description: 【BF-108】变更原因(数据修复场景必填), 非空时追加为尾部子句;
         为空时描述逐字节保持原格式, 既有 exact 断言与 contains 断言均不受影响。
+        strict: 【M-19】True 时审计写失败向上抛出(由外层事务整体回滚), 仅用于
+        合规不可缺痕的关键流转(approve 报废), 默认容错契约不变。
         """
         detail = f"状态从 {from_state} 变更为 {to_state} (触发: {trigger})"
         if description:
@@ -192,6 +199,7 @@ class AuditLogger:
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
             ip_address=ip_address or get_current_ip(),
+            strict=strict,
         )
 
     @staticmethod

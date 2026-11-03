@@ -33,6 +33,8 @@
 import logging
 from typing import TYPE_CHECKING, Any  # 【P1-34 修复】添加 TYPE_CHECKING 导入
 
+from core.metrics import AUDIT_WRITE_FAILED
+
 
 if TYPE_CHECKING:
     from apps.unregisteredasset.models import UnregisteredAsset
@@ -105,6 +107,8 @@ class UnregisteredAssetAuditAdapter:
                 },
             )
         except Exception as e:
+            # 【M-19】真实活吞点: 计入指标供告警, 容错契约不变
+            AUDIT_WRITE_FAILED.labels(channel="unregistered_adapter").inc()
             # 记录日志异常,不影响主流程
             logger.error(f"记录未登记资产创建日志失败: {e}", exc_info=True)
 
@@ -150,6 +154,8 @@ class UnregisteredAssetAuditAdapter:
                 after_data=after_data,
             )
         except Exception as e:
+            # 【M-19】真实活吞点: 计入指标供告警, 容错契约不变
+            AUDIT_WRITE_FAILED.labels(channel="unregistered_adapter").inc()
             logger.error(f"记录未登记资产更新日志失败: {e}", exc_info=True)
 
     @staticmethod
@@ -205,6 +211,8 @@ class UnregisteredAssetAuditAdapter:
                 },
             )
         except Exception as e:
+            # 【M-19】真实活吞点: 计入指标供告警, 容错契约不变
+            AUDIT_WRITE_FAILED.labels(channel="unregistered_adapter").inc()
             logger.error(f"记录未登记资产审批日志失败: {e}", exc_info=True)
 
     @staticmethod
@@ -239,4 +247,6 @@ class UnregisteredAssetAuditAdapter:
                 },
             )
         except Exception as e:
+            # 【M-19】真实活吞点: 计入指标供告警, 容错契约不变
+            AUDIT_WRITE_FAILED.labels(channel="unregistered_adapter").inc()
             logger.error(f"记录未登记资产删除日志失败: {e}", exc_info=True)

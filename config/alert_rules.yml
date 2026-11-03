@@ -59,6 +59,16 @@ groups:
           summary: "请求堆积严重"
           description: "过去 3 分钟平均活跃请求数为 {{ $value }}"
 
+      # M-19: 审计写入失败 → 关键流转可能缺痕(approve 报废已由 strict 兜底为回滚, 其余为告警面)
+      - alert: AuditWriteFailed
+        expr: increase(asset_mgmt_audit_write_failed_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "审计日志写入失败(渠道 {{ $labels.channel }})"
+          description: "过去 5 分钟审计写入失败 {{ $value }} 次, 合规追溯可能出现缺痕"
+
   # M-5A 阶段: 无需新增容器,复用现有 exporter
   - name: asset_mgmt_infrastructure_alerts
     rules:

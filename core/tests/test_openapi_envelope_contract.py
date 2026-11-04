@@ -13,9 +13,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
-from drf_spectacular.generators import SchemaGenerator
-
 from core.envelope_schema import (
     ENVELOPE_NO_BODY_OPERATIONS,
     NON_ENVELOPE_OPERATIONS,
@@ -36,18 +33,6 @@ PHANTOM_OPERATION_IDS = frozenset(
         "v1_users_permissions_destroy",
     }
 )
-
-
-@pytest.fixture(scope="session")
-def api_schema():
-    """本地临时 fixture（OP-09 提交 1 先行使用）。
-
-    T3.1 将统一上提至根 conftest.py（与 apps/usermanagement/tests/conftest.py 的
-    session 级 fixture 同源合并），届时删除本定义避免重名。保持与该 conftest 一致
-    的无注解形态（fixture 内 untyped 调用不进 strict 推断面，mypy no-untyped-call
-    不会被触发；上提时跟随同源实现）。
-    """
-    return SchemaGenerator().get_schema(request=None, public=True)
 
 
 def _operation_ids(schema: dict[str, Any]) -> set[str]:
@@ -126,9 +111,7 @@ def test_non_json_operations_untouched(api_schema: dict[str, Any]) -> None:
                 if isinstance(media, dict):
                     media_schema = media.get("schema")
                     break
-            assert not _schema_is_envelope(media_schema, _components(api_schema)), (
-                f"{oid} 非信封名单端点被包裹"
-            )
+            assert not _schema_is_envelope(media_schema, _components(api_schema)), f"{oid} 非信封名单端点被包裹"
 
 
 def test_no_body_operations_preserved(api_schema: dict[str, Any]) -> None:

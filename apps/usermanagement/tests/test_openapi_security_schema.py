@@ -6,7 +6,7 @@
 没有第二个来源；而 drf-spectacular **不自动 import 用户扩展模块**。这两条叠在一起，
 使「扩展写错 / 忘了 import / scheme 名写错」三类失误全部**静默生效**——不抛异常、
 不报 warning 之外的错，只是 ``securitySchemes`` 悄悄空着，而每个 operation 仍在
-引用 ``BearerAuth``，形成**悬空 scheme 引用**（BF-051 实测：面 = 全部 267 个
+引用 ``BearerAuth``，形成**悬空 scheme 引用**（BF-051 实测：面 = 全部 265 个
 operation，即 100% 端点）。
 
 因此本文件不测「有没有写扩展」，而是测**最终产物**：
@@ -15,7 +15,7 @@ operation，即 100% 端点）。
 2. ``securitySchemes`` 真的物化出两个 scheme，且 cookie 名与 settings 逐字一致
 3. **全量 operation 的 security 引用均可解析**（核心：直击根因，未来新增认证类
    造成的同类悬空也会被这条抓住）
-4. operation 数组逐字未变（反向护栏：防日后被「顺手改成引用」导致 267 处漂移）
+4. operation 数组逐字未变（反向护栏：防日后被「顺手改成引用」导致 265 处漂移）
 5. 生成期不再有 ``could not resolve authenticator`` 告警
 
 【与既有护栏的分工】

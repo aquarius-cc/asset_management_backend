@@ -65,9 +65,15 @@ def _param(schema, url, name, method="get"):
 
 
 def test_statistics_response_is_aggregate_dict_not_paginated_list(employee_schema):
-    """statistics 返回聚合字典，不得再声明为分页员工数组。"""
+    """statistics 返回聚合字典，不得再声明为分页员工数组。
+
+    OP-09 批次 8 提交 2：响应经 envelope_postprocessor 信封化，聚合体移入 ``data``
+    （顶层新增 code/message），``$ref`` 断言随之下钻（T2.7 断言改写）。
+    """
     response = employee_schema["paths"][STATS_URL]["get"]["responses"]["200"]
-    ref = response["content"]["application/json"]["schema"]
+    schema = response["content"]["application/json"]["schema"]
+    assert schema["x-envelope"] is True
+    ref = schema["properties"]["data"]
     assert ref["$ref"] == "#/components/schemas/EmployeeStatistics"
 
     props = employee_schema["components"]["schemas"]["EmployeeStatistics"]["properties"]
@@ -140,14 +146,19 @@ def test_sort_response_is_bare_array(employee_schema):
     传 ``EmployeeSerializer(many=True)`` 会被 :1500 的分页包装分支覆盖成
     PaginatedEmployeeList，且连带打开 get_filter_backends() 泄漏筛选参数。
 
+    OP-09 批次 8 提交 2：响应经 envelope_postprocessor 信封化，裸数组下钻至
+    ``data`` 内层（顶层新增 code/message），T2.7 断言同步改写。
+
     ref 用**完整路径**断言而非 ``in`` 子串匹配：raw dict 是字面量，拼错组件名时
     drf-spectacular **不报错**（实测写 ``EmployeeTYPO`` 照常生成、退出码 0），
     子串匹配会漏过 ``EmployeeExtended`` 之类的前缀撞名。第二条断言直接确认
     目标组件确实存在，把悬空 ref 这个静默失败面一并堵住。
     """
     schema = employee_schema["paths"][SORT_URL]["put"]["responses"]["200"]["content"]["application/json"]["schema"]
-    assert schema["type"] == "array"
-    assert schema["items"]["$ref"] == "#/components/schemas/Employee"
+    assert schema["x-envelope"] is True
+    data = schema["properties"]["data"]
+    assert data["type"] == "array"
+    assert data["items"]["$ref"] == "#/components/schemas/Employee"
     assert "Employee" in employee_schema["components"]["schemas"]
 
 

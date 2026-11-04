@@ -540,6 +540,11 @@ class AssetViewSet(  # type: ignore[misc]
         logs = AssetSelector.get_operation_logs_for_asset(asset)
         return success_response(data=AssetOperationLogSerializer(logs, many=True).data)
 
+    # OP-09 批次 8：显式声明 PNG 二进制响应（对齐运行时真实返回）——运行时返回
+    # image/png（Content-Disposition inline），而此前由 spectacular 从
+    # retrieve 默认分支推导出的 application/json + AssetDetail 是纯失真。
+    # 信封后处理器只触 application/json 媒体，本端点不受 hook 影响。
+    @extend_schema(responses={(200, "image/png"): OpenApiTypes.BINARY})
     @action(detail=True, methods=["get"], url_path="qr-code-image", permission_classes=[permissions.IsAuthenticated])
     def qr_code_image(self, request: Any, recordcode: Any = None) -> HttpResponse | Response:
         """GET /assets/{recordcode}/qr-code-image/ — 生成资产二维码 PNG 图片"""

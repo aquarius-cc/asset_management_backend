@@ -368,10 +368,14 @@ SPECTACULAR_SETTINGS = {
     # 【BF-051】原此处有 "SECURITY_SCHEMES" 配置块，已删除：drf-spectacular 0.29
     # **没有 SECURITY_SCHEMES 这个设置项**，未知键被静默忽略，导致
     # components.securitySchemes 整体缺失、而下方 "SECURITY" 注入的 BearerAuth
-    # 引用在全部 267 个 operation 上悬空。scheme 定义现由
+    # 引用在全部 265 个 operation 上悬空。scheme 定义现由
     # apps/authusermanagement/schema.py::JWTCookieAuthenticationExtension 物化
     # （单一口径，DR-4）。
     "SECURITY": [{"BearerAuth": []}],
+    # 【OP-09 批次8】信封全包后处理器（提交 2 · 方案 A）：2xx JSON 裸响应统一补
+    # {code,message,data} 信封、真实 destroy 204→200 信封；名单端点（NON_ENVELOPE /
+    # ENVELOPE_NO_BODY，见 core/envelope_schema.py）整体跳过保持原状。
+    "POSTPROCESSING_HOOKS": ["core.envelope_schema.envelope_postprocessor"],
     "SWAGGER_UI_DIST": "SIDECAR",
     "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
     "REDOC_DIST": "SIDECAR",

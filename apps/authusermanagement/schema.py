@@ -11,7 +11,7 @@ security 相关只有 ``'SECURITY': []``），未知键被**静默忽略**、不
 
 - ``components.securitySchemes`` 键**整体缺失**（不是空对象）；
 - 而 ``"SECURITY"`` 只会往每个 operation 注入**裸引用**（``openapi.py:362``），
-  于是**全部 267 个 operation 都引用了一个从不存在于 components 的 ``BearerAuth``**
+  于是**全部 265 个 operation 都引用了一个从不存在于 components 的 ``BearerAuth``**
   ——悬空 scheme 引用，面 = 100% 端点；
 - 另叠加一条生成期告警：``could not resolve authenticator
   <JWTCookieAuthentication>``，凡使用该认证类的视图各打一次。
@@ -22,8 +22,8 @@ security 相关只有 ``'SECURITY': []``），未知键被**静默忽略**、不
 故本模块提供该扩展。
 
 【为什么 scheme 名沿用 ``BearerAuth``】
-已有 267 个 operation 按 ``base.py:361`` 的 ``"SECURITY"`` 引用了这个名字。改用
-新造名会让那 267 处引用**继续悬空**（等于没修），故 ``BearerAuth`` 逐字保留；
+已有 265 个 operation 按 ``base.py:361`` 的 ``"SECURITY"`` 引用了这个名字。改用
+新造名会让那 265 处引用**继续悬空**（等于没修），故 ``BearerAuth`` 逐字保留；
 ``cookieJWT`` 是本批新增的第二通道名。
 
 【边界：只物化定义，不注入 operation】
@@ -33,7 +33,7 @@ security 相关只有 ``'SECURITY': []``），未知键被**静默忽略**、不
 ``{BearerAuth: [], cookieJWT: []}`` 这种 **AND** 语义（同时提供两者），与运行时相反；
 若交给全局 ``"SECURITY"`` 继续提供 ``[{"BearerAuth": []}]`` 引用，则 operation 数组
 零变化——两个通道都出现在 ``components.securitySchemes`` 里（Swagger UI 的 Authorize
-可任选其一），但不改动 267 个 operation。
+可任选其一），但不改动 265 个 operation。
 
 **不要"修回"基类默认实现**：那会引入 AND 语义的 security 要求，与运行时双通道
 任一即可的行为不符（属新增的文档失真，方向与 BF-049/BF-050 相反）。

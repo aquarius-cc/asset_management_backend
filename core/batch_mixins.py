@@ -5,6 +5,7 @@
 - MAX_BATCH_SIZE 前置校验
 - 逐条独立执行(单条失败不影响其他记录)
 - 异常分类捕获(AppValidationError → error_code,其他 → INTERNAL_ERROR)
+  (DatabaseError 例外: fail-fast 整批中止,见 batch_execute Raises)
 - 统一返回格式(total, success_count, fail_count, success_items, fail_items)
 
 使用方式:
@@ -26,6 +27,7 @@ import logging
 from collections.abc import Callable
 from typing import Any, TypeVar, cast
 
+from django.db import DatabaseError
 from rest_framework import serializers
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -106,6 +108,7 @@ class BatchOperationMixin:
 
         Raises:
             AppValidationError: 列表长度超过 max_batch_size 时抛出 BATCH_SIZE_EXCEEDED
+            DatabaseError: 任一子类(db 连接/死锁/事务中止)一律向上抛出, 不进入 fail_items
         """
         max_size = max_batch_size or cls.DEFAULT_MAX_BATCH_SIZE
 
@@ -139,6 +142,12 @@ class BatchOperationMixin:
                 # 的 DRF ValidationError, 此前落入 Exception 分支被吞为 INTERNAL_ERROR;
                 # 现路由为 VALIDATION_ERROR, 与 AppValidationError 分支同构组装。
                 fail_items.append(cls._make_fail_item(item_key, idx, item, "VALIDATION_ERROR", str(e.detail)))
+            except DatabaseError:
+                # 【M-11 fail-fast】DB 层错误禁止降级为逐条失败: 连接中断/死锁/事务中止后,
+                # 无 savepoint 时后续条目会连锁抛 TransactionManagementError(亦为 DatabaseError),
+                # 有 savepoint 时"已成功"条目同样不可信 —— 一律整体抛出, 绝不返回"部分成功"。
+                logger.error(f"批量操作第 {idx} 条数据库错误, 终止整批", exc_info=True)
+                raise
             except Exception as e:
                 # 【P1-39 修复】记录异常日志,便于生产环境排查
                 logger.error(f"批量操作第 {idx} 条异常: {e}", exc_info=True)
@@ -184,6 +193,10 @@ class BatchOperationMixin:
                     "success_ids": List[str],
                     "fail_items": List[Dict]
                 }
+
+        Raises:
+            AppValidationError: 列表长度超过 max_batch_size 时抛出 BATCH_SIZE_EXCEEDED
+            DatabaseError: 任一子类(db 连接/死锁/事务中止)一律向上抛出, 不进入 fail_items
         """
         max_size = max_batch_size or cls.DEFAULT_MAX_BATCH_SIZE
 
@@ -212,6 +225,10 @@ class BatchOperationMixin:
                         "error_message": str(e.detail),
                     }
                 )
+            except DatabaseError:
+                # 【M-11 fail-fast】同 batch_execute: DB 层错误一律整体抛出(见上注释)。
+                logger.error(f"批量删除第 {item_id} 条数据库错误, 终止整批", exc_info=True)
+                raise
             except Exception as e:
                 # 【P1-39 修复】记录异常日志,便于生产环境排查
                 logger.error(f"批量删除第 {item_id} 条异常: {e}", exc_info=True)

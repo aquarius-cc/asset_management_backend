@@ -46,6 +46,15 @@ ERROR_COUNT = Counter(
     ["method", "endpoint", "status_code"],
 )
 
+# 审计写入失败计数(M-19): 审计缺痕属合规事件, 不能只有一行 error 日志
+# 渠道: asset_operation_log(AuditLogger._safe_log) / generic_audit_log(GenericAuditService)
+#      / unregistered_adapter(UnregisteredAssetAuditAdapter 自吞点)
+AUDIT_WRITE_FAILED = Counter(
+    "asset_mgmt_audit_write_failed_total",
+    "审计日志写入失败总数",
+    ["channel"],
+)
+
 
 def metrics_view(request: "HttpRequest") -> HttpResponse:
     """

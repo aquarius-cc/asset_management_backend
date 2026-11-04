@@ -38,6 +38,12 @@ class PermissionViewSet(ResponseWrapperMixin, ListModelMixin, RetrieveModelMixin
     仅支持 list 和 retrieve 操作,禁止创建/更新/删除。
     """
 
+    # OP-09 方案 A 幽灵路由清理：基线 v1_users_permissions_create/update/destroy 三条
+    # 永远 500 的幽灵路由（ResponseWrapperMixin 五方法因 GenericViewSet 缺
+    # perform_create/perform_destroy 兜不住真实 CRUD）；http_method_names 过滤后写方法
+    # 路由仍在但运行时 405（mixin 保留供 list/retrieve 信封），schema 侧 operation 消失。
+    http_method_names = ["get", "head", "options"]
+
     queryset = Permission.objects.filter(is_deleted=False)
     serializer_class = PermissionSerializer
     permission_classes = [permissions.IsAuthenticated]

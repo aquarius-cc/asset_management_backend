@@ -17,7 +17,7 @@ from rest_framework.response import Response
 
 from apps.assetmanagement.selectors import DashboardSelector
 from apps.assetmanagement.serializers import DashboardStatSerializer  # type: ignore[attr-defined]
-from core.mixins import LoggingMixin, ResponseWrapperMixin
+from core.mixins import LoggingMixin
 from core.permissions import is_system_admin
 from utils.response_utils import success_response
 
@@ -47,7 +47,13 @@ def _parse_int_param(query_params: QueryDict, key: str, default: int, upper: int
         return default
 
 
-class DashboardViewSet(LoggingMixin, ResponseWrapperMixin, viewsets.ViewSet):
+class DashboardViewSet(LoggingMixin, viewsets.ViewSet):
+    # OP-09 方案 A 幽灵路由清理：去掉 ResponseWrapperMixin（本类 8 个 @action 全部直接
+    # return success_response，mixin 的 CRUD 五方法毫不出力），hasattr 过滤使基线
+    # v1_dashboard_list/create/retrieve/update/destroy 五条永远 500 的幽灵路由不再注册
+    # （运行时 404，schema 侧 operation 消失）。
+    # http_method_names 仅放行 GET 类：五个标准 CRUD 方法即使被误路由也回 405（双保险）。
+    http_method_names = ["get", "head", "options"]
     # [M-07 去伪] 全部 7 个 action 均为 methods=["get"]（只读聚合），本类无写操作，
     # IsAuthenticated 即真实门禁；不存在「写操作仅认证」的越权面（批次2 M-07 核查结论）
     permission_classes = [IsAuthenticated]

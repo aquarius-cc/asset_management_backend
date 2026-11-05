@@ -23,9 +23,11 @@ from apps.assetmanagement.serializers import (
     AssetCreateSerializer,
     AssetDetailSerializer,
     AssetListSerializer,
+    AssetOperationLogSerializer,
     AssetUpdateSerializer,
     CombinedAssetSerializer,
     ContractDetailSerializer,
+    RepairAssetDetailSerializer,
 )
 from apps.assetmanagement.services import AssetService, RepairAssetService
 from core.batch_mixins import BatchDeleteViewMixin, BatchResponseHelper
@@ -94,7 +96,12 @@ class AssetViewSet(  # type: ignore[misc]
     export_sheet_name = "资产列表"
 
     def get_permissions(self) -> Any:
-        """RBAC: 写操作需 asset_admin+,读操作需认证;change_status 为废弃数据修复端点为 system_admin 专属"""
+        """RBAC: 写操作需 asset_admin+,读操作需认证;change_status 为废弃数据修复端点为 system_admin 专属
+
+        [M-22-F10] 本方法为 AssetViewSet 权限唯一裁决点: 各 action 的
+        permission_classes 内联覆写已全部删除(search_available / status_log /
+        qr-code-image), 新增 action 不得再引入内联 permission_classes。
+        """
         return resolve_viewset_permissions(
             self.action,
             self.admin_actions,
@@ -483,7 +490,6 @@ class AssetViewSet(  # type: ignore[misc]
     @action(detail=True, methods=["post"], url_path="repair")
     def repair(self, request: Any, recordcode: Any = None) -> Response:
         asset = self.get_object()
-        from apps.assetmanagement.serializers.repair_asset_serializers import RepairAssetDetailSerializer
 
         repair_record = RepairAssetService.create_repair_asset(
             asset_code=asset.asset_code,
@@ -499,7 +505,6 @@ class AssetViewSet(  # type: ignore[misc]
     @action(detail=True, methods=["post"], url_path="repair-done")
     def repair_done(self, request: Any, recordcode: Any = None) -> Response:
         asset = self.get_object()
-        from apps.assetmanagement.serializers.repair_asset_serializers import RepairAssetDetailSerializer
 
         repair_record = RepairAssetService.complete_repair(
             asset_code=asset.asset_code,
@@ -513,7 +518,6 @@ class AssetViewSet(  # type: ignore[misc]
     @action(detail=True, methods=["post"], url_path="repair-failed")
     def repair_failed(self, request: Any, recordcode: Any = None) -> Response:
         asset = self.get_object()
-        from apps.assetmanagement.serializers.repair_asset_serializers import RepairAssetDetailSerializer
 
         repair_record = RepairAssetService.fail_repair(
             asset_code=asset.asset_code,
@@ -531,10 +535,6 @@ class AssetViewSet(  # type: ignore[misc]
     def status_log(self, request: Any, recordcode: Any = None) -> Response:
         """GET /assets/{recordcode}/logs/ — 获取资产状态变更日志"""
         asset = self.get_object()
-        from apps.assetmanagement.selectors import AssetSelector
-        from apps.assetmanagement.serializers import AssetOperationLogSerializer
-        from utils.response_utils import success_response
-
         logs = AssetSelector.get_operation_logs_for_asset(asset)
         return success_response(data=AssetOperationLogSerializer(logs, many=True).data)
 

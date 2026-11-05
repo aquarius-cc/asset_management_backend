@@ -10,7 +10,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.openapi import OpenApiParameter  # type: ignore[attr-defined]
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, inline_serializer
-from rest_framework import permissions, serializers, status, viewsets
+from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
@@ -257,9 +257,7 @@ class AssetViewSet(  # type: ignore[misc]
         stats = AssetService.get_asset_statistics(user=self.request.user)
         return success_response(data=stats, message="查询成功")
 
-    @action(
-        detail=False, methods=["get"], url_path="search_available", permission_classes=[permissions.IsAuthenticated]
-    )
+    @action(detail=False, methods=["get"], url_path="search_available")
     def search_available(self, request: Any) -> Response:
         available = AssetSelector.get_available_assets(
             asset_code=request.query_params.get("asset_code"),
@@ -496,7 +494,7 @@ class AssetViewSet(  # type: ignore[misc]
             operator_name=resolve_operator(request.user)[1],
             user=request.user,
         )
-        return success_response(data=RepairAssetDetailSerializer(repair_record).data, message="Asset sent for repair")
+        return success_response(data=RepairAssetDetailSerializer(repair_record).data, message="已送修")
 
     @action(detail=True, methods=["post"], url_path="repair-done")
     def repair_done(self, request: Any, recordcode: Any = None) -> Response:
@@ -510,7 +508,7 @@ class AssetViewSet(  # type: ignore[misc]
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
         )
-        return success_response(data=RepairAssetDetailSerializer(repair_record).data, message="Repair completed")
+        return success_response(data=RepairAssetDetailSerializer(repair_record).data, message="维修完成")
 
     @action(detail=True, methods=["post"], url_path="repair-failed")
     def repair_failed(self, request: Any, recordcode: Any = None) -> Response:
@@ -522,14 +520,14 @@ class AssetViewSet(  # type: ignore[misc]
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
         )
-        return success_response(data=RepairAssetDetailSerializer(repair_record).data, message="Repair failed")
+        return success_response(data=RepairAssetDetailSerializer(repair_record).data, message="维修失败")
 
     # =====================================================================
     # P1-6: 以资产为中心的 Action 端点(规范文档路径对齐)
     # 这些端点是对现有子资源 API 的补充,提供规范文档定义的路径风格
     # =====================================================================
 
-    @action(detail=True, methods=["get"], url_path="logs", permission_classes=[permissions.IsAuthenticated])
+    @action(detail=True, methods=["get"], url_path="logs")
     def status_log(self, request: Any, recordcode: Any = None) -> Response:
         """GET /assets/{recordcode}/logs/ — 获取资产状态变更日志"""
         asset = self.get_object()
@@ -545,7 +543,7 @@ class AssetViewSet(  # type: ignore[misc]
     # retrieve 默认分支推导出的 application/json + AssetDetail 是纯失真。
     # 信封后处理器只触 application/json 媒体，本端点不受 hook 影响。
     @extend_schema(responses={(200, "image/png"): OpenApiTypes.BINARY})
-    @action(detail=True, methods=["get"], url_path="qr-code-image", permission_classes=[permissions.IsAuthenticated])
+    @action(detail=True, methods=["get"], url_path="qr-code-image")
     def qr_code_image(self, request: Any, recordcode: Any = None) -> HttpResponse | Response:
         """GET /assets/{recordcode}/qr-code-image/ — 生成资产二维码 PNG 图片"""
         asset = self.get_object()

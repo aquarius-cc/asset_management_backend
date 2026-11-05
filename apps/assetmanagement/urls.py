@@ -6,18 +6,6 @@ from django.urls import include, path
 from django.urls.resolvers import URLPattern, URLResolver
 from rest_framework.routers import DefaultRouter
 
-# 从 operation_log_views.py 导入操作日志视图
-from apps.assetmanagement.operation_log_views import (
-    AssetHistoryView,
-    AssetOperationLogByLoggingIdView,
-    AssetOperationLogDetailView,
-    AssetOperationLogExportView,
-    AssetOperationLogListView,
-    AssetStatusTimelineView,
-    RecentOperationsView,
-    UserOperationsView,
-)
-
 # 从 views/ 包导入主要视图
 from apps.assetmanagement.views import (
     AssetGroupChildrenViewSet,
@@ -35,6 +23,18 @@ from apps.assetmanagement.views import (
     RepairAssetViewSet,
     StorageViewSet,
     WasteAssetViewSet,
+)
+
+# 从 views/operation_log_views.py 导入操作日志视图
+from apps.assetmanagement.views.operation_log_views import (
+    AssetHistoryView,
+    AssetOperationLogByLoggingIdView,
+    AssetOperationLogDetailView,
+    AssetOperationLogExportView,
+    AssetOperationLogListView,
+    AssetStatusTimelineView,
+    RecentOperationsView,
+    UserOperationsView,
 )
 
 # 公开扫码接口(无需认证)

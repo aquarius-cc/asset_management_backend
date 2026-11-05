@@ -22,7 +22,7 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 
 from apps.assetmanagement.models import Asset, AssetType, Storage
 from apps.assetmanagement.models.operation_log import AssetOperationLog
-from apps.assetmanagement.operation_log_views import AssetOperationLogExportView
+from apps.assetmanagement.views.operation_log_views import AssetOperationLogExportView
 from apps.usermanagement.models import Department, Employee, EmployeeRole
 
 

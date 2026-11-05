@@ -25,6 +25,37 @@ from apps.assetmanagement.state_machine import AssetFSM, InvalidTransitionError
 logger = logging.getLogger(__name__)
 
 
+def _create_transition_record_and_audit(
+    *,
+    asset: Asset,
+    record_model: type[Any],
+    record_kwargs: dict[str, Any],
+    operator: Any,
+    operation_type: AssetOperationLog.OperationType,
+    audit_description: str,
+    operator_jobcode: str,
+    operator_name: str,
+    before_status: str,
+    target_status: Asset.AssetStatus,
+) -> Any:
+    """[OP-16b] 迁移记录创建 + 审计写入(自 _run_lifecycle_transition 抽出, BR-4 50 行约束)"""
+    record = record_model.objects.create(asset_recordcode=asset, operator_employee=operator, **record_kwargs)
+    # DateField default=timezone.now 使内存实例携带 datetime, 刷新为 DB 落库后的 date(否则响应序列化拒绝)
+    record.refresh_from_db()
+    OperationLogService.log_operation(
+        asset_code=asset.asset_code,
+        operation_type=operation_type,
+        description=audit_description,
+        asset_name=asset.asset_name,
+        asset_specification=asset.asset_specification,
+        operator_jobcode=operator_jobcode,
+        operator_name=operator_name,
+        before_data={"asset_current_status": before_status},
+        after_data={"asset_current_status": target_status},
+    )
+    return record
+
+
 def _run_lifecycle_transition(
     *,
     asset_code: str,
@@ -70,25 +101,27 @@ def _run_lifecycle_transition(
 
     operator = EmployeeSelector.get_employee_by_jobcode(operator_jobcode)
 
+    # [OP-16b] 审计快照：FSM 调用前采集迁移前状态（幂等分支已提前 return，不产生重复日志）
+    before_status = asset.asset_current_status
+
     try:
         fsm_method(asset)
     except InvalidTransitionError as e:
         raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
     asset.save(update_fields=["asset_current_status", "updated_at"])
 
-    record = record_model.objects.create(asset_recordcode=asset, operator_employee=operator, **record_kwargs)
-    # DateField default=timezone.now 使内存实例携带 datetime, 刷新为 DB 落库后的 date(否则响应序列化拒绝)
-    record.refresh_from_db()
-    OperationLogService.log_operation(
-        asset_code=asset.asset_code,
+    return _create_transition_record_and_audit(
+        asset=asset,
+        record_model=record_model,
+        record_kwargs=record_kwargs,
+        operator=operator,
         operation_type=operation_type,
-        description=audit_description,
-        asset_name=asset.asset_name,
-        asset_specification=asset.asset_specification,
+        audit_description=audit_description,
         operator_jobcode=operator_jobcode,
         operator_name=operator_name,
+        before_status=before_status,
+        target_status=target_status,
     )
-    return record
 
 
 class AssetLifecycleMixin:
@@ -194,6 +227,9 @@ class AssetLifecycleMixin:
 
         operator = EmployeeSelector.get_employee_by_jobcode(operator_jobcode)
 
+        # [OP-16b] 审计快照：FSM 调用前采集迁移前状态（本路径无幂等分支）
+        before_status = asset.asset_current_status
+
         try:
             AssetFSM.found_and_return(asset)
         except InvalidTransitionError as e:
@@ -220,6 +256,8 @@ class AssetLifecycleMixin:
             asset_specification=asset.asset_specification,
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
+            before_data={"asset_current_status": before_status},
+            after_data={"asset_current_status": Asset.AssetStatus.RECYCLED_PENDING},
         )
         return record
 

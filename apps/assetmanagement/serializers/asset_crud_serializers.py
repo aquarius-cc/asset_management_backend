@@ -125,6 +125,11 @@ class AssetDetailSerializer(serializers.ModelSerializer):  # type: ignore[type-a
             "is_active",
             "version",
         ]
+        # [OP-11] 兜底类全字段只读：本类被 retrieve 侧与自定义读 action 复用（get_serializer_class 兜底 /
+        # mark_broken / mark_lost / found_and_return 响应、asset_group_children_view、recycle 嵌套），皆读面。
+        # 防将来误用于写路径时 asset_current_status 等字段被直写（「未上膛的枪」上膛）。
+        # 副作用：schema 响应字段全标 readOnly，api-schema-baseline.json 同步重导（随本提交）。
+        read_only_fields = fields
 
 
 class AssetUpdateSerializer(StrictUnknownFieldMixin, serializers.ModelSerializer):  # type: ignore[type-arg]

@@ -72,6 +72,10 @@ def _create_unregistered_asset(unregistered: UnregisteredAsset) -> Asset:
 
     asset_data = {
         "asset_code": _generate_asset_code(),
+        # [OP-18/例外 E-1] S1 裸 create 绕过 AssetService.create_asset（无 user 上下文 / 部门校验），
+        # 显式注入初始状态 IN_STORE（枚举、非字符串），与业务约束 7 同口径；
+        # M-01 落地后重评 S1 是否改走 create_asset。
+        "asset_current_status": Asset.AssetStatus.IN_STORE,
         "asset_name": unregistered.asset_name,
         "asset_brand": unregistered.asset_brand,
         "asset_specification": unregistered.asset_specification,

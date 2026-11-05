@@ -12,7 +12,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.authusermanagement.models import AuthUser
-from apps.usermanagement.models import Department, Employee, Permission
+from apps.usermanagement.models import Department, Employee, EmployeeRole, Permission
 from core.tests import TEST_PASSWORD
 
 
@@ -64,6 +64,61 @@ class TestGetDepartmentByJobcode:
         api_client.force_authenticate(user=auth_user)
 
         url = reverse("employees-get-department-by-jobcode", kwargs={"employee_jobcode": "EMP001"})
+        response = api_client.get(url)
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_same_department_other_employee_returns_200(self, api_client, auth_user, department):
+        """[P3-8] 行级范围内(本部门)员工可见: 200"""
+        Employee.objects.create(
+            employee_jobcode="EMP001",
+            employee_name="本人",
+            employee_department=department,
+            role=EmployeeRole.REGULAR_USER,
+            employee_phone="13800001001",
+        )
+        Employee.objects.create(
+            employee_jobcode="EMP002",
+            employee_name="同部门同事",
+            employee_department=department,
+            role=EmployeeRole.REGULAR_USER,
+            employee_phone="13800001002",
+        )
+        api_client.force_authenticate(user=auth_user)
+
+        url = reverse("employees-get-department-by-jobcode", kwargs={"employee_jobcode": "EMP002"})
+        response = api_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["data"]["department_code"] == "DTEST"
+
+    def test_cross_department_employee_returns_404(self, api_client, auth_user, department):
+        """[P3-8] 跨部门工号 404 锁定(改走 get_queryset 行级口径, 替代全局查询)"""
+        other_department = Department.objects.create(
+            department_code="DOTHER",
+            department_name="他部门",
+            department_information="他部门信息",
+            parent=None,
+            level=0,
+            path="/DOTHER",
+        )
+        Employee.objects.create(
+            employee_jobcode="EMP001",
+            employee_name="本人",
+            employee_department=department,
+            role=EmployeeRole.REGULAR_USER,
+            employee_phone="13800002001",
+        )
+        Employee.objects.create(
+            employee_jobcode="EMP002",
+            employee_name="跨部门同事",
+            employee_department=other_department,
+            role=EmployeeRole.REGULAR_USER,
+            employee_phone="13800002002",
+        )
+        api_client.force_authenticate(user=auth_user)
+
+        url = reverse("employees-get-department-by-jobcode", kwargs={"employee_jobcode": "EMP002"})
         response = api_client.get(url)
 
         assert response.status_code == status.HTTP_404_NOT_FOUND

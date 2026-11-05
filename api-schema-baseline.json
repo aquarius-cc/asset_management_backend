@@ -1064,26 +1064,6 @@
                 "tags": [
                     "v1"
                 ],
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
-                            }
-                        },
-                        "application/x-www-form-urlencoded": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
-                            }
-                        },
-                        "multipart/form-data": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
-                            }
-                        }
-                    },
-                    "required": true
-                },
                 "security": [
                     {
                         "BearerAuth": []
@@ -1209,26 +1189,6 @@
                 "tags": [
                     "v1"
                 ],
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
-                            }
-                        },
-                        "application/x-www-form-urlencoded": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
-                            }
-                        },
-                        "multipart/form-data": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
-                            }
-                        }
-                    },
-                    "required": true
-                },
                 "security": [
                     {
                         "BearerAuth": []
@@ -1333,26 +1293,6 @@
                 "tags": [
                     "v1"
                 ],
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
-                            }
-                        },
-                        "application/x-www-form-urlencoded": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
-                            }
-                        },
-                        "multipart/form-data": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
-                            }
-                        }
-                    },
-                    "required": true
-                },
                 "security": [
                     {
                         "BearerAuth": []
@@ -1405,26 +1345,6 @@
                 "tags": [
                     "v1"
                 ],
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
-                            }
-                        },
-                        "application/x-www-form-urlencoded": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
-                            }
-                        },
-                        "multipart/form-data": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
-                            }
-                        }
-                    },
-                    "required": true
-                },
                 "security": [
                     {
                         "BearerAuth": []
@@ -1516,26 +1436,6 @@
                 "tags": [
                     "v1"
                 ],
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
-                            }
-                        },
-                        "application/x-www-form-urlencoded": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
-                            }
-                        },
-                        "multipart/form-data": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
-                            }
-                        }
-                    },
-                    "required": true
-                },
                 "security": [
                     {
                         "BearerAuth": []
@@ -1588,26 +1488,6 @@
                 "tags": [
                     "v1"
                 ],
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
-                            }
-                        },
-                        "application/x-www-form-urlencoded": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
-                            }
-                        },
-                        "multipart/form-data": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
-                            }
-                        }
-                    },
-                    "required": true
-                },
                 "security": [
                     {
                         "BearerAuth": []
@@ -1660,26 +1540,6 @@
                 "tags": [
                     "v1"
                 ],
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
-                            }
-                        },
-                        "application/x-www-form-urlencoded": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
-                            }
-                        },
-                        "multipart/form-data": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
-                            }
-                        }
-                    },
-                    "required": true
-                },
                 "security": [
                     {
                         "BearerAuth": []
@@ -1720,26 +1580,6 @@
                 "tags": [
                     "v1"
                 ],
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
-                            }
-                        },
-                        "application/x-www-form-urlencoded": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
-                            }
-                        },
-                        "multipart/form-data": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
-                            }
-                        }
-                    },
-                    "required": true
-                },
                 "security": [
                     {
                         "BearerAuth": []
@@ -1780,26 +1620,6 @@
                 "tags": [
                     "v1"
                 ],
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
-                            }
-                        },
-                        "application/x-www-form-urlencoded": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
-                            }
-                        },
-                        "multipart/form-data": {
-                            "schema": {
-                                "$ref": "#/components/schemas/AssetDetailRequest"
-                            }
-                        }
-                    },
-                    "required": true
-                },
                 "security": [
                     {
                         "BearerAuth": []
@@ -16321,10 +16141,10 @@
                 "properties": {
                     "recordcode": {
                         "type": "string",
+                        "readOnly": true,
                         "nullable": true,
                         "title": "记录编码",
-                        "description": "后端生成的全局唯一编码,用于外键引用",
-                        "maxLength": 64
+                        "description": "后端生成的全局唯一编码,用于外键引用"
                     },
                     "asset_code": {
                         "type": "string",
@@ -16334,55 +16154,55 @@
                     },
                     "asset_name": {
                         "type": "string",
+                        "readOnly": true,
                         "title": "资产名称",
-                        "description": "资产的名称",
-                        "maxLength": 100
+                        "description": "资产的名称"
                     },
                     "asset_brand": {
                         "type": "string",
+                        "readOnly": true,
                         "nullable": true,
                         "title": "资产品牌",
-                        "description": "资产的品牌",
-                        "maxLength": 100
+                        "description": "资产的品牌"
                     },
                     "asset_unit": {
                         "type": "string",
+                        "readOnly": true,
                         "nullable": true,
                         "title": "资产单位",
-                        "description": "计量单位:台/套/个等",
-                        "maxLength": 50
+                        "description": "计量单位:台/套/个等"
                     },
                     "asset_purchase_number": {
                         "type": "integer",
-                        "maximum": 2147483647,
-                        "minimum": -2147483648,
+                        "readOnly": true,
                         "title": "资产购买数量",
                         "description": "采购数量"
                     },
                     "asset_specification": {
                         "type": "string",
+                        "readOnly": true,
                         "nullable": true,
                         "title": "资产规格",
-                        "description": "资产的规格型号",
-                        "maxLength": 100
+                        "description": "资产的规格型号"
                     },
                     "asset_purchase_price": {
                         "type": "string",
                         "format": "decimal",
                         "pattern": "^-?\\d{0,8}(?:\\.\\d{0,2})?$",
+                        "readOnly": true,
                         "title": "资产购买价格",
                         "description": "资产采购单价(元)"
                     },
                     "asset_purchase_date": {
                         "type": "string",
                         "format": "date",
+                        "readOnly": true,
                         "title": "资产购买日期",
                         "description": "资产采购的日期"
                     },
                     "asset_warranty_period": {
                         "type": "integer",
-                        "maximum": 2147483647,
-                        "minimum": -2147483648,
+                        "readOnly": true,
                         "nullable": true,
                         "title": "保修期(年)",
                         "description": "资产保修期限(年)"
@@ -16400,25 +16220,28 @@
                         ],
                         "type": "string",
                         "x-spec-enum-id": "32fce4769e9ee169",
+                        "readOnly": true,
                         "title": "资产当前状态",
                         "description": "资产状态:在库/已回收待发放/在用/已损坏/维修中/已遗失/待报废/已报废\n\n* `in_store` - 在库\n* `in_use` - 在用\n* `recycled_pending` - 已回收待发放\n* `broken` - 已损坏\n* `repairing` - 维修中\n* `lost` - 已遗失\n* `damaged` - 待报废\n* `scrapped` - 已报废"
                     },
                     "asset_description": {
                         "type": "string",
+                        "readOnly": true,
                         "nullable": true,
                         "title": "资产描述",
                         "description": "资产的补充说明"
                     },
                     "asset_using_location": {
                         "type": "string",
+                        "readOnly": true,
                         "nullable": true,
                         "title": "资产使用地点",
-                        "description": "资产使用的地点",
-                        "maxLength": 100
+                        "description": "资产使用的地点"
                     },
                     "asset_entry_date": {
                         "type": "string",
                         "format": "date",
+                        "readOnly": true,
                         "title": "入库日期",
                         "description": "资产入库的日期"
                     },
@@ -16479,151 +16302,41 @@
                     },
                     "is_active": {
                         "type": "boolean",
+                        "readOnly": true,
                         "title": "是否启用",
                         "description": "控制记录是否激活"
                     },
                     "version": {
                         "type": "integer",
-                        "maximum": 2147483647,
-                        "minimum": -2147483648,
+                        "readOnly": true,
                         "title": "版本号",
                         "description": "乐观锁版本号"
                     }
                 },
                 "required": [
                     "asset_applicant",
+                    "asset_brand",
                     "asset_code",
                     "asset_contract",
+                    "asset_current_status",
+                    "asset_description",
                     "asset_entry_date",
                     "asset_entry_person",
                     "asset_manager",
                     "asset_name",
                     "asset_purchase_date",
+                    "asset_purchase_number",
                     "asset_purchase_price",
+                    "asset_specification",
                     "asset_storage",
                     "asset_type",
-                    "harddisk_sns"
-                ]
-            },
-            "AssetDetailRequest": {
-                "type": "object",
-                "properties": {
-                    "recordcode": {
-                        "type": "string",
-                        "nullable": true,
-                        "title": "记录编码",
-                        "description": "后端生成的全局唯一编码,用于外键引用",
-                        "maxLength": 64
-                    },
-                    "asset_name": {
-                        "type": "string",
-                        "minLength": 1,
-                        "title": "资产名称",
-                        "description": "资产的名称",
-                        "maxLength": 100
-                    },
-                    "asset_brand": {
-                        "type": "string",
-                        "nullable": true,
-                        "title": "资产品牌",
-                        "description": "资产的品牌",
-                        "maxLength": 100
-                    },
-                    "asset_unit": {
-                        "type": "string",
-                        "nullable": true,
-                        "title": "资产单位",
-                        "description": "计量单位:台/套/个等",
-                        "maxLength": 50
-                    },
-                    "asset_purchase_number": {
-                        "type": "integer",
-                        "maximum": 2147483647,
-                        "minimum": -2147483648,
-                        "title": "资产购买数量",
-                        "description": "采购数量"
-                    },
-                    "asset_specification": {
-                        "type": "string",
-                        "nullable": true,
-                        "title": "资产规格",
-                        "description": "资产的规格型号",
-                        "maxLength": 100
-                    },
-                    "asset_purchase_price": {
-                        "type": "string",
-                        "format": "decimal",
-                        "pattern": "^-?\\d{0,8}(?:\\.\\d{0,2})?$",
-                        "title": "资产购买价格",
-                        "description": "资产采购单价(元)"
-                    },
-                    "asset_purchase_date": {
-                        "type": "string",
-                        "format": "date",
-                        "title": "资产购买日期",
-                        "description": "资产采购的日期"
-                    },
-                    "asset_warranty_period": {
-                        "type": "integer",
-                        "maximum": 2147483647,
-                        "minimum": -2147483648,
-                        "nullable": true,
-                        "title": "保修期(年)",
-                        "description": "资产保修期限(年)"
-                    },
-                    "asset_current_status": {
-                        "enum": [
-                            "in_store",
-                            "in_use",
-                            "recycled_pending",
-                            "broken",
-                            "repairing",
-                            "lost",
-                            "damaged",
-                            "scrapped"
-                        ],
-                        "type": "string",
-                        "x-spec-enum-id": "32fce4769e9ee169",
-                        "title": "资产当前状态",
-                        "description": "资产状态:在库/已回收待发放/在用/已损坏/维修中/已遗失/待报废/已报废\n\n* `in_store` - 在库\n* `in_use` - 在用\n* `recycled_pending` - 已回收待发放\n* `broken` - 已损坏\n* `repairing` - 维修中\n* `lost` - 已遗失\n* `damaged` - 待报废\n* `scrapped` - 已报废"
-                    },
-                    "asset_description": {
-                        "type": "string",
-                        "nullable": true,
-                        "title": "资产描述",
-                        "description": "资产的补充说明"
-                    },
-                    "asset_using_location": {
-                        "type": "string",
-                        "nullable": true,
-                        "title": "资产使用地点",
-                        "description": "资产使用的地点",
-                        "maxLength": 100
-                    },
-                    "asset_entry_date": {
-                        "type": "string",
-                        "format": "date",
-                        "title": "入库日期",
-                        "description": "资产入库的日期"
-                    },
-                    "is_active": {
-                        "type": "boolean",
-                        "title": "是否启用",
-                        "description": "控制记录是否激活"
-                    },
-                    "version": {
-                        "type": "integer",
-                        "maximum": 2147483647,
-                        "minimum": -2147483648,
-                        "title": "版本号",
-                        "description": "乐观锁版本号"
-                    }
-                },
-                "required": [
-                    "asset_entry_date",
-                    "asset_name",
-                    "asset_purchase_date",
-                    "asset_purchase_price"
+                    "asset_unit",
+                    "asset_using_location",
+                    "asset_warranty_period",
+                    "harddisk_sns",
+                    "is_active",
+                    "recordcode",
+                    "version"
                 ]
             },
             "AssetGroupSummary": {

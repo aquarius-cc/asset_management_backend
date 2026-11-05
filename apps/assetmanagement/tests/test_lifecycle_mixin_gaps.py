@@ -338,3 +338,54 @@ class TestLifecycleAtomicRollback:
         assert FoundAsset.objects.count() == 0
         asset.refresh_from_db()
         assert asset.asset_current_status == "lost"
+
+
+@pytest.mark.django_db
+class TestLifecycleStatusSnapshot:
+    """[OP-16b] 生命周期迁移审计快照 before/after 精确值(broken/lost/found 两处落点)"""
+
+    def test_mark_broken_writes_exact_snapshot(self, asset, user):
+        AssetLifecycleMixin.mark_asset_broken(
+            asset_code="A001",
+            broken_reason="摔坏",
+            operator_jobcode=user.employee_jobcode,
+            operator_name=user.employee_name,
+        )
+        log = AssetOperationLog.objects.get(asset_code="A001", operation_type=AssetOperationLog.OperationType.BROKEN)
+        assert log.before_data == {"asset_current_status": "in_store"}
+        assert log.after_data == {"asset_current_status": "broken"}
+
+    def test_mark_lost_writes_exact_snapshot(self, asset, user):
+        AssetLifecycleMixin.mark_asset_lost(
+            asset_code="A001",
+            lost_reason="丢失",
+            operator_jobcode=user.employee_jobcode,
+            operator_name=user.employee_name,
+        )
+        log = AssetOperationLog.objects.get(asset_code="A001", operation_type=AssetOperationLog.OperationType.LOST)
+        assert log.before_data == {"asset_current_status": "in_store"}
+        assert log.after_data == {"asset_current_status": "lost"}
+
+    def test_find_writes_exact_snapshot(self, asset, user):
+        AssetLifecycleMixin.mark_asset_lost(
+            asset_code="A001", lost_reason="丢失", operator_jobcode=user.employee_jobcode
+        )
+        AssetLifecycleMixin.find_and_return_asset(asset_code="A001", operator_jobcode=user.employee_jobcode)
+        log = AssetOperationLog.objects.get(asset_code="A001", operation_type=AssetOperationLog.OperationType.FOUND)
+        assert log.before_data == {"asset_current_status": "lost"}
+        assert log.after_data == {"asset_current_status": "recycled_pending"}
+
+    def test_idempotent_mark_broken_single_log(self, asset, user):
+        """幂等分支: 已损坏资产重复标记复用现有记录, 不产生第二条日志"""
+        AssetLifecycleMixin.mark_asset_broken(
+            asset_code="A001", broken_reason="摔坏", operator_jobcode=user.employee_jobcode
+        )
+        AssetLifecycleMixin.mark_asset_broken(
+            asset_code="A001", broken_reason="重复标记应幂等", operator_jobcode=user.employee_jobcode
+        )
+        assert (
+            AssetOperationLog.objects.filter(
+                asset_code="A001", operation_type=AssetOperationLog.OperationType.BROKEN
+            ).count()
+            == 1
+        )

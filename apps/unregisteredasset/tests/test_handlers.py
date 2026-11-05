@@ -13,6 +13,7 @@ import pytest
 
 from apps.assetmanagement.models import Asset, AssetOperationLog, OutAsset, RecycleAsset, Storage
 from apps.unregisteredasset.handlers import (
+    _create_unregistered_asset,
     _handle_s1_create_and_damaged,
     _handle_s1_create_and_recycle,
     _handle_s2_supplement_and_recycle,
@@ -58,6 +59,11 @@ class TestUnregisteredAssetHandlers:
         unregistered_asset_s1.refresh_from_db()
         assert unregistered_asset_s1.result_asset == asset
         assert unregistered_asset_s1.result_recycle_asset == recycle
+
+    def test_create_injects_in_store_explicitly(self, unregistered_asset_s1):
+        """[OP-18/例外 E-1] S1 裸 create 显式注入 IN_STORE 枚举(与约束 7 同口径, 不依赖模型隐式默认)"""
+        asset = _create_unregistered_asset(unregistered_asset_s1)
+        assert asset.asset_current_status == Asset.AssetStatus.IN_STORE.value
 
     def test_handle_s3_correct_and_recycle(self, unregistered_asset_s3, admin_employee, existing_asset):
         new_storage = Storage.objects.create(

@@ -241,7 +241,13 @@ class EmployeeQueryActionsMixin:
         - level: 部门层级
         - parent_code: 上级部门编码
         """
-        employee = EmployeeSelector.get_employee_by_jobcode(employee_jobcode) if employee_jobcode else None
+        # [P3-8/OP-19] 改走行级隔离 queryset 取人（单一入口，BF-048）：跨部门工号 404 锁定，
+        # 替代全局查询 EmployeeSelector.get_employee_by_jobcode（行级面跨部门泄露部门信息）。
+        employee = (
+            self.get_queryset().filter(employee_jobcode=employee_jobcode).first()  # type: ignore[attr-defined]
+            if employee_jobcode
+            else None
+        )
         if not employee:
             return error_response(message=f"员工 {employee_jobcode} 不存在", status_code=status.HTTP_404_NOT_FOUND)
 

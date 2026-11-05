@@ -17,7 +17,7 @@
 from typing import Any
 
 from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema, extend_schema_view
-from rest_framework import permissions, status, viewsets
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -70,17 +70,14 @@ class RoleViewSet(ResponseWrapperMixin, viewsets.ModelViewSet):  # type: ignore[
     角色管理 ViewSet
 
     权限定义:
-    - 写操作(create/update/destroy):仅系统管理员
-    - 读操作(list/retrieve):需登录
+    - 全部操作(读/写):仅系统管理员
+    - [P3-9] 读面收口:list/retrieve 由需登录收紧为仅系统管理员
+      (防角色/权限配置枚举泄露)
     """
 
     queryset = Role.objects.filter(is_deleted=False)
     serializer_class = RoleSerializer
-
-    def get_permissions(self) -> Any:
-        if self.action in ("create", "update", "partial_update", "destroy", "role_permissions"):
-            return [IsSystemAdmin()]
-        return [permissions.IsAuthenticated()]
+    permission_classes = [IsSystemAdmin]  # [P3-9] 读面收口:读写面统一仅系统管理员
 
     def get_serializer_class(self) -> Any:
         if self.action in ("create", "update", "partial_update"):

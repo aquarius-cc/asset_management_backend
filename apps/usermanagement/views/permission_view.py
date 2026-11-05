@@ -10,13 +10,13 @@
 """
 
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from rest_framework import permissions
 from rest_framework.mixins import ListModelMixin, RetrieveModelMixin
 from rest_framework.viewsets import GenericViewSet
 
 from apps.usermanagement.models import Permission
 from apps.usermanagement.rbac_serializers import PermissionSerializer
 from core.mixins import ResponseWrapperMixin
+from core.permissions import IsSystemAdmin
 
 
 @extend_schema_view(
@@ -46,5 +46,5 @@ class PermissionViewSet(ResponseWrapperMixin, ListModelMixin, RetrieveModelMixin
 
     queryset = Permission.objects.filter(is_deleted=False)
     serializer_class = PermissionSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsSystemAdmin]  # [P3-9] 读面收口:权限点枚举仅系统管理员
     pagination_class = None  # 权限列表不分页,一次性返回全部

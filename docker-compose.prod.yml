@@ -26,6 +26,8 @@ services:
       - DJANGO_SETTINGS_MODULE=config.settings.production
       - SECRET_KEY=${SECRET_KEY}
       - DEBUG=False
+      # [P3-10] /metrics/ 端点 Bearer token（空 = 不鉴权, 见 .env.example）
+      - METRICS_TOKEN=${METRICS_TOKEN:-}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS}
       - DB_HOST=postgres
       - DB_PORT=5432

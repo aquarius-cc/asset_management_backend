@@ -15,8 +15,14 @@ services:
       - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
       - ./config/alert_rules.yml:/etc/prometheus/alert_rules.yml
       - blackbox_rendered:/etc/prometheus/sd:ro
+    environment:
+      # [P3-10] Bearer 抓取凭据透传: 后端设置 METRICS_TOKEN 后,
+      # 将上方首个 volume 切到 ./config/prometheus.auth.yml（Bearer 配置）即生效
+      - METRICS_TOKEN=${METRICS_TOKEN:-}
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
+      # [P3-10] 启用 ${} 变量展开(无凭据默认配置下为 no-op)
+      - "--config.expand-env"
       - "--storage.tsdb.retention.time=30d"
     restart: unless-stopped
 

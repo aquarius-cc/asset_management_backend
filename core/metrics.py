@@ -4,9 +4,11 @@ Prometheus 指标端点 (OC-4 落地)
 暴露 /metrics/ 端点供 Prometheus 抓取。
 包含: 请求总数、请求耗时直方图(P50/P90/P99)、活跃请求、错误计数。
 
-注意: 此端点不需要认证(Prometheus 内部抓取),通过 urls.py 直接挂载。
+注意: [P3-10] METRICS_TOKEN 配置后需 `Authorization: Bearer <token>` 通过;
+未配置(空) = 放行(Prometheus 内部抓取场景, 既有行为)。通过 urls.py 直接挂载。
 """
 
+import hmac
 from typing import TYPE_CHECKING
 
 from django.http import HttpResponse
@@ -56,13 +58,34 @@ AUDIT_WRITE_FAILED = Counter(
 )
 
 
+def _metrics_request_authorized(request: "HttpRequest") -> bool:
+    """[P3-10] metrics 端点 Bearer 鉴权(默认关闭)。
+
+    空配置(METRICS_TOKEN 未设) → 放行 = 既有行为(Prometheus 内部抓取);
+    配置后仅 `Authorization: Bearer <token>` 匹配通过(hmac.compare_digest
+    恒定时间比较); 缺头/方案错/不匹配统一拒绝(不区分原因, 防探测)。
+    """
+    from django.conf import settings
+
+    expected = getattr(settings, "METRICS_TOKEN", "")
+    if not expected:
+        return True
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return False
+    return hmac.compare_digest(auth[len("Bearer ") :], expected)
+
+
 def metrics_view(request: "HttpRequest") -> HttpResponse:
     """
     Prometheus 指标端点
 
     返回格式符合 OpenMetrics 规范的文本格式。
     Prometheus 通过 scrape_interval 定期请求此端点。
+    [P3-10] METRICS_TOKEN 配置且 Bearer 不匹配时 401(默认关闭 = 放行)。
     """
+    if not _metrics_request_authorized(request):
+        return HttpResponse("unauthorized", status=401, content_type="text/plain")
     return HttpResponse(
         generate_latest(),
         content_type=CONTENT_TYPE_LATEST,

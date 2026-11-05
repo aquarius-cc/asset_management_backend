@@ -29,6 +29,8 @@ services:
       - DB_NAME=${DB_NAME:-asset_management_backend}
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:-}
+      # [P3-10] /metrics/ 端点 Bearer token（空 = 不鉴权, 见 .env.example）
+      - METRICS_TOKEN=${METRICS_TOKEN:-}
       # Django 配置
       - DJANGO_SETTINGS_MODULE=config.settings.production
       # 【安全】生产环境必须显式设置 SECRET_KEY，缺失时 Django 启动失败

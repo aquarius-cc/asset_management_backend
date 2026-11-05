@@ -27,6 +27,10 @@ LOGS_DIR.mkdir(parents=True, exist_ok=True)
 # 守卫依据 DJANGO_SETTINGS_MODULE 判定(下方),环境变量为具体环境时零影响。
 SECRET_KEY = config("SECRET_KEY", default="")
 
+# [P3-10] /metrics/ 端点 Bearer token（空 = 不鉴权, 兼容 Prometheus 内部抓取;
+# 配置后仅 `Authorization: Bearer <token>` 可通过, 监控侧改用 config/prometheus.auth.yml）
+METRICS_TOKEN = config("METRICS_TOKEN", default="")
+
 # 【SC-1 守卫】base.py 禁止直接部署: 模块加载即 fail-fast。
 # 触发条件: DJANGO_SETTINGS_MODULE 恰好等于 config.settings.base。
 # 三层环境(development/production/test/test_postgres)均不等于 base, 不触发;

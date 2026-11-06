@@ -536,7 +536,7 @@ class AssetViewSet(  # type: ignore[misc]
         """GET /assets/{recordcode}/logs/ — 获取资产状态变更日志"""
         asset = self.get_object()
         logs = AssetSelector.get_operation_logs_for_asset(asset)
-        return success_response(data=AssetOperationLogSerializer(logs, many=True).data)
+        return success_response(data=AssetOperationLogSerializer(logs, many=True, context={"request": request}).data)
 
     # OP-09 批次 8：显式声明 PNG 二进制响应（对齐运行时真实返回）——运行时返回
     # image/png（Content-Disposition inline），而此前由 spectacular 从

@@ -134,10 +134,10 @@ class AssetOperationLogListView(ResponseWrapperMixin, APIView):
         page = paginator.paginate_queryset(logs, request)
 
         if page is not None:
-            serializer = AssetOperationLogSerializer(page, many=True)
+            serializer = AssetOperationLogSerializer(page, many=True, context={"request": request})
             return paginator.get_paginated_response(serializer.data)  # type: ignore[no-any-return]
 
-        serializer = AssetOperationLogSerializer(logs, many=True)
+        serializer = AssetOperationLogSerializer(logs, many=True, context={"request": request})
         return success_response(data=serializer.data)
 
 
@@ -243,7 +243,7 @@ class AssetOperationLogDetailView(ResponseWrapperMixin, APIView):
         if not log:
             return error_response(message=f"操作记录 {id} 不存在", status_code=status.HTTP_404_NOT_FOUND)
 
-        serializer = AssetOperationLogSerializer(log)
+        serializer = AssetOperationLogSerializer(log, context={"request": request})
         return success_response(data=serializer.data)
 
 
@@ -288,10 +288,10 @@ class AssetHistoryView(ResponseWrapperMixin, APIView):
         page = paginator.paginate_queryset(logs, request)
 
         if page is not None:
-            serializer = AssetOperationLogSerializer(page, many=True)
+            serializer = AssetOperationLogSerializer(page, many=True, context={"request": request})
             return paginator.get_paginated_response(serializer.data)  # type: ignore[no-any-return]
 
-        serializer = AssetOperationLogSerializer(logs, many=True)
+        serializer = AssetOperationLogSerializer(logs, many=True, context={"request": request})
         return success_response(data=serializer.data)
 
 
@@ -329,7 +329,7 @@ class AssetOperationLogByLoggingIdView(ResponseWrapperMixin, APIView):
         if not log:
             return error_response(message=f"操作记录 {logging_id} 不存在", status_code=status.HTTP_404_NOT_FOUND)
 
-        serializer = AssetOperationLogSerializer(log)
+        serializer = AssetOperationLogSerializer(log, context={"request": request})
         return success_response(data=serializer.data)
 
 
@@ -418,10 +418,10 @@ class RecentOperationsView(ResponseWrapperMixin, APIView):
         page = paginator.paginate_queryset(logs, request)
 
         if page is not None:
-            serializer = AssetOperationLogSerializer(page, many=True)
+            serializer = AssetOperationLogSerializer(page, many=True, context={"request": request})
             return paginator.get_paginated_response(serializer.data)  # type: ignore[no-any-return]
 
-        serializer = AssetOperationLogSerializer(logs, many=True)
+        serializer = AssetOperationLogSerializer(logs, many=True, context={"request": request})
         return success_response(data=serializer.data)
 
 
@@ -468,8 +468,8 @@ class UserOperationsView(ResponseWrapperMixin, APIView):
         page = paginator.paginate_queryset(logs, request)
 
         if page is not None:
-            serializer = AssetOperationLogSerializer(page, many=True)
+            serializer = AssetOperationLogSerializer(page, many=True, context={"request": request})
             return paginator.get_paginated_response(serializer.data)  # type: ignore[no-any-return]
 
-        serializer = AssetOperationLogSerializer(logs, many=True)
+        serializer = AssetOperationLogSerializer(logs, many=True, context={"request": request})
         return success_response(data=serializer.data)

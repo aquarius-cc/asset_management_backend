@@ -23,6 +23,7 @@ from apps.assetmanagement.serializers.base_model_serializers import (
     StorageSerializer,
     StrictUnknownFieldMixin,
 )
+from core.permissions import is_system_admin
 
 
 class AssetListSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
@@ -374,6 +375,16 @@ class AssetOperationLogSerializer(serializers.ModelSerializer):  # type: ignore[
     """
 
     operation_type_display = serializers.CharField(source="get_operation_type_display", read_only=True)
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        # [BF-182 / M-22-F14-A] ip_address 仅系统管理员可见（2026-11-06 拍板 A）：
+        # 运行时按 context["request"] 角色剔除。schema 生成期（spectacular）无 request →
+        # 字段保留 → OpenAPI 静态声明不变（基线零 diff；对非管理员属「过声明」，账本 BF-182 留痕）。
+        # 角色判定复用 core.permissions.is_system_admin 单源（DR-1，与前端 usePermission().isAdmin 对称）。
+        request = self.context.get("request")
+        if request is not None and not is_system_admin(request.user):
+            self.fields.pop("ip_address", None)
 
     class Meta:
         model = AssetOperationLog

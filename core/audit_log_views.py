@@ -36,16 +36,22 @@ from core.excel_export import (
 from core.mixins import ResponseWrapperMixin
 from core.models_audit import AuditLog
 from core.pagination import CustomPageNumberPagination
-from core.permissions import IsAuditorOrAdmin
+from core.permissions import IsAuditorOrAdmin, is_system_admin
 from utils.response_utils import error_response, success_response
 
 
 class AuditLogSerializer:
-    """审计日志序列化器"""
+    """审计日志序列化器
 
-    def __init__(self, instance: Any, many: bool = False) -> None:
+    [BF-182 / M-22-F14-A] ip_address 仅系统管理员可见（2026-11-06 拍板 A）：
+    视图传入 request → 按角色剔除；未传 request（非 HTTP 上下文）→ 保留字段。
+    角色判定复用 core.permissions.is_system_admin 单源（DR-1）。
+    """
+
+    def __init__(self, instance: Any, many: bool = False, *, request: Any = None) -> None:
         self.instance = instance
         self.many = many
+        self.include_ip = request is None or is_system_admin(request.user)
 
     @property
     def data(self) -> list[dict[Any, Any]] | dict[Any, Any]:
@@ -53,9 +59,8 @@ class AuditLogSerializer:
             return [self._serialize(log) for log in self.instance]
         return self._serialize(self.instance)
 
-    @staticmethod
-    def _serialize(log: AuditLog) -> dict[str, Any]:
-        return {
+    def _serialize(self, log: AuditLog) -> dict[str, Any]:
+        data: dict[str, Any] = {
             "pk": log.pk,
             "record_code": log.record_code,
             "app_label": log.app_label,
@@ -68,8 +73,10 @@ class AuditLogSerializer:
             "before_data": log.before_data,
             "after_data": log.after_data,
             "description": log.description,
-            "ip_address": log.ip_address,
         }
+        if self.include_ip:
+            data["ip_address"] = log.ip_address
+        return data
 
 
 class AuditLogListView(ResponseWrapperMixin, APIView):
@@ -165,10 +172,10 @@ class AuditLogListView(ResponseWrapperMixin, APIView):
         page = paginator.paginate_queryset(logs, request)
 
         if page is not None:
-            serializer = AuditLogSerializer(page, many=True)
+            serializer = AuditLogSerializer(page, many=True, request=request)
             return paginator.get_paginated_response(serializer.data)  # type: ignore[no-any-return]
 
-        serializer = AuditLogSerializer(logs, many=True)
+        serializer = AuditLogSerializer(logs, many=True, request=request)
         return success_response(data=serializer.data)
 
 
@@ -234,10 +241,15 @@ class AuditLogExportView(ResponseWrapperMixin, APIView):
             return error_response(message=str(exc), status_code=status.HTTP_400_BAD_REQUEST)
 
         rows = AuditLogQueryService.query_logs_queryset(**filters.as_service_kwargs())
+        # [BF-182 / M-22-F14-A] ip_address 仅系统管理员可见：导出列动态剔除（与列表/详情同口径）；
+        # 类级 export_columns 声明保留（OpenAPI 与导出列契约护栏读类属性）。
+        columns = self.export_columns
+        if not is_system_admin(request.user):
+            columns = [col for col in columns if col["field"] != "ip_address"]
         try:
             return build_excel_export_response(
                 rows=rows,
-                columns=self.export_columns,
+                columns=columns,
                 filename=self.export_filename,
                 sheet_name=self.export_sheet_name,
                 params=request.query_params,
@@ -274,7 +286,7 @@ class AuditLogDetailView(ResponseWrapperMixin, APIView):
                 status_code=status.HTTP_404_NOT_FOUND,
             )
 
-        serializer = AuditLogSerializer(log)
+        serializer = AuditLogSerializer(log, request=request)
         return success_response(data=serializer.data)
 
 
@@ -315,7 +327,7 @@ class AuditLogByLoggingIdView(ResponseWrapperMixin, APIView):
                 status_code=status.HTTP_404_NOT_FOUND,
             )
 
-        serializer = AuditLogSerializer(log)
+        serializer = AuditLogSerializer(log, request=request)
         return success_response(data=serializer.data)
 
 
@@ -363,10 +375,10 @@ class RecentAuditLogsView(ResponseWrapperMixin, APIView):
         page = paginator.paginate_queryset(logs, request)
 
         if page is not None:
-            serializer = AuditLogSerializer(page, many=True)
+            serializer = AuditLogSerializer(page, many=True, request=request)
             return paginator.get_paginated_response(serializer.data)  # type: ignore[no-any-return]
 
-        serializer = AuditLogSerializer(logs, many=True)
+        serializer = AuditLogSerializer(logs, many=True, request=request)
         return success_response(data=serializer.data)
 
 
@@ -411,10 +423,10 @@ class AuditLogsByAppLabelView(ResponseWrapperMixin, APIView):
         page = paginator.paginate_queryset(logs, request)
 
         if page is not None:
-            serializer = AuditLogSerializer(page, many=True)
+            serializer = AuditLogSerializer(page, many=True, request=request)
             return paginator.get_paginated_response(serializer.data)  # type: ignore[no-any-return]
 
-        serializer = AuditLogSerializer(logs, many=True)
+        serializer = AuditLogSerializer(logs, many=True, request=request)
         return success_response(data=serializer.data)
 
 
@@ -459,8 +471,8 @@ class AuditLogsByOperatorView(ResponseWrapperMixin, APIView):
         page = paginator.paginate_queryset(logs, request)
 
         if page is not None:
-            serializer = AuditLogSerializer(page, many=True)
+            serializer = AuditLogSerializer(page, many=True, request=request)
             return paginator.get_paginated_response(serializer.data)  # type: ignore[no-any-return]
 
-        serializer = AuditLogSerializer(logs, many=True)
+        serializer = AuditLogSerializer(logs, many=True, request=request)
         return success_response(data=serializer.data)

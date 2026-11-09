@@ -60,7 +60,6 @@ class ContractViewSet(
     ResponseWrapperMixin,
     viewsets.ModelViewSet[Contract],
 ):
-    queryset = Contract.objects.all()
     pagination_class = CustomPageNumberPagination
     lookup_field = "recordcode"
     admin_actions = [
@@ -112,8 +111,8 @@ class ContractViewSet(
     export_sheet_name = "合同列表"
 
     def get_queryset(self) -> Any:
-        # RBAC: Contract 为全局资源,仅按软删除过滤
-        return Contract.objects.filter(is_deleted=False)
+        # RBAC: Contract 为全局资源,仅按软删除过滤(Selector 单源;M-06)
+        return ContractSelector.get_all_contracts()
 
     def get_serializer_class(self) -> type:
         if self.action == "list":
@@ -313,12 +312,15 @@ class ContractViewSet(
         serializer.is_valid(raise_exception=True)
         contract = self.get_object()
         vd = serializer.validated_data
+        operator_jobcode, operator_name = resolve_operator(request.user)
         updated = ContractService.add_payment_record(
             contract.contract_code,
             vd["amount"],
             vd["description"],
             payment_date=str(vd["payment_date"]) if vd.get("payment_date") else None,
             payment_method=vd["payment_method"],
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
         )
         detail_serializer = ContractDetailSerializer(instance=updated)
         return success_response(data={"contract": detail_serializer.data}, message="付款记录添加成功")
@@ -348,7 +350,13 @@ class ContractViewSet(
             }
             for item in serializer.validated_data["items"]
         ]
-        result = ContractService.add_payment_record_batch(contract.contract_code, items)
+        operator_jobcode, operator_name = resolve_operator(request.user)
+        result = ContractService.add_payment_record_batch(
+            contract.contract_code,
+            items,
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+        )
         updated = ContractSelector.get_contract_by_code(contract.contract_code) or contract
         return success_response(
             data={
@@ -388,7 +396,13 @@ class ContractViewSet(
     def delete_payment(self, request: Any, recordcode: Any = None, payment_id: Any = None) -> Response:
         """删除支付记录(软删除)"""
         contract = self.get_object()
-        updated = ContractService.delete_payment_record(contract.contract_code, payment_id)
+        operator_jobcode, operator_name = resolve_operator(request.user)
+        updated = ContractService.delete_payment_record(
+            contract.contract_code,
+            payment_id,
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+        )
         serializer = ContractDetailSerializer(instance=updated)
         return success_response(data={"contract": serializer.data}, message="支付记录删除成功")
 
@@ -396,6 +410,12 @@ class ContractViewSet(
     def approve_payment(self, request: Any, recordcode: Any = None, payment_id: Any = None) -> Response:
         """审核通过支付记录"""
         contract = self.get_object()
-        updated = ContractService.approve_payment_record(contract.contract_code, payment_id)
+        operator_jobcode, operator_name = resolve_operator(request.user)
+        updated = ContractService.approve_payment_record(
+            contract.contract_code,
+            payment_id,
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+        )
         serializer = ContractDetailSerializer(instance=updated)
         return success_response(data={"contract": serializer.data}, message="支付记录审核成功")

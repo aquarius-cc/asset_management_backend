@@ -698,3 +698,135 @@ class TestAllowedNextStatesField:
         response = admin_client.put(url, {"contract_name": "改名"}, format="json")
         assert response.status_code == status.HTTP_200_OK
         assert "allowed_next_states" not in response.data["data"]
+
+
+def _payment_action_logs(record_code: str):
+    """【M-05】双向载体 payment_action 过滤: add/batch/approve 在 after_data, delete 在 before_data"""
+    logs = AuditLog.objects.filter(
+        app_label="contract",
+        operation_type__in=("update", "delete", "approve"),
+        record_code=record_code,
+    )
+    hits = []
+    for log in logs:
+        action = (log.after_data or {}).get("payment_action") or (log.before_data or {}).get("payment_action")
+        if action is not None:
+            hits.append(log)
+    return hits
+
+
+def _latest_payment_id(contract_code: str) -> str:
+    """取最新一条付款明细 ID(测试辅助:直读模型行,不经序列化器)"""
+    row = Contract.objects.get(contract_code=contract_code)
+    return json.loads(row.paid_record)["payments"][-1]["id"]
+
+
+@pytest.mark.django_db
+class TestContractPaymentAuditOperator:
+    """【M-05】合同支付 4 写方法补审计 + View 传参
+
+    枚举映射(冻结决策①): add/batch→update、delete→delete、approve→approve;
+    细分载体 payment_action: add/batch/approve→after_data、delete→before_data;
+    operator 经 View resolve_operator 透传(admin 链路三级降级恒 auth_username)。
+    batch 逐条(add/approve)+1 条汇总,与单条链共享 operator。
+    """
+
+    def test_add_payment_records_operator(self, admin_authenticated_client, admin_auth_user, contract):
+        url = reverse("contracts-payment-record", kwargs={"recordcode": contract.recordcode})
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            response = admin_authenticated_client.post(
+                url, {"amount": "100.00", "description": "5月货款"}, format="json"
+            )
+        assert response.status_code == status.HTTP_200_OK
+        logs = _payment_action_logs(contract.contract_code)
+        assert len(logs) == 1
+        log = logs[0]
+        assert log.operation_type == "update"
+        assert (log.after_data or {})["payment_action"] == "add"
+        assert log.operator_jobcode == admin_auth_user.auth_username
+        assert log.operator_name is not None
+
+    def test_payment_batch_records_operator_and_summary(self, admin_authenticated_client, admin_auth_user, contract):
+        url = reverse("contracts-payment-record-batch", kwargs={"recordcode": contract.recordcode})
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            response = admin_authenticated_client.post(
+                url,
+                {"items": [{"amount": "10.00"}, {"amount": "20.00", "description": "6月货款"}]},
+                format="json",
+            )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["data"]["success_count"] == 2
+        logs = _payment_action_logs(contract.contract_code)
+        assert len(logs) == 5  # 2 add + 2 approve + 1 batch 汇总
+        assert {log.operator_jobcode for log in logs} == {admin_auth_user.auth_username}
+        batch_logs = [log for log in logs if (log.after_data or {}).get("payment_action") == "batch"]
+        assert len(batch_logs) == 1
+        summary = batch_logs[0]
+        assert summary.operation_type == "update"
+        assert summary.after_data["total"] == 2
+        assert summary.after_data["success_count"] == 2
+        assert summary.after_data["fail_count"] == 0
+        assert set(summary.after_data["payment_ids"]) == {item["id"] for item in response.data["data"]["success_items"]}
+
+    def test_delete_payment_records_operator(self, admin_authenticated_client, admin_auth_user, contract):
+        add_url = reverse("contracts-payment-record", kwargs={"recordcode": contract.recordcode})
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            add_response = admin_authenticated_client.post(add_url, {"amount": "50.00"}, format="json")
+            assert add_response.status_code == status.HTTP_200_OK
+            payment_id = _latest_payment_id(contract.contract_code)
+            response = admin_authenticated_client.post(
+                reverse(
+                    "contracts-delete-payment",
+                    kwargs={"recordcode": contract.recordcode, "payment_id": payment_id},
+                )
+            )
+        assert response.status_code == status.HTTP_200_OK
+        delete_logs = [log for log in _payment_action_logs(contract.contract_code) if log.operation_type == "delete"]
+        assert len(delete_logs) == 1
+        log = delete_logs[0]
+        assert (log.before_data or {})["payment_action"] == "delete"
+        assert log.before_data["payment_id"] == payment_id
+        assert log.before_data["amount"] == "50.00"
+        assert log.operator_jobcode == admin_auth_user.auth_username
+
+    def test_approve_payment_records_operator(self, admin_authenticated_client, admin_auth_user, contract):
+        add_url = reverse("contracts-payment-record", kwargs={"recordcode": contract.recordcode})
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            add_response = admin_authenticated_client.post(add_url, {"amount": "30.00"}, format="json")
+            assert add_response.status_code == status.HTTP_200_OK
+            payment_id = _latest_payment_id(contract.contract_code)
+            response = admin_authenticated_client.post(
+                reverse(
+                    "contracts-approve-payment",
+                    kwargs={"recordcode": contract.recordcode, "payment_id": payment_id},
+                )
+            )
+        assert response.status_code == status.HTTP_200_OK
+        logs = _payment_action_logs(contract.contract_code)
+        assert len(logs) == 2  # 前置 add 1 条 + approve 1 条
+        approve_logs = [log for log in logs if log.operation_type == "approve"]
+        assert len(approve_logs) == 1
+        log = approve_logs[0]
+        assert (log.after_data or {})["payment_action"] == "approve"
+        assert log.operator_jobcode == admin_auth_user.auth_username
+
+    @pytest.mark.parametrize("call", ["missing_contract", "bad_amount", "missing_payment"])
+    def test_failed_payment_write_leaves_no_audit(self, call, admin_authenticated_client, contract):
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            if call == "missing_contract":
+                url = reverse("contracts-payment-record", kwargs={"recordcode": "NOPE-M05"})
+                response = admin_authenticated_client.post(url, {"amount": "100.00"}, format="json")
+                assert response.status_code == status.HTTP_404_NOT_FOUND
+            elif call == "bad_amount":
+                url = reverse("contracts-payment-record", kwargs={"recordcode": contract.recordcode})
+                response = admin_authenticated_client.post(url, {"amount": "-1.00"}, format="json")
+                assert response.status_code == status.HTTP_400_BAD_REQUEST
+            else:
+                url = reverse(
+                    "contracts-delete-payment",
+                    kwargs={"recordcode": contract.recordcode, "payment_id": "pay_none"},
+                )
+                response = admin_authenticated_client.post(url)
+                assert response.status_code == status.HTTP_400_BAD_REQUEST
+            assert response.data["code"] != 0
+        assert _payment_action_logs(contract.contract_code) == []

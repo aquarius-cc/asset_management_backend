@@ -41,7 +41,15 @@ def test_export_columns_resolve_to_model_fields():
     for view_cls, columns in _iter_export_views():
         queryset = getattr(view_cls, "queryset", None)
         if queryset is None:
-            continue  # 未声明 queryset 的 ViewSet 不在本契约覆盖范围(当前实测为空集)
+            # M-06 后类属性 queryset 已收敛 get_queryset(): 离线解析模型按
+            # spectacular 同款 swagger_fake_view 形态调用(视图守卫返回 none(),保模型可解析)
+            try:
+                view = view_cls()
+                view.action = "list"
+                setattr(view, "swagger_fake_view", True)
+                queryset = view.get_queryset()
+            except Exception:
+                continue
         model = queryset.model
         for col in columns:
             current = model

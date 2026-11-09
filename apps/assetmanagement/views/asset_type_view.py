@@ -4,6 +4,7 @@
 
 from typing import Any
 
+from django.db.models import QuerySet
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
@@ -11,6 +12,7 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 
 from apps.assetmanagement.models import AssetType
+from apps.assetmanagement.selectors import AssetTypeSelector
 from apps.assetmanagement.serializers import (
     AssetTypeBatchCreateSerializer,
     AssetTypeBatchDeleteSerializer,
@@ -36,11 +38,15 @@ class AssetTypeViewSet(  # type: ignore[misc]
     ResponseWrapperMixin,
     viewsets.ModelViewSet[AssetType],
 ):
-    queryset = AssetType.objects.all()
     serializer_class = AssetTypeSerializer
     pagination_class = CustomPageNumberPagination
     permission_classes = [permissions.IsAuthenticated]
     lookup_field = "recordcode"
+
+    def get_queryset(self) -> QuerySet[AssetType]:
+        # RBAC: AssetType 为全局资源,仅按软删除过滤(Selector 单源;M-06)
+        return AssetTypeSelector.get_all_asset_types()
+
     admin_actions = [
         "create",
         "update",

@@ -30,6 +30,10 @@ class TestRecycleAssetClearFields(TestCase):
             employee_name="测试用户",
             employee_department=self.department,
         )
+        # M-07: create_outasset user kw-only 必填,superuser 全域可见
+        self.auth_user = AuthUser.objects.create_superuser(
+            auth_username="clearadmin", password="test-pass-123", auth_phone="13800138010"
+        )
         self.storage = Storage.objects.create(
             storage_code="S001",
             storage_name="测试仓库",
@@ -58,7 +62,7 @@ class TestRecycleAssetClearFields(TestCase):
             "outasset_using_location": "测试使用地点",
             "outasset_date": "2024-01-01",
         }
-        self.outasset = OutAssetService.create_outasset(outasset_data)
+        self.outasset = OutAssetService.create_outasset(outasset_data, user=self.auth_user)
 
     def test_recycle_clears_applicant_manager_location(self):
         """
@@ -115,6 +119,10 @@ class TestOutAssetDeleteClearFields(TestCase):
             employee_name="测试用户",
             employee_department=self.department,
         )
+        # M-07: create_outasset user kw-only 必填,superuser 全域可见
+        self.auth_user = AuthUser.objects.create_superuser(
+            auth_username="clearadmin", password="test-pass-123", auth_phone="13800138010"
+        )
         self.storage = Storage.objects.create(
             storage_code="S001",
             storage_name="测试仓库",
@@ -163,7 +171,7 @@ class TestOutAssetDeleteClearFields(TestCase):
             "outasset_using_location": "测试使用地点",
             "outasset_date": "2024-01-01",
         }
-        self.outasset = OutAssetService.create_outasset(outasset_data)
+        self.outasset = OutAssetService.create_outasset(outasset_data, user=self.auth_user)
 
     def test_delete_outasset_restores_applicant_manager_location(self):
         """

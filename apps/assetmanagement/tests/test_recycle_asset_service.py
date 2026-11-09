@@ -315,12 +315,13 @@ class TestRecycleWithBrokenLostMarks:
 class TestReissueRecycleAsset:
     """CT-3: reissue_recycle_asset (recycled_pending → in_use) 全路径测试"""
 
-    def test_reissue_success(self, recycle_data, user):
+    def test_reissue_success(self, recycle_data, user, full_scope_user):
         recycle_asset = RecycleAssetService.create_recycle_asset(recycle_data)
         result = RecycleAssetService.reissue_recycle_asset(
             recycle_asset.recordcode,
             operator_jobcode=user.employee_jobcode,
             operator_name=user.employee_name,
+            user=full_scope_user,
         )
         result.asset_recordcode.refresh_from_db()
         assert result.outasset_type == OutAsset.OutassetType.REISSUE
@@ -330,18 +331,18 @@ class TestReissueRecycleAsset:
             operation_type=AssetOperationLog.OperationType.OUT,
         ).exists()
 
-    def test_reissue_record_not_found(self):
+    def test_reissue_record_not_found(self, full_scope_user):
         with pytest.raises(AppValidationError) as exc_info:
-            RecycleAssetService.reissue_recycle_asset("NONEXIST")
+            RecycleAssetService.reissue_recycle_asset("NONEXIST", user=full_scope_user)
         assert exc_info.value.error_code == "RECYCLE_ASSET_NOT_FOUND"
 
-    def test_reissue_wrong_status(self, recycle_data):
+    def test_reissue_wrong_status(self, recycle_data, full_scope_user):
         recycle_asset = RecycleAssetService.create_recycle_asset(recycle_data)
         asset = recycle_asset.asset_recordcode
         asset.asset_current_status = "in_use"
         asset.save(update_fields=["asset_current_status"])
         with pytest.raises(AppValidationError) as exc_info:
-            RecycleAssetService.reissue_recycle_asset(recycle_asset.recordcode)
+            RecycleAssetService.reissue_recycle_asset(recycle_asset.recordcode, user=full_scope_user)
         assert exc_info.value.error_code == "INVALID_ASSET_STATUS_FOR_REISSUE"
 
 

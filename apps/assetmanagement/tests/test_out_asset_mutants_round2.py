@@ -73,7 +73,7 @@ class TestDeleteOneFsmBranchMutants:
 class TestBatchCreateKeyNormalizeMutants:
     """batch_create_outasset #3/#13/#16/#17/#19/#20:键归一 + 原 dict 未污染"""
 
-    def test_row_number_stripped_and_input_not_mutated(self, asset, user, employee):
+    def test_row_number_stripped_and_input_not_mutated(self, asset, user, employee, full_scope_user):
         """row_number pop(None/XX/大写 立红) + deepcopy 语义(原 dict 不动)"""
         payload = {
             "outasset_asset": asset,
@@ -85,7 +85,7 @@ class TestBatchCreateKeyNormalizeMutants:
             "outasset_manager": employee,
         }
         snapshot_before = dict(payload)
-        result = OutAssetService.batch_create_outasset([payload])
+        result = OutAssetService.batch_create_outasset([payload], user=full_scope_user)
         assert result["success_count"] == 1
         assert result["fail_count"] == 0
         assert payload == snapshot_before
@@ -98,7 +98,7 @@ class TestBatchCreateKeyNormalizeMutants:
         assert oa.outasset_applicant_recordcode == user
         assert oa.outasset_manager_recordcode == employee
 
-    def test_operator_fields_forwarded(self, asset, user, employee):
+    def test_operator_fields_forwarded(self, asset, user, employee, full_scope_user):
         """operator_jobcode/operator_name 透传(#19/#20 立红)"""
         payload = {
             "outasset_asset": asset,
@@ -108,7 +108,7 @@ class TestBatchCreateKeyNormalizeMutants:
         }
         with patch(AUDIT) as mock_audit:
             result = OutAssetService.batch_create_outasset(
-                [payload], operator_jobcode="OP777", operator_name="批量操作员"
+                [payload], operator_jobcode="OP777", operator_name="批量操作员", user=full_scope_user
             )
         assert result["success_count"] == 1
         call_kwargs = mock_audit.log_asset_out.call_args.kwargs

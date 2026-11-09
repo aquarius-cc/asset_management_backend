@@ -160,7 +160,7 @@ class TestOutAssetService:
     出库服务测试
     """
 
-    def test_create_outasset(self, asset, user):
+    def test_create_outasset(self, asset, user, full_scope_user):
         """
         测试创建出库记录
 
@@ -178,13 +178,13 @@ class TestOutAssetService:
             "outasset_date": "2024-01-01",
         }
 
-        outasset = OutAssetService.create_outasset(outasset_data)
+        outasset = OutAssetService.create_outasset(outasset_data, user=full_scope_user)
 
         assert outasset.asset_recordcode == asset
         asset.refresh_from_db()
         assert asset.asset_current_status == "in_use"
 
-    def test_create_outasset_invalid_status(self, asset, user):
+    def test_create_outasset_invalid_status(self, asset, user, full_scope_user):
         """
         测试对非在库资产创建出库记录
 
@@ -202,7 +202,7 @@ class TestOutAssetService:
         }
 
         with pytest.raises(AppValidationError):
-            OutAssetService.create_outasset(outasset_data)
+            OutAssetService.create_outasset(outasset_data, user=full_scope_user)
 
 
 @pytest.mark.django_db

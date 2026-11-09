@@ -301,7 +301,7 @@ class TestRecycleMutantKillsRound2:
         outasset.asset_recordcode.refresh_from_db()
         assert outasset.asset_recordcode.asset_storage_recordcode == storage
 
-    def test_reissue_outasset_payload_exact(self, outasset, storage, user):
+    def test_reissue_outasset_payload_exact(self, outasset, storage, user, full_scope_user):
         """重新发放: 出库参数逐字(type/number/description)"""
         payload = {
             "outasset_recordcode": outasset,
@@ -310,13 +310,13 @@ class TestRecycleMutantKillsRound2:
         }
         created = RecycleAssetService.create_recycle_asset(payload)
         with mock.patch("apps.assetmanagement.services.out_asset_service.OutAssetService.create_outasset") as mk:
-            RecycleAssetService.reissue_recycle_asset(created.recordcode, operator_jobcode="U001")
+            RecycleAssetService.reissue_recycle_asset(created.recordcode, operator_jobcode="U001", user=full_scope_user)
         data = mk.call_args.kwargs["outasset_data"]
         assert data["outasset_type"] == OutAsset.OutassetType.REISSUE
         assert data["outasset_number"] == 1
         assert data["outasset_description"] == f"重新发放 - 原回收记录: {created.recordcode}"
 
-    def test_reissue_wrong_status_detail(self, outasset, storage, user):
+    def test_reissue_wrong_status_detail(self, outasset, storage, user, full_scope_user):
         """非 recycled_pending 重新发放: 文案逐字"""
         payload = {
             "outasset_recordcode": outasset,
@@ -327,7 +327,7 @@ class TestRecycleMutantKillsRound2:
         created.asset_recordcode.asset_current_status = "broken"
         created.asset_recordcode.save(update_fields=["asset_current_status"])
         with pytest.raises(AppValidationError) as exc:
-            RecycleAssetService.reissue_recycle_asset(created.recordcode)
+            RecycleAssetService.reissue_recycle_asset(created.recordcode, user=full_scope_user)
         assert exc.value.detail == "资产当前状态为 broken,只有已回收待发放的资产才能重新发放"
         assert exc.value.error_code == "INVALID_ASSET_STATUS_FOR_REISSUE"
 

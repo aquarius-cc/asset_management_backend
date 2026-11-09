@@ -46,15 +46,16 @@ class OutAssetService:
         outasset_data: dict[str, Any],
         operator_jobcode: str | None = None,
         operator_name: str | None = None,
-        user: Any | None = None,
+        *,
+        user: Any,
     ) -> OutAsset:
         asset = outasset_data.get("asset_recordcode")
         if not asset:
             raise AppValidationError(detail="缺少资产编码", error_code="MISSING_ASSET_CODE")
 
-        # BEQ-02 行级隔离: 出库前校验目标资产在用户可见范围内(与 by_asset 查询侧同口径)
-        if user is not None:
-            AssetSelector.ensure_asset_visible(asset, user)
+        # BEQ-02 行级隔离: 出库前校验目标资产在用户可见范围内(与 by_asset 查询侧同口径)。
+        # user 为 kw-only 必填(对齐 update_outasset 形态)——不加 if user is None 守卫,防「忘传即放行」。
+        AssetSelector.ensure_asset_visible(asset, user)
 
         OutAssetService._validate_outasset_source(asset)
 
@@ -281,7 +282,8 @@ class OutAssetService:
         outasset_data_list: list[dict[str, Any]],
         operator_jobcode: str | None = None,
         operator_name: str | None = None,
-        user: Any | None = None,
+        *,
+        user: Any,
     ) -> dict[str, Any]:
         import copy
 

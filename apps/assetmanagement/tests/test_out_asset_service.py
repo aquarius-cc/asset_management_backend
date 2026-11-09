@@ -66,7 +66,7 @@ class TestCreateOutAssetService:
         [("in_store", "in_store"), ("recycled_pending", "recycled_pending")],
     )
     def test_create_success_records_previous_status_and_snapshot(
-        self, storage, asset_type, employee, source_status, expected_previous
+        self, storage, asset_type, employee, source_status, expected_previous, full_scope_user
     ):
         asset = _make_asset(
             storage,
@@ -80,6 +80,7 @@ class TestCreateOutAssetService:
         outasset = OutAssetService.create_outasset(
             _outasset_payload(asset, applicant=employee, manager=employee),
             operator_jobcode=employee.employee_jobcode,
+            user=full_scope_user,
         )
 
         assert outasset.outasset_previous_status == expected_previous
@@ -97,15 +98,15 @@ class TestCreateOutAssetService:
         assert asset.asset_applicant_recordcode == employee
         assert asset.asset_using_location == "出库地点"
 
-    def test_create_from_illegal_status_raises(self, storage, asset_type, employee):
+    def test_create_from_illegal_status_raises(self, storage, asset_type, employee, full_scope_user):
         asset = _make_asset(storage, asset_type, "in_use", "OUT_SVC_ILLEGAL")
         with pytest.raises(AppValidationError) as exc_info:
-            OutAssetService.create_outasset(_outasset_payload(asset, applicant=employee))
+            OutAssetService.create_outasset(_outasset_payload(asset, applicant=employee), user=full_scope_user)
         assert exc_info.value.error_code == "ILLEGAL_OUTASSET"
 
-    def test_create_missing_asset_code_raises(self, storage, asset_type):
+    def test_create_missing_asset_code_raises(self, storage, asset_type, full_scope_user):
         with pytest.raises(AppValidationError) as exc_info:
-            OutAssetService.create_outasset({})
+            OutAssetService.create_outasset({}, user=full_scope_user)
         assert exc_info.value.error_code == "MISSING_ASSET_CODE"
 
 
@@ -113,7 +114,7 @@ class TestCreateOutAssetService:
 class TestOutAssetLockAndUsageType:
     """F-P2-8/F-P2-9: 出库行锁409 + usage_type new→used (AC-27/30/65)"""
 
-    def test_create_outasset_lock_timeout_raises_409(self, storage, asset_type, employee):
+    def test_create_outasset_lock_timeout_raises_409(self, storage, asset_type, employee, full_scope_user):
         """AC-30/65: 出库行锁超时 → ResourceConflictError(409) ASSET_LOCKED"""
         asset = _make_asset(storage, asset_type, "in_store", "OUT_SVC_LK409")
         with mock.patch.object(
@@ -125,17 +126,19 @@ class TestOutAssetLockAndUsageType:
                 OutAssetService.create_outasset(
                     _outasset_payload(asset, applicant=employee),
                     operator_jobcode=employee.employee_jobcode,
+                    user=full_scope_user,
                 )
         assert exc.value.status_code == 409
         assert exc.value.error_code == "ASSET_LOCKED"
 
-    def test_create_outasset_flips_usage_type_to_used(self, storage, asset_type, employee):
+    def test_create_outasset_flips_usage_type_to_used(self, storage, asset_type, employee, full_scope_user):
         """AC-27: 出库成功后 usage_type new→used (F-P2-9); fresh query 避开 FK 缓存"""
         asset = _make_asset(storage, asset_type, "in_store", "OUT_SVC_USED")
         assert asset.usage_type == "new"
         OutAssetService.create_outasset(
             _outasset_payload(asset, applicant=employee),
             operator_jobcode=employee.employee_jobcode,
+            user=full_scope_user,
         )
         fresh = Asset.objects.get(asset_code=asset.asset_code)
         assert fresh.usage_type == "used"
@@ -148,6 +151,7 @@ class TestOutAssetLockAndUsageType:
         outasset = OutAssetService.create_outasset(
             _outasset_payload(asset, applicant=employee, manager=employee),
             operator_jobcode=employee.employee_jobcode,
+            user=full_scope_user,
         )
         with mock.patch.object(
             type(Asset.objects.select_for_update()),
@@ -160,12 +164,13 @@ class TestOutAssetLockAndUsageType:
         assert result["fail_count"] == 1
         assert result["fail_items"][0]["error_code"] == "ASSET_LOCKED"
 
-    def test_update_outasset_lock_timeout_raises_409(self, storage, asset_type, user, employee):
+    def test_update_outasset_lock_timeout_raises_409(self, storage, asset_type, user, employee, full_scope_user):
         """F-P2-8 续:update 单条路径 OutAsset 行锁超时 → 真 409 ASSET_LOCKED(select_for_update().get 经 guard)"""
         asset = _make_asset(storage, asset_type, "in_store", "OUT_SVC_UP_409")
         outasset = OutAssetService.create_outasset(
             _outasset_payload(asset, applicant=employee, manager=employee),
             operator_jobcode=employee.employee_jobcode,
+            user=full_scope_user,
         )
         qs_type = type(OutAsset.objects.select_for_update())
         orig_get = qs_type.get
@@ -182,12 +187,13 @@ class TestOutAssetLockAndUsageType:
         assert exc.value.status_code == 409
         assert exc.value.error_code == "ASSET_LOCKED"
 
-    def test_batch_delete_guard_lock_timeout_raises_409(self, storage, asset_type, user, employee):
+    def test_batch_delete_guard_lock_timeout_raises_409(self, storage, asset_type, user, employee, full_scope_user):
         """F-P2-8 续:批量删除守卫(get_outasset_for_update)锁超时 → Selector 抛 409 ASSET_LOCKED"""
         asset = _make_asset(storage, asset_type, "in_store", "OUT_SVC_GUARD409")
         outasset = OutAssetService.create_outasset(
             _outasset_payload(asset, applicant=employee, manager=employee),
             operator_jobcode=employee.employee_jobcode,
+            user=full_scope_user,
         )
         with mock.patch.object(
             type(OutAsset.objects.select_for_update()),
@@ -208,10 +214,12 @@ class TestOutAssetLockAndUsageType:
         ok_out = OutAssetService.create_outasset(
             _outasset_payload(ok_asset, applicant=employee, manager=employee),
             operator_jobcode=employee.employee_jobcode,
+            user=full_scope_user,
         )
         boom_out = OutAssetService.create_outasset(
             _outasset_payload(boom_asset, applicant=employee, manager=employee),
             operator_jobcode=employee.employee_jobcode,
+            user=full_scope_user,
         )
         qs_type = type(Asset.objects.select_for_update())
         orig_get = qs_type.get
@@ -237,7 +245,7 @@ class TestOutAssetLockAndUsageType:
         assert ok_asset.asset_current_status == "in_store"
         assert boom_asset.asset_current_status == "in_use"
 
-    def test_guard_reraises_non_lock_operational_error(self, storage, asset_type, employee):
+    def test_guard_reraises_non_lock_operational_error(self, storage, asset_type, employee, full_scope_user):
         """F-P2-8 续:非锁类 OperationalError(不含 lock)不被吞,原样 re-raise"""
         asset = _make_asset(storage, asset_type, "in_store", "OUT_SVC_RELK")
         with mock.patch.object(
@@ -249,6 +257,7 @@ class TestOutAssetLockAndUsageType:
                 OutAssetService.create_outasset(
                     _outasset_payload(asset, applicant=employee),
                     operator_jobcode=employee.employee_jobcode,
+                    user=full_scope_user,
                 )
 
 
@@ -267,7 +276,8 @@ class TestCancelOutAssetService:
             using_location="原地点",
         )
         outasset = OutAssetService.create_outasset(
-            _outasset_payload(asset, applicant=employee, manager=employee, using_location="出库地点")
+            _outasset_payload(asset, applicant=employee, manager=employee, using_location="出库地点"),
+            user=full_scope_user,
         )
 
         asset.refresh_from_db()
@@ -301,7 +311,9 @@ class TestCancelOutAssetService:
             manager=user,
             using_location="原地点",
         )
-        outasset = OutAssetService.create_outasset(_outasset_payload(asset, applicant=employee))
+        outasset = OutAssetService.create_outasset(
+            _outasset_payload(asset, applicant=employee), user=full_scope_user
+        )
 
         asset.refresh_from_db()
         assert asset.asset_storage_recordcode is None
@@ -322,11 +334,12 @@ class TestCancelOutAssetService:
 class TestBatchOutAssetService:
     """批量方法 fail_items 结构(CT-4 回归护栏)"""
 
-    def test_batch_create_fail_items_structure(self, storage, asset_type, employee):
+    def test_batch_create_fail_items_structure(self, storage, asset_type, employee, full_scope_user):
         valid = _make_asset(storage, asset_type, "in_store", "OUT_SVC_BC_OK")
         illegal = _make_asset(storage, asset_type, "in_use", "OUT_SVC_BC_ILL")
         result = OutAssetService.batch_create_outasset(
-            [_outasset_payload(valid, applicant=employee), _outasset_payload(illegal, applicant=employee)]
+            [_outasset_payload(valid, applicant=employee), _outasset_payload(illegal, applicant=employee)],
+            user=full_scope_user,
         )
         assert result["total"] == 2
         assert result["success_count"] == 1
@@ -347,7 +360,7 @@ class TestBatchOutAssetService:
         assert result["fail_items"][0]["id"] == "OUT-NOT-EXIST-123"
         assert result["fail_items"][0]["error_code"] == "NOT_FOUND"
 
-    def test_batch_create_lock_timeout_lands_in_fail_items(self, storage, asset_type, employee):
+    def test_batch_create_lock_timeout_lands_in_fail_items(self, storage, asset_type, employee, full_scope_user):
         """F-P2-8 续:批量创建混合批——一条资产锁超时→fail_items ASSET_LOCKED,其余成功"""
         ok = _make_asset(storage, asset_type, "in_store", "OUT_SVC_BCLK_OK")
         boom = _make_asset(storage, asset_type, "in_store", "OUT_SVC_BCLK_BM")
@@ -365,7 +378,8 @@ class TestBatchOutAssetService:
                 [
                     _outasset_payload(ok, applicant=employee),
                     _outasset_payload(boom, applicant=employee),
-                ]
+                ],
+                user=full_scope_user,
             )
         assert result["success_count"] == 1
         assert result["fail_count"] == 1
@@ -395,12 +409,13 @@ class TestOutAssetPersonScope:
         )
 
     @staticmethod
-    def _make_outasset(storage, asset_type, employee, code):
-        """合法出库(同部门人员, 不传 user 直调——与 25 处既有直调同形)"""
+    def _make_outasset(storage, asset_type, employee, code, user):
+        """合法出库(同部门人员);user kw-only 必填(M-07),由调用方按语义注入"""
         asset = _make_asset(storage, asset_type, "in_store", code, applicant=employee, manager=employee)
         return OutAssetService.create_outasset(
             _outasset_payload(asset, applicant=employee, manager=employee),
             operator_jobcode=employee.employee_jobcode,
+            user=user,
         )
 
     def test_create_cross_dept_applicant_raises(self, storage, asset_type, employee, auth_user, cross_dept_employee):
@@ -434,13 +449,13 @@ class TestOutAssetPersonScope:
         assert outasset.outasset_applicant_recordcode == employee
         assert asset.asset_current_status == "in_use"
 
-    def test_create_without_user_skips_person_check(self, storage, asset_type, cross_dept_employee):
-        """user 仍为可选(25 处直调零改动): 跨部门人员不校验, 放行语义锁定"""
+    def test_create_missing_user_raises_type_error(self, storage, asset_type, cross_dept_employee):
+        """M-07: user 为 kw-only 必填——忘传即 TypeError,不再有「不传即放行」退化"""
         asset = _make_asset(storage, asset_type, "in_store", "OUT_PSN_NU")
-        outasset = OutAssetService.create_outasset(
-            _outasset_payload(asset, applicant=cross_dept_employee, manager=cross_dept_employee)
-        )
-        assert outasset.outasset_applicant_recordcode == cross_dept_employee
+        with pytest.raises(TypeError):
+            OutAssetService.create_outasset(
+                _outasset_payload(asset, applicant=cross_dept_employee, manager=cross_dept_employee)
+            )
 
     def test_create_superuser_cross_dept_allowed(
         self, storage, asset_type, employee, admin_auth_user, cross_dept_employee
@@ -486,7 +501,7 @@ class TestOutAssetPersonScope:
         assert result["fail_items"][0]["error_code"] == "OUTASSET_PERSON_OUT_OF_SCOPE"
 
     def test_update_cross_dept_applicant_raises(self, storage, asset_type, employee, auth_user, cross_dept_employee):
-        outasset = self._make_outasset(storage, asset_type, employee, "OUT_PSN_UP1")
+        outasset = self._make_outasset(storage, asset_type, employee, "OUT_PSN_UP1", user=auth_user)
         with pytest.raises(AppValidationError) as exc_info:
             OutAssetService.update_outasset(
                 outasset.recordcode, {"outasset_applicant": cross_dept_employee}, user=auth_user
@@ -495,7 +510,7 @@ class TestOutAssetPersonScope:
 
     def test_update_only_using_location_skips_person_check(self, storage, asset_type, employee, auth_user):
         """partial_update 未提交人员字段为 None 自动跳过: 只改使用地点不误拦"""
-        outasset = self._make_outasset(storage, asset_type, employee, "OUT_PSN_UP2")
+        outasset = self._make_outasset(storage, asset_type, employee, "OUT_PSN_UP2", user=auth_user)
         updated = OutAssetService.update_outasset(
             outasset.recordcode, {"outasset_using_location": "新地点"}, user=auth_user
         )
@@ -506,7 +521,7 @@ class TestOutAssetPersonScope:
     def test_update_superuser_cross_dept_allowed(
         self, storage, asset_type, employee, admin_auth_user, cross_dept_employee
     ):
-        outasset = self._make_outasset(storage, asset_type, employee, "OUT_PSN_UP3")
+        outasset = self._make_outasset(storage, asset_type, employee, "OUT_PSN_UP3", user=admin_auth_user)
         updated = OutAssetService.update_outasset(
             outasset.recordcode, {"outasset_applicant": cross_dept_employee}, user=admin_auth_user
         )

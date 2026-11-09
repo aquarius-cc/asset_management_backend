@@ -431,7 +431,11 @@ class RecycleAssetService:
     @staticmethod
     @transaction.atomic
     def reissue_recycle_asset(
-        recordcode: str, operator_jobcode: str | None = None, operator_name: str | None = None
+        recordcode: str,
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+        *,
+        user: Any,
     ) -> "OutAsset":
         """
         重新发放:将已回收待发放的资产重新出库
@@ -439,7 +443,7 @@ class RecycleAssetService:
         业务规则:
         1. 资产状态必须为 recycled_pending
         2. 资产不能处于损坏或遗失状态(is_broken=False, is_lost=False)
-        3. 调用 OutAssetService.create_outasset 重新出库
+        3. 调用 OutAssetService.create_outasset 重新出库(user kw-only 必填,贯通行级隔离校验)
         """
         from apps.assetmanagement.services.out_asset_service import OutAssetService
 
@@ -473,4 +477,5 @@ class RecycleAssetService:
             outasset_data=outasset_data,
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
+            user=user,
         )

@@ -8,6 +8,7 @@ from django.test import TestCase
 
 from apps.assetmanagement.models import Asset, AssetType, Storage
 from apps.assetmanagement.services import OutAssetService
+from apps.authusermanagement.models import AuthUser
 from apps.usermanagement.models import Department, Employee
 
 
@@ -33,6 +34,10 @@ class TestOutAssetSnapshot(TestCase):
             employee_name="保管人李四",
             employee_department=self.department,
             employee_phone="13800134002",
+        )
+        # M-07: create_outasset user kw-only 必填,superuser 全域可见
+        self.auth_user = AuthUser.objects.create_superuser(
+            auth_username="snapadmin", password="test-pass-123", auth_phone="13800138009"
         )
         self.storage = Storage.objects.create(
             storage_code="S001",
@@ -70,7 +75,7 @@ class TestOutAssetSnapshot(TestCase):
             "outasset_date": "2024-01-01",
         }
 
-        outasset = OutAssetService.create_outasset(outasset_data)
+        outasset = OutAssetService.create_outasset(outasset_data, user=self.auth_user)
 
         # 验证 OutAsset 记录创建成功
         self.assertIsNotNone(outasset)
@@ -108,7 +113,7 @@ class TestOutAssetSnapshot(TestCase):
             "outasset_using_location": "B栋13楼",
             "outasset_date": "2024-01-01",
         }
-        outasset = OutAssetService.create_outasset(outasset_data)
+        outasset = OutAssetService.create_outasset(outasset_data, user=self.auth_user)
 
         # 验证出库后快照存在
         outasset.refresh_from_db()

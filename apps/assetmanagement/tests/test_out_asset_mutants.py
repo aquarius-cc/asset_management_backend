@@ -293,7 +293,7 @@ class TestResolveSnapshotEmployeeMutants:
 class TestBatchCreateOutassetMutants:
     """batch_create_outasset(14):键归一 + 原 dict 未污染"""
 
-    def test_key_normalization_and_input_not_mutated(self, asset, storage, user, employee):
+    def test_key_normalization_and_input_not_mutated(self, asset, storage, user, employee, full_scope_user):
         payload = {
             "outasset_asset": asset,
             "row_number": 1,
@@ -304,7 +304,7 @@ class TestBatchCreateOutassetMutants:
             "outasset_manager": employee,
         }
         original_len = len(payload)
-        result = OutAssetService.batch_create_outasset([payload])
+        result = OutAssetService.batch_create_outasset([payload], user=full_scope_user)
         assert result["success_count"] == 1
         assert result["fail_count"] == 0
         assert len(payload) == original_len
@@ -317,7 +317,7 @@ class TestBatchCreateOutassetMutants:
         assert oa.outasset_applicant_recordcode == user
         assert oa.outasset_manager_recordcode == employee
 
-    def test_operator_jobcode_forwarded(self, asset, storage, user, employee):
+    def test_operator_jobcode_forwarded(self, asset, storage, user, employee, full_scope_user):
         payload = {
             "outasset_asset": asset,
             "outasset_date": "2024-06-02",
@@ -325,7 +325,9 @@ class TestBatchCreateOutassetMutants:
             "outasset_applicant": user,
         }
         with patch(AUDIT) as mock_audit:
-            result = OutAssetService.batch_create_outasset([payload], operator_jobcode="OP999", operator_name="批量员")
+            result = OutAssetService.batch_create_outasset(
+                [payload], operator_jobcode="OP999", operator_name="批量员", user=full_scope_user
+            )
         assert result["success_count"] == 1
         mock_audit.log_asset_out.assert_called_once()
         call_kwargs = mock_audit.log_asset_out.call_args
@@ -377,7 +379,8 @@ class TestDeleteOneMutants:
             ]
         )
         oa = OutAssetService.create_outasset(
-            _outasset_payload(asset, applicant=user, manager=user, using_location="新地")
+            _outasset_payload(asset, applicant=user, manager=user, using_location="新地"),
+            user=full_scope_user,
         )
         with patch(AUDIT) as mock_audit:
             OutAssetService._delete_one(
@@ -429,7 +432,9 @@ class TestBatchDeleteOutassetMutants:
 
     def test_operator_name_forwarded_to_delete(self, asset, user, employee, full_scope_user):
         """先出库到 in_use，再删除转发 operator_name"""
-        oa = OutAssetService.create_outasset(_outasset_payload(asset, applicant=employee, manager=employee))
+        oa = OutAssetService.create_outasset(
+            _outasset_payload(asset, applicant=employee, manager=employee), user=full_scope_user
+        )
         with patch(AUDIT) as mock_audit:
             result = OutAssetService.batch_delete_outasset(
                 [oa.recordcode], operator_jobcode="OP1", operator_name="李四", user=full_scope_user

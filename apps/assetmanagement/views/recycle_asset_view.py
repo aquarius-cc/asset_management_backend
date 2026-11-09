@@ -262,6 +262,7 @@ class RecycleAssetViewSet(  # type: ignore[misc]
             recordcode=recycle.recordcode,
             operator_jobcode=resolve_operator(request.user)[0],
             operator_name=resolve_operator(request.user)[1],
+            user=request.user,
         )
         return success_response(
             data=OutAssetDetailSerializer(outasset).data,

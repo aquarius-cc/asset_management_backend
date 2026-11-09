@@ -282,14 +282,12 @@ def ensure_employees_in_scope(user: Any, employees: Iterable[Any]) -> None:
     """
     出库使用人/保管人写侧归属校验(D-5;口径 2026-11-02:禁止跨部门借用)。
 
-    - user is None → 放行(create_outasset 的 user 仍为可选,沿用 ensure_asset_visible 守卫)
+    - user 必填(M-07: create_outasset/update_outasset 均为 kw-only 必填,无 None 放行分支)
     - employees 中某项为 None → 跳过(本次未指定该人员,不构成写入;
       update 的 partial_update 未提交人员字段即此情形,不会误拦「只改使用地点」)
     - 员工无部门 → is_department_visible 返回 False(部门级角色);与 EmployeeSelector
       的部门过滤同源(无部门员工本就不在候选列表内),故不设单独分支(DR-1)
     """
-    if user is None:
-        return
     from core.exceptions import AppValidationError
 
     for emp in employees:

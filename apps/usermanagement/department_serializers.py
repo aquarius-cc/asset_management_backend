@@ -6,7 +6,7 @@ from typing import Any
 
 from rest_framework import serializers
 
-from apps.usermanagement.models import MAX_DEPARTMENT_LEVEL, Department
+from apps.usermanagement.models import Department
 from core.batch_mixins import BaseBatchDeleteSerializer
 from core.constants import MAX_BATCH_SIZE as DEFAULT_MAX_BATCH_SIZE
 
@@ -117,10 +117,9 @@ class DepartmentMoveSerializer(serializers.Serializer):  # type: ignore[type-arg
 
     用于验证部门移动请求,修改部门的父级关系。
 
-    【验证规则】
-    - target_parent_department_code: 目标父部门业务编码,null 表示成为根部门
-    - 移动后层级不能超过 MAX_DEPARTMENT_LEVEL
-    - 不允许循环引用(不能移动到自己的子部门下)
+    【M-30 A′ 验证职责收敛】存在性/循环引用/层级约束统一由
+    DepartmentService.move_department 锁内兜底(全局 handler 呈现),
+    本序列化器仅做字段格式校验与 "null/none/空" 字符串归一。
     """
 
     target_parent_department_code = serializers.CharField(
@@ -129,16 +128,13 @@ class DepartmentMoveSerializer(serializers.Serializer):  # type: ignore[type-arg
 
     def validate_target_parent_department_code(self, value: str | None) -> str | None:
         """
-        验证目标父部门业务编码
+        归一化目标父部门业务编码("null/none/空" 视为根部门;存在性校验在 Service)
 
         Args:
             value: 目标父部门业务编码
 
         Returns:
-            验证通过的值
-
-        Raises:
-            serializers.ValidationError: 父部门不存在
+            归一化后的值
         """
         if value is None:
             return None
@@ -147,93 +143,7 @@ class DepartmentMoveSerializer(serializers.Serializer):  # type: ignore[type-arg
         if isinstance(value, str) and value.lower() in ("null", "none", ""):
             return None
 
-        # 检查目标父部门是否存在
-        if not Department.objects.filter(department_code=value).exists():
-            raise serializers.ValidationError(f"目标父部门 {value} 不存在")
-
         return value
-
-    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
-        """
-        整体验证:检查循环引用和层级约束
-
-        Args:
-            attrs: 已验证的属性字典
-
-        Returns:
-            验证通过的属性字典
-
-        Raises:
-            serializers.ValidationError: 存在循环引用或层级超限
-        """
-        target_parent_code = attrs.get("target_parent_department_code")
-
-        # 如果要成为根部门,无需额外验证
-        if target_parent_code is None:
-            return attrs
-
-        # 获取当前部门(从上下文中获取)
-        current_department: Department | None = self.context.get("department")
-        if current_department is None:
-            return attrs
-
-        # 检查是否移动到自己
-        if target_parent_code == current_department.department_code:
-            raise serializers.ValidationError({"target_parent_department_code": "不能将部门移动到自己下面"})
-
-        # 检查循环引用:不能移动到自己的子部门下
-        descendant_codes = current_department.get_all_descendants()
-        if descendant_codes:
-            descendants = Department.objects.filter(
-                department_code__in=[d.department_code for d in descendant_codes]  # type: ignore[attr-defined]
-            ).values_list("department_code", flat=True)
-            if target_parent_code in descendants:
-                raise serializers.ValidationError(
-                    {"target_parent_department_code": "不能将部门移动到自己的子部门下面,这会形成循环引用"}
-                )
-
-        # 检查层级约束
-        target_parent = Department.objects.filter(department_code=target_parent_code).first()
-
-        if target_parent:
-            # 移动后的层级 = 目标父部门层级 + 1
-            new_level = target_parent.level + 1
-
-            # 计算当前部门的最大子树深度
-            max_child_depth = self._get_max_child_depth(current_department)
-            total_depth = new_level + max_child_depth
-
-            if total_depth > MAX_DEPARTMENT_LEVEL:
-                raise serializers.ValidationError(
-                    {"target_parent_department_code": f"移动后部门层级将超过 {MAX_DEPARTMENT_LEVEL} 层限制"}
-                )
-
-        return attrs
-
-    def _get_max_child_depth(self, department: Department) -> int:
-        """
-        计算部门的最大子树深度(基于 path 查询)
-
-        Args:
-            department: 部门实例
-
-        Returns:
-            int: 最大子树深度(相对于当前部门)
-        """
-        if not department.path:
-            return 0
-
-        max_level = (
-            Department.objects.filter(path__startswith=f"{department.path}/")
-            .order_by("-level")
-            .values_list("level", flat=True)
-            .first()
-        )
-
-        if max_level is None:
-            return 0
-
-        return max_level - department.level  # type: ignore[no-any-return]
 
 
 class DepartmentSortSerializer(serializers.Serializer):  # type: ignore[type-arg]

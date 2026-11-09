@@ -288,8 +288,9 @@ class DepartmentViewSet(  # type: ignore[misc]
     @action(detail=True, methods=["put"])
     def move(self, request: Any, department_code: Any = None) -> Response:
         """移动部门到新的父部门下(支持拖拽排序)"""
-        department = self.get_object()
-        serializer = DepartmentMoveSerializer(data=request.data, context={"department": department})
+        # get_object() 触发 404(部门不存在);验证与兜底由 Service 锁内承担(M-30 A′)
+        self.get_object()
+        serializer = DepartmentMoveSerializer(data=request.data)
 
         if not serializer.is_valid():
             return error_response(message="参数验证失败", errors=serializer.errors)

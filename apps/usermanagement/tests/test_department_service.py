@@ -6,11 +6,16 @@ import threading
 
 import pytest
 from django.db import connection, transaction
+from django.urls import reverse
+from rest_framework import status
+from rest_framework.test import APIClient
 
-from apps.usermanagement.models import MAX_DEPARTMENT_LEVEL, Department
+from apps.authusermanagement.models import AuthUser
+from apps.usermanagement.models import MAX_DEPARTMENT_LEVEL, Department, Employee, EmployeeRole
 from apps.usermanagement.selectors import DepartmentSelector
 from apps.usermanagement.services import DepartmentService
 from core.exceptions import AppValidationError, BusinessLogicError
+from core.tests import TEST_PASSWORD
 
 
 ValidationError = AppValidationError
@@ -460,3 +465,71 @@ class TestDepartmentSaveCacheInvalidation:
         records = [r for r in caplog.records if "祖先部门不存在" in r.getMessage()]
         assert len(records) >= 1
         assert "ancestor_path=/no" in records[0].getMessage()
+
+
+def _contract_admin(db) -> AuthUser:
+    """role-based system_admin(View 契约专用,固定唯一电话防部分唯一约束冲突)"""
+    admin = AuthUser.objects.create_user(auth_username="m30_admin", password=TEST_PASSWORD, auth_phone="13600000301")
+    Employee.objects.create(
+        employee_jobcode="m30_admin",
+        employee_name="M30 契约管理员",
+        employee_department=None,
+        role=EmployeeRole.SYSTEM_ADMIN,
+        employee_phone="13600000302",
+    )
+    return admin
+
+
+@pytest.mark.django_db
+class TestMoveDepartmentViewContract:
+    """M-30 A′:Serializer validate() 删除后,move 错误兜底由 Service(锁内)并通过全局 handler 呈现
+
+    契约:400 信封 + message 逐字(经 custom_exception_handler 的 detail 提取路径)
+    """
+
+    def _client(self, admin: AuthUser) -> APIClient:
+        client = APIClient()
+        client.force_authenticate(user=admin)
+        return client
+
+    def test_circular_reference_400_from_service(self, db):
+        admin = _contract_admin(db)
+        parent = Department.objects.create(
+            department_code="M30_ROOT", department_name="M30 根部门", level=0, path="/M30_ROOT"
+        )
+        child = Department.objects.create(
+            department_code="M30_SUB",
+            department_name="M30 子部门",
+            parent=parent,
+            level=1,
+            path="/M30_ROOT/M30_SUB",
+        )
+        client = self._client(admin)
+        resp = client.put(
+            reverse("departments-move", args=[parent.department_code]),
+            {"target_parent_department_code": child.department_code},
+            format="json",
+        )
+
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+        assert resp.data["code"] != 0
+        assert resp.data["message"] == "不能将部门移动到自己的子部门下面,这会形成循环引用"
+        parent.refresh_from_db()
+        assert parent.parent is None
+
+    def test_parent_not_found_400_from_service(self, db):
+        admin = _contract_admin(db)
+        parent = Department.objects.create(
+            department_code="M30_ROOT2", department_name="M30 根部门2", level=0, path="/M30_ROOT2"
+        )
+        client = self._client(admin)
+        resp = client.put(
+            reverse("departments-move", args=[parent.department_code]),
+            {"target_parent_department_code": "NO_SUCH_MOVE_PARENT"},
+            format="json",
+        )
+
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+        assert resp.data["message"] == "目标父部门 NO_SUCH_MOVE_PARENT 不存在"
+        parent.refresh_from_db()
+        assert parent.parent is None

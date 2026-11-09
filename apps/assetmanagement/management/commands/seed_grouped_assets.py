@@ -251,7 +251,33 @@ class Command(BaseCommand):
             return model(**fields), True
         created = model.objects.create(**fields)
         self.stdout.write(f"  + {label} — 已创建")
+        if model is Asset:
+            self._log_seed_create_audit(created)
         return created, True
+
+    @staticmethod
+    def _log_seed_create_audit(asset: Asset) -> None:
+        """demo seed 旁路消除(批次3 收尾①): 新建资产经 on_commit 补创建审计。
+
+        豁免登记见 backend-business-rules §3「特殊回退操作」demo-seed 行:
+        残留①(未走 create_asset)②(固定 DEMO-A### 编码支撑 --reset 幂等)经审批保留,
+        残留③(无创建审计)由本补偿消除。operator 为系统标识——command 无请求用户,
+        不伪造人员账套;--reset 软删重建时新建即再补痕,幂等重跑不新建则零新增。
+        """
+
+        def _write() -> None:
+            from core.audit_service import GenericAuditService  # 延迟导入: 对齐 _safe_call_audit 同型,避冷导入环
+
+            GenericAuditService.log_create(
+                record_code=asset.asset_code,
+                app_label="asset",
+                description="demo seed 注入(命令: seed_grouped_assets)",
+                after_data={"seed_action": "demo_inject", "asset_code": asset.asset_code},
+                operator_jobcode="SYSTEM-SEED",
+                operator_name="demo seed command",
+            )
+
+        transaction.on_commit(_write)
 
     def _reset(self) -> None:
         """按 `DEMO-` 前缀软删除既有演示数据

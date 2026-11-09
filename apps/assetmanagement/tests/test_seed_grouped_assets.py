@@ -15,11 +15,13 @@
 """
 
 from io import StringIO
+from pathlib import Path
 from typing import Any
 
 import pytest
 from django.core.management import call_command
 from django.db.models import Sum
+from django.test import TestCase as DjangoTestCase
 
 from apps.assetmanagement.management.commands._seed_grouped_assets_data import (
     ASSET_CODE_PREFIX,
@@ -33,6 +35,11 @@ from apps.assetmanagement.management.commands._seed_grouped_assets_data import (
 from apps.assetmanagement.management.commands.seed_grouped_assets import Command
 from apps.assetmanagement.models import Asset, AssetType, Contract, Storage
 from apps.usermanagement.models import Department, Employee
+from core.models_audit import AuditLog
+
+
+# v1.25 demo-seed 豁免行登记在仓库外规范文件(CI 检出范围不含),存在性断言按环境跳过
+_RULES_FILE = Path(__file__).resolve().parents[4] / "Rules_Fiels" / "backend-business-rules.md"
 
 
 @pytest.fixture
@@ -109,6 +116,65 @@ class TestSeedStatusEnum:
         assert set(Asset.objects.values_list("asset_current_status", flat=True)) == {
             Asset.AssetStatus.IN_STORE
         }
+
+
+class TestSeedAuditCompensation:
+    """批次3 收尾①(v1.25): demo seed 旁路消除——创建审计补偿(残留③已消)。
+
+    补偿形态: 实际新建 Asset 时经 on_commit 以系统标识 SYSTEM-SEED 写
+    AuditLog(seed_action=demo_inject);--reset 重建即再补痕;幂等重跑不新建则零新增。
+    """
+
+    def _seed_audit_count(self) -> int:
+        return AuditLog.objects.filter(operator_jobcode="SYSTEM-SEED", app_label="asset").count()
+
+    def test_first_run_writes_demo_inject_audit(self, db: Any) -> None:
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            _run()
+        rows = AuditLog.objects.filter(operator_jobcode="SYSTEM-SEED", app_label="asset")
+        assert rows.count() == total_asset_count()
+        sample = rows.first()
+        assert sample is not None
+        assert (sample.after_data or {}).get("seed_action") == "demo_inject"
+        assert sample.record_code.startswith(ASSET_CODE_PREFIX)
+        assert sample.operation_type == "create"
+
+    def test_reset_rebuild_writes_audit_again(self, db: Any) -> None:
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            _run()
+        first = self._seed_audit_count()  # 计数必须在 with 外读: 回调在块退出时才执行
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            _run("--reset")
+        assert first == total_asset_count()
+        assert self._seed_audit_count() == first * 2  # 重建即再补痕
+
+    def test_idempotent_rerun_writes_no_extra_audit(self, db: Any) -> None:
+        """幂等重跑不新建 → 零新增审计行(与"不重复插入"契约同源)"""
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            _run()
+        first = self._seed_audit_count()
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            _run()
+        assert first == total_asset_count()
+        assert self._seed_audit_count() == first
+
+    def test_dry_run_writes_no_audit(self, db: Any) -> None:
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            _run("--dry-run")
+        assert self._seed_audit_count() == 0
+
+
+@pytest.mark.skipif(not _RULES_FILE.exists(), reason="规范文件在 git 仓库外,CI 检出范围不含(本地/工作机验证)")
+class TestExemptionRowRegistered:
+    """v1.25 配套: 豁免行存在性——代码旁路必须有据可依,防规范行被误删失据。"""
+
+    def test_demo_seed_row_registered_and_confirmed(self) -> None:
+        content = _RULES_FILE.read_text(encoding="utf-8-sig")
+        assert "demo-seed 注入" in content, "§3 特殊回退操作表缺 demo-seed 豁免行,代码旁路失据"
+        assert "经 §4.2 审批（2026-11-09）确认豁免" in content, "转正措辞缺失"
+        # [待确认] 仅允许出现在变更日志历史条目(v1.24 记录转正前的状态);豁免行本身必须已转正
+        row_line = next(line for line in content.splitlines() if "demo-seed 注入" in line and line.startswith("|"))
+        assert "待确认" not in row_line, "demo-seed 豁免行仍在 [待确认] 状态,v1.25 转正未落盘"
 
 
 class TestResetPrecision:

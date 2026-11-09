@@ -13050,8 +13050,9 @@
                         "in": "path",
                         "name": "id",
                         "schema": {
-                            "type": "string"
+                            "type": "integer"
                         },
+                        "description": "标识此 用户角色关联 的 唯一整数值。",
                         "required": true
                     },
                     {
@@ -13107,8 +13108,9 @@
                         "in": "path",
                         "name": "id",
                         "schema": {
-                            "type": "string"
+                            "type": "integer"
                         },
+                        "description": "标识此 用户角色关联 的 唯一整数值。",
                         "required": true
                     },
                     {
@@ -19764,7 +19766,7 @@
             },
             "DepartmentMoveRequest": {
                 "type": "object",
-                "description": "部门移动序列化器\n\n用于验证部门移动请求,修改部门的父级关系。\n\n【验证规则】\n- target_parent_department_code: 目标父部门业务编码,null 表示成为根部门\n- 移动后层级不能超过 MAX_DEPARTMENT_LEVEL\n- 不允许循环引用(不能移动到自己的子部门下)",
+                "description": "部门移动序列化器\n\n用于验证部门移动请求,修改部门的父级关系。\n\n【M-30 A′ 验证职责收敛】存在性/循环引用/层级约束统一由\nDepartmentService.move_department 锁内兜底(全局 handler 呈现),\n本序列化器仅做字段格式校验与 \"null/none/空\" 字符串归一。",
                 "properties": {
                     "target_parent_department_code": {
                         "type": "string",

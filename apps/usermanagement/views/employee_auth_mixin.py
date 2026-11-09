@@ -13,7 +13,6 @@ from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from apps.authusermanagement.models import AuthUser
 from apps.usermanagement.selectors import EmployeeSelector
 from apps.usermanagement.serializers import EmployeeDetailSerializer
 from apps.usermanagement.services import EmployeeService, PermissionService
@@ -59,10 +58,9 @@ class EmployeeAuthMixin:
             )
 
         # 2. 查找对应的 AuthUser(通过 employee_jobcode == auth_username)
-        # 【P1-6 顺带修复】AuthUser 模型无 is_deleted 字段,原过滤导致 FieldError→400
-        try:
-            auth_user = AuthUser.objects.get(auth_username=employee_jobcode)
-        except AuthUser.DoesNotExist:
+        # M-41 收编:AuthUser 无 is_deleted 字段(P1-6),不存在返回 None(单源 PermissionService)
+        auth_user = PermissionService.get_auth_user_by_username(employee_jobcode)
+        if auth_user is None:
             # 员工没有对应的 AuthUser,返回空权限
             return success_response(
                 data={

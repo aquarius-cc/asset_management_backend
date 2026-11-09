@@ -7,7 +7,7 @@ from typing import Any, cast
 from django.db.models import Count, Q, QuerySet
 
 from apps.authusermanagement.models import AuthUser
-from apps.usermanagement.models import Department, Employee, EmployeeStatus
+from apps.usermanagement.models import Department, Employee, EmployeeStatus, Role, UserRole
 from core.department_scope import get_employee_scoped_queryset_for_user
 
 
@@ -536,3 +536,27 @@ class DepartmentSelector:
         return Employee.objects.filter(
             employee_department__department_code=department_code, employee_department__is_deleted=False
         ).count()
+
+
+class RoleSelector:
+    """角色查询选择器(M-41 收编:role_view 直查 ORM 下沉单源)"""
+
+    @staticmethod
+    def get_active_user_roles(user_id: int | None, current_user: Any) -> QuerySet[UserRole]:
+        """
+        UserRoleViewSet.get_queryset 单源。
+
+        user_id 非空 → 该用户的活跃角色分配;
+        user_id 为空 → 仅当前用户的角色分配(防信息泄露)。
+        软删分配不可见(is_deleted=False)。
+        """
+        if user_id:
+            return UserRole.objects.filter(auth_user_id=user_id, is_deleted=False)
+        return UserRole.objects.filter(auth_user=current_user, is_deleted=False)
+
+    @staticmethod
+    def get_active_permission_codes(role: Role) -> list[str]:
+        """角色活跃权限码单源(仅 is_deleted=False 的 RolePermission)。"""
+        return list(
+            role.role_permissions.filter(is_deleted=False).values_list("permission__permission_code", flat=True)
+        )

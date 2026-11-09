@@ -20,6 +20,7 @@ user_has_permission 因 G1-B 收敛已删除,查询路径统一走 get_effective
 
 from typing import Any
 
+from apps.authusermanagement.models import AuthUser
 from apps.usermanagement.models import (
     EmployeeRole,
     Permission,
@@ -89,6 +90,19 @@ class PermissionService:
 
         # 4. G6 回退:无 UserRole 权限时按 Employee.role 回退种子角色权限
         return PermissionService._fallback_role_permissions(user)
+
+    @staticmethod
+    def get_auth_user_by_username(auth_username: str) -> AuthUser | None:
+        """
+        按工号取 AuthUser。
+
+        AuthUser 无 is_deleted 字段(P1-6),不存在时返回 None 而非抛异常,
+        供调用方按"无认证账号 → 空权限"语义处理。
+        """
+        try:
+            return AuthUser.objects.get(auth_username=auth_username)
+        except AuthUser.DoesNotExist:
+            return None
 
     @staticmethod
     def _view_only_permission_codes() -> list[str]:

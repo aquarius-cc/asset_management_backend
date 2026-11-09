@@ -271,7 +271,7 @@ class ContractService:
         contract.save(update_fields=["paid_record", "amount_paid", "amount_unpaid", "updated_at"])
 
         # 【M-05】审计留痕(载荷唯一实现见 contract_payment_audit)
-        log_payment_added(contract, entry, amount, operator_jobcode, operator_name)
+        log_payment_added(contract, entry, amount, operator_jobcode=operator_jobcode, operator_name=operator_name)
         return contract
 
     @staticmethod
@@ -334,7 +334,7 @@ class ContractService:
         )
 
         # 【M-05】批量留痕(冻结决策②): 1 条请求级汇总(逐条 add/approve 已各自成账)
-        log_payment_batch_summary(contract_code, result, operator_jobcode, operator_name)
+        log_payment_batch_summary(contract_code, result, operator_jobcode=operator_jobcode, operator_name=operator_name)
         return result
 
     @staticmethod
@@ -545,7 +545,9 @@ class ContractService:
         contract.save(update_fields=["paid_record", "amount_paid", "amount_unpaid", "updated_at"])
 
         # 【M-05】审计留痕(载荷唯一实现见 contract_payment_audit)
-        log_payment_deleted(contract, payment_id, deleted_amount, operator_jobcode, operator_name)
+        log_payment_deleted(
+            contract, payment_id, deleted_amount, operator_jobcode=operator_jobcode, operator_name=operator_name
+        )
         return contract
 
     @staticmethod
@@ -593,5 +595,5 @@ class ContractService:
         contract.save(update_fields=["paid_record", "amount_paid", "amount_unpaid", "updated_at"])
 
         # 【M-05】审计留痕(载荷唯一实现见 contract_payment_audit)
-        log_payment_approved(contract, payment_id, operator_jobcode, operator_name)
+        log_payment_approved(contract, payment_id, operator_jobcode=operator_jobcode, operator_name=operator_name)
         return contract

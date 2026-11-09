@@ -16,10 +16,15 @@ def log_payment_added(
     contract: Contract,
     entry: dict[str, Any],
     amount: Decimal,
-    operator_jobcode: str | None = None,
+    *,
+    operator_jobcode: str,
     operator_name: str | None = None,
 ) -> None:
-    """付款记录新增→update 审计"""
+    """付款记录新增→update 审计
+
+    【M-05 收口】operator_jobcode 为 kw-only 必填(对齐 M-07 形态):
+    防新调用方忘传即落一条无操作人审计行。
+    """
     GenericAuditService.log_update(
         record_code=contract.contract_code,
         app_label="contract",
@@ -38,10 +43,11 @@ def log_payment_added(
 def log_payment_batch_summary(
     contract_code: str,
     result: dict[str, Any],
-    operator_jobcode: str | None = None,
+    *,
+    operator_jobcode: str,
     operator_name: str | None = None,
 ) -> None:
-    """批量回填→update 审计,1 条请求级汇总(冻结决策②)"""
+    """批量回填→update 审计,1 条请求级汇总(冻结决策②);operator_jobcode kw-only 必填(对齐 M-07)"""
     GenericAuditService.log_update(
         record_code=contract_code,
         app_label="contract",
@@ -62,10 +68,11 @@ def log_payment_deleted(
     contract: Contract,
     payment_id: str,
     amount: str | None,
-    operator_jobcode: str | None = None,
+    *,
+    operator_jobcode: str,
     operator_name: str | None = None,
 ) -> None:
-    """付款记录删除→delete 审计,载体 before_data"""
+    """付款记录删除→delete 审计,载体 before_data;operator_jobcode kw-only 必填(对齐 M-07)"""
     GenericAuditService.log_delete(
         record_code=contract.contract_code,
         app_label="contract",
@@ -83,10 +90,11 @@ def log_payment_deleted(
 def log_payment_approved(
     contract: Contract,
     payment_id: str,
-    operator_jobcode: str | None = None,
+    *,
+    operator_jobcode: str,
     operator_name: str | None = None,
 ) -> None:
-    """付款记录审核→approve 审计"""
+    """付款记录审核→approve 审计;operator_jobcode kw-only 必填(对齐 M-07)"""
     GenericAuditService.log_approve(
         record_code=contract.contract_code,
         app_label="contract",

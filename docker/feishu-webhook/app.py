@@ -133,9 +133,16 @@ def send_to_feishu(card: dict[str, Any]) -> tuple[bool, str]:
 class AdapterHandler(BaseHTTPRequestHandler):
     """仅暴露 POST /alertmanager 与 GET /healthz."""
 
+    protocol_version = "HTTP/1.1"
+
     def _reply(self, code: int, body: dict[str, Any]) -> None:
         data = json.dumps(body).encode("utf-8")
         self.send_response(code)
+        # 【M-31 确定性夹具】显式 close: HTTP/1.1 keep-alive 下不声明连接意图,
+        # 客户端读响应与连接回收存在时序窗口(404 波动用例的历史裂纹源)。
+        # 注意: send_header 必须在 send_response 之后——后者写状态行,先写头会成畸形响应。
+        self.close_connection = True
+        self.send_header("Connection", "close")
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
@@ -145,10 +152,25 @@ class AdapterHandler(BaseHTTPRequestHandler):
         if self.path == "/healthz":
             self._reply(200, {"status": "ok"})
         else:
+            self._drain_body()
             self._reply(404, {"error": "not found"})
+
+    def _drain_body(self) -> None:
+        """回包前按 Content-Length 消费请求体。
+
+        【M-31 确定性夹具】404/400 分支原先在读 body 前 return,残留的请求体滞留
+        socket 缓冲;客户端随后 close 时对端 RST 可能击穿其 recv → 波动断连。
+        """
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            length = 0
+        if length > 0:
+            self.rfile.read(length)
 
     def do_POST(self) -> None:
         if self.path != "/alertmanager":
+            self._drain_body()
             self._reply(404, {"error": "not found"})
             return
         try:

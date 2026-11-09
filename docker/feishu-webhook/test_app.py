@@ -7,6 +7,7 @@ webhook 投递重试策略(429/5xx 退避, 其余 4xx 不重试)、HTTP 入口�
 import json
 import time
 import unittest
+from contextlib import closing
 from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
 from unittest import mock
@@ -173,33 +174,44 @@ class SendRetryTests(unittest.TestCase):
 
 
 class HttpEndpointTests(unittest.TestCase):
-    """起真实本地 server 验证 HTTP 入口."""
+    """起真实本地 server 验证 HTTP 入口.
 
-    @classmethod
-    def setUpClass(cls):
-        cls.server = ThreadingHTTPServer(("127.0.0.1", 0), adapter.AdapterHandler)
-        cls.port = cls.server.server_address[1]
+    【M-31 确定性夹具】类级共享 server+mock 是历史波动源: 跨用例的端口复用、
+    mock 状态泄漏、线程未断言退出共同构成时序裂纹。改为方法级 setUp/tearDown——
+    每用例独立端口(0) server、局部 mock(addCleanup 恢复)、shutdown→server_close→
+    join(5) 并断言线程退出;_post 用 contextlib.closing 保证连接必然释放。
+    """
+
+    def setUp(self):
         import threading
 
-        cls._original_send = adapter.send_to_feishu
-        adapter.send_to_feishu = mock.MagicMock(return_value=(True, "ok"))
-        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
-        cls.thread.start()
+        self._original_send = adapter.send_to_feishu
+        self.mock_send = mock.MagicMock(return_value=(True, "ok"))
+        adapter.send_to_feishu = self.mock_send
+        self.addCleanup(self._restore_send)
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), adapter.AdapterHandler)
+        self.server.daemon_threads = True
+        self.port = self.server.server_address[1]
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
 
-    @classmethod
-    def tearDownClass(cls):
-        # 恢复被替换的模块属性, 避免污染同进程内后续测试类
-        adapter.send_to_feishu = cls._original_send
-        cls.server.shutdown()
-        cls.server.server_close()
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join(timeout=5)
+        self.assertFalse(self.thread.is_alive(), "server 线程未在 5s 内退出(夹具泄漏)")
 
-    def _post(self, path, body):
-        conn = HTTPConnection("127.0.0.1", self.port, timeout=5)
-        conn.request("POST", path, body=json.dumps(body), headers={"Content-Type": "application/json"})
-        resp = conn.getresponse()
-        data = json.loads(resp.read())
-        conn.close()
-        return resp.status, data
+    def _restore_send(self):
+        adapter.send_to_feishu = self._original_send
+
+    def _post(self, path, body=None):
+        """POST 并返回 (status, json)。body=None 表示发空 body(404 用例语义)。"""
+        with closing(HTTPConnection("127.0.0.1", self.port, timeout=5)) as conn:
+            payload = None if body is None else json.dumps(body)
+            conn.request("POST", path, body=payload, headers={"Content-Type": "application/json"})
+            resp = conn.getresponse()
+            data = json.loads(resp.read())
+            return resp.status, data
 
     def test_alertmanager_endpoint_delivers_each_alert(self):
         status, data = self._post(
@@ -211,28 +223,23 @@ class HttpEndpointTests(unittest.TestCase):
         )
         self.assertEqual(status, 200)
         self.assertEqual(data["delivered"], 2)
-        self.assertEqual(adapter.send_to_feishu.call_count, 2)
+        self.assertEqual(self.mock_send.call_count, 2)
 
     def test_invalid_json_returns_400(self):
-        conn = HTTPConnection("127.0.0.1", self.port, timeout=5)
-        conn.request("POST", "/alertmanager", body="not-json")
-        resp = conn.getresponse()
-        self.assertEqual(resp.status, 400)
-        conn.close()
+        with closing(HTTPConnection("127.0.0.1", self.port, timeout=5)) as conn:
+            conn.request("POST", "/alertmanager", body="not-json")
+            resp = conn.getresponse()
+            self.assertEqual(resp.status, 400)
 
     def test_unknown_path_404(self):
-        status, _ = self._post("/other", {})
+        status, _ = self._post("/other")
         self.assertEqual(status, 404)
 
     def test_delivery_failure_maps_to_502(self):
-        original = adapter.send_to_feishu
-        adapter.send_to_feishu = mock.MagicMock(return_value=(False, "http 500"))
-        try:
-            status, data = self._post("/alertmanager", {"alerts": [{"labels": {}}]})
-            self.assertEqual(status, 502)
-            self.assertEqual(data["failed_indexes"], [0])
-        finally:
-            adapter.send_to_feishu = original
+        self.mock_send.return_value = (False, "http 500")
+        status, data = self._post("/alertmanager", {"alerts": [{"labels": {}}]})
+        self.assertEqual(status, 502)
+        self.assertEqual(data["failed_indexes"], [0])
 
 
 if __name__ == "__main__":

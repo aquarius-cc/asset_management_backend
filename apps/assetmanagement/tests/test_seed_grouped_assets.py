@@ -97,6 +97,20 @@ class TestIdempotency:
         assert Asset.objects.count() == first
 
 
+class TestSeedStatusEnum:
+    def test_all_assets_use_in_store_enum_value(self, db: Any) -> None:
+        """M-28/D3=B: seed 注入态必须为 AssetStatus.IN_STORE 枚举值（B9/BR-3 字面量关闭）。
+
+        豁免登记见 backend-business-rules §3「特殊回退操作」demo-seed 行（未走 create_asset
+        的三条残留写实），本用例仅锁定状态值本身，不约束创建路径。
+        """
+        _run()
+
+        assert set(Asset.objects.values_list("asset_current_status", flat=True)) == {
+            Asset.AssetStatus.IN_STORE
+        }
+
+
 class TestResetPrecision:
     def test_reset_soft_deletes_demo_rows(self, db: Any) -> None:
         """`--reset` 后演示数据软删除并重建，故总行数不变、活跃行仍为矩阵规模"""

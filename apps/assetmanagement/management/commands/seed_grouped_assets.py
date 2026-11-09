@@ -215,7 +215,7 @@ class Command(BaseCommand):
                     "asset_storage_recordcode": registry[group.storage],
                     "asset_manager_recordcode": registry["__employee__"],
                     "asset_entry_person_recordcode": registry["__employee__"],
-                    "asset_current_status": "in_store",
+                    "asset_current_status": Asset.AssetStatus.IN_STORE,
                 },
                 label,
                 dry_run,

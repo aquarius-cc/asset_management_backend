@@ -16,9 +16,11 @@
 
 from typing import Any
 
+from django.http import Http404
 from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import APIException
 from rest_framework.response import Response
 
 from apps.usermanagement.models import Role, UserRole
@@ -27,7 +29,9 @@ from apps.usermanagement.rbac_serializers import (
     RoleSerializer,
     UserRoleSerializer,
 )
+from apps.usermanagement.selectors import RoleSelector
 from apps.usermanagement.services import RoleService
+from core.exceptions import AppValidationError
 from core.mixins import ResponseWrapperMixin
 from core.permissions import IsSystemAdmin
 from utils.response_utils import error_response, success_response
@@ -85,20 +89,19 @@ class RoleViewSet(ResponseWrapperMixin, viewsets.ModelViewSet):  # type: ignore[
         return RoleSerializer
 
     def destroy(self, request: Any, *args: Any, **kwargs: Any) -> Response:
-        """软删除角色(C1 修复:重写 destroy 而非 perform_destroy)"""
-        instance = self.get_object()
-        if instance.is_system:
-            return error_response(
-                message="系统内置角色不可删除",
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
-        # H4 修复:检查角色是否已分配给用户
-        if UserRole.objects.filter(role=instance, is_deleted=False).exists():
-            return error_response(
-                message="该角色已分配给用户,不可删除。请先移除所有用户的角色分配。",
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
-        return super().destroy(request, *args, **kwargs)
+        """软删除角色(M-29: 守卫下沉 RoleService.delete_role;C1 修复保持:重写 destroy 而非 perform_destroy)"""
+        try:
+            instance = self.get_object()
+            RoleService.delete_role(instance)
+            return success_response(data={}, message="删除成功", status_code=status.HTTP_200_OK)
+        except Http404:
+            return error_response(message="资源不存在或已被删除", status_code=status.HTTP_404_NOT_FOUND)
+        except AppValidationError as e:
+            # 对齐 ResponseWrapperMixin.destroy 400 直传语义;文案逐字保留(view 原内联守卫文)
+            return error_response(message=str(e.detail), status_code=status.HTTP_400_BAD_REQUEST)
+        except APIException:
+            # 让 DRF APIException 正常传播(对齐 core/mixins.py:210-212)
+            raise
 
     @extend_schema(
         operation_id="role_permissions",
@@ -153,9 +156,7 @@ class RoleViewSet(ResponseWrapperMixin, viewsets.ModelViewSet):  # type: ignore[
         role = self.get_object()
 
         if request.method == "GET":
-            perm_codes = list(
-                role.role_permissions.filter(is_deleted=False).values_list("permission__permission_code", flat=True)
-            )
+            perm_codes = RoleSelector.get_active_permission_codes(role)
             return success_response(data={"role_code": role.role_code, "permissions": perm_codes})
 
         # POST: 设置权限码
@@ -207,14 +208,10 @@ class UserRoleViewSet(ResponseWrapperMixin, viewsets.ModelViewSet):  # type: ign
     http_method_names = ["get", "post", "delete", "head", "options"]  # C2 修复:禁止 update/patch
 
     def get_queryset(self) -> Any:
-        user_id = self.kwargs.get("user_id")
-        if user_id:
-            return UserRole.objects.filter(auth_user_id=user_id, is_deleted=False)
-        # 无 user_id 时仅返回当前用户的角色分配(防止信息泄露)
-        return UserRole.objects.filter(
-            auth_user=self.request.user,
-            is_deleted=False,
-        )
+        # schema 离线导出无认证用户,返回 none() 仅供 spectacular 解析模型,运行时不走此分支
+        if getattr(self, "swagger_fake_view", False):
+            return UserRole.objects.none()
+        return RoleSelector.get_active_user_roles(self.kwargs.get("user_id"), self.request.user)
 
     def perform_create(self, serializer: Any) -> None:
         """创建用户角色关联(D1: data_scope 由 Service 继承 Employee 部门)"""

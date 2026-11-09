@@ -12,6 +12,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.test import RequestFactory
 from django.test import TestCase as DjangoTestCase
+from django.urls import reverse
 
 from apps.usermanagement.models import Department, Employee, EmployeeRole, Role, UserRole
 from apps.usermanagement.services.role_service import RoleService
@@ -319,3 +320,148 @@ class TestAuditOperator:
         assert log.operation_type == "remove"
         assert log.operator_jobcode == "OP002"
         assert log.operator_name == "操作员乙"
+
+
+def _plain_role(code: str, *, is_system: bool = False) -> Role:
+    """独立建角色(不依赖 init 种子,判定面单一)"""
+    return Role.objects.create(role_code=code, role_name=f"{code}角色", role_level=1, is_system=is_system)
+
+
+def _assign(role: Role, username: str, dept) -> UserRole:
+    """建用户并挂活跃 UserRole(auth/employee 均为部分唯一约束,双用户须补唯一电话)"""
+    user = _make_user(username, role=EmployeeRole.REGULAR_USER, department=dept)
+    user.auth_phone = f"139{abs(hash(username)) % 10**8:08d}"
+    user.save(update_fields=["auth_phone"])
+    Employee.objects.filter(employee_jobcode=username).update(
+        employee_phone=f"138{abs(hash(username)) % 10**8:08d}"
+    )
+    return UserRole.objects.create(auth_user=user, role=role)
+
+
+@pytest.mark.django_db
+class TestDeleteRoleService:
+    """M-29: RoleService.delete_role(View 内联守卫下沉,锁内复检后软删)"""
+
+    def test_system_role_rejected(self, dept):
+        role = _plain_role("sys_x", is_system=True)
+
+        with pytest.raises(AppValidationError) as exc:
+            RoleService.delete_role(role)
+
+        assert exc.value.error_code == "SYSTEM_ROLE_NOT_DELETABLE"
+        role.refresh_from_db()
+        assert role.is_deleted is False
+
+    def test_active_assignment_rejected(self, dept):
+        role = _plain_role("busy_x")
+        _assign(role, "del_r1", dept)
+
+        with pytest.raises(AppValidationError) as exc:
+            RoleService.delete_role(role)
+
+        assert exc.value.error_code == "ROLE_IN_USE"
+        role.refresh_from_db()
+        assert role.is_deleted is False
+
+    def test_success_soft_deletes_unassigned_role(self, dept):
+        role = _plain_role("free_x")
+
+        RoleService.delete_role(role)
+
+        role.refresh_from_db()
+        assert role.is_deleted is True
+
+    def test_soft_deleted_assignment_does_not_block(self, dept):
+        role = _plain_role("retired_x")
+        assignment = _assign(role, "del_r2", dept)
+        assignment.is_deleted = True
+        assignment.save()
+
+        RoleService.delete_role(role)
+
+        role.refresh_from_db()
+        assert role.is_deleted is True
+
+    def test_failure_rolls_back_to_live_role(self, dept, monkeypatch):
+        role = _plain_role("rb_x")
+
+        def explode(self, *args, **kwargs):
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(Role, "delete", explode)
+        with pytest.raises(RuntimeError):
+            RoleService.delete_role(role)
+
+        role.refresh_from_db()
+        assert role.is_deleted is False
+
+
+@pytest.mark.django_db
+class TestDeleteRoleViewContract:
+    """M-29 View 契约:400 文案逐字 / 200 信封 / 404 / 403(权限面 P3-9 收紧后)"""
+
+    def _admin(self, dept):
+        return _make_user("rva1", role=EmployeeRole.SYSTEM_ADMIN, department=dept)
+
+    def test_system_role_400_verbatim(self, dept):
+        from rest_framework.test import APIClient
+
+        role = _plain_role("vsys_x", is_system=True)
+        client = APIClient()
+        client.force_authenticate(user=self._admin(dept))
+        resp = client.delete(reverse("roles-detail", kwargs={"pk": role.pk}))
+
+        assert resp.status_code == 400
+        assert resp.data["code"] != 0
+        assert resp.data["message"] == "系统内置角色不可删除"
+        role.refresh_from_db()
+        assert role.is_deleted is False
+
+    def test_in_use_role_400_verbatim(self, dept):
+        from rest_framework.test import APIClient
+
+        role = _plain_role("vbusy_x")
+        _assign(role, "del_v1", dept)
+        client = APIClient()
+        client.force_authenticate(user=self._admin(dept))
+        resp = client.delete(reverse("roles-detail", kwargs={"pk": role.pk}))
+
+        assert resp.status_code == 400
+        assert resp.data["message"] == "该角色已分配给用户,不可删除。请先移除所有用户的角色分配。"
+
+    def test_success_200_envelope(self, dept):
+        from rest_framework.test import APIClient
+
+        role = _plain_role("vfree_x")
+        client = APIClient()
+        client.force_authenticate(user=self._admin(dept))
+        resp = client.delete(reverse("roles-detail", kwargs={"pk": role.pk}))
+
+        assert resp.status_code == 200
+        assert resp.data["code"] == 0
+        assert resp.data["message"] == "删除成功"
+        role.refresh_from_db()
+        assert role.is_deleted is True
+
+    def test_unknown_pk_404(self, dept):
+        from rest_framework.test import APIClient
+
+        client = APIClient()
+        client.force_authenticate(user=self._admin(dept))
+        resp = client.delete(reverse("roles-detail", kwargs={"pk": 987654321}))
+
+        assert resp.status_code == 404
+        assert resp.data["message"] == "资源不存在或已被删除"
+
+    def test_regular_user_403(self, dept):
+        from rest_framework.test import APIClient
+
+        role = _plain_role("v_forbid_x")
+        user = _make_user("del_v2", role=EmployeeRole.REGULAR_USER, department=dept)
+        client = APIClient()
+        client.force_authenticate(user=user)
+        resp = client.delete(reverse("roles-detail", kwargs={"pk": role.pk}))
+
+        assert resp.status_code == 403
+        role.refresh_from_db()
+        assert role.is_deleted is False

@@ -282,6 +282,32 @@ class RoleService:
             employee.save(update_fields=["role"])
 
     @staticmethod
+    @transaction.atomic
+    def delete_role(role: Role) -> None:
+        """
+        删除角色(M-29: View 内联守卫下沉;与 remove_role「撤销分配」不同,本方法=软删角色实体)。
+
+        行锁内复检两守卫后软删:系统内置角色不可删;存在活跃 UserRole(未删除的分配)
+        不可删——文案与原 View 内联实现逐字一致,错误码供批量域与前端定位。
+
+        Args:
+            role: 待删除的 Role 实例(View 层 get_object() 已完成 404/403 语义)
+
+        Raises:
+            AppValidationError: SYSTEM_ROLE_NOT_DELETABLE / ROLE_IN_USE
+        """
+        # [HALT] 角色删除为 RBAC 写面高危操作:行锁内复检守卫,防止并发分配穿越
+        locked = Role.objects.select_for_update().get(pk=role.pk)
+        if locked.is_system:
+            raise AppValidationError(detail="系统内置角色不可删除", error_code="SYSTEM_ROLE_NOT_DELETABLE")
+        if UserRole.objects.filter(role=locked, is_deleted=False).exists():
+            raise AppValidationError(
+                detail="该角色已分配给用户,不可删除。请先移除所有用户的角色分配。",
+                error_code="ROLE_IN_USE",
+            )
+        locked.delete()
+
+    @staticmethod
     def _resolve_operator(operator_jobcode: str | None, operator_name: str | None) -> tuple[str | None, str | None]:
         """
         解析审计操作者:显式传入优先,其次从请求上下文取 request.user。

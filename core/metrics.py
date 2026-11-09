@@ -51,6 +51,8 @@ ERROR_COUNT = Counter(
 # 审计写入失败计数(M-19): 审计缺痕属合规事件, 不能只有一行 error 日志
 # 渠道: asset_operation_log(AuditLogger._safe_log) / generic_audit_log(GenericAuditService)
 #      / unregistered_adapter(UnregisteredAssetAuditAdapter 自吞点)
+#      / unregistered_safe_call(unregisteredasset._safe_call_audit 外层调度失败点, M-08 阶段 A;
+#        内层已计数场景异常到不了外层, 单次失败只计一处)
 AUDIT_WRITE_FAILED = Counter(
     "asset_mgmt_audit_write_failed_total",
     "审计日志写入失败总数",

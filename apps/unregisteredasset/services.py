@@ -100,8 +100,21 @@ def _safe_call_audit(operation: str, *args: Any, **kwargs: Any) -> None:
 
             getattr(UnregisteredAssetAuditAdapter, f"log_{operation}")(*args, **kwargs)
         except Exception as e:
-            # 【P2-10 修复】审计异常记录日志便于排查,但不影响主流程
-            logger.warning(f"审计日志记录失败({operation}): {e}", exc_info=True)
+            # 【M-08 阶段 A】外层为「调度失败」渠道: 仅计未能进入内层适配器吞并点的失败
+            # (延迟导入失败 / getattr 取不到 log_<operation> / 指标自增自身失败);
+            # 内层适配器宽 except 已 inc(channel="unregistered_adapter") 且不 re-raise,
+            # 异常到不了此处 → 单次失败只计一处,无双计。
+            # 语义见 backend-business-rules §3 业务约束 8(提交后补偿,不回滚主事务)。
+            from core.metrics import AUDIT_WRITE_FAILED
+
+            AUDIT_WRITE_FAILED.labels(channel="unregistered_safe_call").inc()
+            logger.warning(
+                "审计调度失败(operation=%s, exception_type=%s, trace_id=%s)",
+                operation,
+                type(e).__name__,
+                getattr(e, "trace_id", "-"),
+                exc_info=True,
+            )
 
     transaction.on_commit(_run_audit, robust=True)
 

@@ -15,6 +15,12 @@ from django.utils import timezone
 
 from apps.assetmanagement.models import Contract
 from apps.assetmanagement.selectors import AssetSelector, ContractSelector
+from apps.assetmanagement.services.contract_payment_audit import (
+    log_payment_added,
+    log_payment_approved,
+    log_payment_batch_summary,
+    log_payment_deleted,
+)
 from apps.assetmanagement.state_machine.contract_fsm import ContractFSM, ContractInvalidTransitionError
 from core.audit_service import GenericAuditService
 from core.batch_mixins import BatchOperationMixin, ensure_batch_size
@@ -218,6 +224,8 @@ class ContractService:
         *,
         payment_date: str | None = None,
         payment_method: str = "bank_transfer",
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
     ) -> Contract:
         """
         添加付款记录
@@ -229,6 +237,8 @@ class ContractService:
             payment_date: 付款发生日期(YYYY-MM-DD),缺省取当天。
                 【BF-054】原实现硬编码 timezone.now,历史付款无法回填真实日期。
             payment_method: 支付方式(自由文本,仅存于 paid_record 明细,不参与查询)。
+            operator_jobcode: 操作人工号(M-05 入审计日志)
+            operator_name: 操作人姓名(M-05 入审计日志)
 
         Returns:
             Contract: 更新后的合同实例
@@ -253,16 +263,25 @@ class ContractService:
                 payment_method=payment_method,
             )
         )
+        entry = current_data["payments"][-1]
         contract.paid_record = json.dumps(current_data, ensure_ascii=False)
         _recalc_paid_amounts(contract)
 
         # 【BF-092/I-4】收敛为定向写字段,消除全字段回写并发风险
         contract.save(update_fields=["paid_record", "amount_paid", "amount_unpaid", "updated_at"])
+
+        # 【M-05】审计留痕(载荷唯一实现见 contract_payment_audit)
+        log_payment_added(contract, entry, amount, operator_jobcode, operator_name)
         return contract
 
     @staticmethod
     @transaction.atomic
-    def add_payment_record_batch(contract_code: str, payments: list[dict[str, Any]]) -> dict[str, Any]:
+    def add_payment_record_batch(
+        contract_code: str,
+        payments: list[dict[str, Any]],
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+    ) -> dict[str, Any]:
         """批量回填历史付款记录(DR-1: 循环框架复用 BatchOperationMixin,B-5 修法)
 
         【决策 Q-C】status 不开放为用户输入:每条内部执行 add → approve 两步,回填条目
@@ -275,6 +294,8 @@ class ContractService:
         Args:
             contract_code: 合同编码
             payments: 付款条目列表,每项支持 amount / description / payment_date / payment_method
+            operator_jobcode: 操作人工号(M-05 透传逐条审计并记 1 条汇总)
+            operator_name: 操作人姓名(M-05 透传逐条审计并记 1 条汇总)
 
         Returns:
             Dict[str, Any]: 统一格式批量结果(total/success_count/fail_count/success_items/fail_items)
@@ -289,9 +310,16 @@ class ContractService:
                 str(payment.get("description") or ""),
                 payment_date=payment.get("payment_date"),
                 payment_method=str(payment.get("payment_method") or "bank_transfer"),
+                operator_jobcode=operator_jobcode,
+                operator_name=operator_name,
             )
             entry = _parse_paid_record(added.paid_record)["payments"][-1]
-            approved = ContractService.approve_payment_record(contract_code, str(entry["id"]))
+            approved = ContractService.approve_payment_record(
+                contract_code,
+                str(entry["id"]),
+                operator_jobcode=operator_jobcode,
+                operator_name=operator_name,
+            )
             return {
                 "id": entry["id"],
                 "amount": entry["amount"],
@@ -300,10 +328,14 @@ class ContractService:
                 "recordcode": approved.recordcode,
             }
 
-        return BatchOperationMixin.batch_execute(
+        result = BatchOperationMixin.batch_execute(
             items=payments,
             process_fn=_add_item,
         )
+
+        # 【M-05】批量留痕(冻结决策②): 1 条请求级汇总(逐条 add/approve 已各自成账)
+        log_payment_batch_summary(contract_code, result, operator_jobcode, operator_name)
+        return result
 
     @staticmethod
     @transaction.atomic
@@ -471,13 +503,20 @@ class ContractService:
 
     @staticmethod
     @transaction.atomic
-    def delete_payment_record(contract_code: str, payment_id: str) -> Contract:
+    def delete_payment_record(
+        contract_code: str,
+        payment_id: str,
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+    ) -> Contract:
         """
         删除支付记录(软删除:status → deleted)
 
         Args:
             contract_code: 合同编码
             payment_id: 支付记录 ID
+            operator_jobcode: 操作人工号(M-05 入审计日志)
+            operator_name: 操作人姓名(M-05 入审计日志)
 
         Returns:
             Contract: 更新后的合同实例
@@ -491,8 +530,10 @@ class ContractService:
             raise AppValidationError(detail=f"合同 {contract_code} 不存在", error_code="CONTRACT_NOT_FOUND")
 
         data = _parse_paid_record(contract.paid_record)
+        deleted_amount: str | None = None
         for p in data["payments"]:
             if p["id"] == payment_id:
+                deleted_amount = p["amount"]
                 p["status"] = "deleted"
                 break
         else:
@@ -502,17 +543,27 @@ class ContractService:
         # 【BF-053】软删必须重算金额:原实现只改 paid_record,amount_paid 仍含该笔且永不回落
         _recalc_paid_amounts(contract)
         contract.save(update_fields=["paid_record", "amount_paid", "amount_unpaid", "updated_at"])
+
+        # 【M-05】审计留痕(载荷唯一实现见 contract_payment_audit)
+        log_payment_deleted(contract, payment_id, deleted_amount, operator_jobcode, operator_name)
         return contract
 
     @staticmethod
     @transaction.atomic
-    def approve_payment_record(contract_code: str, payment_id: str) -> Contract:
+    def approve_payment_record(
+        contract_code: str,
+        payment_id: str,
+        operator_jobcode: str | None = None,
+        operator_name: str | None = None,
+    ) -> Contract:
         """
         审核通过支付记录(status → approved)
 
         Args:
             contract_code: 合同编码
             payment_id: 支付记录 ID
+            operator_jobcode: 操作人工号(M-05 入审计日志)
+            operator_name: 操作人姓名(M-05 入审计日志)
 
         Returns:
             Contract: 更新后的合同实例
@@ -540,4 +591,7 @@ class ContractService:
         # 故 approve 不改变金额,但仍统一走单一实现,避免日后口径调整时再次分叉
         _recalc_paid_amounts(contract)
         contract.save(update_fields=["paid_record", "amount_paid", "amount_unpaid", "updated_at"])
+
+        # 【M-05】审计留痕(载荷唯一实现见 contract_payment_audit)
+        log_payment_approved(contract, payment_id, operator_jobcode, operator_name)
         return contract

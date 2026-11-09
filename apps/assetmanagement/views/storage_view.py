@@ -56,7 +56,6 @@ class StorageViewSet(  # type: ignore[misc]
     ResponseWrapperMixin,
     viewsets.ModelViewSet[Storage],
 ):
-    queryset = Storage.objects.all()
     serializer_class = StorageSerializer
     # [M-07 去伪] 此处 IsAuthenticated 仅为 DRF 兜底默认值，永不生效——真实门禁在
     # AdminWritePermissionMixin.get_permissions()（本类混入）按 admin_actions
@@ -84,8 +83,8 @@ class StorageViewSet(  # type: ignore[misc]
     ordering = ["storage_code"]
 
     def _base_queryset(self) -> QuerySet[Storage]:
-        """基础查询集:仅过滤软删除记录"""
-        return Storage.objects.filter(is_deleted=False)
+        """基础查询集:仅过滤软删除记录(Selector 单源;M-06)"""
+        return StorageSelector.get_all_storages()
 
     def get_queryset(self) -> QuerySet[Storage]:
         # RBAC: Storage 为全局资源,仅按软删除过滤

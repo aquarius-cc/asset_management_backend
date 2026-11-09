@@ -48,7 +48,6 @@ class RecycleAssetViewSet(  # type: ignore[misc]
     ResponseWrapperMixin,
     viewsets.ModelViewSet[RecycleAsset],
 ):
-    queryset = RecycleAsset.objects.filter(is_deleted=False)
     pagination_class = CustomPageNumberPagination
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = [
@@ -102,6 +101,9 @@ class RecycleAssetViewSet(  # type: ignore[misc]
         return RecycleAssetDetailSerializer
 
     def get_queryset(self) -> QuerySet[RecycleAsset]:
+        # schema 离线导出无认证用户,返回 none() 仅供 spectacular 解析模型,运行时不走此分支
+        if getattr(self, "swagger_fake_view", False):
+            return RecycleAsset.objects.none()
         # RBAC 行级数据隔离
         if self.action == "list":
             qs = RecycleAssetSelector.get_queryset_for_user(self.request.user)

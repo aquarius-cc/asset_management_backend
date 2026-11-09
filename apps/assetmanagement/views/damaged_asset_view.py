@@ -50,7 +50,6 @@ class DamagedAssetViewSet(  # type: ignore[misc]
     viewsets.ModelViewSet[DamagedAsset],
 ):
     # DR-3: 类属性使用 Selector(无 RBAC),实际查询由 get_queryset 覆盖
-    queryset = DamagedAsset.objects.filter(is_deleted=False)
     serializer_class = DamagedAssetSerializer
     pagination_class = CustomPageNumberPagination
     lookup_field = "recordcode"
@@ -93,6 +92,9 @@ class DamagedAssetViewSet(  # type: ignore[misc]
         return DamagedAssetDetailSerializer
 
     def get_queryset(self) -> Any:
+        # schema 离线导出无认证用户,返回 none() 仅供 spectacular 解析模型,运行时不走此分支
+        if getattr(self, "swagger_fake_view", False):
+            return DamagedAsset.objects.none()
         # RBAC 行级数据隔离(所有动作统一限权)
         return DamagedAssetSelector.get_queryset_for_user(self.request.user).with_asset_details()  # type: ignore[attr-defined]
 

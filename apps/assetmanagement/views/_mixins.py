@@ -33,15 +33,15 @@ class RecordcodeLookupMixin:
                 obj = queryset.get(pk=lookup_value)
                 self.check_object_permissions(self.request, obj)  # type: ignore[attr-defined]
                 return obj
-            except self.queryset.model.DoesNotExist:  # type: ignore[attr-defined]
+            except queryset.model.DoesNotExist:
                 # [M-AUD-4] pk 未命中是 digit 值回落 recordcode 查找的正常路径（非异常），
                 # debug 级留痕对齐 M-47 范式；真正抛 404 的是下方 recordcode 也未命中分支
                 logger.debug("pk 未命中, 回落 recordcode 查找: %s", lookup_value)
 
         try:
             obj = queryset.get(**{self.lookup_field: lookup_value})  # type: ignore[attr-defined]
-        except self.queryset.model.DoesNotExist:  # type: ignore[attr-defined]
-            raise Http404(f"{self.queryset.model.__name__} '{lookup_value}' not found.")  # type: ignore[attr-defined]
+        except queryset.model.DoesNotExist:
+            raise Http404(f"{queryset.model.__name__} '{lookup_value}' not found.")
 
         self.check_object_permissions(self.request, obj)  # type: ignore[attr-defined]
         return obj

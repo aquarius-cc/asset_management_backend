@@ -114,7 +114,6 @@ class RepairAssetViewSet(  # type: ignore[misc]
     viewsets.ModelViewSet[RepairAsset],
 ):
     # RepairAssetSelector.get_repair_assets_for_list() 不需要 RBAC,可用作类属性
-    queryset = RepairAssetSelector.get_repair_assets_for_list()
     pagination_class = CustomPageNumberPagination
     lookup_field = "recordcode"
     # 与原内联元组逐项等价: 漏项即权限放宽(BF-037 校验锚)
@@ -143,6 +142,9 @@ class RepairAssetViewSet(  # type: ignore[misc]
         )
 
     def get_queryset(self) -> Any:
+        # schema 离线导出无认证用户,返回 none() 仅供 spectacular 解析模型,运行时不走此分支
+        if getattr(self, "swagger_fake_view", False):
+            return RepairAsset.objects.none()
         return RepairAssetSelector.get_queryset_for_user(self.request.user)
 
     def get_serializer_class(self) -> type:

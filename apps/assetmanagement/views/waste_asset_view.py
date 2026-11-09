@@ -66,7 +66,6 @@ class WasteAssetViewSet(  # type: ignore[misc]
     ResponseWrapperMixin,
     viewsets.ModelViewSet[WasteAsset],
 ):
-    queryset = WasteAsset.objects.filter(is_deleted=False)
     serializer_class = WasteAssetSerializer
     pagination_class = CustomPageNumberPagination
     lookup_field = "asset_recordcode__asset_code"
@@ -101,6 +100,9 @@ class WasteAssetViewSet(  # type: ignore[misc]
         return WasteAssetDetailSerializer
 
     def get_queryset(self) -> Any:
+        # schema 离线导出无认证用户,返回 none() 仅供 spectacular 解析模型,运行时不走此分支
+        if getattr(self, "swagger_fake_view", False):
+            return WasteAsset.objects.none()
         # RBAC 行级数据隔离
         if self.action == "list":
             return WasteAssetSelector.get_queryset_for_user(self.request.user)

@@ -48,7 +48,6 @@ from ._lifecycle_base import AssetLifecycleViewSetBase
 
 @extend_schema(tags=["损坏资产"])
 class BrokenAssetViewSet(AssetLifecycleViewSetBase):
-    queryset = BrokenAsset.objects.for_list().all()
     model = BrokenAsset  # type: ignore[assignment]
     selector = BrokenAssetSelector  # type: ignore[assignment]
     list_serializer = BrokenAssetListSerializer  # type: ignore[assignment]
@@ -101,7 +100,6 @@ class BrokenAssetViewSet(AssetLifecycleViewSetBase):
 
 @extend_schema(tags=["遗失资产"])
 class LostAssetViewSet(AssetLifecycleViewSetBase):
-    queryset = LostAsset.objects.for_list().all()
     model = LostAsset  # type: ignore[assignment]
     selector = LostAssetSelector  # type: ignore[assignment]
     list_serializer = LostAssetListSerializer  # type: ignore[assignment]
@@ -157,7 +155,6 @@ class LostAssetViewSet(AssetLifecycleViewSetBase):
 class FoundAssetViewSet(AssetLifecycleViewSetBase):
     """FoundAsset 不提供批量创建(后端无对应 Service 方法), 其余行为与 Broken/Lost 一致"""
 
-    queryset = FoundAsset.objects.for_list().all()
     model = FoundAsset  # type: ignore[assignment]
     selector = FoundAssetSelector  # type: ignore[assignment]
     list_serializer = FoundAssetListSerializer  # type: ignore[assignment]

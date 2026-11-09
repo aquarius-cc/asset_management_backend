@@ -35,7 +35,6 @@ class HardDiskSNViewSet(  # type: ignore[misc]
     ResponseWrapperMixin,
     viewsets.ModelViewSet[HardDiskSN],
 ):
-    queryset = HardDiskSN.objects.select_related("asset_recordcode").all()
     serializer_class = HardDiskSNSerializer
     # P2-04: 挂 ExportExcelMixin,导出经 resolve_viewset_permissions -> CanExportExcel
     export_columns = [
@@ -65,6 +64,9 @@ class HardDiskSNViewSet(  # type: ignore[misc]
     ]
 
     def get_queryset(self) -> Any:
+        # schema 离线导出无认证用户,返回 none() 仅供 spectacular 解析模型,运行时不走此分支
+        if getattr(self, "swagger_fake_view", False):
+            return HardDiskSN.objects.none()
         # RBAC 行级数据隔离(硬盘通过 asset_recordcode 关联到 Asset)
         return HardDiskSNSelector.get_queryset_for_user(self.request.user)
 

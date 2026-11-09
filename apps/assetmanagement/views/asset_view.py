@@ -54,7 +54,6 @@ class AssetViewSet(  # type: ignore[misc]
     ResponseWrapperMixin,
     viewsets.ModelViewSet[Asset],
 ):
-    queryset = AssetSelector.get_assets_with_all_relations()
     pagination_class = CustomPageNumberPagination
     lookup_field = "recordcode"
     admin_actions = [
@@ -120,6 +119,9 @@ class AssetViewSet(  # type: ignore[misc]
         return AssetDetailSerializer
 
     def get_queryset(self) -> QuerySet[Asset]:
+        # schema 离线导出无认证用户(AnonymousUser),返回 none() 仅供 spectacular 解析模型,运行时不走此分支
+        if getattr(self, "swagger_fake_view", False):
+            return Asset.objects.none()
         # RBAC 行级数据隔离(所有动作统一限权,list 用列表预加载,其余保留详情预加载)
         if self.action == "list":
             qs = AssetSelector.get_queryset_for_user(self.request.user)

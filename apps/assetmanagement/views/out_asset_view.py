@@ -51,7 +51,6 @@ class OutAssetViewSet(  # type: ignore[misc]
     ResponseWrapperMixin,
     viewsets.ModelViewSet[OutAsset],
 ):
-    queryset = OutAsset.objects.filter(is_deleted=False)
     pagination_class = CustomPageNumberPagination
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ["outasset_type"]
@@ -87,6 +86,9 @@ class OutAssetViewSet(  # type: ignore[misc]
         )
 
     def get_queryset(self) -> QuerySet[OutAsset]:
+        # schema 离线导出无认证用户,返回 none() 仅供 spectacular 解析模型,运行时不走此分支
+        if getattr(self, "swagger_fake_view", False):
+            return OutAsset.objects.none()
         """RBAC 行级过滤 + 关键词搜索"""
         if self.action == "list":
             qs = OutAssetSelector.get_queryset_for_user(self.request.user)

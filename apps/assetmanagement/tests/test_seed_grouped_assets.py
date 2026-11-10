@@ -113,9 +113,7 @@ class TestSeedStatusEnum:
         """
         _run()
 
-        assert set(Asset.objects.values_list("asset_current_status", flat=True)) == {
-            Asset.AssetStatus.IN_STORE
-        }
+        assert set(Asset.objects.values_list("asset_current_status", flat=True)) == {Asset.AssetStatus.IN_STORE}
 
 
 class TestSeedAuditCompensation:

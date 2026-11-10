@@ -51,15 +51,9 @@ pillow==13.0.0
 # 二维码生成（HIGH-15）
 qrcode[pil]==8.2
 
-# HTTP 请求库
-# 版本说明：requests 2.33.0 修复1个已知CVE
-requests==2.33.0
-
-# requests 依赖（显式 pin，避免系统级版本冲突）
-# 版本说明：urllib3 2.8.0 修复 pip-audit 高危（BF-067 §三-6，2026-09-30）
-urllib3==2.8.0
-chardet==5.2.0
-
+# 【M-36，2026-11-10】删除 requests==2.33.0 / urllib3==2.8.0 / chardet==5.2.0：
+# 全仓 .py import 归零（rg 实证），属上游依赖锁（BF-067 时代的遗留 pin）。
+# G7 判据：pip install --dry-run 闭包 diff 为空 + pip-audit 退出码前后一致（见批次 5 审计票）。
 # 环境变量管理
 python-decouple==3.8
 

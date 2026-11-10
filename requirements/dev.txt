@@ -42,7 +42,6 @@ django-stubs==6.1.0
 # 依据：BF-067 §三-6（2026-09-30）升版评估
 djangorestframework-stubs==3.18.0
 types-channels==4.3.0.20260518
-# types-requests
 # types-Pillow
 
 # 代码规范

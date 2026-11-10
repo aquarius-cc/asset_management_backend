@@ -46,7 +46,7 @@ def test_export_columns_resolve_to_model_fields():
             try:
                 view = view_cls()
                 view.action = "list"
-                setattr(view, "swagger_fake_view", True)
+                view.swagger_fake_view = True
                 queryset = view.get_queryset()
             except Exception:
                 continue

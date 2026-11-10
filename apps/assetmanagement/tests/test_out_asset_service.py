@@ -311,9 +311,7 @@ class TestCancelOutAssetService:
             manager=user,
             using_location="原地点",
         )
-        outasset = OutAssetService.create_outasset(
-            _outasset_payload(asset, applicant=employee), user=full_scope_user
-        )
+        outasset = OutAssetService.create_outasset(_outasset_payload(asset, applicant=employee), user=full_scope_user)
 
         asset.refresh_from_db()
         assert asset.asset_storage_recordcode is None

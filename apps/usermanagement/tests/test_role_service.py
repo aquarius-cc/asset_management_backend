@@ -332,9 +332,7 @@ def _assign(role: Role, username: str, dept) -> UserRole:
     user = _make_user(username, role=EmployeeRole.REGULAR_USER, department=dept)
     user.auth_phone = f"139{abs(hash(username)) % 10**8:08d}"
     user.save(update_fields=["auth_phone"])
-    Employee.objects.filter(employee_jobcode=username).update(
-        employee_phone=f"138{abs(hash(username)) % 10**8:08d}"
-    )
+    Employee.objects.filter(employee_jobcode=username).update(employee_phone=f"138{abs(hash(username)) % 10**8:08d}")
     return UserRole.objects.create(auth_user=user, role=role)
 
 

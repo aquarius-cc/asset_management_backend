@@ -112,7 +112,11 @@ def _iter_callees(func: ast.AST, cur_qual: str) -> list[str]:
     for node in ast.walk(func):
         if isinstance(node, ast.Call):
             # getattr(Cls, 动态方法名)(...) → 展开该类全部方法(保守上界,lifecycle 单删闭包形态)
-            if isinstance(node.func, ast.Call) and isinstance(node.func.func, ast.Name) and node.func.func.id == "getattr":
+            if (
+                isinstance(node.func, ast.Call)
+                and isinstance(node.func.func, ast.Name)
+                and node.func.func.id == "getattr"
+            ):
                 if node.func.args and isinstance(node.func.args[0], ast.Name):
                     cls_q = _resolve_full(imports.get(node.func.args[0].id, node.func.args[0].id))
                     if cls_q:
@@ -350,8 +354,7 @@ def test_batch_delete_cross_layer_depth_within_br7():
     layer = _propagate(sorted(reachable & set(_batch_entries())))
     depth = max(d for _, d in layer.values())
     assert depth <= MAX_CROSS_LAYER_DEPTH, (
-        f"批删链跨层深度 {depth} > {MAX_CROSS_LAYER_DEPTH}(BR-7 违规);"
-        f"归层口径: framework/闭包按定义所属层归并"
+        f"批删链跨层深度 {depth} > {MAX_CROSS_LAYER_DEPTH}(BR-7 违规);归层口径: framework/闭包按定义所属层归并"
     )
 
 

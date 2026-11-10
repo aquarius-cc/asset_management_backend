@@ -187,6 +187,25 @@ git commit -m "refactor(auth): 重构权限验证逻辑"
 - 根据反馈进行修改
 - 保持 PR 简洁和专注
 
+### 3.1 密钥扫描判读与测试夹具登记（SC-2，2026-11-10 起生效）
+
+CI `Dependency Security Scan` 的密钥三道扫描中，**第一道（引号形态）** 对
+tests 路径内的密钥样式值按 SHA-256 指纹白名单分流（`scripts/secret_fingerprints.json`，
+只存哈希不存明文）。判读规则：
+
+| 场景 | 判定 | 处置 |
+|:---|:---|:---|
+| tests 路径 + 已登记夹具值 | 绿（打印 `[ALLOWED]` 留痕） | 无需操作 |
+| tests 路径 + 未登记高熵值 | 红 | 新夹具值须登记（见下）；或改用已登记夹具 |
+| 非 tests 路径疑似密钥 | 恒红 | 移除；确需保留请评审 |
+| 已轮换凭据（第三道指纹） | 恒红，**无任何注释豁免** | 立即删除并确认凭据已轮换 |
+
+**新增测试夹具值登记流程**：在 `scripts/tests/test_check_secret_fingerprints.py`
+或后端测试中引入新密钥样式字面量前，先计算
+`python -c "import hashlib;print(hashlib.sha256('新值'.encode()).hexdigest())"`，
+将哈希追加进 `scripts/secret_fingerprints.json` 的 `allowlist` 数组并随 PR 提交，
+同时在 PR 描述中说明该值的用途（如"登录测试夹具"）。禁止把真实凭据登记进白名单。
+
 ### 4. 合并
 
 - 只有在所有检查通过后才能合并

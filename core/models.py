@@ -142,23 +142,6 @@ class BaseModel(TimestampModel):
         self.is_deleted = True
         self.save(using=using, update_fields=["is_deleted", "updated_at"])
 
-    def hard_delete(self, using: Any = None, keep_parents: bool = False) -> None:
-        """
-        硬删除:真正从数据库删除记录
-
-        调用此方法会永久删除记录,谨慎使用。
-        """
-        super().delete(using=using, keep_parents=keep_parents)
-
-    def restore(self) -> None:
-        """
-        恢复软删除的记录
-
-        将 is_deleted 设置为 False,使记录重新出现在默认查询中。
-        """
-        import logging
-
-        logger = logging.getLogger(__name__)
-        logger.info(f"恢复记录: {self.__class__.__name__} pk={self.pk}")
-        self.is_deleted = False
-        self.save(update_fields=["is_deleted", "updated_at"])
+    # 批次5 M-45 批C：BaseModel.hard_delete() / restore() 删除——全仓生产与
+    # 测试零调用（merge-audit-20261107 M-45⑤；role_service.py:225 的
+    # all_objects.filter(...).delete() 走 queryset 删除，与本实例方法无关）。

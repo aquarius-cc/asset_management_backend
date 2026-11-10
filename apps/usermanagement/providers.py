@@ -17,12 +17,15 @@
     class AssetmanagementConfig(AppConfig):
         def ready(self):
             register_employee_provider(DjangoEmployeeProvider())
+
+批次5 M-45 批C：Mock 三件套（MockEmployeeProvider/MockQuerySet/
+MockEmployeeSerializer）删除——docstring 声称"用于单元测试"，实际全仓
+零引用（YAGNI；测试直接用真实 ORM 夹具）。
 """
 
-from collections.abc import Iterator
 from typing import Any
 
-from apps.assetmanagement.interfaces import EmployeeDTO, EmployeeProvider
+from apps.assetmanagement.interfaces import EmployeeProvider
 from apps.usermanagement.models import Employee, EmployeeStatus
 from apps.usermanagement.serializers import EmployeeSerializer
 
@@ -39,70 +42,3 @@ class DjangoEmployeeProvider(EmployeeProvider):
     def get_serializer_class(self) -> type:
         """获取员工序列化器类"""
         return EmployeeSerializer
-
-
-class MockEmployeeProvider(EmployeeProvider):
-    """
-    Mock 实现的员工数据提供者,用于单元测试
-    """
-
-    def __init__(self, employees: list[EmployeeDTO] | None = None):
-        self._employees = employees or []
-
-    def get_employee_queryset(self) -> Any:
-        """获取Mock QuerySet"""
-        return MockQuerySet(self._employees)
-
-    def get_serializer_class(self) -> type:
-        """获取Mock序列化器类"""
-        return MockEmployeeSerializer
-
-
-class MockQuerySet:
-    """
-    Mock QuerySet 实现
-
-    模拟Django QuerySet的基本操作,用于单元测试。
-    """
-
-    def __init__(self, data: list[EmployeeDTO]):
-        self._data = data
-
-    def __iter__(self) -> Iterator[EmployeeDTO]:
-        return iter(self._data)
-
-    def __len__(self) -> int:
-        return len(self._data)
-
-    def filter(self, **kwargs: Any) -> "MockQuerySet":
-        """模拟filter方法"""
-        # 简化实现,仅支持基本过滤
-        result = self._data
-        return MockQuerySet(result)
-
-    def all(self) -> "MockQuerySet":
-        """模拟all方法"""
-        return MockQuerySet(self._data.copy())
-
-
-class MockEmployeeSerializer:
-    """
-    Mock 员工序列化器
-
-    模拟 EmployeeSerializer 的基本行为,用于单元测试。
-    """
-
-    def __init__(self, instance: Any = None, data: Any = None, **kwargs: Any) -> None:
-        self.instance = instance
-        self._data = data
-
-    @property
-    def data(self) -> dict[str, Any]:
-        """返回序列化后的数据"""
-        if self.instance:
-            return {
-                "employee_jobcode": self.instance.jobcode,
-                "employee_name": self.instance.name,
-                "employee_department": self.instance.department,
-            }
-        return {}

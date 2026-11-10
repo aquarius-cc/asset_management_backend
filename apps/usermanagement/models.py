@@ -29,7 +29,7 @@ class Department(BaseModel):
     - path: CharField — 物化路径,如 /DEPT-001/IT-001/DEV-001,加速子孙查询
 
     继承 BaseModel 获得:recordcode、is_active、is_deleted、
-    created_at、updated_at、SoftDeleteManager、delete/restore/hard_delete。
+    created_at、updated_at、SoftDeleteManager、软删除 delete。（restore/hard_delete 已于批次5 M-45 批C 删除——全仓零调用死代码）
     """
 
     if TYPE_CHECKING:
@@ -175,7 +175,7 @@ class Employee(BaseModel):
     员工管理表
 
     继承 BaseModel 获得:recordcode、is_active、is_deleted、
-    created_at、updated_at、SoftDeleteManager、delete/restore/hard_delete。
+    created_at、updated_at、SoftDeleteManager、软删除 delete。（restore/hard_delete 已于批次5 M-45 批C 删除——全仓零调用死代码）
     """
 
     # 向后兼容

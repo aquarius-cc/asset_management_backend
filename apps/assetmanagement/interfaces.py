@@ -40,7 +40,7 @@ class EmployeeProvider(ABC):
 
     实现类:
         - DjangoEmployeeProvider: Django ORM实现(生产环境)
-        - MockEmployeeProvider: Mock实现(单元测试)
+        （MockEmployeeProvider 已于批次5 M-45 批C 删除——零引用死代码）
     """
 
     @abstractmethod

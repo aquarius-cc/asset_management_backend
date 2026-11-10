@@ -23,7 +23,7 @@ class AssetType(BaseModel):
     - parent_code: 旧字段,迁移完成后删除
 
     继承 BaseModel 获得:recordcode、is_active、is_deleted、
-    created_at、updated_at、SoftDeleteManager、delete/restore/hard_delete。
+    created_at、updated_at、SoftDeleteManager、软删除 delete。（restore/hard_delete 已于批次5 M-45 批C 删除——全仓零调用死代码）
     """
 
     RECORDCODE_PREFIX = "ASSETTYPE"

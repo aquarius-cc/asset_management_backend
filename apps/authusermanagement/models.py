@@ -237,9 +237,8 @@ class AuthUser(AbstractBaseUser, PermissionsMixin):
         """Django认证系统需要的is_active属性"""
         return self.auth_is_active
 
-    def hard_delete(self, using: Any = None, keep_parents: bool = False) -> None:
-        """硬删除:真正从数据库删除记录"""
-        super().delete(using=using, keep_parents=keep_parents)
+    # 批次5 M-45 批C：原 hard_delete 覆写删除——与 BaseModel.hard_delete 同为
+    # 全仓零调用死代码（M-45⑤），基类方法删除后覆写成为孤儿，一并清理。
 
     def set_password(self, raw_password: str | None) -> None:
         """

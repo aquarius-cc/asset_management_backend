@@ -94,7 +94,9 @@ class TestConcurrentPayment:
         def pay(amount_val):
             try:
                 with transaction.atomic():
-                    ContractService.add_payment_record("C001", Decimal(str(amount_val)), "并发付款")
+                    ContractService.add_payment_record(
+                        "C001", Decimal(str(amount_val)), "并发付款", operator_jobcode="E001"
+                    )
             except Exception as e:
                 with lock:
                     errors.append(f"{amount_val}: {type(e).__name__}: {e}")
@@ -126,7 +128,7 @@ class TestPaymentSaveFields:
     def test_save_update_fields_set(self):
         """验证 save 调用使用 update_fields(防全字段回写并发风险)"""
         ContractService.create_contract(_contract_data(contract_amount=Decimal("50000.00")))
-        ContractService.add_payment_record("C001", Decimal("10000.00"), "首付款")
+        ContractService.add_payment_record("C001", Decimal("10000.00"), "首付款", operator_jobcode="E001")
         contract = Contract.objects.get(contract_code="C001")
         assert contract.amount_paid == Decimal("10000.00")
         assert contract.amount_unpaid == Decimal("40000.00")
@@ -151,7 +153,7 @@ class TestSettlementRecalc:
             )
         )
         # 手动加一笔付款(使 amount_paid > 0)
-        ContractService.add_payment_record("C001", Decimal("40000.00"), "预付款")
+        ContractService.add_payment_record("C001", Decimal("40000.00"), "预付款", operator_jobcode="E001")
 
         # 推进至 settlement_done → 应触发 _recalc_paid_amounts
         _advance_to_settlement_done("C001")
@@ -234,7 +236,7 @@ class TestPerformUpdateSettlementedPrice:
     def test_patch_settlemented_price_after_payment(self, admin_client, settlement_done_contract):
         """有付款后再 PATCH settlemented_price,重算基于 settlemented_price"""
         # 先加一笔付款
-        ContractService.add_payment_record("C001", Decimal("3000.00"), "首付款")
+        ContractService.add_payment_record("C001", Decimal("3000.00"), "首付款", operator_jobcode="E001")
         url = reverse("contracts-detail", kwargs={"recordcode": settlement_done_contract.recordcode})
         response = admin_client.patch(url, {"settlemented_price": 8000.00}, format="json")
         assert response.status_code == status.HTTP_200_OK

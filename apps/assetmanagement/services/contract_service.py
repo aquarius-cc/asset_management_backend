@@ -224,7 +224,7 @@ class ContractService:
         *,
         payment_date: str | None = None,
         payment_method: str = "bank_transfer",
-        operator_jobcode: str | None = None,
+        operator_jobcode: str,
         operator_name: str | None = None,
     ) -> Contract:
         """
@@ -279,7 +279,7 @@ class ContractService:
     def add_payment_record_batch(
         contract_code: str,
         payments: list[dict[str, Any]],
-        operator_jobcode: str | None = None,
+        operator_jobcode: str,
         operator_name: str | None = None,
     ) -> dict[str, Any]:
         """批量回填历史付款记录(DR-1: 循环框架复用 BatchOperationMixin,B-5 修法)
@@ -506,7 +506,7 @@ class ContractService:
     def delete_payment_record(
         contract_code: str,
         payment_id: str,
-        operator_jobcode: str | None = None,
+        operator_jobcode: str,
         operator_name: str | None = None,
     ) -> Contract:
         """
@@ -555,7 +555,7 @@ class ContractService:
     def approve_payment_record(
         contract_code: str,
         payment_id: str,
-        operator_jobcode: str | None = None,
+        operator_jobcode: str,
         operator_name: str | None = None,
     ) -> Contract:
         """

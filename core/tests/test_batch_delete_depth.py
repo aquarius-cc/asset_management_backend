@@ -98,6 +98,73 @@ def _resolve_full(dotted: str) -> str | None:
     return None
 
 
+def _getattr_callees(node: ast.Call, imports: dict[str, str]) -> list[str]:
+    """getattr(Cls, 动态方法名)(...) → 展开该类全部方法(保守上界,lifecycle 单删闭包形态)。"""
+    if not (
+        isinstance(node.func, ast.Call) and isinstance(node.func.func, ast.Name) and node.func.func.id == "getattr"
+    ):
+        return []
+    if not (node.func.args and isinstance(node.func.args[0], ast.Name)):
+        return []
+    cls_q = _resolve_full(imports.get(node.func.args[0].id, node.func.args[0].id))
+    return [k for k in _FUNCS if cls_q and k.startswith(cls_q + ".")]
+
+
+def _attribute_callee(f: ast.Attribute, module: str, cls_part: str, imports: dict[str, str]) -> str | None:
+    """解析 Name.attr / 链式调用 .attr 形态的注册键候选。"""
+    if isinstance(f.value, ast.Name):
+        base = f.value.id
+        if base == "self":
+            return f"{module}:{cls_part}.{f.attr}" if cls_part else f"{module}:{f.attr}"
+        if base in imports:
+            return _resolve_full(f"{imports[base]}.{f.attr}")
+        return f"{module}:{base}"
+    if isinstance(f.value, ast.Call):
+        inner = f.value.func
+        if isinstance(inner, ast.Attribute) and isinstance(inner.value, ast.Name):
+            base = inner.value.id
+            return _resolve_full(f"{imports.get(base, '')}.{inner.attr}" if base in imports else "")
+    return None
+
+
+def _record_assign_wiring(node: ast.Assign, cur_qual: str, imports: dict[str, str]) -> None:
+    """方法体内接线(self.wired = Cls.method 形态,如 lifecycle 基类)登记到 _WIRED。"""
+    if len(node.targets) != 1:
+        return
+    target, value = node.targets[0], node.value
+    if not (isinstance(target, ast.Attribute) and isinstance(value, ast.Attribute)):
+        return
+    if isinstance(value.value, ast.Name) and value.value.id in imports:
+        resolved = _resolve_full(f"{imports[value.value.id]}.{value.attr}")
+        if resolved:
+            _WIRED[f"{cur_qual}.{target.attr}"] = resolved
+
+
+def _call_node_callees(node: ast.Call, cur_qual: str, module: str, cls_part: str, imports: dict[str, str]) -> list[str]:
+    """解析单个 Call 节点的注册键候选(getattr 展开 / process_fn 闭包 / Name-attr 调用)。"""
+    callees: list[str] = []
+
+    def add(cand: str | None) -> None:
+        if cand and cand in _FUNCS:
+            callees.append(cand)
+
+    callees.extend(_getattr_callees(node, imports))
+    # 回调关键字: process_fn=_delete_one(闭包随宿主注册)
+    for kw in node.keywords:
+        if kw.arg == "process_fn" and isinstance(kw.value, ast.Name):
+            add(f"{cur_qual}.{kw.value.id}")
+            add(f"{module}:{kw.value.id}")
+    f = node.func
+    if isinstance(f, ast.Attribute):
+        add(_attribute_callee(f, module, cls_part, imports))
+    elif isinstance(f, ast.Name):
+        add(f"{module}:{cls_part}.{f.id}" if cls_part else "")
+        add(f"{module}:{f.id}")
+        if f.id in imports:
+            add(_resolve_full(imports[f.id]))
+    return callees
+
+
 def _iter_callees(func: ast.AST, cur_qual: str) -> list[str]:
     """解析函数体内调用 → 注册键候选(尽力解析;闭包/接线边经 cur_qual/类属性)。"""
     module = cur_qual.split(":", 1)[0]
@@ -105,57 +172,28 @@ def _iter_callees(func: ast.AST, cur_qual: str) -> list[str]:
     cls_part = cur_qual.split(":", 1)[1].split(".")[0] if ":" in cur_qual else ""
     callees: list[str] = []
 
-    def add(cand: str | None) -> None:
-        if cand and cand in _FUNCS:
-            callees.append(cand)
-
     for node in ast.walk(func):
         if isinstance(node, ast.Call):
-            # getattr(Cls, 动态方法名)(...) → 展开该类全部方法(保守上界,lifecycle 单删闭包形态)
-            if (
-                isinstance(node.func, ast.Call)
-                and isinstance(node.func.func, ast.Name)
-                and node.func.func.id == "getattr"
-            ):
-                if node.func.args and isinstance(node.func.args[0], ast.Name):
-                    cls_q = _resolve_full(imports.get(node.func.args[0].id, node.func.args[0].id))
-                    if cls_q:
-                        callees.extend(k for k in _FUNCS if k.startswith(cls_q + "."))
-            # 回调关键字: process_fn=_delete_one(闭包随宿主注册)
-            for kw in node.keywords:
-                if kw.arg == "process_fn" and isinstance(kw.value, ast.Name):
-                    add(f"{cur_qual}.{kw.value.id}")
-                    add(f"{module}:{kw.value.id}")
-            f = node.func
-            if isinstance(f, ast.Attribute):
-                if isinstance(f.value, ast.Name):
-                    base = f.value.id
-                    if base == "self":
-                        add(f"{module}:{cls_part}.{f.attr}")
-                        add(f"{module}:{f.attr}")
-                    elif base in imports:
-                        add(_resolve_full(f"{imports[base]}.{f.attr}"))
-                    else:
-                        add(f"{module}:{base}")
-                elif isinstance(f.value, ast.Call):
-                    inner = f.value.func
-                    if isinstance(inner, ast.Attribute) and isinstance(inner.value, ast.Name):
-                        base = inner.value.id
-                        add(_resolve_full(f"{imports.get(base, '')}.{inner.attr}" if base in imports else ""))
-            elif isinstance(f, ast.Name):
-                add(f"{module}:{cls_part}.{f.id}" if cls_part else "")
-                add(f"{module}:{f.id}")
-                if f.id in imports:
-                    add(_resolve_full(imports[f.id]))
-        elif isinstance(node, ast.Assign) and len(node.targets) == 1:
-            # 方法体内接线(self.wired = Cls.method 形态,如 lifecycle 基类)
-            target, value = node.targets[0], node.value
-            if isinstance(target, ast.Attribute) and isinstance(value, ast.Attribute):
-                if isinstance(value.value, ast.Name) and value.value.id in imports:
-                    resolved = _resolve_full(f"{imports[value.value.id]}.{value.attr}")
-                    if resolved:
-                        _WIRED[f"{cur_qual}.{target.attr}"] = resolved
+            callees.extend(_call_node_callees(node, cur_qual, module, cls_part, imports))
+        elif isinstance(node, ast.Assign):
+            _record_assign_wiring(node, cur_qual, imports)
     return callees
+
+
+def _register_class_wiring(module: str, tree: ast.Module) -> None:
+    """类属性接线(cls.wired = Mod.Cls.method 形态)登记到 _WIRED。"""
+    for cls in [n for n in tree.body if isinstance(n, ast.ClassDef)]:
+        for stmt in cls.body:
+            if not (isinstance(stmt, ast.Assign) and len(stmt.targets) == 1):
+                continue
+            target, value = stmt.targets[0], stmt.value
+            if not (isinstance(target, ast.Name) and isinstance(value, ast.Attribute)):
+                continue
+            if not isinstance(value.value, ast.Name):
+                continue
+            full = _IMPORTS[module].get(value.value.id, "") + "." + value.attr
+            resolved = _resolve_full(full)
+            _WIRED[f"{module}.{cls.name}.{target.id}"] = resolved or full
 
 
 def _build_index() -> None:
@@ -169,18 +207,7 @@ def _build_index() -> None:
             tree = ast.parse(path.read_text(encoding="utf-8-sig"))
             _register(tree, module)
             _IMPORTS[module] = _import_map(tree)
-            for cls in [n for n in tree.body if isinstance(n, ast.ClassDef)]:
-                for stmt in cls.body:
-                    if isinstance(stmt, ast.Assign) and len(stmt.targets) == 1:
-                        target, value = stmt.targets[0], stmt.value
-                        if isinstance(target, ast.Name) and isinstance(value, ast.Attribute):
-                            if isinstance(value.value, ast.Name):
-                                full = _IMPORTS[module].get(value.value.id, "") + "." + value.attr
-                                resolved = _resolve_full(full)
-                                if resolved:
-                                    _WIRED[f"{module}.{cls.name}.{target.id}"] = resolved
-                                else:
-                                    _WIRED[f"{module}.{cls.name}.{target.id}"] = full
+            _register_class_wiring(module, tree)
 
 
 def _wired_targets_for(cur_qual: str) -> list[str]:

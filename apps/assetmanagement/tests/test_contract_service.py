@@ -46,7 +46,7 @@ class TestCreateContract:
 class TestAddPaymentRecord:
     def test_add_payment_success(self):
         _ = ContractService.create_contract(_contract_data(contract_amount=Decimal("50000.00")))
-        result = ContractService.add_payment_record("C001", Decimal("10000.00"), "首付款")
+        result = ContractService.add_payment_record("C001", Decimal("10000.00"), "首付款", operator_jobcode="E001")
         assert result.amount_paid == Decimal("10000.00")
         assert result.amount_unpaid == Decimal("40000.00")
         data = json.loads(result.paid_record)
@@ -56,33 +56,33 @@ class TestAddPaymentRecord:
 
     def test_add_payment_nonexistent_contract_raises(self):
         with pytest.raises(AppValidationError) as exc_info:
-            ContractService.add_payment_record("NOPE", Decimal("100"))
+            ContractService.add_payment_record("NOPE", Decimal("100"), operator_jobcode="E001")
         assert exc_info.value.error_code == "CONTRACT_NOT_FOUND"
 
     def test_add_payment_zero_amount_raises(self):
         ContractService.create_contract(_contract_data())
         with pytest.raises(AppValidationError) as exc_info:
-            ContractService.add_payment_record("C001", Decimal("0"))
+            ContractService.add_payment_record("C001", Decimal("0"), operator_jobcode="E001")
         assert exc_info.value.error_code == "INVALID_PAYMENT_AMOUNT"
 
     def test_add_payment_negative_amount_raises(self):
         ContractService.create_contract(_contract_data())
         with pytest.raises(AppValidationError):
-            ContractService.add_payment_record("C001", Decimal("-100"))
+            ContractService.add_payment_record("C001", Decimal("-100"), operator_jobcode="E001")
 
     def test_add_payment_cumulative(self):
         _ = ContractService.create_contract(_contract_data(contract_amount=Decimal("50000.00")))
-        ContractService.add_payment_record("C001", Decimal("10000.00"))
-        result = ContractService.add_payment_record("C001", Decimal("5000.00"))
+        ContractService.add_payment_record("C001", Decimal("10000.00"), operator_jobcode="E001")
+        result = ContractService.add_payment_record("C001", Decimal("5000.00"), operator_jobcode="E001")
         assert result.amount_paid == Decimal("15000.00")
         assert result.amount_unpaid == Decimal("35000.00")
 
     def test_add_payment_decimal_cumulative_precision(self):
         """【CT-4 回归屏障】0.1 三次累计必须精确等于 0.3(十进制累加,禁止二进制浮点漂移)"""
         ContractService.create_contract(_contract_data(contract_amount=Decimal("50000.00")))
-        ContractService.add_payment_record("C001", Decimal("0.1"))
-        ContractService.add_payment_record("C001", Decimal("0.1"))
-        result = ContractService.add_payment_record("C001", Decimal("0.1"))
+        ContractService.add_payment_record("C001", Decimal("0.1"), operator_jobcode="E001")
+        ContractService.add_payment_record("C001", Decimal("0.1"), operator_jobcode="E001")
+        result = ContractService.add_payment_record("C001", Decimal("0.1"), operator_jobcode="E001")
         assert result.amount_paid == Decimal("0.3")
         assert result.amount_unpaid == Decimal("49999.70")
         data = json.loads(result.paid_record)
@@ -96,7 +96,7 @@ class TestAddPaymentRecord:
                 contract_status="settlement_done",
             )
         )
-        result = ContractService.add_payment_record("C001", Decimal("10000.00"))
+        result = ContractService.add_payment_record("C001", Decimal("10000.00"), operator_jobcode="E001")
         assert result.amount_unpaid == Decimal("35000.00")
 
 
@@ -226,22 +226,22 @@ class TestBatchDeleteContract:
 class TestDeletePaymentRecord:
     def test_delete_payment_success(self):
         ContractService.create_contract(_contract_data(contract_amount=Decimal("50000.00")))
-        contract = ContractService.add_payment_record("C001", Decimal("10000.00"), "首付款")
+        contract = ContractService.add_payment_record("C001", Decimal("10000.00"), "首付款", operator_jobcode="E001")
         data = json.loads(contract.paid_record)
         payment_id = data["payments"][0]["id"]
-        result = ContractService.delete_payment_record("C001", payment_id)
+        result = ContractService.delete_payment_record("C001", payment_id, operator_jobcode="E001")
         updated_data = json.loads(result.paid_record)
         assert updated_data["payments"][0]["status"] == "deleted"
 
     def test_delete_payment_nonexistent_contract_raises(self):
         with pytest.raises(AppValidationError) as exc_info:
-            ContractService.delete_payment_record("NOPE", "pay_xxx")
+            ContractService.delete_payment_record("NOPE", "pay_xxx", operator_jobcode="E001")
         assert exc_info.value.error_code == "CONTRACT_NOT_FOUND"
 
     def test_delete_payment_nonexistent_payment_raises(self):
         ContractService.create_contract(_contract_data())
         with pytest.raises(AppValidationError) as exc_info:
-            ContractService.delete_payment_record("C001", "pay_nonexistent")
+            ContractService.delete_payment_record("C001", "pay_nonexistent", operator_jobcode="E001")
         assert exc_info.value.error_code == "PAYMENT_NOT_FOUND"
 
 
@@ -249,27 +249,27 @@ class TestDeletePaymentRecord:
 class TestApprovePaymentRecord:
     def test_approve_payment_success(self):
         ContractService.create_contract(_contract_data(contract_amount=Decimal("50000.00")))
-        contract = ContractService.add_payment_record("C001", Decimal("10000.00"), "首付款")
+        contract = ContractService.add_payment_record("C001", Decimal("10000.00"), "首付款", operator_jobcode="E001")
         data = json.loads(contract.paid_record)
         payment_id = data["payments"][0]["id"]
-        result = ContractService.approve_payment_record("C001", payment_id)
+        result = ContractService.approve_payment_record("C001", payment_id, operator_jobcode="E001")
         updated_data = json.loads(result.paid_record)
         assert updated_data["payments"][0]["status"] == "approved"
 
     def test_approve_deleted_payment_raises(self):
         ContractService.create_contract(_contract_data(contract_amount=Decimal("50000.00")))
-        contract = ContractService.add_payment_record("C001", Decimal("10000.00"))
+        contract = ContractService.add_payment_record("C001", Decimal("10000.00"), operator_jobcode="E001")
         data = json.loads(contract.paid_record)
         payment_id = data["payments"][0]["id"]
-        ContractService.delete_payment_record("C001", payment_id)
+        ContractService.delete_payment_record("C001", payment_id, operator_jobcode="E001")
         with pytest.raises(AppValidationError) as exc_info:
-            ContractService.approve_payment_record("C001", payment_id)
+            ContractService.approve_payment_record("C001", payment_id, operator_jobcode="E001")
         assert exc_info.value.error_code == "PAYMENT_ALREADY_DELETED"
 
     def test_approve_nonexistent_payment_raises(self):
         ContractService.create_contract(_contract_data())
         with pytest.raises(AppValidationError) as exc_info:
-            ContractService.approve_payment_record("C001", "pay_nonexistent")
+            ContractService.approve_payment_record("C001", "pay_nonexistent", operator_jobcode="E001")
         assert exc_info.value.error_code == "PAYMENT_NOT_FOUND"
 
 
@@ -282,27 +282,27 @@ class TestPaymentAmountRecalculation:
 
     def test_delete_payment_reduces_amount_paid(self):
         ContractService.create_contract(_contract_data(contract_amount=Decimal("50000.00")))
-        contract = ContractService.add_payment_record("C001", Decimal("10000.00"), "首付款")
+        contract = ContractService.add_payment_record("C001", Decimal("10000.00"), "首付款", operator_jobcode="E001")
         payment_id = json.loads(contract.paid_record)["payments"][0]["id"]
-        result = ContractService.delete_payment_record("C001", payment_id)
+        result = ContractService.delete_payment_record("C001", payment_id, operator_jobcode="E001")
         assert result.amount_paid == Decimal("0")
         assert result.amount_unpaid == Decimal("50000.00")
 
     def test_delete_partial_payment_keeps_remainder(self):
         ContractService.create_contract(_contract_data(contract_amount=Decimal("50000.00")))
-        contract = ContractService.add_payment_record("C001", Decimal("10000.00"), "首付款")
-        contract = ContractService.add_payment_record("C001", Decimal("5000.00"), "尾款")
+        contract = ContractService.add_payment_record("C001", Decimal("10000.00"), "首付款", operator_jobcode="E001")
+        contract = ContractService.add_payment_record("C001", Decimal("5000.00"), "尾款", operator_jobcode="E001")
         first_id = json.loads(contract.paid_record)["payments"][0]["id"]
-        result = ContractService.delete_payment_record("C001", first_id)
+        result = ContractService.delete_payment_record("C001", first_id, operator_jobcode="E001")
         assert result.amount_paid == Decimal("5000.00")
         assert result.amount_unpaid == Decimal("45000.00")
 
     def test_approve_keeps_amount_paid_unchanged(self):
         """Q-A 口径:pending 已计入 amount_paid,approve 不改变金额"""
         ContractService.create_contract(_contract_data(contract_amount=Decimal("50000.00")))
-        contract = ContractService.add_payment_record("C001", Decimal("10000.00"))
+        contract = ContractService.add_payment_record("C001", Decimal("10000.00"), operator_jobcode="E001")
         payment_id = json.loads(contract.paid_record)["payments"][0]["id"]
-        result = ContractService.approve_payment_record("C001", payment_id)
+        result = ContractService.approve_payment_record("C001", payment_id, operator_jobcode="E001")
         assert result.amount_paid == Decimal("10000.00")
         assert result.amount_unpaid == Decimal("40000.00")
 
@@ -314,9 +314,9 @@ class TestPaymentAmountRecalculation:
                 contract_status="settlement_done",
             )
         )
-        contract = ContractService.add_payment_record("C001", Decimal("10000.00"))
+        contract = ContractService.add_payment_record("C001", Decimal("10000.00"), operator_jobcode="E001")
         payment_id = json.loads(contract.paid_record)["payments"][0]["id"]
-        result = ContractService.delete_payment_record("C001", payment_id)
+        result = ContractService.delete_payment_record("C001", payment_id, operator_jobcode="E001")
         assert result.amount_unpaid == Decimal("45000.00")
 
     def test_recalc_skips_legacy_text_entries(self):
@@ -325,7 +325,7 @@ class TestPaymentAmountRecalculation:
         contract = Contract.objects.get(contract_code="C001")
         contract.paid_record = json.dumps({"payments": ["2024-01-01 付款 1000元"]}, ensure_ascii=False)
         contract.save()
-        result = ContractService.add_payment_record("C001", Decimal("2000.00"))
+        result = ContractService.add_payment_record("C001", Decimal("2000.00"), operator_jobcode="E001")
         assert result.amount_paid == Decimal("2000.00")
 
     def test_recalc_skips_malformed_amount(self):
@@ -337,7 +337,7 @@ class TestPaymentAmountRecalculation:
             ensure_ascii=False,
         )
         contract.save()
-        result = ContractService.add_payment_record("C001", Decimal("2000.00"))
+        result = ContractService.add_payment_record("C001", Decimal("2000.00"), operator_jobcode="E001")
         assert result.amount_paid == Decimal("2000.00")
 
     def test_recalc_tolerates_legacy_plain_text(self):
@@ -346,7 +346,7 @@ class TestPaymentAmountRecalculation:
         contract = Contract.objects.get(contract_code="C001")
         contract.paid_record = "2024-01-01 首付 1000"
         contract.save()
-        result = ContractService.add_payment_record("C001", Decimal("2000.00"))
+        result = ContractService.add_payment_record("C001", Decimal("2000.00"), operator_jobcode="E001")
         assert result.amount_paid == Decimal("2000.00")
 
     def test_recalc_tolerates_json_without_payments_key(self):
@@ -354,7 +354,7 @@ class TestPaymentAmountRecalculation:
         obj = Contract.objects.get(contract_code="C001")
         obj.paid_record = json.dumps({"legacy": True}, ensure_ascii=False)
         obj.save()
-        result = ContractService.add_payment_record("C001", Decimal("2000.00"))
+        result = ContractService.add_payment_record("C001", Decimal("2000.00"), operator_jobcode="E001")
         assert result.amount_paid == Decimal("2000.00")
 
 
@@ -366,7 +366,7 @@ class TestAddPaymentRecordOptions:
     def test_payment_date_honored(self):
         ContractService.create_contract(_contract_data())
         result = ContractService.add_payment_record(
-            "C001", Decimal("100.00"), payment_date="2023-06-15", payment_method="cash"
+            "C001", Decimal("100.00"), payment_date="2023-06-15", payment_method="cash", operator_jobcode="E001"
         )
         entry = json.loads(result.paid_record)["payments"][0]
         assert entry["date"] == "2023-06-15"
@@ -374,7 +374,7 @@ class TestAddPaymentRecordOptions:
 
     def test_defaults_when_options_omitted(self):
         ContractService.create_contract(_contract_data())
-        result = ContractService.add_payment_record("C001", Decimal("100.00"))
+        result = ContractService.add_payment_record("C001", Decimal("100.00"), operator_jobcode="E001")
         entry = json.loads(result.paid_record)["payments"][0]
         assert entry["payment_method"] == "bank_transfer"
         assert entry["status"] == "pending"
@@ -382,7 +382,9 @@ class TestAddPaymentRecordOptions:
 
     def test_created_at_is_ingest_time_not_payment_date(self):
         ContractService.create_contract(_contract_data())
-        result = ContractService.add_payment_record("C001", Decimal("100.00"), payment_date="2020-01-01")
+        result = ContractService.add_payment_record(
+            "C001", Decimal("100.00"), payment_date="2020-01-01", operator_jobcode="E001"
+        )
         entry = json.loads(result.paid_record)["payments"][0]
         assert entry["created_at"][:4] != "2020"
 
@@ -399,6 +401,7 @@ class TestAddPaymentRecordBatch:
                 {"amount": Decimal("1000.00"), "description": "首付款", "payment_date": "2023-01-10"},
                 {"amount": Decimal("2000.00"), "description": "进度款", "payment_method": "check"},
             ],
+            operator_jobcode="E001",
         )
         assert result["total"] == 2
         assert result["success_count"] == 2
@@ -411,7 +414,9 @@ class TestAddPaymentRecordBatch:
     def test_batch_preserves_payment_date_and_method(self):
         ContractService.create_contract(_contract_data())
         ContractService.add_payment_record_batch(
-            "C001", [{"amount": Decimal("1000.00"), "payment_date": "2022-03-01", "payment_method": "cash"}]
+            "C001",
+            [{"amount": Decimal("1000.00"), "payment_date": "2022-03-01", "payment_method": "cash"}],
+            operator_jobcode="E001",
         )
         entry = json.loads(Contract.objects.get(contract_code="C001").paid_record)["payments"][0]
         assert entry["date"] == "2022-03-01"
@@ -425,6 +430,7 @@ class TestAddPaymentRecordBatch:
                 {"amount": Decimal("1000.00"), "description": "有效"},
                 {"amount": Decimal("-5.00"), "description": "非法金额"},
             ],
+            operator_jobcode="E001",
         )
         assert result["success_count"] == 1
         assert result["fail_count"] == 1
@@ -434,7 +440,7 @@ class TestAddPaymentRecordBatch:
 
     def test_batch_nonexistent_contract_raises(self):
         with pytest.raises(AppValidationError) as exc_info:
-            ContractService.add_payment_record_batch("NOPE", [{"amount": Decimal("1.00")}])
+            ContractService.add_payment_record_batch("NOPE", [{"amount": Decimal("1.00")}], operator_jobcode="E001")
         assert exc_info.value.error_code == "CONTRACT_NOT_FOUND"
 
 

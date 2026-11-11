@@ -475,7 +475,7 @@ class TestPutContractStatusRouting:
         )
         for target in ("receive_check", "initial_check", "project_settlement"):
             ContractService.update_settlement_status(c.contract_code, target)
-        ContractService.add_payment_record(c.contract_code, Decimal("3000.00"), "首付款")
+        ContractService.add_payment_record(c.contract_code, Decimal("3000.00"), "首付款", operator_jobcode="E001")
         c.refresh_from_db()
         return c
 

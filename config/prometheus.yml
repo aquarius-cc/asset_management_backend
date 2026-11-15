@@ -17,7 +17,7 @@ scrape_configs:
     metrics_path: "/metrics/"
     scrape_interval: 10s
     # [P3-10] 本文件为无凭据默认配置（后端 METRICS_TOKEN 空 = 放行）。
-    # 后端设置 METRICS_TOKEN 后, 监控侧改用 prometheus.auth.yml（Bearer 抓取）。
+    # 后端设置 METRICS_TOKEN 后, 监控侧经 .env 设 PROMETHEUS_CONFIG=./config/prometheus.auth.yml 切换（Bearer 抓取, 批次 3/M-05）。
 
   - job_name: "postgres"
     static_configs:

@@ -26,8 +26,9 @@ services:
       - DJANGO_SETTINGS_MODULE=config.settings.production
       - SECRET_KEY=${SECRET_KEY}
       - DEBUG=False
-      # [P3-10] /metrics/ 端点 Bearer token（空 = 不鉴权, 见 .env.example）
-      - METRICS_TOKEN=${METRICS_TOKEN:-}
+      # [P3-10] /metrics/ 端点 Bearer token（批次 3/M-05 部署期 fail-closed:
+      # 空/未设 token 将拒绝启动生产栈; 生成方式见 .env.example）
+      - METRICS_TOKEN=${METRICS_TOKEN:?请在 .env 中设置 METRICS_TOKEN（生成方式见 .env.example）}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS}
       - DB_HOST=postgres
       - DB_PORT=5432

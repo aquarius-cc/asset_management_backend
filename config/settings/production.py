@@ -98,10 +98,9 @@ CORS_ALLOW_ALL_ORIGINS = False
 cors_origins = os.getenv("CORS_ALLOWED_ORIGINS", "")
 CORS_ALLOWED_ORIGINS = [origin.strip() for origin in cors_origins.split(",") if origin.strip()]
 
-# 日志级别提升 + 生产环境控制台使用 JSON 格式(OC-2) 并注入 trace_id(OC-1)
+# 生产环境控制台使用 JSON 格式(OC-2)；trace_id filter 由 base.py 统一挂载(M-23 DR-1 收敛)
 LOGGING["handlers"]["console"]["level"] = "INFO"  # 方案 A：stdout 成为文件 handler 超集（INFO 级请求日志也透传）
 LOGGING["handlers"]["console"]["formatter"] = "json"
-LOGGING["handlers"]["console"]["filters"] = ["trace_id"]
 LOGGING["loggers"]["django"]["level"] = "WARNING"
 LOGGING["loggers"]["rest_framework"]["level"] = "WARNING"
 

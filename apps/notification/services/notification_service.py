@@ -16,6 +16,7 @@ from channels.layers import get_channel_layer
 from django.db import transaction
 
 from apps.notification.models import Notification
+from core.metrics import NOTIFICATION_DEAD_LETTER
 
 
 logger = logging.getLogger(__name__)
@@ -125,8 +126,12 @@ def _persist_individually(
                 break
             except Exception as e:
                 if attempt == 2:
+                    # M-25 死信告警: 指标计数 + 关键字置首(SOP 精确匹配)。告警字段写进
+                    # message 字面量——StructuredJSONFormatter 仅序列化固定 7 字段, extra 不落盘。
+                    NOTIFICATION_DEAD_LETTER.labels(channel="persist_individually").inc()
                     logger.error(
-                        "通知持久化失败(死信,请人工补偿): recipient=%s type=%s title=%s "
+                        "NOTIFICATION_DEAD_LETTER 通知持久化失败(死信,请人工补偿): "
+                        "recipient=%s type=%s title=%s "
                         "message=%s priority=%s related_asset_code=%s related_url=%s: %s",
                         recipient_jobcode,
                         notification_type,

@@ -321,13 +321,20 @@ CSP_DIRECTIVES = {
     "form-action": "'self'",
 }
 
+# 健康探测(OC-6): AR-3/AR-4 配置化, 调用点禁止硬编码。
+# 预算: socket_timeout × (n+1) + DB 探测 < compose healthcheck timeout 10s ⇒ 0 ≤ n ≤ 1
+HEALTH_REDIS_SOCKET_TIMEOUT_SECONDS = 3
+HEALTH_REDIS_MAX_RETRIES = 0  # 默认 0 = 与修复前行为一致; 重试判定由编排层 retries=3 承担
+
 # Logging
 LOGGING: dict[str, Any] = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
         "verbose": {"format": "{levelname} {asctime} {module} {process:d} {thread:d} {message}", "style": "{"},
-        "simple": {"format": "{levelname} {message}", "style": "{"},
+        # M-23：人读通道保留，但把 trace_id 纳入格式（无请求上下文由 TraceIDFilter 填 "-"）；
+        # 消费本 formatter 的 handler 必须同时挂 TraceIDFilter（豁免登记见 backend-business-rules.md §5.1）
+        "simple": {"format": "{levelname} {asctime} [{trace_id}] {module} {message}", "style": "{"},
         "json": {"()": "core.json_formatter.StructuredJSONFormatter"},
     },
     "filters": {
@@ -347,6 +354,7 @@ LOGGING: dict[str, Any] = {
             "level": "DEBUG",
             "class": "logging.StreamHandler",
             "formatter": "simple",
+            "filters": ["trace_id"],
         },
     },
     "loggers": {

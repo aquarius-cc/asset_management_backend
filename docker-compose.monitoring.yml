@@ -12,12 +12,13 @@ services:
     networks:
       - asset-network
     volumes:
-      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+      # [批次 3/M-05] 配置文件经变量插值切换: .env 未设 PROMETHEUS_CONFIG 时用无凭据默认配置(行为不变)
+      - ${PROMETHEUS_CONFIG:-./config/prometheus.yml}:/etc/prometheus/prometheus.yml
       - ./config/alert_rules.yml:/etc/prometheus/alert_rules.yml
       - blackbox_rendered:/etc/prometheus/sd:ro
     environment:
       # [P3-10] Bearer 抓取凭据透传: 后端设置 METRICS_TOKEN 后,
-      # 将上方首个 volume 切到 ./config/prometheus.auth.yml（Bearer 配置）即生效
+      # 经 .env 设 PROMETHEUS_CONFIG=./config/prometheus.auth.yml 切换 Bearer 配置(批次 3/M-05)
       - METRICS_TOKEN=${METRICS_TOKEN:-}
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"

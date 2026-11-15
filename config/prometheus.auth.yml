@@ -2,8 +2,9 @@
 # [P3-10] Prometheus Bearer 抓取配置（后端 METRICS_TOKEN 配置后启用）
 #
 # 无凭据默认配置 prometheus.yml 的副本, 仅 django job 增加 bearer_token。
-# 启用方式: docker-compose.monitoring.yml 中 prometheus 首个 volume 切到本文件
-# (该文件已备 METRICS_TOKEN 透传与 --config.expand-env)。
+# 启用方式: .env 设 PROMETHEUS_CONFIG=./config/prometheus.auth.yml（批次 3/M-05:
+# prometheus 首个 volume 经 ${PROMETHEUS_CONFIG:-./config/prometheus.yml} 求值,
+# 本文件已备 METRICS_TOKEN 透传与 --config.expand-env）。
 # =============================================================================
 
 global:

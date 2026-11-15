@@ -231,7 +231,11 @@ class TestPersistNotifications:
         assert Notification.objects.filter(title="批量标题").count() == 2
 
     def test_persistence_failure_logs_dead_letter(self, caplog):
-        """bulk 与逐条(含单次重试)均失败 → error 级死信日志,不向调用方抛异常"""
+        """bulk 与逐条(含单次重试)均失败 → error 级死信日志(含告警计数),不向调用方抛异常"""
+        from prometheus_client import REGISTRY
+
+        DEAD_LETTER_METRIC = "asset_mgmt_notification_dead_letter_total"
+        before = REGISTRY.get_sample_value(DEAD_LETTER_METRIC, {"channel": "persist_individually"}) or 0
         with patch(
             "apps.notification.services.notification_service.Notification.objects.bulk_create",
             side_effect=Exception("db down"),
@@ -246,6 +250,10 @@ class TestPersistNotifications:
         dead = [r for r in caplog.records if "MGR301" in r.getMessage() or "MGR302" in r.getMessage()]
         assert dead, "应留死信日志(含完整重建载荷)"
         assert all(r.levelno == logging.ERROR for r in dead)
+        # M-25: 关键字置首供日志告警精确匹配 + 死信指标每收件人各计一次
+        assert all("NOTIFICATION_DEAD_LETTER" in r.getMessage() for r in dead)
+        after = REGISTRY.get_sample_value(DEAD_LETTER_METRIC, {"channel": "persist_individually"}) or 0
+        assert after == before + 2
 
 
 @pytest.mark.django_db

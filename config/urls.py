@@ -28,6 +28,7 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 
+from core.health_probe import probe_database, probe_redis
 from core.metrics import metrics_view
 
 
@@ -57,32 +58,14 @@ def health_check(request: Any) -> JsonResponse:
 
     检查数据库和 Redis 连接状态。
     所有依赖健康 → 200, 任一不健康 → 503
+    探测与失败日志经 core/health_probe.py 唯一收口(批次 2 / M-03+M-04)。
     """
-    import os
-
-    from django.db import connection
-
-    checks = {}
-
-    # 数据库检查
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT 1")
-        checks["database"] = "healthy"
-    except Exception:
-        checks["database"] = "unhealthy"
-
-    # Redis 检查 (WebSocket 通道层关键依赖)
-    try:
-        import redis
-
-        redis_url = os.environ.get("REDIS_URL", "")
-        with redis.Redis.from_url(redis_url, socket_timeout=3) as conn:
-            conn.ping()
-        checks["redis"] = "healthy"
-    except Exception:
-        checks["redis"] = "unhealthy"
-
+    db_ok = probe_database()
+    redis_ok = probe_redis()
+    checks = {
+        "database": "healthy" if db_ok else "unhealthy",
+        "redis": "healthy" if redis_ok else "unhealthy",
+    }
     is_healthy = all(v == "healthy" for v in checks.values())
 
     return JsonResponse(
@@ -102,36 +85,14 @@ def ready_check(request: Any) -> JsonResponse:
     检查服务是否可以接受请求。
     数据库和 Redis 均连接 → 200, 任一不可用 → 503
     安全要求(H-3)：不向未认证请求暴露数据库错误详情。
+    探测与失败日志经 core/health_probe.py 唯一收口(批次 2 / M-03+M-04)。
     """
-    import logging
-    import os
-
-    from django.db import connection
-
-    logger = logging.getLogger("health")
-    checks = {}
-
-    # 数据库检查
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT 1")
-        checks["database"] = "connected"
-    except Exception as e:
-        checks["database"] = "unavailable"
-        logger.warning(" readiness check failed (db): %s", e, exc_info=True)
-
-    # Redis 检查
-    try:
-        import redis
-
-        redis_url = os.environ.get("REDIS_URL", "")
-        with redis.Redis.from_url(redis_url, socket_timeout=3) as conn:
-            conn.ping()
-        checks["redis"] = "connected"
-    except Exception as e:
-        checks["redis"] = "unavailable"
-        logger.warning(" readiness check failed (redis): %s", e, exc_info=True)
-
+    db_ok = probe_database()
+    redis_ok = probe_redis()
+    checks = {
+        "database": "connected" if db_ok else "unavailable",
+        "redis": "connected" if redis_ok else "unavailable",
+    }
     is_ready = all(v == "connected" for v in checks.values())
 
     return JsonResponse(

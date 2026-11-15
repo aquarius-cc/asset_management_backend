@@ -31,6 +31,7 @@ from django.utils import timezone
 
 from apps.assetmanagement.models.operation_log import AssetOperationLog
 from apps.assetmanagement.services.operation_log_service import OperationLogService
+from core.audit_failure import record_audit_failure
 from core.metrics import AUDIT_WRITE_FAILED
 from core.request_context import get_current_ip
 
@@ -348,7 +349,9 @@ def audit_operation(operation_type: str) -> Callable[[Callable[..., Any]], Calla
                     )
                 # 其他操作类型...
             except Exception as e:
-                logger.error(f"审计装饰器记录失败: {e}")
+                # 【批次2 M-01】调度/装配异常(闭包外: get_current_ip 等)走唯一收口点;
+                # _safe_log 内部写失败已计 asset_operation_log, 此处不得双计
+                record_audit_failure(channel="asset_audit_decorator", context="审计装饰器调度失败", exc=e)
 
             return result
 

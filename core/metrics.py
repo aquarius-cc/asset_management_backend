@@ -53,9 +53,21 @@ ERROR_COUNT = Counter(
 #      / unregistered_adapter(UnregisteredAssetAuditAdapter 自吞点)
 #      / unregistered_safe_call(unregisteredasset._safe_call_audit 外层调度失败点, M-08 阶段 A;
 #        内层已计数场景异常到不了外层, 单次失败只计一处)
+#      / asset_audit_decorator(audit_operation 装饰器调度失败, 批次2 M-01; 与 asset_operation_log 互斥)
+#      / generic_audit_dispatch(safe_audit_call 调度层失败, auth+usermanagement 共用, 批次2 M-02;
+#        与 generic_audit_log 互斥——写库异常在 _write_audit 内已吞并计数, 外层仅接闭包外异常)
 AUDIT_WRITE_FAILED = Counter(
     "asset_mgmt_audit_write_failed_total",
     "审计日志写入失败总数",
+    ["channel"],
+)
+
+# 通知持久化死信计数(M-25): 通知丢失属业务事件, 死信仅一行日志无法告警。
+# channel: persist_individually(bulk 失败降级逐条后仍失败)。
+# push_notification_ws 的 warning 是「已落库 + WS 降级」, 不是死信, 不计数。
+NOTIFICATION_DEAD_LETTER = Counter(
+    "asset_mgmt_notification_dead_letter_total",
+    "通知持久化失败(死信)总数",
     ["channel"],
 )
 

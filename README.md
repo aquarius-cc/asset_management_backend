@@ -123,7 +123,7 @@ asset_management_backend/
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 分层架构、模块职责 |
 | [docs/API_STANDARDS.md](docs/API_STANDARDS.md) | REST API 设计规范 |
 | [docs/SECURITY.md](docs/SECURITY.md) | 安全配置、权限矩阵 |
-| [docs/TESTING.md](docs/TESTING.md) | 测试规范 |
+| [docs/TESTING.md](docs/TESTING.md) | 测试规范（含 §3.3 本地残留测试库恢复步骤，M-16） |
 | [docs/WORKFLOW.md](docs/WORKFLOW.md) | Git 工作流、CI/CD |
 
 ## 代码规范

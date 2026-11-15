@@ -553,6 +553,46 @@ class TestRepairGradeValidation:
 
 
 @pytest.mark.django_db
+class TestRepairGradeArbitration:
+    """[BF-186/M-38] 拍板口径锚：「有值必验、缺值可略」（backend-business-rules.md §三 约束 4，2026-11-10）
+
+    与 TestRepairGradeValidation 的差异：本类按拍板语义组合断言——
+    有值非法时资产成色保持前态（而非仅 !=非法值）；缺值时资产成色保持 + 记录 None 留痕同断。
+    """
+
+    def _make_repairing_asset(self, asset, user):
+        asset.asset_current_status = "repairing"
+        asset.save()
+        return RepairAsset.objects.create(
+            asset_recordcode=asset,
+            repair_date="2024-06-01",
+            repair_reason="主板故障",
+            repair_status="in_progress",
+            operator_employee=user,
+        )
+
+    def test_repair_done_grade_optional_but_validated_when_present(self, asset, user):
+        """拍板口径：有值必验——非法成色不触发状态流转且资产成色不变"""
+        self._make_repairing_asset(asset, user)
+        with pytest.raises(AppValidationError) as exc:
+            RepairAssetService.complete_repair(asset.asset_code, physical_grade_after="mint")
+        assert exc.value.error_code == "INVALID_PHYSICAL_GRADE"
+        asset.refresh_from_db()
+        assert asset.asset_current_status == "repairing"
+        assert asset.physical_grade == "good"  # 保持前态（夹具默认 PhysicalGrade.GOOD）
+
+    def test_repair_done_grade_omitted_keeps_asset_grade(self, asset, user):
+        """拍板口径：缺值可略——资产成色保留，维修记录 None 留痕"""
+        self._make_repairing_asset(asset, user)
+        result = RepairAssetService.complete_repair(
+            asset.asset_code, operator_jobcode=user.employee_jobcode, operator_name=user.employee_name
+        )
+        asset.refresh_from_db()
+        assert asset.physical_grade == "good"
+        assert result.physical_grade_after is None
+
+
+@pytest.mark.django_db
 class TestRepairInvalidStateTransition:
     """完成/失败路径状态非法时返回 AppValidationError 而非裸 InvalidTransitionError(AUD-01)
 

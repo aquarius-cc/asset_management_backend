@@ -96,7 +96,37 @@ filterwarnings = [
 ]
 ```
 
-> 🟡 `--reuse-db` 加速日常开发；数据库结构变更时使用 `--create-db`。
+> 🟡 `--reuse-db` 加速日常开发；数据库结构变更时使用 `--create-db`。
+
+### 3.3 本地残留测试库恢复（M-16）
+
+**症状**：全量 pytest 出现数千条 setup ERROR，根因 `psycopg.errors.DuplicateDatabase: database "test_asset_management_backend" already exists`。`pytest.ini` 默认 `DJANGO_SETTINGS_MODULE = config.settings.development`（PostgreSQL），pytest-django 在 setup 阶段 CREATE DATABASE 测试库；上次运行被 kill / 超时后库未被销毁，下次创建即失败。这是**环境问题，不是代码缺陷**；CI 每次使用一次性 PG service，不受影响。
+
+**恢复步骤（Windows PowerShell，psql 需加入 PATH）**：
+
+```
+powershell
+
+# ① 确认残留
+psql -U postgres -h localhost -c "SELECT datname FROM pg_database WHERE datname LIKE 'test_%';"
+
+# ② 断开仍挂在测试库上的连接（不清连接会 DROP 失败）
+psql -U postgres -h localhost -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='test_asset_management_backend' AND pid <> pg_backend_pid();"
+
+# ③ 删除（复用 scripts/restore_test.sh 的 dropdb --if-exists 范式，勿另造清理逻辑）
+dropdb --if-exists -U postgres -h localhost test_asset_management_backend
+
+# ④ 重跑门禁
+python -m pytest --cov=. --cov-fail-under=80 -q
+```
+
+**等价快捷方式**：`python -m pytest --create-db -q`（强制重建，无需手工 drop）。
+
+**口径红线**：
+
+- `--keepdb` / `--reuse-db` 是**复用**残留库，会掩盖脏 schema，仅用于加速迭代，**不得用于产出 CT-2 / CT-7 门禁结论**。
+- `--ds=config.settings.test` 走 SQLite `:memory:` 可快速自测，但与生产不等价；正式门禁结论仍须在 PG 环境、且按 CT-7 对齐 `requirements/dev.txt` 后取得。
+- 恢复后须全量绿 + 覆盖率 ≥80% / Service ≥90%，否则按 CT-5 阻塞提交。
 
 ## 4. 测试数据准备（factory_boy）
 

@@ -73,6 +73,20 @@ class TestValidateTransition:
         with pytest.raises(ContractInvalidTransitionError):
             ContractFSM._validate_transition("purchasing", bogus)
 
-    def test_legal_edge_passes(self) -> None:
-        """合法边不抛"""
-        ContractFSM._validate_transition("purchasing", "purchase_finished")
+    @pytest.mark.parametrize(
+        ("current", "target"),
+        [
+            ("purchasing", "purchase_finished"),
+            ("purchase_finished", "receive_check"),
+            ("receive_check", "initial_check"),
+            ("initial_check", "project_settlement"),
+            ("project_settlement", "settlement_done"),
+            ("settlement_done", "final_check"),
+            ("final_check", "project_finished"),
+        ],
+    )
+    def test_legal_edge_passes(self, current: str, target: str) -> None:
+        """合法边 7 条逐条直测(M-39)；硬编码锚独立于 _CONTRACT_TRANSITIONS，表漂移即先红"""
+        ContractFSM._validate_transition(current, target)
+        with pytest.raises(ContractInvalidTransitionError):
+            ContractFSM._validate_transition(target, current)  # 单向链: 反向必拒

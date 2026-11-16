@@ -7,9 +7,11 @@ request_context 中间件 IP 溯源测试(#35 TRUST_PROXY_HEADERS 守卫)
 3. 默认值断言:base.py TRUST_PROXY_HEADERS 缺省必须为 False(安全默认)
 """
 
+import uuid
 from pathlib import Path
 from types import SimpleNamespace
 
+from django.http import HttpResponse
 from django.test import override_settings
 
 from core.request_context import RequestContextMiddleware
@@ -24,6 +26,12 @@ def _req(**meta: str | None) -> SimpleNamespace:
         if value is not None:
             mutable[key] = value
     return SimpleNamespace(META=mutable)
+
+
+def _run_with_trace_id(value: str | None) -> str:
+    req = _req(HTTP_X_REQUEST_ID=value)
+    middleware = RequestContextMiddleware(lambda _req: HttpResponse())
+    return str(middleware(req)["X-Request-ID"])
 
 
 class TestDefaultTrustsProxyHeadersDisabled:
@@ -71,3 +79,31 @@ class TestSecureDefaultSetting:
         assert 'TRUST_PROXY_HEADERS = config("TRUST_PROXY_HEADERS", default=False, cast=bool)' in src, (
             "base.py 缺少 TRUST_PROXY_HEADERS 且默认必须为 False"
         )
+
+
+class TestTraceIdSanitization:
+    """客户端 X-Request-ID 必须受字符集与长度约束（防日志注入/超长头）。"""
+
+    def test_preserves_valid_trace_id(self):
+        assert _run_with_trace_id("req-batch2-abc_1.2") == "req-batch2-abc_1.2"
+
+    def test_preserves_valid_trace_id_at_128_boundary(self):
+        value = "a" * 128
+        assert _run_with_trace_id(value) == value
+
+    def test_replaces_too_long_trace_id(self):
+        value = "a" * 129
+        actual = _run_with_trace_id(value)
+        assert actual != value
+        uuid.UUID(actual)
+
+    def test_replaces_illegal_characters(self):
+        for value in ("bad value", "bad\nvalue", "bad;value", "bad/../value", "中文"):
+            actual = _run_with_trace_id(value)
+            assert actual != value
+            uuid.UUID(actual)
+
+    def test_generates_uuid_when_missing_or_blank(self):
+        for value in (None, ""):
+            actual = _run_with_trace_id(value)
+            uuid.UUID(actual)

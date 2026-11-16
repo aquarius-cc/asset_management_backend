@@ -10,6 +10,7 @@
 - Service 层通过 get_current_trace_id() 获取当前请求的 trace_id
 """
 
+import re
 import threading
 import uuid
 from typing import Any
@@ -18,6 +19,10 @@ from django.conf import settings
 
 
 _thread_locals = threading.local()
+
+_TRACE_ID_MAX_LEN = 128
+# AI_REVIEW_NEEDED: regex validation required
+_TRACE_ID_RE = re.compile(r"[A-Za-z0-9._-]+")
 
 
 def get_current_ip() -> str | None:
@@ -35,6 +40,13 @@ def get_current_request() -> Any:
     return getattr(_thread_locals, "request", None)
 
 
+def _sanitize_trace_id(raw: str | None) -> str:
+    """仅采信长度与字符集合法的客户端 trace_id，否则生成新 UUID。"""
+    if isinstance(raw, str) and len(raw) <= _TRACE_ID_MAX_LEN and _TRACE_ID_RE.fullmatch(raw):
+        return raw
+    return str(uuid.uuid4())
+
+
 class RequestContextMiddleware:
     """
     请求上下文中间件
@@ -50,7 +62,7 @@ class RequestContextMiddleware:
 
     def __call__(self, request: Any) -> Any:
         # 生成或获取 trace_id(OC-1 落地)
-        trace_id = request.META.get("HTTP_X_REQUEST_ID") or str(uuid.uuid4())
+        trace_id = _sanitize_trace_id(request.META.get("HTTP_X_REQUEST_ID"))
         _thread_locals.trace_id = trace_id
 
         # 存储请求信息到 thread-local

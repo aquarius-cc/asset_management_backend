@@ -11,6 +11,7 @@
 - 事务回滚: 审计写失败不落库(杀 @transaction.atomic 删除)
 """
 
+from datetime import date, datetime
 from unittest import mock
 
 import pytest
@@ -374,6 +375,35 @@ class TestLifecycleStatusSnapshot:
         log = AssetOperationLog.objects.get(asset_code="A001", operation_type=AssetOperationLog.OperationType.FOUND)
         assert log.before_data == {"asset_current_status": "lost"}
         assert log.after_data == {"asset_current_status": "recycled_pending"}
+
+    def test_rebuild_branch_refreshes_date_fields(self, asset, user):
+        """幂等补建分支(状态已到目标、记录缺失): broken_date 落库后须为 date 而非 datetime
+
+        DRF DateField.to_representation 对 datetime 直接断言失败——正常路径
+        (_create_transition_record_and_audit)为此补了 refresh_from_db,
+        补建分支漏同一动作会以 500 收场。
+        """
+        # 模拟历史数据: 状态已是 broken 但无任何 BrokenAsset 记录
+        Asset.objects.filter(asset_code="A001").update(asset_current_status="broken")
+        assert BrokenAsset.objects.filter(asset_recordcode=asset).count() == 0
+
+        record = AssetLifecycleMixin.mark_asset_broken(
+            asset_code="A001", broken_reason="历史数据补建", operator_jobcode=user.employee_jobcode
+        )
+        # 内存实例须已刷新为 DB 落库值: date 类型(DRF 可序列化)
+        assert isinstance(record.broken_date, date) and not isinstance(record.broken_date, datetime)
+        record.refresh_from_db()
+        assert isinstance(record.broken_date, date)
+
+    def test_rebuild_branch_resolves_operator(self, asset, user):
+        """幂等补建分支: operator_employee 须与正常路径同口径解析落库"""
+        Asset.objects.filter(asset_code="A001").update(asset_current_status="lost")
+        assert LostAsset.objects.filter(asset_recordcode=asset).count() == 0
+
+        record = AssetLifecycleMixin.mark_asset_lost(
+            asset_code="A001", lost_reason="历史数据补建", operator_jobcode=user.employee_jobcode
+        )
+        assert record.operator_employee == user
 
     def test_idempotent_mark_broken_single_log(self, asset, user):
         """幂等分支: 已损坏资产重复标记复用现有记录, 不产生第二条日志"""

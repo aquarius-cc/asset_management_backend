@@ -95,7 +95,13 @@ def _run_lifecycle_transition(
             )
             return existing
         # 历史数据缺失时补建记录, 保持幂等语义(不改变资产状态, 不重复 FSM 迁移)
-        return record_model.objects.create(asset_recordcode=asset, **record_kwargs)
+        from apps.usermanagement.selectors import EmployeeSelector
+
+        operator = EmployeeSelector.get_employee_by_jobcode(operator_jobcode)
+        record = record_model.objects.create(asset_recordcode=asset, operator_employee=operator, **record_kwargs)
+        # DateField default=timezone.now 使内存实例携带 datetime, 刷新为 DB 落库后的 date(否则响应序列化拒绝)
+        record.refresh_from_db()
+        return record
 
     from apps.usermanagement.selectors import EmployeeSelector
 

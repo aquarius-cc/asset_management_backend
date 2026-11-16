@@ -56,6 +56,54 @@ def _create_transition_record_and_audit(
     return record
 
 
+def _rebuild_missing_record(
+    *,
+    asset: Asset,
+    record_model: type[Any],
+    record_kwargs: dict[str, Any],
+    operator_jobcode: str,
+) -> Any:
+    """幂等补建分支（状态已到目标、记录缺失）：显式注入 operator + 刷新 DateField 落库值。
+
+    保持幂等语义（不改变资产状态、不重复 FSM 迁移）；refresh_from_db 对齐正常路径——
+    DateField default=timezone.now 使内存实例携带 datetime，否则响应序列化拒绝。
+    """
+    from apps.usermanagement.selectors import EmployeeSelector
+
+    operator = EmployeeSelector.get_employee_by_jobcode(operator_jobcode)
+    record = record_model.objects.create(asset_recordcode=asset, operator_employee=operator, **record_kwargs)
+    record.refresh_from_db()
+    return record
+
+
+def _find_existing_or_rebuild(
+    *,
+    asset: Asset,
+    target_status: Asset.AssetStatus,
+    record_model: type[Any],
+    record_kwargs: dict[str, Any],
+    operator_jobcode: str,
+) -> Any | None:
+    """幂等分支（状态已到目标）：复用现有记录；历史数据缺失时补建（不触发 FSM、不改状态）。
+
+    命中幂等分支返回记录对象；未命中返回 None，由调用方继续走 FSM 迁移。
+    """
+    if asset.asset_current_status != target_status:
+        return None
+    existing = record_model.objects.filter(asset_recordcode=asset).order_by("-created_at").first()
+    if existing is not None:
+        logger.debug(
+            "幂等命中: 资产 %s 已为 %s, 复用现有 %s 记录(不重建、不改状态)",
+            asset.asset_code,
+            target_status,
+            record_model.__name__,
+        )
+        return existing
+    return _rebuild_missing_record(
+        asset=asset, record_model=record_model, record_kwargs=record_kwargs, operator_jobcode=operator_jobcode
+    )
+
+
 def _run_lifecycle_transition(
     *,
     asset_code: str,
@@ -84,24 +132,16 @@ def _run_lifecycle_transition(
     if user is not None:
         AssetSelector.ensure_asset_visible(asset, user)
 
-    if asset.asset_current_status == target_status:
-        existing = record_model.objects.filter(asset_recordcode=asset).order_by("-created_at").first()
-        if existing is not None:
-            logger.debug(
-                "幂等命中: 资产 %s 已为 %s, 复用现有 %s 记录(不重建、不改状态)",
-                asset_code,
-                target_status,
-                record_model.__name__,
-            )
-            return existing
-        # 历史数据缺失时补建记录, 保持幂等语义(不改变资产状态, 不重复 FSM 迁移)
-        from apps.usermanagement.selectors import EmployeeSelector
-
-        operator = EmployeeSelector.get_employee_by_jobcode(operator_jobcode)
-        record = record_model.objects.create(asset_recordcode=asset, operator_employee=operator, **record_kwargs)
-        # DateField default=timezone.now 使内存实例携带 datetime, 刷新为 DB 落库后的 date(否则响应序列化拒绝)
-        record.refresh_from_db()
-        return record
+    # 幂等分支: 状态已到目标时复用现有记录或补建(不触发 FSM, 见 helper docstring)
+    idempotent = _find_existing_or_rebuild(
+        asset=asset,
+        target_status=target_status,
+        record_model=record_model,
+        record_kwargs=record_kwargs,
+        operator_jobcode=operator_jobcode,
+    )
+    if idempotent is not None:
+        return idempotent
 
     from apps.usermanagement.selectors import EmployeeSelector
 

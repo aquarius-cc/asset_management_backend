@@ -28,6 +28,7 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 
+from core.frontend_log_views import FrontendLogView
 from core.health_probe import probe_database, probe_redis
 from core.metrics import metrics_view
 
@@ -114,6 +115,8 @@ urlpatterns = [
     path("ready/", ready_check, name="ready-check"),
     # Prometheus 指标端点(OC-4 落地) — 无认证,供 Prometheus 内部抓取
     path("metrics/", metrics_view, name="metrics"),
+    # 前端错误日志上报端点(B1): 匿名 + 固定字段白名单 + 16KB 上限
+    path("api/v1/frontend-logs/", FrontendLogView.as_view(), name="frontend-log"),
     # ==================== API v1 路由(主路径) ====================
     path("api/v1/auth/", include("apps.authusermanagement.urls")),
     path("api/v1/users/", include("apps.usermanagement.urls")),

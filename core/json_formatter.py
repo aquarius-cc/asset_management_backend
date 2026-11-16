@@ -11,6 +11,22 @@ from datetime import UTC, datetime
 from typing import Any
 
 
+# B1: 前端错误日志白名单。default-deny: 未登记 extra 字段一律不落盘。
+_EXTRA_WHITELIST = frozenset(
+    {
+        "client_trace_id",
+        "client_time",
+        "frontend_module",
+        "release",
+        "env",
+        "route",
+        "frontend_context",
+        "error_type",
+        "error_message",
+    }
+)
+
+
 class StructuredJSONFormatter(logging.Formatter):
     """
     将日志记录格式化为 JSON 结构。
@@ -30,6 +46,10 @@ class StructuredJSONFormatter(logging.Formatter):
         trace_id = getattr(record, "trace_id", None)
         if trace_id:
             log_entry["trace_id"] = trace_id
+
+        for extra_key in _EXTRA_WHITELIST:
+            if hasattr(record, extra_key):
+                log_entry[extra_key] = getattr(record, extra_key)
 
         # 附加异常信息
         if record.exc_info and record.exc_info[1]:

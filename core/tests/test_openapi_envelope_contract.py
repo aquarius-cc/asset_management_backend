@@ -167,6 +167,6 @@ def test_operation_lists_counts(api_schema: dict[str, Any]) -> None:
     by_oid = {str(op.get("operationId", "")) for _, op in _iter_operations(api_schema)}
     assert len(NON_ENVELOPE_OPERATIONS) == 15
     assert len(ENVELOPE_NO_BODY_OPERATIONS) == 21
-    assert len(by_oid) == 265
+    assert len(by_oid) == 266
     assert NON_ENVELOPE_OPERATIONS & ENVELOPE_NO_BODY_OPERATIONS == set()
     assert PHANTOM_OPERATION_IDS & by_oid == set()

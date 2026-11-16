@@ -134,5 +134,6 @@ REST_FRAMEWORK = {
         "user": "10000000/minute",
         "register": "10000000/minute",
         "login": "10000000/minute",
+        "frontend_log": "10000000/minute",
     },
 }

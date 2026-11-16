@@ -210,6 +210,7 @@ REST_FRAMEWORK = {
         "user": "100/minute",
         "register": "5/minute",
         "login": "5/minute",
+        "frontend_log": "60/minute",
     },
 }
 
@@ -361,6 +362,7 @@ LOGGING: dict[str, Any] = {
         "django": {"handlers": ["console", "file"], "level": "INFO", "propagate": False},
         "django.server": {"handlers": ["console", "file"], "level": "INFO", "propagate": False},
         "rest_framework": {"handlers": ["console", "file"], "level": "DEBUG"},
+        "frontend.error": {"handlers": ["file"], "level": "INFO", "propagate": False},
     },
     "root": {"handlers": ["console", "file"], "level": "WARNING"},
 }

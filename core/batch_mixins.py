@@ -33,6 +33,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from core.constants import MAX_BATCH_SIZE
+from core.error_reporting import capture_exception_safe, exception_type
 from core.exceptions import AppValidationError, ResourceConflictError
 from utils.response_utils import success_response
 from utils.user_utils import resolve_operator
@@ -146,11 +147,14 @@ class BatchOperationMixin:
                 # 【M-11 fail-fast】DB 层错误禁止降级为逐条失败: 连接中断/死锁/事务中止后,
                 # 无 savepoint 时后续条目会连锁抛 TransactionManagementError(亦为 DatabaseError),
                 # 有 savepoint 时"已成功"条目同样不可信 —— 一律整体抛出, 绝不返回"部分成功"。
-                logger.error(f"批量操作第 {idx} 条数据库错误, 终止整批", exc_info=True)
+                # 【A5/OC-3】异常整体上抛(不吞), 由全局处理器收口, 日志只留文案不落堆栈。
+                logger.error("批量操作第 %s 条数据库错误, 终止整批", idx)
                 raise
             except Exception as e:
                 # 【P1-39 修复】记录异常日志,便于生产环境排查
-                logger.error(f"批量操作第 {idx} 条异常: {e}", exc_info=True)
+                # 【A5/OC-3】去 exc_info 防业务值落盘; 堆栈走 Sentry 捕获唯一出口
+                capture_exception_safe(e)
+                logger.error("批量操作第 %s 条异常(exception_type=%s)", idx, exception_type(e))
                 fail_items.append(
                     cls._make_fail_item(item_key, idx, item, "INTERNAL_ERROR", "服务器内部错误,请稍后重试")
                 )
@@ -227,11 +231,13 @@ class BatchOperationMixin:
                 )
             except DatabaseError:
                 # 【M-11 fail-fast】同 batch_execute: DB 层错误一律整体抛出(见上注释)。
-                logger.error(f"批量删除第 {item_id} 条数据库错误, 终止整批", exc_info=True)
+                logger.error("批量删除第 %s 条数据库错误, 终止整批", item_id)
                 raise
             except Exception as e:
                 # 【P1-39 修复】记录异常日志,便于生产环境排查
-                logger.error(f"批量删除第 {item_id} 条异常: {e}", exc_info=True)
+                # 【A5/OC-3】去 exc_info 防业务值落盘; 堆栈走 Sentry 捕获唯一出口
+                capture_exception_safe(e)
+                logger.error("批量删除第 %s 条异常(exception_type=%s)", item_id, exception_type(e))
                 fail_items.append(
                     {"id": item_id, "error_code": "INTERNAL_ERROR", "error_message": "服务器内部错误,请稍后重试"}
                 )

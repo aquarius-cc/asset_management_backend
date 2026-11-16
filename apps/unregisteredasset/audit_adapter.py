@@ -33,6 +33,7 @@
 import logging
 from typing import TYPE_CHECKING, Any  # 【P1-34 修复】添加 TYPE_CHECKING 导入
 
+from core.error_reporting import capture_exception_safe, exception_type
 from core.metrics import AUDIT_WRITE_FAILED
 
 
@@ -110,7 +111,9 @@ class UnregisteredAssetAuditAdapter:
             # 【M-19】真实活吞点: 计入指标供告警, 容错契约不变
             AUDIT_WRITE_FAILED.labels(channel="unregistered_adapter").inc()
             # 记录日志异常,不影响主流程
-            logger.error(f"记录未登记资产创建日志失败: {e}", exc_info=True)
+            # 【A5/OC-3】去 exc_info 防业务值落盘; 堆栈走 Sentry 捕获唯一出口
+            capture_exception_safe(e)
+            logger.error("记录未登记资产创建日志失败(exception_type=%s)", exception_type(e))
 
     @staticmethod
     def log_update(
@@ -156,7 +159,9 @@ class UnregisteredAssetAuditAdapter:
         except Exception as e:
             # 【M-19】真实活吞点: 计入指标供告警, 容错契约不变
             AUDIT_WRITE_FAILED.labels(channel="unregistered_adapter").inc()
-            logger.error(f"记录未登记资产更新日志失败: {e}", exc_info=True)
+            # 【A5/OC-3】去 exc_info 防业务值落盘; 堆栈走 Sentry 捕获唯一出口
+            capture_exception_safe(e)
+            logger.error("记录未登记资产更新日志失败(exception_type=%s)", exception_type(e))
 
     @staticmethod
     def log_approve(
@@ -213,7 +218,9 @@ class UnregisteredAssetAuditAdapter:
         except Exception as e:
             # 【M-19】真实活吞点: 计入指标供告警, 容错契约不变
             AUDIT_WRITE_FAILED.labels(channel="unregistered_adapter").inc()
-            logger.error(f"记录未登记资产审批日志失败: {e}", exc_info=True)
+            # 【A5/OC-3】去 exc_info 防业务值落盘; 堆栈走 Sentry 捕获唯一出口
+            capture_exception_safe(e)
+            logger.error("记录未登记资产审批日志失败(exception_type=%s)", exception_type(e))
 
     @staticmethod
     def log_delete(unregistered: "UnregisteredAsset", operator_jobcode: str, operator_name: str | None = None) -> None:
@@ -249,4 +256,6 @@ class UnregisteredAssetAuditAdapter:
         except Exception as e:
             # 【M-19】真实活吞点: 计入指标供告警, 容错契约不变
             AUDIT_WRITE_FAILED.labels(channel="unregistered_adapter").inc()
-            logger.error(f"记录未登记资产删除日志失败: {e}", exc_info=True)
+            # 【A5/OC-3】去 exc_info 防业务值落盘; 堆栈走 Sentry 捕获唯一出口
+            capture_exception_safe(e)
+            logger.error("记录未登记资产删除日志失败(exception_type=%s)", exception_type(e))

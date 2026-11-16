@@ -12,6 +12,7 @@ from django.db.transaction import TransactionManagementError
 
 from apps.notification.models import Notification
 from apps.notification.services import persist_notifications, push_notification_ws
+from core.error_reporting import capture_exception_safe, exception_type
 
 
 if TYPE_CHECKING:
@@ -107,12 +108,13 @@ def send_notification_on_commit(
                 related_url=related_url,
             )
         except Exception as e:
+            # 【A5/OC-3】去 exc_info 防连接串/业务值落盘; 堆栈走 Sentry 捕获唯一出口
+            capture_exception_safe(e)
             logger.error(
                 "on_commit 通知发送失败 (asset=%s, notification_type=%s): %s",
                 asset.asset_code,
                 notification_type,
-                e,
-                exc_info=True,
+                exception_type(e),
             )
 
     transaction.on_commit(_notify_after_commit, robust=True)

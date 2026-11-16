@@ -12,6 +12,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
 
+from core.error_reporting import capture_exception_safe, exception_type
 from utils.response_utils import error_response
 
 
@@ -92,12 +93,16 @@ def _handle_unhandled_exception(exc: Any) -> Response:
 
     # 捕获数据库 IntegrityError(唯一约束/外键/非空),返回 400 + 用户可读消息
     if isinstance(exc, IntegrityError):
-        logger.warning(f"数据库完整性冲突: {exc}", exc_info=True)
+        # 【A5/OC-3】IntegrityError 文本含 DETAIL: Key (col)=(value) 业务字段值,禁止落日志;
+        # 仅记类型(保留 400 响应映射文案,_parse_integrity_error 不动)
+        logger.warning("数据库完整性冲突(exception_type=%s)", exception_type(exc))
         return error_response(message=_parse_integrity_error(exc), status_code=status.HTTP_400_BAD_REQUEST)
 
     # 未处理的异常
-    # 【观测性修复】exc_info 常开(原 settings.DEBUG 使生产日志/Sentry 事件丢失堆栈)
-    logger.error(f"未处理异常: {type(exc).__name__}: {exc}", exc_info=True)
+    # 【A5/OC-3】去 exc_info(formatter 会落 traceback 与 str(exc),连接串/业务值泄露面);
+    # 堆栈改走 Sentry 捕获唯一出口,排障靠 exception_type + trace_id + Sentry 事件
+    capture_exception_safe(exc)
+    logger.error("未处理异常(exception_type=%s)", exception_type(exc))
     return error_response(message="服务器内部错误,请稍后重试", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

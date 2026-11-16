@@ -46,6 +46,7 @@ from apps.unregisteredasset.handlers import (
 )
 from apps.unregisteredasset.models import UnregisteredAsset
 from apps.unregisteredasset.selectors import UnregisteredAssetSelector
+from core.error_reporting import capture_exception_safe
 from core.exceptions import AppValidationError
 from utils.update_whitelist import apply_whitelisted_updates, filter_whitelisted_fields
 
@@ -108,12 +109,13 @@ def _safe_call_audit(operation: str, *args: Any, **kwargs: Any) -> None:
             from core.metrics import AUDIT_WRITE_FAILED
 
             AUDIT_WRITE_FAILED.labels(channel="unregistered_safe_call").inc()
+            # 【A5/OC-3】调度层吞异常路径: 堆栈走 Sentry 捕获唯一出口, 日志只留类型
+            capture_exception_safe(e)
             logger.warning(
                 "审计调度失败(operation=%s, exception_type=%s, trace_id=%s)",
                 operation,
                 type(e).__name__,
                 getattr(e, "trace_id", "-"),
-                exc_info=True,
             )
 
     transaction.on_commit(_run_audit, robust=True)

@@ -302,7 +302,9 @@ class TestSendNotificationOnCommit:
                         message="消息",
                     )
         messages = [r.message for r in caplog.records]
-        assert any("AST_FAIL" in m and "notify boom" in m for m in messages)
+        # 【A5/OC-3】只记 exception_type, 原文 "notify boom" 禁止落盘(防业务值/凭据泄露面)
+        assert any("AST_FAIL" in m and "RuntimeError" in m for m in messages)
+        assert all("notify boom" not in m for m in messages)
 
 
 def test_send_notification_on_commit_raises_outside_atomic_block():

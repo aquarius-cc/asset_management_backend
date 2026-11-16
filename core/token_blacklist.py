@@ -19,6 +19,8 @@ from django.db.models import QuerySet
 from django.utils import timezone
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
+from core.error_reporting import capture_exception_safe
+
 
 logger = logging.getLogger(__name__)
 
@@ -47,10 +49,11 @@ def blacklist_user_tokens(outstanding: QuerySet[OutstandingToken], *, context: s
                 BlacklistedToken.objects.bulk_create(to_create, ignore_conflicts=True)
             logger.info("%s:已黑名单 %d 个 refresh token", context, len(to_create))
         return len(to_create)
-    except Exception:
+    except Exception as e:
+        # 【A5/OC-3】去 exc_info 防连接串落盘; 堆栈走 Sentry 捕获唯一出口
+        capture_exception_safe(e)
         logger.error(
             "%s:refresh token 黑名单操作失败, 旧 Token 仍可使用直到自然过期",
             context,
-            exc_info=True,
         )
         return 0

@@ -17,6 +17,7 @@ from rest_framework.exceptions import APIException
 from rest_framework.response import Response
 from rest_framework.serializers import Serializer
 
+from core.error_reporting import capture_exception_safe, exception_type
 from utils.response_utils import error_response, success_response
 
 
@@ -117,7 +118,9 @@ class ResponseWrapperMixin:
             return error_response(message="资源不存在或已被删除", status_code=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             # 【修复 S9】生产环境不返回详细错误,仅记录日志
-            logger.error(f"列表查询失败: {e!s}", exc_info=True)
+            # 【A5/OC-3】去 exc_info 防业务值落盘; 堆栈走 Sentry 捕获唯一出口
+            capture_exception_safe(e)
+            logger.error("列表查询失败(exception_type=%s)", exception_type(e))
             return error_response(message="查询失败,请稍后重试", status_code=500)
 
     def create(self, request: Any, *args: Any, **kwargs: Any) -> Response:
@@ -139,7 +142,9 @@ class ResponseWrapperMixin:
             # 【修复 S9】让 DRF APIException 正常传播
             raise
         except Exception as e:
-            logger.error(f"创建资源失败: {e!s}", exc_info=True)
+            # 【A5/OC-3】去 exc_info 防业务值落盘; 堆栈走 Sentry 捕获唯一出口
+            capture_exception_safe(e)
+            logger.error("创建资源失败(exception_type=%s)", exception_type(e))
             return error_response(message="创建失败,请稍后重试", status_code=500)
 
     def retrieve(self, request: Any, *args: Any, **kwargs: Any) -> Response:
@@ -162,7 +167,9 @@ class ResponseWrapperMixin:
             # 【修复 S9】让 DRF APIException 正常传播
             raise
         except Exception as e:
-            logger.error(f"获取详情失败: {e!s}", exc_info=True)
+            # 【A5/OC-3】去 exc_info 防业务值落盘; 堆栈走 Sentry 捕获唯一出口
+            capture_exception_safe(e)
+            logger.error("获取详情失败(exception_type=%s)", exception_type(e))
             return error_response(message="查询失败,请稍后重试", status_code=500)
 
     def update(self, request: Any, *args: Any, **kwargs: Any) -> Response:
@@ -187,7 +194,9 @@ class ResponseWrapperMixin:
             # 【修复 S9】让 DRF APIException 正常传播
             raise
         except Exception as e:
-            logger.error(f"更新资源失败: {e!s}", exc_info=True)
+            # 【A5/OC-3】去 exc_info 防业务值落盘; 堆栈走 Sentry 捕获唯一出口
+            capture_exception_safe(e)
+            logger.error("更新资源失败(exception_type=%s)", exception_type(e))
             return error_response(message="更新失败,请稍后重试", status_code=500)
 
     def destroy(self, request: Any, *args: Any, **kwargs: Any) -> Response:
@@ -211,7 +220,9 @@ class ResponseWrapperMixin:
             # 【修复 S9】让 DRF APIException 正常传播
             raise
         except Exception as e:
-            logger.error(f"删除资源失败: {e!s}", exc_info=True)
+            # 【A5/OC-3】去 exc_info 防业务值落盘; 堆栈走 Sentry 捕获唯一出口
+            capture_exception_safe(e)
+            logger.error("删除资源失败(exception_type=%s)", exception_type(e))
             return error_response(message="删除失败,请稍后重试", status_code=500)
 
 

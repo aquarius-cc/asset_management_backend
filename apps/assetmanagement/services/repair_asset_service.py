@@ -255,7 +255,7 @@ class RepairAssetService:
         asset.save(update_fields=["asset_current_status", "physical_grade", "updated_at"])
 
         repair_record.repair_status = RepairAsset.RepairStatus.COMPLETED
-        repair_record.actual_return_date = actual_return_date or timezone.now().date()
+        repair_record.actual_return_date = actual_return_date or timezone.localdate()  # 【MA-13】CST 日历日
         repair_record.physical_grade_after = physical_grade_after or None
         repair_record.save(update_fields=["repair_status", "actual_return_date", "physical_grade_after", "updated_at"])
 

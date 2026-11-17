@@ -170,7 +170,7 @@ class DamagedAssetService:
             asset_recordcode=damaged_asset.asset_recordcode,
             damaged_recordcode=damaged_asset,
             waste_asset_number=damaged_asset.damaged_asset_number,
-            waste_asset_date=timezone.now().date(),
+            waste_asset_date=timezone.localdate(),  # 【MA-13】CST 日历日
         )
 
         # 更新资产状态

@@ -127,7 +127,7 @@ class DamagedAssetViewSet(  # type: ignore[misc]
         serializer.is_valid(raise_exception=True)
         damaged_data = serializer.validated_data
         damaged_data["asset_recordcode"] = damaged_data.get("asset_recordcode")
-        damaged_data["damaged_date"] = damaged_data.get("damaged_date", timezone.now().date())
+        damaged_data["damaged_date"] = damaged_data.get("damaged_date", timezone.localdate())  # 【MA-13】CST 日历日
         damaged_data["damaged_asset_description"] = damaged_data.get("damaged_asset_description", "")
         damaged_data["damaged_asset_number"] = damaged_data.get("damaged_asset_number", 1)
         damaged_asset = DamagedAssetService.create_damaged_asset(

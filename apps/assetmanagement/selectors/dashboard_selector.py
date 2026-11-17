@@ -206,7 +206,7 @@ class DashboardSelector:
             range_start = date.fromisoformat(start_date)
             range_end = date.fromisoformat(end_date)
         else:
-            range_end = timezone.now().date()
+            range_end = timezone.localdate()  # 【MA-13】CST 日历日
             range_start = range_end - timedelta(days=days)
 
         daily_creates = (
@@ -302,11 +302,12 @@ class DashboardSelector:
         返回格式对齐前端 types/dashboard.ts ExpiringAsset：
         [{"id": int, "asset_code": str, "asset_name": str, "expire_date": str, "days_until_expire": int}]
         """
-        from datetime import date, timedelta
+        from datetime import timedelta
 
         from dateutil.relativedelta import relativedelta
+        from django.utils import timezone
 
-        today = date.today()
+        today = timezone.localdate()  # 【MA-13】CST 日历日，容器 TZ 解耦
         scoped = DashboardSelector._scoped_asset_queryset(user).filter(
             asset_warranty_period__gt=0, asset_purchase_date__isnull=False
         )
@@ -354,7 +355,7 @@ class DashboardSelector:
         """
         from django.utils import timezone
 
-        now = timezone.now().date()
+        now = timezone.localdate()  # 【MA-13】CST 日历日
 
         assets = (
             DashboardSelector._scoped_asset_queryset(user)

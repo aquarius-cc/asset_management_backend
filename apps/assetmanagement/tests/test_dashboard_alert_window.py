@@ -8,10 +8,11 @@
   截断与过滤等价, 维护提醒分支非缺陷(merge-audit M-03 订正), 本类锁定该事实
 """
 
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pytest
 from dateutil.relativedelta import relativedelta
+from django.utils import timezone
 
 from apps.assetmanagement.models import Asset
 from apps.assetmanagement.selectors import DashboardSelector
@@ -50,7 +51,7 @@ def _bulk_assets(storage, asset_type, specs):
 class TestExpiringAssetsWindow:
     def test_beyond_first_50_candidates_are_returned(self, storage, asset_type, full_scope_user):
         """55 条已过期资产占据最老名次, 4 条即将到期落在 51+ 名次, 均须正确入选。"""
-        today = date.today()
+        today = timezone.localdate()  # 【MA-13】与被测口径同源（CST 日历日），不依赖进程 TZ
         expired = [
             (f"EXP-OLD-{i:03d}", today - relativedelta(years=3), 1, today - relativedelta(years=3), "in_store")
             for i in range(55)
@@ -69,7 +70,7 @@ class TestExpiringAssetsWindow:
 
     def test_boundary_days_inclusive(self, storage, asset_type, full_scope_user):
         """days=3: 剩 3 天入选, 剩 4 天与已过期(-1 天)排除。"""
-        today = date.today()
+        today = timezone.localdate()  # 【MA-13】与被测口径同源（CST 日历日），不依赖进程 TZ
         _bulk_assets(
             storage,
             asset_type,
@@ -88,7 +89,7 @@ class TestExpiringAssetsWindow:
         到期日在 1 个月后, 必须入选(锁死 12*max_warranty 缩放, 防退化为固定 12)。
         若窗口只回溯 12 个月, 该行在 DB 段即被裁掉 → 红(CT-4 缩放回归屏障)。
         """
-        today = date.today()
+        today = timezone.localdate()  # 【MA-13】与被测口径同源（CST 日历日），不依赖进程 TZ
         _bulk_assets(
             storage,
             asset_type,
@@ -99,7 +100,7 @@ class TestExpiringAssetsWindow:
 
     def test_caps_at_alert_limit(self, storage, asset_type, full_scope_user):
         """60 条全合格时, 响应仍封顶 50 条(防止修复把载荷放大到全表)。"""
-        today = date.today()
+        today = timezone.localdate()  # 【MA-13】与被测口径同源（CST 日历日），不依赖进程 TZ
         _bulk_assets(
             storage,
             asset_type,
@@ -113,7 +114,7 @@ class TestExpiringAssetsWindow:
 
     def test_no_warranty_assets_returns_empty(self, storage, asset_type, full_scope_user):
         """无保修资产时 Max 聚合为 None, 走早返回分支(修复新增分支覆盖)。"""
-        today = date.today()
+        today = timezone.localdate()  # 【MA-13】与被测口径同源（CST 日历日），不依赖进程 TZ
         _bulk_assets(
             storage,
             asset_type,
@@ -142,7 +143,7 @@ class TestExpiringAssetsWindow:
             role=EmployeeRole.DEPT_MANAGER,
         )
 
-        purchase = date.today() - relativedelta(years=1) + timedelta(days=5)
+        purchase = timezone.localdate() - relativedelta(years=1) + timedelta(days=5)
         common = {
             "asset_purchase_price": 1,
             "asset_purchase_date": purchase,
@@ -176,7 +177,7 @@ class TestMaintenanceRemindersTruncation:
 
         10 条入库 26 月(合格) + 50 条入库 12 月(不合格): 截断不丢行(非 Bug 锁定)。
         """
-        today = date.today()
+        today = timezone.localdate()  # 【MA-13】与被测口径同源（CST 日历日），不依赖进程 TZ
         old = [
             (f"MNT-OLD-{i:03d}", today - relativedelta(years=1), 0, today - relativedelta(months=26), "in_use")
             for i in range(10)

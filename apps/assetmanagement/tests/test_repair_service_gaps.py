@@ -40,7 +40,7 @@ class TestRepairDefaultsAndFallbacks:
             operator_name=user.employee_name,
         )
         result.refresh_from_db()
-        assert result.actual_return_date == timezone.now().date()
+        assert result.actual_return_date == timezone.localdate()  # 【MA-13】与实现同源 CST 日历日
 
     def test_repair_done_empty_strings_fall_back(self, asset, user):
         """complete_repair 传空串等同未传: 日期回填当天, 成色不更新"""
@@ -53,7 +53,7 @@ class TestRepairDefaultsAndFallbacks:
             operator_name=user.employee_name,
         )
         result.refresh_from_db()
-        assert result.actual_return_date == timezone.now().date()
+        assert result.actual_return_date == timezone.localdate()  # 【MA-13】与实现同源 CST 日历日
         assert result.physical_grade_after is None
 
     def test_repair_done_keeps_grade_when_not_provided(self, asset, user):

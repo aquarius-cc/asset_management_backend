@@ -6,11 +6,11 @@
 
 import logging
 from collections.abc import Iterable
-from datetime import date
 from typing import Any, cast
 
 from dateutil.relativedelta import relativedelta
 from django.db.models import Q, QuerySet
+from django.utils import timezone
 
 from apps.assetmanagement.models import Asset, OutAsset, RecycleAsset
 from core.department_scope import get_asset_linked_queryset_for_user
@@ -142,7 +142,7 @@ class OutAssetSelector:
             try:
                 years_int = int(years)
                 if years_int > 0:
-                    threshold_date = date.today() - relativedelta(years=years_int)
+                    threshold_date = timezone.localdate() - relativedelta(years=years_int)  # 【MA-13】CST 日历日
                     queryset = queryset.filter(outasset_date__lte=threshold_date)
             except (ValueError, TypeError):
                 logger.warning("出库记录年数过滤参数非法,忽略: years=%r", years)

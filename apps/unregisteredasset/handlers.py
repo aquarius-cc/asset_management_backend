@@ -82,7 +82,7 @@ def _create_unregistered_asset(unregistered: UnregisteredAsset) -> Asset:
         "asset_type_recordcode": unregistered.unregistered_asset_type,
         "asset_purchase_price": unregistered.estimated_value or Decimal("0"),
         "asset_purchase_date": unregistered.discovery_date,
-        "asset_entry_date": timezone.now().date(),
+        "asset_entry_date": timezone.localdate(),  # 【MA-13】CST 日历日
         "asset_storage_recordcode": unregistered.unregistered_asset_storage,
     }
     return Asset.objects.create(**asset_data)  # type: ignore[no-any-return]
@@ -116,7 +116,7 @@ def _create_recycle_record(
         "asset_recordcode": asset,
         "recycle_asset_number": 1,
         "operator_employee": operator_employee,
-        "recycle_asset_date": timezone.now().date(),
+        "recycle_asset_date": timezone.localdate(),  # 【MA-13】CST 日历日
         "recycle_asset_description": description,
     }
     return RecycleAsset.objects.create(**recycle_data)  # type: ignore[no-any-return]
@@ -252,7 +252,7 @@ def _handle_s1_create_and_damaged(unregistered: UnregisteredAsset, operator_jobc
     damaged_data = {
         "asset_recordcode": asset,
         "damaged_asset_number": 1,
-        "damaged_date": timezone.now().date(),
+        "damaged_date": timezone.localdate(),  # 【MA-13】CST 日历日
         "approval_status": "pending",
         "damaged_asset_description": f"不在账资产待报废,来源: {unregistered.unregistered_code}",
     }

@@ -172,7 +172,7 @@ def _prepare_approval(
 
     unregistered.handle_type = handle_type
     unregistered.approver = approver_employee
-    unregistered.approval_date = timezone.now().date()
+    unregistered.approval_date = timezone.localdate()  # 【MA-13】CST 日历日
     unregistered.approval_remark = approval_remark
 
     return unregistered, approver_employee

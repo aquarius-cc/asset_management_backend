@@ -97,7 +97,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "core.csp_middleware.ContentSecurityPolicyMiddleware",  # L-2: CSP 安全头
+    "core.csp_middleware.CspMiddleware",  # L-2: CSP 安全头（MA-15 三态重构）
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -211,6 +211,7 @@ REST_FRAMEWORK = {
         "register": "5/minute",
         "login": "5/minute",
         "frontend_log": "60/minute",
+        "csp_report": "60/minute",  # 【MA-15】CSP 违规上报桶（与 frontend_log 同型防护面）
     },
 }
 
@@ -308,18 +309,26 @@ CORS_ALLOW_HEADERS = [
 ]
 CORS_ALLOW_METHODS = ["DELETE", "GET", "OPTIONS", "PATCH", "POST", "PUT"]
 
-# Content-Security-Policy (L-2)
-# 开发环境自动使用 Report-Only 模式,生产环境强制执行
+# Content-Security-Policy (L-2 / MA-15)
+# 三态: CSP_MODE = off / report-only / enforce（默认 enforce, fail-closed）
+# 指令值统一 dict[str, list[str]]（与 nginx 单源对齐,勿回退字符串拼装）
+CSP_MODE = config("CSP_MODE", default="enforce")
+# connect-src 额外放行域(如 wss://example.com);生产经 .env 注入,勿硬编码
+CSP_CONNECT_SRC_EXTRA = [
+    host for host in config("CSP_CONNECT_SRC_EXTRA", default="").split() if host
+]
 CSP_DIRECTIVES = {
-    "default-src": "'self'",
-    "script-src": "'self' 'unsafe-eval'",
-    "style-src": "'self' 'unsafe-inline'",
-    "img-src": "'self' data: blob:",
-    "connect-src": "'self' ws: wss:",
-    "font-src": "'self'",
-    "object-src": "'none'",
-    "base-uri": "'self'",
-    "form-action": "'self'",
+    "default-src": ["'self'"],
+    "script-src": ["'self'"],  # 【MA-15】移除 'unsafe-eval'
+    "style-src": ["'self'", "'unsafe-inline'"],  # Element Plus 运行时依赖,本批不动
+    "img-src": ["'self'", "data:", "blob:"],  # blob: 保留(fileDownload.ts:29)
+    "connect-src": ["'self'", "ws:", "wss:"] if not CSP_CONNECT_SRC_EXTRA else ["'self'", *CSP_CONNECT_SRC_EXTRA],
+    "font-src": ["'self'"],
+    "object-src": ["'none'"],
+    "base-uri": ["'self'"],
+    "form-action": ["'self'"],
+    "frame-ancestors": ["'none'"],
+    "report-uri": ["/_csp-violation-report/"],
 }
 
 # 健康探测(OC-6): AR-3/AR-4 配置化, 调用点禁止硬编码。

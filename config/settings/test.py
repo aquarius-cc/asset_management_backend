@@ -128,6 +128,8 @@ JWT_AUTH_COOKIE_SECURE = False
 # 保留 rates: 带 throttle_scope 的 View(如 public scan)仍查 rates, 空 dict 会 ImproperlyConfigured。
 REST_FRAMEWORK = {
     **REST_FRAMEWORK,
+    # 【MA-15】测试环境观察期: 仅报告不阻断（显式声明,勿绑 DEBUG 时点）
+    "CSP_MODE": "report-only",
     "DEFAULT_THROTTLE_CLASSES": [],
     "DEFAULT_THROTTLE_RATES": {
         "anon": "10000000/minute",
@@ -135,5 +137,6 @@ REST_FRAMEWORK = {
         "register": "10000000/minute",
         "login": "10000000/minute",
         "frontend_log": "10000000/minute",
+        "csp_report": "10000000/minute",
     },
 }

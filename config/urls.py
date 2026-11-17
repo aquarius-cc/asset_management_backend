@@ -28,6 +28,7 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 
+from core.csp_report_views import csp_violation_report
 from core.frontend_log_views import FrontendLogView
 from core.health_probe import probe_database, probe_redis
 from core.metrics import metrics_view
@@ -117,6 +118,8 @@ urlpatterns = [
     path("metrics/", metrics_view, name="metrics"),
     # 前端错误日志上报端点(B1): 匿名 + 固定字段白名单 + 16KB 上限
     path("api/v1/frontend-logs/", FrontendLogView.as_view(), name="frontend-log"),
+    # CSP 违规上报端点(MA-15): 匿名 + 白名单截断 + 限流(纯 Django 视图,根级惯例)
+    path("_csp-violation-report/", csp_violation_report, name="csp-violation-report"),
     # ==================== API v1 路由(主路径) ====================
     path("api/v1/auth/", include("apps.authusermanagement.urls")),
     path("api/v1/users/", include("apps.usermanagement.urls")),

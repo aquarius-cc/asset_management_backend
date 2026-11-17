@@ -58,6 +58,9 @@ if SECRET_KEY in _INSECURE_KEYS:
 # 【生产要求】必须设为 False
 DEBUG = True
 
+# 【MA-15】开发环境观察期: 仅报告不阻断（勿绑 DEBUG 时点,显式声明）
+CSP_MODE = "report-only"
+
 # 限制为常见开发主机,可通过 ALLOWED_HOSTS 环境变量覆盖
 ALLOWED_HOSTS = [
     h.strip() for h in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,0.0.0.0,[::1]").split(",") if h.strip()

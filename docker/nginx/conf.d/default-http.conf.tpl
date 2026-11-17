@@ -16,6 +16,11 @@ server {
     listen 80;
     server_name ${DOMAIN};
 
+    # 【MA-15】CSP 单源下发点（观察期先 Report-Only,一周后切下行 enforce）
+    add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' wss://${DOMAIN}; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; report-uri /_csp-violation-report/" always;
+    # enforce 切换行(观察周门禁全过后启用,注释掉上一行):
+    # add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' wss://${DOMAIN}; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; report-uri /_csp-violation-report/" always;
+
     # Let's Encrypt ACME HTTP-01 验证 (webroot 卷与 certbot sidecar 共享)
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -33,6 +38,7 @@ server {
         proxy_hide_header X-Frame-Options;
         proxy_hide_header Referrer-Policy;
         proxy_hide_header Permissions-Policy;
+        proxy_hide_header Content-Security-Policy;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -57,6 +63,7 @@ server {
         proxy_hide_header X-Frame-Options;
         proxy_hide_header Referrer-Policy;
         proxy_hide_header Permissions-Policy;
+        proxy_hide_header Content-Security-Policy;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -74,6 +81,7 @@ server {
         proxy_hide_header X-Frame-Options;
         proxy_hide_header Referrer-Policy;
         proxy_hide_header Permissions-Policy;
+        proxy_hide_header Content-Security-Policy;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -90,6 +98,7 @@ server {
         proxy_hide_header X-Frame-Options;
         proxy_hide_header Referrer-Policy;
         proxy_hide_header Permissions-Policy;
+        proxy_hide_header Content-Security-Policy;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header Upgrade $http_upgrade;
@@ -107,6 +116,7 @@ server {
         proxy_hide_header X-Frame-Options;
         proxy_hide_header Referrer-Policy;
         proxy_hide_header Permissions-Policy;
+        proxy_hide_header Content-Security-Policy;
         proxy_set_header Host $host;
         access_log off;
     }
@@ -118,6 +128,7 @@ server {
         proxy_hide_header X-Frame-Options;
         proxy_hide_header Referrer-Policy;
         proxy_hide_header Permissions-Policy;
+        proxy_hide_header Content-Security-Policy;
         proxy_set_header Host $host;
         access_log off;
     }
@@ -133,7 +144,17 @@ server {
         proxy_hide_header X-Frame-Options;
         proxy_hide_header Referrer-Policy;
         proxy_hide_header Permissions-Policy;
+        proxy_hide_header Content-Security-Policy;
         proxy_set_header Host $host;
+        access_log off;
+    }
+
+    # --- CSP 违规上报 (MA-15: 转发 Django /_csp-violation-report/) ---
+    location = /_csp-violation-report/ {
+        proxy_pass http://asset_backend;
+        proxy_hide_header Content-Security-Policy;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
         access_log off;
     }
 
@@ -146,6 +167,7 @@ server {
         add_header X-Content-Type-Options "nosniff" always;
         add_header X-Frame-Options "DENY" always;
         add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+        add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' wss://${DOMAIN}; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; report-uri /_csp-violation-report/" always;
         access_log off;
     }
 
@@ -157,6 +179,7 @@ server {
         add_header X-Content-Type-Options "nosniff" always;
         add_header X-Frame-Options "DENY" always;
         add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+        add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' wss://${DOMAIN}; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; report-uri /_csp-violation-report/" always;
         access_log off;
     }
 

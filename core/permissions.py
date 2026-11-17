@@ -108,6 +108,33 @@ class IsSystemAdmin(permissions.BasePermission):
         return get_user_role(request.user) == _ROLE_SYSTEM_ADMIN
 
 
+class IsSystemAdminOrSelf(permissions.BasePermission):
+    """
+    系统管理员或资源本人(【MA-11】AuthUser 写权限归一)
+
+    适用场景:用户管理 update/partial_update/destroy——system_admin 可操作任意账号,
+    本人可自助操作自己的账号,其余一律拒绝(§4.2 矩阵「用户」行自助例外)。
+
+    403 文案与归一前视图手写分支逐字一致(跨端契约零变化):拒绝时 DRF 以
+    message 属性抛 PermissionDenied,经 core/exception_handler
+    ._extract_drf_message 原样透出为响应 message。
+    """
+
+    message = "您没有权限执行此操作。"
+
+    def has_permission(self, request: Any, view: Any) -> bool:
+        return bool(request.user and request.user.is_authenticated)
+
+    def has_object_permission(self, request: Any, view: Any, obj: Any) -> bool:
+        if not (request.user and request.user.is_authenticated):
+            return False
+        if get_user_role(request.user) == _ROLE_SYSTEM_ADMIN:
+            return True
+        self_auth_id = getattr(request.user, "auth_id", None)
+        obj_auth_id = getattr(obj, "auth_id", None)
+        return self_auth_id is not None and self_auth_id == obj_auth_id
+
+
 class IsDeptManagerOrAbove(permissions.BasePermission):
     """
     部门经理及以上:system_admin / dept_manager

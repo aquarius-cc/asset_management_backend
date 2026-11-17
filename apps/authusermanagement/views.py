@@ -39,7 +39,7 @@ from apps.authusermanagement.serializers import (
 )
 from apps.authusermanagement.services import AuthService
 from core.exceptions import AppValidationError
-from core.permissions import IsSystemAdmin
+from core.permissions import IsSystemAdmin, IsSystemAdminOrSelf
 from core.throttles import LoginLockoutThrottle, LoginRateThrottle, RegisterRateThrottle
 from utils.response_utils import error_response, success_response
 from utils.user_utils import resolve_operator
@@ -69,10 +69,11 @@ class AuthUserViewSet(viewsets.ModelViewSet):  # type: ignore[type-arg]
         - 创建用户:仅 system_admin(BF-126 收口为 sysadmin 单通道,与注册开关解耦;
           匿名注册唯一入口为 /auth/register/)
         - 列表和详情页:仅管理员可访问
-        - 更新和删除:仅管理员或本人可操作
+        - 更新和删除:仅管理员或本人可操作(【MA-11】收编具名权限类,
+          对象级检查由 IsSystemAdminOrSelf.has_object_permission 承担,文案逐字不变)
         """
         if self.action in ["update", "partial_update", "destroy"]:
-            permission_classes = [permissions.IsAuthenticated]
+            permission_classes = [IsSystemAdminOrSelf]
         else:
             permission_classes = [IsSystemAdmin]  # type: ignore[list-item]
         return [permission() for permission in permission_classes]
@@ -82,15 +83,6 @@ class AuthUserViewSet(viewsets.ModelViewSet):  # type: ignore[type-arg]
         if self.action == "create":
             return RegisterSerializer
         return AuthUserSerializer
-
-    def check_object_permissions(self, request: Any, obj: Any) -> None:
-        """检查对象权限(本人账号或系统管理员)"""
-        if self.action in ["update", "partial_update", "destroy"]:
-            is_admin = IsSystemAdmin().has_permission(request, self)
-            if not (is_admin or obj.auth_id == request.user.auth_id):
-                self.permission_denied(request, message="您没有权限执行此操作。")
-
-        return super().check_object_permissions(request, obj)
 
     @extend_schema(
         responses={

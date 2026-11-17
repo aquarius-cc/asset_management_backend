@@ -78,7 +78,10 @@ class EmployeeViewSet(  # type: ignore[misc]
     ``EmployeeQueryActionsMixin``，本类保留配置、取行口径与写侧 / 批量 action。
     """
 
-    queryset = EmployeeSelector.get_queryset_with_bind_status()
+    # 【MA-12】类属性闸门置空：真实取行口径唯一入口为 get_queryset()（BF-048 行级隔离）。
+    # 防未来旁路误用 self.queryset 绕过部门收窄；取行预加载逻辑由
+    # EmployeeSelector.get_queryset_with_bind_status()（被 get_queryset_for_user 消费）承担。
+    queryset = Employee.objects.none()
     serializer_class = EmployeeSerializer
     pagination_class = CustomPageNumberPagination
 

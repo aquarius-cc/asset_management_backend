@@ -7,6 +7,7 @@
 from typing import Any, cast
 
 from django.conf import settings
+from django.db.models import QuerySet
 from drf_spectacular.utils import (
     OpenApiExample,
     OpenApiResponse,
@@ -52,9 +53,15 @@ class AuthUserViewSet(viewsets.ModelViewSet):  # type: ignore[type-arg]
     【修复 S7/S8】防止权限提升和注册管理员
     """
 
-    queryset = AuthUser.objects.all()
+    # 【MA-12】类属性闸门置空：真实取行口径唯一入口为下方 get_queryset()。
+    # 该 ViewSet 无其他 self.queryset 消费方，none() 仅作未来旁路守卫，读路径行为不变。
+    queryset = AuthUser.objects.none()
     serializer_class = AuthUserSerializer
     lookup_field = "auth_id"
+
+    def get_queryset(self) -> "QuerySet[AuthUser]":
+        """MA-12 两步法：原类属性 AuthUser.objects.all() 迁入此处，读路径行为逐字等价。"""
+        return AuthUser.objects.all()
 
     def get_permissions(self) -> list[BasePermission]:
         """

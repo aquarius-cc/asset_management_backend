@@ -41,6 +41,8 @@ ANONYMOUS_OPERATIONS = {
     ("/api/v1/auth/token/refresh/", "post"),
     # BF-126: /auth/users/ POST 已收口 system_admin 单通道,不再允许匿名,移出白名单
     ("/api/v1/assets/public/scan/{recordcode}/", "get"),
+    # B1/MA-06: 匿名前端日志上报（AllowAny + ScopedRateThrottle + 16KB 上限）
+    ("/api/v1/frontend-logs/", "post"),
 }
 
 HTTP_METHODS = ("get", "post", "put", "patch", "delete")

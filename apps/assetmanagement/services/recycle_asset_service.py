@@ -210,7 +210,7 @@ class RecycleAssetService:
                 AssetFSM.mark_lost(asset)
         except InvalidTransitionError as e:
             raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION")
-        asset.save(update_fields=["asset_current_status"])
+        asset.save(update_fields=["asset_current_status", "updated_at"])  # 【MA-18】显式带戳
 
         # AC-61: 记录第二次 FSM 转换(recycled_pending → broken/lost)
         fallback_jobcode = recycle_person_obj.employee_jobcode if recycle_person_obj else None
@@ -294,6 +294,7 @@ class RecycleAssetService:
             "asset_applicant_recordcode",
             "asset_manager_recordcode",
             "asset_using_location",
+            "updated_at",  # 【MA-18】显式带戳
         ]
         if storage_obj:
             update_fields.append("asset_storage_recordcode")
@@ -404,7 +405,7 @@ class RecycleAssetService:
             # 【D-5 口径 2026-11-02】此处为导数写入,不加 ensure_employees_in_scope:
             # 人员归属在出库入口(create/update_outasset)已按「禁止跨部门借用」拦截,
             # 回收仅回填出库时已校验过的人员,不构成新的越权写入面。
-            update_fields = ["asset_current_status"]
+            update_fields = ["asset_current_status", "updated_at"]  # 【MA-18】显式带戳
             if outasset:
                 if outasset.outasset_applicant_recordcode:
                     asset.asset_applicant_recordcode = outasset.outasset_applicant_recordcode

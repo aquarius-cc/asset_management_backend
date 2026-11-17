@@ -47,3 +47,16 @@ class TestMaskSensitiveSnapshot:
         # 幂等: 已脱敏值再脱敏结果不变(掩码值 12 位, 前 3 后 4 重新掩码结果相同)
         assert twice == once
         assert mask_phone_number("138****5678") == "138****5678"
+
+
+class TestMaskerRegistryExtensible:
+    """【MA-19】登记机制可扩展: 新 PII 字段登记 masker 后即生效(不动生产登记表)"""
+
+    def test_new_field_registration_takes_effect(self, monkeypatch):
+        from core import audit_sanitizer
+
+        fake_field = "test_extensible_pii_field"
+        monkeypatch.setitem(audit_sanitizer.AUDIT_SENSITIVE_FIELD_MASKERS, fake_field, mask_phone_number)
+
+        result = audit_sanitizer.mask_sensitive_snapshot({fake_field: "13812345678"})
+        assert result[fake_field] == "138****5678"

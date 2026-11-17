@@ -1,5 +1,7 @@
 """资产状态机核心测试(CT-3: 全路径覆盖 + 审批拒绝回退路径专项)"""
 
+import logging
+
 import pytest
 
 from apps.assetmanagement.models import Asset
@@ -34,18 +36,24 @@ class TestRejectToOriginal:
             ("repairing", "repairing"),
         ],
     )
-    def test_reject_returns_to_original(self, storage, asset_type, original_status, expected_status):
+    def test_reject_returns_to_original(self, storage, asset_type, original_status, expected_status, caplog):
         """damaged → 原状态(合法原状态逐一回退)"""
         asset = self._damaged_asset(storage, asset_type)
-        AssetFSM.reject_to_original(asset, original_status)
+        with caplog.at_level(logging.WARNING):
+            AssetFSM.reject_to_original(asset, original_status)
         assert asset.asset_current_status == expected_status
+        # 【MA-16】合法回退不得产生兜底告警
+        assert not [r for r in caplog.records if "兜底 recycled_pending" in r.message]
 
     @pytest.mark.parametrize("original_status", [None, "in_store", "scrapped", "unknown_x"])
-    def test_reject_illegal_original_falls_back(self, storage, asset_type, original_status):
+    def test_reject_illegal_original_falls_back(self, storage, asset_type, original_status, caplog):
         """缺失/非法原状态兜底 recycled_pending"""
         asset = self._damaged_asset(storage, asset_type)
-        AssetFSM.reject_to_original(asset, original_status)
+        with caplog.at_level(logging.WARNING):
+            AssetFSM.reject_to_original(asset, original_status)
         assert asset.asset_current_status == "recycled_pending"
+        # 【MA-16】静默兜底必须留日志痕迹(记录 original_status 原值)
+        assert any("兜底 recycled_pending" in r.message for r in caplog.records)
 
     def test_reject_on_non_damaged_raises(self, storage, asset_type):
         """非 damaged 状态审批拒绝应抛 InvalidTransitionError"""
@@ -78,11 +86,14 @@ class TestCancelDamaged:
         assert asset.asset_current_status == expected_status
 
     @pytest.mark.parametrize("original_status", [None, "in_store", "scrapped", "unknown_x"])
-    def test_cancel_illegal_original_falls_back(self, storage, asset_type, original_status):
+    def test_cancel_illegal_original_falls_back(self, storage, asset_type, original_status, caplog):
         """缺失/非法原状态兜底 recycled_pending"""
         asset = self._damaged_asset(storage, asset_type)
-        AssetFSM.cancel_damaged(asset, original_status)
+        with caplog.at_level(logging.WARNING):
+            AssetFSM.cancel_damaged(asset, original_status)
         assert asset.asset_current_status == "recycled_pending"
+        # 【MA-16】静默兜底必须留日志痕迹
+        assert any("兜底 recycled_pending" in r.message for r in caplog.records)
 
     def test_cancel_on_non_damaged_raises(self, storage, asset_type):
         """非 damaged 状态取消应抛 InvalidTransitionError"""

@@ -16,6 +16,7 @@ from channels.layers import get_channel_layer
 from django.db import transaction
 
 from apps.notification.models import Notification
+from core.error_reporting import exception_type
 from core.metrics import NOTIFICATION_DEAD_LETTER
 
 
@@ -48,7 +49,7 @@ def push_notification_ws(notification: Notification) -> None:
             },
         )
     except Exception as e:
-        logger.warning(f"WebSocket 推送失败(通知已持久化): {e}")
+        logger.warning("WebSocket 推送失败(通知已持久化): %s", exception_type(e))
 
 
 def persist_notifications(
@@ -84,7 +85,7 @@ def persist_notifications(
         with transaction.atomic():
             return list(Notification.objects.bulk_create([_build(r) for r in recipients]))
     except Exception as e:
-        logger.warning(f"通知批量持久化失败,降级逐条写入: {e}")
+        logger.warning("通知批量持久化失败,降级逐条写入: %s", exception_type(e))
 
     return _persist_individually(
         recipients,
@@ -254,7 +255,7 @@ async def send_notification(
             },
         )
     except Exception as e:
-        logger.warning(f"WebSocket 推送失败(通知已持久化): {e}")
+        logger.warning("WebSocket 推送失败(通知已持久化): %s", exception_type(e))
 
     return notification
 

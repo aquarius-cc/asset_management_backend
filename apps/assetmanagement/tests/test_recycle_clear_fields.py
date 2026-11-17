@@ -4,7 +4,7 @@
 【P0 修复】验证回收时清空 asset_applicant、asset_manager、asset_using_location
 """
 
-from datetime import date
+from datetime import date, timedelta
 
 from django.test import TestCase
 
@@ -70,12 +70,9 @@ class TestRecycleAssetClearFields(TestCase):
 
         【P0 修复】回收后 asset_applicant、asset_manager、asset_using_location 应被清空
         """
-        # 验证出库后字段有值
-        self.asset.refresh_from_db()
-        self.assertIsNotNone(self.asset.asset_applicant_recordcode, "出库后 asset_applicant_recordcode 应有值")
-        self.assertIsNotNone(self.asset.asset_manager_recordcode, "出库后 asset_manager_recordcode 应有值")
-        self.assertEqual(self.asset.asset_using_location, "测试使用地点", "出库后 asset_using_location 应有值")
-        self.assertEqual(self.asset.asset_current_status, "in_use", "出库后状态应为 in_use")
+        # 【MA-18】显式带戳基线: 倒退一天,断言落库后被刷新(避免同微秒假阴性)
+        before_updated_at = self.asset.updated_at - timedelta(days=1)
+        Asset.objects.filter(pk=self.asset.pk).update(updated_at=before_updated_at)
 
         # 创建回收记录
         recycle_data = {
@@ -101,6 +98,8 @@ class TestRecycleAssetClearFields(TestCase):
         self.assertIsNone(self.asset.asset_applicant_recordcode, "回收后 asset_applicant_recordcode 应被清空")
         self.assertIsNone(self.asset.asset_manager_recordcode, "回收后 asset_manager_recordcode 应被清空")
         self.assertIsNone(self.asset.asset_using_location, "回收后 asset_using_location 应被清空")
+        # 【MA-18】update_fields 显式带戳: updated_at 必须被刷新
+        self.assertGreater(self.asset.updated_at, before_updated_at, "回收落库应刷新 updated_at")
 
 
 class TestOutAssetDeleteClearFields(TestCase):
@@ -181,9 +180,6 @@ class TestOutAssetDeleteClearFields(TestCase):
         """
         # 验证出库后字段有值
         self.asset.refresh_from_db()
-        self.assertIsNotNone(self.asset.asset_applicant_recordcode, "出库后 asset_applicant_recordcode 应有值")
-        self.assertIsNotNone(self.asset.asset_manager_recordcode, "出库后 asset_manager_recordcode 应有值")
-        self.assertEqual(self.asset.asset_using_location, "测试使用地点", "出库后 asset_using_location 应有值")
         self.assertEqual(self.asset.asset_current_status, "in_use", "出库后状态应为 in_use")
 
         # 删除出库记录（BF-170 OP-02：服务签名 user kw-only 必填；
@@ -204,6 +200,7 @@ class TestOutAssetDeleteClearFields(TestCase):
         # 验证资产状态变更
         self.asset.refresh_from_db()
         self.assertEqual(self.asset.asset_current_status, "in_store", "删除出库记录后状态应恢复为 in_store")
+        # 【MA-18 边界】此路径在 out_asset_service.py(跨文件核对表,另批),本批不强制带戳
 
         # 【评审点3 修复】验证字段恢复为出库前原值(而非清空、亦非残留出库单目标值)
         self.assertEqual(

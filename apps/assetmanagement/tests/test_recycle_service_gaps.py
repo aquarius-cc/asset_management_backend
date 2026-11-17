@@ -9,12 +9,14 @@
 - 事务回滚: 审计写失败不落库(CT-1)
 """
 
-from datetime import date
+from datetime import date, timedelta
 from unittest import mock
 
 import pytest
+from django.utils import timezone
 
 from apps.assetmanagement.models import (
+    Asset,
     AssetOperationLog,
     BrokenAsset,
     LostAsset,
@@ -172,6 +174,9 @@ class TestBrokenLostFinalize:
 
     def test_broken_state_change_trigger_exact(self, recycle_payload, user):
         """损坏二次转换: 状态日志触发词/操作人回退逐字"""
+        # 【MA-18】带戳基线: 倒退一天,断言落库后被刷新(避免同微秒假阴性)
+        stale_ts = timezone.now() - timedelta(days=1)
+        Asset.objects.filter(asset_code="A001").update(updated_at=stale_ts)
         recycle_payload["is_broken"] = True
         RecycleAssetService.create_recycle_asset(recycle_payload)
         log = AssetOperationLog.objects.get(asset_code="A001", operation_type="state_change")
@@ -179,6 +184,10 @@ class TestBrokenLostFinalize:
         # 无显式 operator_jobcode: 回退到 recycle_person 工号
         assert log.operator_jobcode == user.employee_jobcode
         assert log.operator_name == ""
+        # 【MA-18】update_fields 显式带戳: updated_at 必须被刷新
+        created_asset = Asset.objects.get(asset_code="A001")
+        created_asset.refresh_from_db()
+        assert created_asset.updated_at > stale_ts
 
     def test_lost_state_change_trigger_exact(self, recycle_payload):
         recycle_payload["is_lost"] = True

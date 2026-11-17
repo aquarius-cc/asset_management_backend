@@ -5,6 +5,7 @@
 依赖 core.AssetFSM 提供的内部方法:_transition。
 """
 
+import logging
 from typing import TYPE_CHECKING
 
 from apps.assetmanagement.state_machine.constants import AssetState, InvalidTransitionError
@@ -12,6 +13,8 @@ from apps.assetmanagement.state_machine.constants import AssetState, InvalidTran
 
 if TYPE_CHECKING:
     from apps.assetmanagement.models import Asset
+
+logger = logging.getLogger(__name__)
 
 
 class ScrappingTransitionsMixin:
@@ -75,6 +78,11 @@ class ScrappingTransitionsMixin:
 
         # 兜底: original_status 缺失或非法时,回退到 recycled_pending(可回收再分配)
         if target is None or target not in cls._REJECT_TARGETS:
+            # 【MA-16】补日志痕迹: 静默兜底会掩盖上游 original_status 传递缺陷
+            logger.warning(
+                "报废回退 original_status 非法或缺失,兜底 recycled_pending: original_status=%s",
+                original_status,
+            )
             target = AssetState.RECYCLED_PENDING
 
         asset.asset_current_status = target.value
@@ -126,6 +134,11 @@ class ScrappingTransitionsMixin:
             target = None
 
         if target is None or target not in cls._REJECT_TARGETS:
+            # 【MA-16】补日志痕迹: 静默兜底会掩盖上游 original_status 传递缺陷
+            logger.warning(
+                "报废回退 original_status 非法或缺失,兜底 recycled_pending: original_status=%s",
+                original_status,
+            )
             target = AssetState.RECYCLED_PENDING
 
         asset.asset_current_status = target.value

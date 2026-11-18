@@ -38,7 +38,7 @@ def api_root(request: Any) -> JsonResponse:
     """
     API 根路径视图
 
-    【修复 H10】返回 API 信息而非重定向到 admin,避免暴露后台入口
+    【修复 H10 / MA-22】根路径不重定向,返回 API 信息页
     """
     return JsonResponse(
         {
@@ -49,7 +49,6 @@ def api_root(request: Any) -> JsonResponse:
                 "redoc": "/api/v1/redoc/",
                 "schema": "/api/v1/schema/",
             },
-            "admin": "/admin/",
         }
     )
 

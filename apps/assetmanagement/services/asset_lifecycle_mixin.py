@@ -455,7 +455,6 @@ class AssetLifecycleMixin:
           AuditLogger._safe_log(吞异常返回 False)——update 在事务内, 审计写失败
           必须随业务一起回滚, 否则正是 RC-05 要补的「更新已提交审计静默丢失」
         """
-        # AI_REVIEW_NEEDED: 抑制 model.objects 的 attr-defined，实为 Django Manager 注入
         obj = model.objects.select_for_update().get(recordcode=recordcode, is_deleted=False)  # type: ignore[attr-defined]
 
         # BEQ-02 行级隔离: 与 delete_* 同口径

@@ -27,7 +27,6 @@ if TYPE_CHECKING:
 _EXCLUDED_EXACT = frozenset({"/metrics/", "/health/", "/ready/"})
 _EXCLUDED_PREFIXES = ("/static/", "/media/")
 _UNRESOLVED_ENDPOINT = "{unresolved}"
-# AI_REVIEW_NEEDED: regex validation required
 _ROUTE_PARAM_RE = re.compile(r"\(\?P<([A-Za-z_][A-Za-z0-9_]*)>[^)]*\)")
 
 

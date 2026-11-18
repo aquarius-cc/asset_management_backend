@@ -249,7 +249,6 @@ class EmployeeService:
             with transaction.atomic():
                 employee = Employee.objects.create(**employee_data)
         except IntegrityError as exc:
-            # AI_REVIEW_NEEDED: auth_user 同为 FK 与唯一约束,token 无法区分 unique/FK 违例
             # (正常路径已被 DRF 序列化器 PK 校验挡住;matcher 加 unique-constraint 前提单列后续项)
             match_integrity_error_rules(
                 exc,

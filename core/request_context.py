@@ -21,7 +21,6 @@ from django.conf import settings
 _thread_locals = threading.local()
 
 _TRACE_ID_MAX_LEN = 128
-# AI_REVIEW_NEEDED: regex validation required
 _TRACE_ID_RE = re.compile(r"[A-Za-z0-9._-]+")
 
 

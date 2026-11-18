@@ -314,9 +314,7 @@ CORS_ALLOW_METHODS = ["DELETE", "GET", "OPTIONS", "PATCH", "POST", "PUT"]
 # 指令值统一 dict[str, list[str]]（与 nginx 单源对齐,勿回退字符串拼装）
 CSP_MODE = config("CSP_MODE", default="enforce")
 # connect-src 额外放行域(如 wss://example.com);生产经 .env 注入,勿硬编码
-CSP_CONNECT_SRC_EXTRA = [
-    host for host in config("CSP_CONNECT_SRC_EXTRA", default="").split() if host
-]
+CSP_CONNECT_SRC_EXTRA = [host for host in config("CSP_CONNECT_SRC_EXTRA", default="").split() if host]
 CSP_DIRECTIVES = {
     "default-src": ["'self'"],
     "script-src": ["'self'"],  # 【MA-15】移除 'unsafe-eval'

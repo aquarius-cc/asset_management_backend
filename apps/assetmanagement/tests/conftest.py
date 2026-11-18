@@ -41,9 +41,7 @@ def full_scope_user(db):
     原为 TestDashboardSelector 的类内夹具, 提升至本文件与
     test_dashboard_alert_window.py 共用单一定义(DR-4)。
     """
-    return SuperUserFactory.create(
-        auth_username="fullscope", password=TEST_PASSWORD, auth_phone="13800000001"
-    )
+    return SuperUserFactory.create(auth_username="fullscope", password=TEST_PASSWORD, auth_phone="13800000001")
 
 
 @pytest.fixture
@@ -175,9 +173,7 @@ def auth_user(db, department):
         employee_department=department,
         employee_phone="13800131004",
     )
-    return AuthUserFactory.create(
-        auth_username="testuser", password=TEST_PASSWORD, auth_phone="13800138000"
-    )
+    return AuthUserFactory.create(auth_username="testuser", password=TEST_PASSWORD, auth_phone="13800138000")
 
 
 @pytest.fixture
@@ -186,9 +182,7 @@ def admin_auth_user(db):
     测试管理员认证用户(用于需要管理员权限的API测试)
     创建 superuser 以通过 IsAssetAdminOrAbove 权限检查
     """
-    return SuperUserFactory.create(
-        auth_username="adminuser", password=TEST_PASSWORD, auth_phone="13800138001"
-    )
+    return SuperUserFactory.create(auth_username="adminuser", password=TEST_PASSWORD, auth_phone="13800138001")
 
 
 @pytest.fixture

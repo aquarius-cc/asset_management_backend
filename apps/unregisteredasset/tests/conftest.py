@@ -36,9 +36,7 @@ def auth_user(db):
     """
     测试认证用户(用于API认证)
     """
-    return AuthUserFactory.create(
-        auth_username="testuser", password=TEST_PASSWORD, auth_phone="13800138000"
-    )
+    return AuthUserFactory.create(auth_username="testuser", password=TEST_PASSWORD, auth_phone="13800138000")
 
 
 @pytest.fixture
@@ -116,9 +114,7 @@ def admin_auth_user(db):
     RBAC 系统管理员:Employee.role=system_admin,无部门(全局角色不受无部门兜底影响)。
     删除操作使用 IsSystemAdmin(替代遗留 is_staff 门禁),故夹具不依赖 auth_is_staff。
     """
-    user = AuthUserFactory.create(
-        auth_username="adminuser", password=TEST_PASSWORD, auth_phone="13800138001"
-    )
+    user = AuthUserFactory.create(auth_username="adminuser", password=TEST_PASSWORD, auth_phone="13800138001")
     EmployeeFactory(
         employee_jobcode="adminuser",
         employee_name="系统管理员",

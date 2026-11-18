@@ -50,9 +50,7 @@ def _assert_same_fields(left: object, right: object, *, ignore: set[str] | None 
     skip = ignore or set()
     left_values = {k: v for k, v in _snapshot(left).items() if k not in skip}
     right_values = {k: v for k, v in _snapshot(right).items() if k not in skip}
-    assert left_values == right_values, (
-        f"字段快照不一致\n  左: {left_values}\n  右: {right_values}"
-    )
+    assert left_values == right_values, f"字段快照不一致\n  左: {left_values}\n  右: {right_values}"
 
 
 # --------------------------------------------------------------------------- #

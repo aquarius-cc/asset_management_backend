@@ -22,6 +22,4 @@ def api_client():
 @pytest.fixture
 def auth_user(db):
     """认证测试用户"""
-    return AuthUserFactory.create(
-        auth_username="testuser", password=TEST_PASSWORD, auth_phone="13800138000"
-    )
+    return AuthUserFactory.create(auth_username="testuser", password=TEST_PASSWORD, auth_phone="13800138000")

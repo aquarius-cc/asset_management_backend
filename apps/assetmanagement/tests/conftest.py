@@ -1,6 +1,11 @@
 # d:\CodeDemo\Python\asset_management_backend\apps\assetmanagement\tests\conftest.py
 """
 Pytest 配置文件
+
+MA-23 包 1c：七类共享造数（Department / Employee / AuthUser / AssetType /
+Storage / Contract / Asset）改走 factory_boy 工厂，**fixture 签名与返回值不变**；
+资产流转记录（Out/Damaged/Recycle/Broken/Lost/Found/Repair）不在工厂范围，
+维持 `objects.create`。
 """
 
 import pytest
@@ -8,19 +13,21 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 
 from apps.assetmanagement.models import (
-    Asset,
-    AssetType,
     BrokenAsset,
-    Contract,
     DamagedAsset,
     FoundAsset,
     LostAsset,
     OutAsset,
     RecycleAsset,
-    Storage,
 )
-from apps.authusermanagement.models import AuthUser
-from apps.usermanagement.models import Department, Employee
+from apps.assetmanagement.tests.factories import (
+    AssetFactory,
+    AssetTypeFactory,
+    ContractFactory,
+    StorageFactory,
+)
+from apps.authusermanagement.tests.factories import AuthUserFactory, SuperUserFactory
+from apps.usermanagement.tests.factories import DepartmentFactory, EmployeeFactory
 from core.tests import TEST_PASSWORD
 
 
@@ -34,7 +41,7 @@ def full_scope_user(db):
     原为 TestDashboardSelector 的类内夹具, 提升至本文件与
     test_dashboard_alert_window.py 共用单一定义(DR-4)。
     """
-    return AuthUser.objects.create_superuser(
+    return SuperUserFactory.create(
         auth_username="fullscope", password=TEST_PASSWORD, auth_phone="13800000001"
     )
 
@@ -54,7 +61,7 @@ def department(db):
 
     【修复】Department 模型没有 department_status 字段,移除该参数
     """
-    return Department.objects.create(
+    return DepartmentFactory(
         department_code="D001",
         department_name="测试部门",
     )
@@ -67,7 +74,7 @@ def user(db, department):
 
     【修复】Employee 模型的部门外键字段名为 employee_department(非 employee_department_code)
     """
-    return Employee.objects.create(
+    return EmployeeFactory(
         employee_jobcode="U001",
         employee_name="测试用户",
         employee_department=department,
@@ -80,7 +87,7 @@ def storage(db):
     """
     测试仓库
     """
-    return Storage.objects.create(
+    return StorageFactory(
         storage_code="S001",
         storage_name="测试仓库",
         storage_address="测试地点",
@@ -98,7 +105,7 @@ def asset_type(db):
     Asset.asset_type_code 是必填的 ForeignKey 字段,
     测试中创建 Asset 前必须先创建 AssetType 实例。
     """
-    return AssetType.objects.create(
+    return AssetTypeFactory(
         type_code="AT001",
         type_name="服务器",
     )
@@ -115,7 +122,7 @@ def asset(db, storage, asset_type, user):
     auth_user 改造后为 D001 regular_user(行级隔离收紧),无归属资产对普通
     用户不可见,共享 fixture 需显式归属才能保持读测试可见性。
     """
-    return Asset.objects.create(
+    return AssetFactory(
         asset_code="A001",
         asset_name="测试资产",
         asset_purchase_price=1000.00,
@@ -162,13 +169,15 @@ def auth_user(db, department):
     role 走模型默认 regular_user):行级隔离对无 Employee 用户收紧为空集,
     共享认证用户须有部门归属,读测试才能通过部门范围看到 D001 数据。
     """
-    Employee.objects.create(
+    EmployeeFactory(
         employee_jobcode="testuser",
         employee_name="测试用户",
         employee_department=department,
         employee_phone="13800131004",
     )
-    return AuthUser.objects.create_user(auth_username="testuser", password=TEST_PASSWORD, auth_phone="13800138000")
+    return AuthUserFactory.create(
+        auth_username="testuser", password=TEST_PASSWORD, auth_phone="13800138000"
+    )
 
 
 @pytest.fixture
@@ -177,7 +186,7 @@ def admin_auth_user(db):
     测试管理员认证用户(用于需要管理员权限的API测试)
     创建 superuser 以通过 IsAssetAdminOrAbove 权限检查
     """
-    return AuthUser.objects.create_superuser(
+    return SuperUserFactory.create(
         auth_username="adminuser", password=TEST_PASSWORD, auth_phone="13800138001"
     )
 
@@ -187,7 +196,7 @@ def admin_employee(db, department):
     """
     管理员员工,与 admin_auth_user 关联
     """
-    return Employee.objects.create(
+    return EmployeeFactory(
         employee_jobcode="adminuser",
         employee_name="管理员",
         employee_department=department,
@@ -201,7 +210,7 @@ def contract(db):
     """
     测试合同
     """
-    return Contract.objects.create(
+    return ContractFactory(
         contract_code="C001",
         contract_name="测试合同",
         contract_amount=10000.00,
@@ -217,7 +226,7 @@ def employee(db, department):
     """
     测试员工
     """
-    return Employee.objects.create(
+    return EmployeeFactory(
         employee_jobcode="U002",
         employee_name="测试员工2",
         employee_department=department,

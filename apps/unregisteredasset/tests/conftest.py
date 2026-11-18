@@ -8,16 +8,26 @@
 - 测试资产类型
 - 测试资产
 - 测试未登记资产记录
+
+MA-23 包 1c：七类共享造数（Department / Employee / AuthUser / AssetType /
+Storage / Asset）改走 factory_boy 工厂，**fixture 签名与返回值不变**；
+未登记资产流转记录（UnregisteredAsset）不在工厂范围，维持 `objects.create`。
 """
 
 from datetime import date
 
 import pytest
 
-from apps.assetmanagement.models import Asset, AssetType, Storage
+from apps.assetmanagement.tests.factories import (
+    AssetFactory,
+    AssetTypeFactory,
+    StorageFactory,
+)
 from apps.authusermanagement.models import AuthUser
+from apps.authusermanagement.tests.factories import AuthUserFactory
 from apps.unregisteredasset.models import UnregisteredAsset
 from apps.usermanagement.models import Department, Employee, EmployeeRole
+from apps.usermanagement.tests.factories import DepartmentFactory, EmployeeFactory
 from core.tests import TEST_PASSWORD
 
 
@@ -26,7 +36,9 @@ def auth_user(db):
     """
     测试认证用户(用于API认证)
     """
-    return AuthUser.objects.create_user(auth_username="testuser", password=TEST_PASSWORD, auth_phone="13800138000")
+    return AuthUserFactory.create(
+        auth_username="testuser", password=TEST_PASSWORD, auth_phone="13800138000"
+    )
 
 
 @pytest.fixture
@@ -37,12 +49,12 @@ def make_role_user(db):
 
     def _make(username: str, role: str, department=None) -> AuthUser:
         seq["n"] += 1
-        user = AuthUser.objects.create_user(
+        user = AuthUserFactory.create(
             auth_username=username,
             password=TEST_PASSWORD,
             auth_phone=f"136{seq['n']:08d}",  # unique_auth_phone_active: 空串会撞唯一约束
         )
-        Employee.objects.create(
+        EmployeeFactory(
             employee_jobcode=username,
             employee_name=username,
             employee_department=department,
@@ -65,7 +77,7 @@ def make_dept(db):
         seq["n"] += 1
         # path 物化路径由 Service 层生成, 测试工厂显式构造(与既有测试模式一致);
         # get_all_descendants 依赖 path 前缀匹配
-        return Department.objects.create(
+        return DepartmentFactory(
             department_code=code,
             department_name=code,
             department_information=f"info-{code}",
@@ -85,7 +97,7 @@ def make_plain_employee(db):
 
     def _make(jobcode: str, department=None) -> Employee:
         seq["n"] += 1
-        return Employee.objects.create(
+        return EmployeeFactory(
             employee_jobcode=jobcode,
             employee_name=jobcode,
             employee_department=department,
@@ -104,8 +116,10 @@ def admin_auth_user(db):
     RBAC 系统管理员:Employee.role=system_admin,无部门(全局角色不受无部门兜底影响)。
     删除操作使用 IsSystemAdmin(替代遗留 is_staff 门禁),故夹具不依赖 auth_is_staff。
     """
-    user = AuthUser.objects.create_user(auth_username="adminuser", password=TEST_PASSWORD, auth_phone="13800138001")
-    Employee.objects.create(
+    user = AuthUserFactory.create(
+        auth_username="adminuser", password=TEST_PASSWORD, auth_phone="13800138001"
+    )
+    EmployeeFactory(
         employee_jobcode="adminuser",
         employee_name="系统管理员",
         employee_department=None,
@@ -121,7 +135,7 @@ def employee(db):
     """
     测试员工
     """
-    return Employee.objects.create(
+    return EmployeeFactory(
         employee_jobcode="EMP001",
         employee_name="测试员工",
         employee_department=None,
@@ -135,7 +149,7 @@ def admin_employee(db):
     """
     测试管理员员工
     """
-    return Employee.objects.create(
+    return EmployeeFactory(
         employee_jobcode="ADMIN001",
         employee_name="测试管理员",
         employee_department=None,
@@ -147,17 +161,17 @@ def admin_employee(db):
 @pytest.fixture
 def dept_manager_user(db):
     """部门经理用户(用于审批测试)"""
-    dept = Department.objects.create(
+    dept = DepartmentFactory(
         department_code="DM_DEPT",
         department_name="审批部门",
         department_information="info",
     )
-    user = AuthUser.objects.create_user(
+    user = AuthUserFactory.create(
         auth_username="dmuser",
         password=TEST_PASSWORD,
         auth_phone="13800138002",
     )
-    Employee.objects.create(
+    EmployeeFactory(
         employee_jobcode="dmuser",
         employee_name="部门经理",
         employee_department=dept,
@@ -180,7 +194,7 @@ def asset_type(db):
     """
     测试资产类型
     """
-    return AssetType.objects.create(type_code="TYPE001", type_name="测试大类")
+    return AssetTypeFactory(type_code="TYPE001", type_name="测试大类")
 
 
 @pytest.fixture
@@ -188,7 +202,7 @@ def storage(db):
     """
     测试仓库
     """
-    return Storage.objects.create(storage_code="STOR001", storage_name="测试仓库", storage_address="测试地点")
+    return StorageFactory(storage_code="STOR001", storage_name="测试仓库", storage_address="测试地点")
 
 
 @pytest.fixture
@@ -196,7 +210,7 @@ def existing_asset(db, storage, asset_type):
     """
     测试已存在资产(用于 S2/S3 场景)
     """
-    return Asset.objects.create(
+    return AssetFactory(
         asset_code="EXIST001",
         asset_name="已存在资产",
         asset_type_recordcode=asset_type,

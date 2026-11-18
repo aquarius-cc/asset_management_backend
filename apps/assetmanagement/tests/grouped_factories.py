@@ -8,22 +8,29 @@
 故工厂唯一实现于本模块，两个测试文件均从此导入（DR-1 / DR-4）。
 函数名保留前导下划线：它们是测试内部助手，不是对外 API。
 
+⚠️ MA-23 包 1a：底层造数已收敛到 `apps/assetmanagement/tests/factories.py`
+（Department / Employee / AssetType / Storage / Contract / Asset 的唯一实现），
+本模块降级为**薄包装** —— 仅保留本域特有的固定入参（组键相关默认值、
+phone 推导规则），不再自行拼 `objects.create(...)`，消除第二套造数实现（DR-1）。
+
 ⚠️ `python_files = test_*.py`（pytest.ini:3），本模块不会被收集为测试文件。
 """
 
 import json
 
 from apps.assetmanagement.models import Asset, AssetType, Contract, Storage
+from apps.assetmanagement.tests.factories import AssetFactory, ContractFactory
 from apps.authusermanagement.models import AuthUser
 from apps.usermanagement.models import Department, Employee
+from apps.usermanagement.tests.factories import DepartmentFactory, EmployeeFactory
 
 
 def _make_dept(code: str, name: str) -> Department:
-    return Department.objects.create(department_code=code, department_name=name)
+    return DepartmentFactory(department_code=code, department_name=name)
 
 
 def _make_employee(dept: Department, jobcode: str, name: str) -> Employee:
-    return Employee.objects.create(
+    return EmployeeFactory(
         employee_jobcode=jobcode,
         employee_name=name,
         employee_department=dept,
@@ -45,7 +52,7 @@ def _make_asset(
     contract: Contract | None = None,
     status: str = "in_store",
 ) -> Asset:
-    return Asset.objects.create(
+    return AssetFactory(
         asset_code=code,
         asset_name=name,
         asset_purchase_price=price,
@@ -62,7 +69,7 @@ def _make_asset(
 
 
 def _make_contract(code: str) -> Contract:
-    return Contract.objects.create(
+    return ContractFactory(
         contract_code=code,
         contract_name=f"合同{code}",
         contract_amount=10000.00,

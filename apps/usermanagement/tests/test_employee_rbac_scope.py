@@ -314,6 +314,17 @@ def test_department_employees_regular_user_cross_dept_404(dept_root, three_emplo
     assert _get(user, url).status_code == 404
 
 
+def test_department_by_jobcode_cross_dept_404(dept_root, three_employees):
+    """端点级锚（BF-170 收口）：普通用户查他部门工号的所属部门 → 404。
+
+    get_department_by_jobcode 已由 P3-8/OP-19 改走行级 queryset（self.get_queryset()），
+    跨部门工号与不存在同形 404——此处把 scope-helper 断言补成真实路由端点锚。
+    """
+    user = _make_requester("REG-ROOT", EmployeeRole.REGULAR_USER, dept_root)
+    url = reverse("employees-get-department-by-jobcode", kwargs={"employee_jobcode": "EMP-OTHER"})
+    assert _get(user, url).status_code == 404
+
+
 def test_department_employees_manager_cross_dept_404(dept_root, three_employees):
     """dept_manager 访问无隶属的他部门 → 404。"""
     user = _make_requester("MGR-ROOT", EmployeeRole.DEPT_MANAGER, dept_root)

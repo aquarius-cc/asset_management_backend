@@ -1612,6 +1612,10 @@
           "note": "部门信息员"
         },
         {
+          "field": "parent_department_code",
+          "note": "上级部门业务编码（创建时挂靠的父部门；缺省为根部门）"
+        },
+        {
           "field": "level",
           "note": "层级"
         },

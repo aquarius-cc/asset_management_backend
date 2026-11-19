@@ -19,7 +19,10 @@ BF-047 统一了「筛选口径」（本次查询要哪些行），BF-048 补上
 断言 **导出行集合 == 列表行集合**（BF-047 不变量在 RBAC 维度上的延续）。
 
 【本文件不覆盖】
-``get_department_by_jobcode`` 返回部门而非员工档案，跨部门部门可见性另立评估。
+``get_department_by_jobcode`` 返回部门而非员工档案。跨部门可见性评估已完成（2026-11-19）：
+该端点走 self.get_queryset() 行级取数（P3-8/OP-19），跨部门工号 404 有端点级锚
+（本文件 test_department_by_jobcode_cross_dept_404），无缺陷。
+详见 docs/Review/BF-088-department-visibility-assessment.md。
 """
 
 import io

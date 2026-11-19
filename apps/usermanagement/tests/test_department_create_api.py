@@ -136,3 +136,67 @@ class TestDepartmentCreateApi:
         args, _kwargs = mock_log.call_args
         assert args[0].department_code == "BF204_AUDIT"
         assert args[1] is None  # operator_jobcode 空值
+
+    def test_batch_create_appends_sort_order_when_omitted(self, db):
+        """BF-207: 批量创建缺省 sort_order → 组内 0/1/2 递增(append 权威,非全 0 并列)"""
+        admin = _admin(db)
+        client = _client(admin)
+        for i in range(3):
+            resp = client.post(
+                reverse("departments-batch-create"),
+                {
+                    "items": [
+                        {
+                            "department_code": f"BF207_B{i}",
+                            "department_name": f"BF207 批量{i}",
+                            "department_information": "BF-207",
+                        }
+                    ]
+                },
+                format="json",
+            )
+            assert resp.status_code == status.HTTP_200_OK, resp.data
+
+        orders = [Department.objects.get(department_code=f"BF207_B{i}").sort_order for i in range(3)]
+        assert orders == [0, 1, 2]
+
+    def test_batch_create_explicit_sort_order_respected(self, db):
+        """BF-207: 批量创建显式 sort_order=5 → 落 5(显式值被尊重)"""
+        admin = _admin(db)
+        client = _client(admin)
+        resp = client.post(
+            reverse("departments-batch-create"),
+            {
+                "items": [
+                    {
+                        "department_code": "BF207_EXPL",
+                        "department_name": "BF207 显式",
+                        "department_information": "BF-207",
+                        "sort_order": 5,
+                    }
+                ]
+            },
+            format="json",
+        )
+        assert resp.status_code == status.HTTP_200_OK, resp.data
+        assert Department.objects.get(department_code="BF207_EXPL").sort_order == 5
+
+    def test_batch_create_negative_sort_order_400(self, db):
+        """BF-207: min_value=0 收紧 → 负序号 400"""
+        admin = _admin(db)
+        client = _client(admin)
+        resp = client.post(
+            reverse("departments-batch-create"),
+            {
+                "items": [
+                    {
+                        "department_code": "BF207_NEG",
+                        "department_name": "BF204 负序号",
+                        "department_information": "BF-207",
+                        "sort_order": -1,
+                    }
+                ]
+            },
+            format="json",
+        )
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST

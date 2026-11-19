@@ -241,7 +241,9 @@ class DepartmentBatchItemSerializer(serializers.Serializer):  # type: ignore[typ
     parent_department_code = serializers.CharField(
         required=False, allow_blank=True, allow_null=True, help_text="上级部门业务编码"
     )
-    sort_order = serializers.IntegerField(required=False, default=0)
+    # 【BF-207】不传 = None → create_department 自动排组尾(next_sort_order); 显式值(含 0)仍尊重;
+    # 不加 allow_null: 显式 null → 400(契约不松弛)
+    sort_order = serializers.IntegerField(required=False, min_value=0)
 
 
 class DepartmentBatchCreateSerializer(serializers.Serializer):  # type: ignore[type-arg]

@@ -24,9 +24,10 @@ RUN apk add --no-cache curl gettext
 RUN rm -f /etc/nginx/conf.d/default.conf
 
 # 复制配置模板和入口脚本
-COPY docker/nginx/nginx.conf /etc/nginx/nginx.conf
-COPY docker/nginx/conf.d/ /etc/nginx/conf.d/
-COPY docker/nginx/entrypoint.sh /docker-entrypoint-custom.sh
+# 【BF-166】compose context 指向仓根(nginx 取前端源码的必要条件), COPY 源须以子仓路径为前缀
+COPY asset_management_backend/docker/nginx/nginx.conf /etc/nginx/nginx.conf
+COPY asset_management_backend/docker/nginx/conf.d/ /etc/nginx/conf.d/
+COPY asset_management_backend/docker/nginx/entrypoint.sh /docker-entrypoint-custom.sh
 RUN chmod +x /docker-entrypoint-custom.sh
 
 # 复制前端构建产物

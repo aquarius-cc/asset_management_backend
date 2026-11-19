@@ -13309,17 +13309,17 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "$ref": "#/components/schemas/DepartmentRequest"
+                                "$ref": "#/components/schemas/DepartmentCreateRequest"
                             }
                         },
                         "application/x-www-form-urlencoded": {
                             "schema": {
-                                "$ref": "#/components/schemas/DepartmentRequest"
+                                "$ref": "#/components/schemas/DepartmentCreateRequest"
                             }
                         },
                         "multipart/form-data": {
                             "schema": {
-                                "$ref": "#/components/schemas/DepartmentRequest"
+                                "$ref": "#/components/schemas/DepartmentCreateRequest"
                             }
                         }
                     },
@@ -13346,7 +13346,7 @@
                                             "example": "查询成功"
                                         },
                                         "data": {
-                                            "$ref": "#/components/schemas/Department"
+                                            "$ref": "#/components/schemas/DepartmentCreate"
                                         }
                                     },
                                     "x-envelope": true
@@ -19839,6 +19839,153 @@
                 },
                 "required": [
                     "items"
+                ]
+            },
+            "DepartmentCreate": {
+                "type": "object",
+                "description": "部门创建序列化器\n\n【BF-204】创建请求体可携带 parent_department_code(业务编码)挂靠父部门,\n输出仍为业务编码(与基类 read_only 展示等价)。仅用于 create——基类的\nparent_department_code 保持 read_only,禁止经 update 绕过 move_department\n的环检测/层级校验改父。",
+                "properties": {
+                    "recordcode": {
+                        "type": "string",
+                        "nullable": true,
+                        "title": "记录编码",
+                        "description": "后端生成的全局唯一编码,用于外键引用",
+                        "maxLength": 64
+                    },
+                    "department_code": {
+                        "type": "string",
+                        "title": "部门编码",
+                        "description": "部门唯一标识编码",
+                        "maxLength": 20
+                    },
+                    "department_name": {
+                        "type": "string",
+                        "title": "部门名称",
+                        "description": "部门显示名称",
+                        "maxLength": 100
+                    },
+                    "department_information": {
+                        "type": "string",
+                        "title": "部门信息员",
+                        "description": "部门信息负责人",
+                        "maxLength": 20
+                    },
+                    "parent": {
+                        "type": "string",
+                        "nullable": true,
+                        "title": "上级部门",
+                        "description": "上级部门(FK 指向 recordcode),null 表示根部门"
+                    },
+                    "parent_department_code": {
+                        "type": "string",
+                        "title": "部门编码",
+                        "description": "上级部门业务编码(创建时挂靠的父部门)",
+                        "nullable": true
+                    },
+                    "parent_name": {
+                        "type": "string",
+                        "readOnly": true,
+                        "nullable": true,
+                        "description": "上级部门名称"
+                    },
+                    "path": {
+                        "type": "string",
+                        "title": "物化路径",
+                        "description": "从根到当前节点的完整路径,如 /DEPT-001/IT-001/DEV-001",
+                        "maxLength": 500
+                    },
+                    "level": {
+                        "type": "integer",
+                        "maximum": 2147483647,
+                        "minimum": -2147483648,
+                        "title": "部门层级",
+                        "description": "部门层级:0=根部门,1=一级部门,最大 6 层"
+                    },
+                    "sort_order": {
+                        "type": "integer",
+                        "maximum": 2147483647,
+                        "minimum": -2147483648,
+                        "title": "排序顺序",
+                        "description": "数字越小排序越靠前,用于控制前端显示顺序"
+                    }
+                },
+                "required": [
+                    "department_code",
+                    "department_information",
+                    "department_name",
+                    "parent_name"
+                ]
+            },
+            "DepartmentCreateRequest": {
+                "type": "object",
+                "description": "部门创建序列化器\n\n【BF-204】创建请求体可携带 parent_department_code(业务编码)挂靠父部门,\n输出仍为业务编码(与基类 read_only 展示等价)。仅用于 create——基类的\nparent_department_code 保持 read_only,禁止经 update 绕过 move_department\n的环检测/层级校验改父。",
+                "properties": {
+                    "recordcode": {
+                        "type": "string",
+                        "nullable": true,
+                        "title": "记录编码",
+                        "description": "后端生成的全局唯一编码,用于外键引用",
+                        "maxLength": 64
+                    },
+                    "department_code": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "部门编码",
+                        "description": "部门唯一标识编码",
+                        "maxLength": 20
+                    },
+                    "department_name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "部门名称",
+                        "description": "部门显示名称",
+                        "maxLength": 100
+                    },
+                    "department_information": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "部门信息员",
+                        "description": "部门信息负责人",
+                        "maxLength": 20
+                    },
+                    "parent": {
+                        "type": "string",
+                        "nullable": true,
+                        "title": "上级部门",
+                        "description": "上级部门(FK 指向 recordcode),null 表示根部门"
+                    },
+                    "parent_department_code": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "部门编码",
+                        "description": "上级部门业务编码(创建时挂靠的父部门)",
+                        "nullable": true
+                    },
+                    "path": {
+                        "type": "string",
+                        "title": "物化路径",
+                        "description": "从根到当前节点的完整路径,如 /DEPT-001/IT-001/DEV-001",
+                        "maxLength": 500
+                    },
+                    "level": {
+                        "type": "integer",
+                        "maximum": 2147483647,
+                        "minimum": -2147483648,
+                        "title": "部门层级",
+                        "description": "部门层级:0=根部门,1=一级部门,最大 6 层"
+                    },
+                    "sort_order": {
+                        "type": "integer",
+                        "maximum": 2147483647,
+                        "minimum": -2147483648,
+                        "title": "排序顺序",
+                        "description": "数字越小排序越靠前,用于控制前端显示顺序"
+                    }
+                },
+                "required": [
+                    "department_code",
+                    "department_information",
+                    "department_name"
                 ]
             },
             "DepartmentMoveRequest": {

@@ -4,7 +4,7 @@
 
 from typing import Any, cast
 
-from django.db.models import Count, Q, QuerySet
+from django.db.models import Count, Max, Q, QuerySet
 
 from apps.authusermanagement.models import AuthUser
 from apps.usermanagement.models import Department, Employee, EmployeeStatus, Role, UserRole
@@ -331,6 +331,25 @@ class DepartmentSelector:
         【DR-3】Service 层预检查询收敛至 Selector, 禁止裸 Model.objects.filter。
         """
         return Department.objects.filter(department_code=code).exists()
+
+    @staticmethod
+    def next_sort_order(parent: Department | None) -> int:
+        """取指定父部门下子部门的下一个排序号(组内 max+1, 空组返回 0)。
+
+        【BF-204】append 权威策略: 新增/换父的部门排到目标组末尾。
+        调用方需在事务内调用; move 路径应处于 lock_rows_for_move 持锁区间内,
+        create 路径无行锁属已知取舍(见 BF-204 账本)。
+
+        Args:
+            parent: 父部门实例(None 表示根组)
+
+        Returns:
+            int: 组内下一个 sort_order
+        """
+        agg = Department.objects.filter(parent=parent).aggregate(max_order=Max("sort_order"))
+        max_order = agg["max_order"]
+        # 空组返回 0(组内首个); 非空组返回 max+1
+        return 0 if max_order is None else max_order + 1
 
     @staticmethod
     def lock_rows_for_move(department_code: str, target_parent_code: str | None) -> dict[str, Department]:

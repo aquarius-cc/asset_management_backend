@@ -46,6 +46,28 @@ class DepartmentSerializer(serializers.ModelSerializer):  # type: ignore[type-ar
         ]
 
 
+class DepartmentCreateSerializer(DepartmentSerializer):
+    """部门创建序列化器
+
+    【BF-204】创建请求体可携带 parent_department_code(业务编码)挂靠父部门,
+    输出仍为业务编码(与基类 read_only 展示等价)。仅用于 create——基类的
+    parent_department_code 保持 read_only,禁止经 update 绕过 move_department
+    的环检测/层级校验改父。
+    """
+
+    parent_department_code = serializers.SlugRelatedField(  # type: ignore[assignment]  # 写入用途覆盖基类 read_only 展示字段
+        slug_field="department_code",
+        source="parent",
+        queryset=Department.objects.all(),
+        required=False,
+        allow_null=True,
+        help_text="上级部门业务编码(创建时挂靠的父部门)",
+    )
+
+    class Meta(DepartmentSerializer.Meta):
+        pass
+
+
 class DepartmentTreeSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     """
     部门树形结构序列化器

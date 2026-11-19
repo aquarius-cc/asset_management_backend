@@ -533,3 +533,82 @@ class TestMoveDepartmentViewContract:
         assert resp.data["message"] == "目标父部门 NO_SUCH_MOVE_PARENT 不存在"
         parent.refresh_from_db()
         assert parent.parent is None
+
+
+@pytest.mark.django_db
+class TestSortOrderAppend:
+    """BF-204: append 权威策略——create 缺省序号/换父移动排到目标组末尾,同父移动 no-op"""
+
+    @staticmethod
+    def _create(code: str, name: str, **kwargs) -> Department:
+        return Department.objects.create(
+            department_code=code, department_name=name, department_information="BF-204", **kwargs
+        )
+
+    def test_create_default_sort_order_appends_to_group_tail(self, db):
+        """create 缺省序号 → 组内 max+1"""
+        parent = self._create("BF204_P", "BF204 父", level=0, path="/BF204_P")
+        self._create("BF204_C1", "子1", parent=parent, level=1, path="/BF204_P/BF204_C1", sort_order=2)
+        dept = DepartmentService.create_department(
+            {"department_code": "BF204_C2", "department_name": "子2", "parent_department_code": "BF204_P"}
+        )
+        assert dept.sort_order == 3
+
+    def test_create_explicit_sort_order_respected(self, db):
+        """create 显式序号 → 尊重不覆写"""
+        self._create("BF204_P2", "BF204 父2", level=0, path="/BF204_P2")
+        dept = DepartmentService.create_department(
+            {
+                "department_code": "BF204_C3",
+                "department_name": "子3",
+                "parent_department_code": "BF204_P2",
+                "sort_order": 0,
+            }
+        )
+        assert dept.sort_order == 0
+
+    def test_move_to_parent_with_siblings_max_plus_one(self, db):
+        """move 换父 → 新父组内 max+1"""
+        parent = self._create("BF204_P3", "父3", level=0, path="/BF204_P3")
+        child = self._create("BF204_C4", "子4", level=0, path="/BF204_C4", sort_order=5)
+        self._create("BF204_S1", "现有子", parent=parent, level=1, path="/BF204_P3/BF204_S1", sort_order=7)
+
+        DepartmentService.move_department(child.department_code, parent.department_code)
+
+        child.refresh_from_db()
+        assert child.parent == parent
+        assert child.sort_order == 8
+
+    def test_move_to_empty_parent_group_starts_at_zero(self, db):
+        """move 换到空父组 → 序号 0"""
+        parent = self._create("BF204_P4", "父4", level=0, path="/BF204_P4")
+        child = self._create("BF204_C5", "子5", level=0, path="/BF204_C5", sort_order=9)
+
+        DepartmentService.move_department(child.department_code, parent.department_code)
+
+        child.refresh_from_db()
+        assert child.parent == parent
+        assert child.sort_order == 0
+
+    def test_move_to_root_appends_to_root_group(self, db):
+        """移根 → 根组 max+1"""
+        root_a = self._create("BF204_R1", "根1", level=0, path="/BF204_R1", sort_order=1)
+        child = self._create("BF204_C6", "子6", parent=root_a, level=1, path="/BF204_R1/BF204_C6")
+
+        DepartmentService.move_department(child.department_code, None)
+
+        child.refresh_from_db()
+        assert child.parent is None
+        assert child.sort_order == 2  # 根组现序号 1(R1) → max+1
+
+    def test_move_same_parent_is_noop_on_sort_order(self, db):
+        """同父 move → 序号不变(no-op 早退)"""
+        parent = self._create("BF204_P5", "父5", level=0, path="/BF204_P5")
+        child = self._create("BF204_C7", "子7", parent=parent, level=1, path="/BF204_P5/BF204_C7", sort_order=3)
+        self._create("BF204_S2", "兄弟", parent=parent, level=1, path="/BF204_P5/BF204_S2", sort_order=6)
+
+        result = DepartmentService.move_department(child.department_code, parent.department_code)
+
+        child.refresh_from_db()
+        assert result.pk == child.pk
+        assert child.sort_order == 3  # 未被覆写为 max+1=7

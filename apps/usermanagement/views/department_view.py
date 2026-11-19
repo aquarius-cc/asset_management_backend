@@ -54,6 +54,18 @@ class DepartmentViewSet(  # type: ignore[misc]
     serializer_class = DepartmentSerializer
     pagination_class = CustomPageNumberPagination
 
+    def get_serializer_class(self):  # type: ignore[no-untyped-def]
+        """【BF-204】create 使用可写 parent_department_code 的子序列化器,其余沿用基类"""
+        if self.action == "create":
+            from apps.usermanagement.department_serializers import DepartmentCreateSerializer
+
+            return DepartmentCreateSerializer
+        return super().get_serializer_class()
+
+    def perform_create(self, serializer) -> None:  # type: ignore[no-untyped-def]
+        """【BF-204】创建委托 DepartmentService(层级/路径/sort_order/审计统一在服务层)"""
+        serializer.instance = DepartmentService.create_department(dict(serializer.validated_data))
+
     def get_permissions(self) -> list[BasePermission]:
         """
         自定义权限:管理员可管理部门,普通用户只能查看

@@ -60,6 +60,32 @@ class DepartmentService:
         return f"{parent_path}/{department_code}"
 
     @staticmethod
+    def _resolve_parent(dept_data: dict[str, Any]) -> Department | None:
+        """解析并从入参中移除父部门字段,返回父部门实例(None 表示根部门)。
+
+        支持三种入参:parent_department_code(业务编码)、parent(recordcode 字符串)、
+        parent(Department 实例,【BF-204】API 路径经 SlugRelatedField 后为此形态)。
+        """
+        parent_dept_code = dept_data.pop("parent_department_code", None)
+        parent_rc = dept_data.pop("parent", None)
+
+        if isinstance(parent_rc, Department):
+            return parent_rc
+        if parent_dept_code:
+            parent = DepartmentSelector.get_department_by_code(parent_dept_code)
+            if not parent:
+                raise AppValidationError(
+                    detail=f"上级部门 {parent_dept_code} 不存在", error_code="PARENT_DEPARTMENT_NOT_FOUND"
+                )
+            return parent
+        if parent_rc:
+            parent = Department.objects.filter(recordcode=parent_rc).first()
+            if not parent:
+                raise AppValidationError(detail="上级部门不存在", error_code="PARENT_DEPARTMENT_NOT_FOUND")
+            return parent  # type: ignore[no-any-return]  # untyped manager .first() 返回 Any
+        return None
+
+    @staticmethod
     @transaction.atomic
     def create_department(dept_data: dict[str, Any]) -> Department:
         """
@@ -80,21 +106,9 @@ class DepartmentService:
                 detail=f"部门编码 {dept_data['department_code']} 已存在", error_code="DUPLICATE_DEPARTMENT_CODE"
             )
 
-        # 解析父部门:支持 parent_department_code(业务编码)或 parent(recordcode)
-        parent = None
-        parent_dept_code = dept_data.pop("parent_department_code", None)
-        parent_rc = dept_data.pop("parent", None)
-
-        if parent_dept_code:
-            parent = DepartmentSelector.get_department_by_code(parent_dept_code)
-            if not parent:
-                raise AppValidationError(
-                    detail=f"上级部门 {parent_dept_code} 不存在", error_code="PARENT_DEPARTMENT_NOT_FOUND"
-                )
-        elif parent_rc:
-            parent = Department.objects.filter(recordcode=parent_rc).first()
-            if not parent:
-                raise AppValidationError(detail="上级部门不存在", error_code="PARENT_DEPARTMENT_NOT_FOUND")
+        # 解析父部门:支持 parent_department_code(业务编码)、parent(recordcode)或 parent(模型实例)
+        # 【BF-204】API 路径经 SlugRelatedField 后 parent 为 Department 实例
+        parent = DepartmentService._resolve_parent(dept_data)
 
         # 计算层级和路径
         if parent:
@@ -105,6 +119,10 @@ class DepartmentService:
             dept_data["parent"] = None
             dept_data["level"] = 0
             dept_data["path"] = f"/{dept_data['department_code']}"
+
+        # 【BF-204】append 权威: 缺省序号排到目标组末尾; 显式传值仍尊重
+        if dept_data.get("sort_order") is None:
+            dept_data["sort_order"] = DepartmentSelector.next_sort_order(parent)
 
         if dept_data["level"] > MAX_DEPARTMENT_LEVEL:
             raise AppValidationError(
@@ -183,12 +201,17 @@ class DepartmentService:
 
         old_path = department.path
         old_level = department.level
+
+        # 【BF-204】同父移动早退: parent 未变化(含 None→None)时为 no-op, 不改序号
         # [M-07/AUD-26] 移动前捕获旧祖先链 recordcode, 移动后逐一失效其 descendants 缓存
         # (save() 只清新路径祖先, 旧祖先链因子孙更新走 .update() 绕过 save 而不失效)
         old_ancestor_codes = DepartmentService._collect_ancestor_recordcodes(old_path)
 
         # 移动为根部门
         if target_parent_code is None:
+            if department.parent_id is None:
+                # 【BF-204】已是根部门(None→None): 同父 no-op, 不改序号
+                return department
             result = DepartmentService._move_to_root(department, old_path, old_level)
             DepartmentService._invalidate_ancestors_cache(old_ancestor_codes)
             return result
@@ -199,13 +222,22 @@ class DepartmentService:
                 detail=f"目标父部门 {target_parent_code} 不存在", error_code="PARENT_DEPARTMENT_NOT_FOUND"
             )
 
+        # 【BF-204】同父移动早退: parent 未变化且 path 已正确时为 no-op, 不改序号
+        # (同父但 path 异常时仍执行,保留修复损坏路径的能力,见 test_move_department_empty_path_children)
+        # parent FK to_field=recordcode, parent_id 存的是 recordcode(str), 不可与 int pk 比较
+        expected_path = DepartmentService._generate_path(target_parent.path, department.department_code)
+        if department.parent_id == target_parent.recordcode and department.path == expected_path:
+            return department
+
         new_level = DepartmentService._validate_move_hierarchy(department_code, department, target_parent)
 
         # 更新部门信息
         department.parent = target_parent
         department.level = new_level
         department.path = DepartmentService._generate_path(target_parent.path, department.department_code)
-        department.save(update_fields=["parent", "level", "path"])
+        # 【BF-204】真实改父: append 权威,排到新父组末尾(持锁区间内调用)
+        department.sort_order = DepartmentSelector.next_sort_order(target_parent)
+        department.save(update_fields=["parent", "level", "path", "sort_order"])
 
         # 更新所有子孙的 path 和 level
         DepartmentService._update_children_paths_and_levels(department, old_path, old_level)
@@ -266,7 +298,9 @@ class DepartmentService:
         department.parent = None
         department.level = 0
         department.path = f"/{department.department_code}"
-        department.save(update_fields=["parent", "level", "path"])
+        # 【BF-204】移根同为真实改父: append 权威,排到根组末尾(持锁区间内调用)
+        department.sort_order = DepartmentSelector.next_sort_order(None)
+        department.save(update_fields=["parent", "level", "path", "sort_order"])
 
         # 更新所有子孙的 path 和 level
         DepartmentService._update_children_paths_and_levels(department, old_path, old_level)

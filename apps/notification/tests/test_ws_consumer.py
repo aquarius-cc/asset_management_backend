@@ -5,7 +5,9 @@ channels/db.py), 与 pytest-django 默认事务包装在 PostgreSQL 上存在连
 故此处使用 transaction=True(autocommit) 并保证每个测试使用唯一用户名/手机号。
 """
 
+import asyncio
 import itertools
+import logging
 from datetime import timedelta
 from unittest import mock
 
@@ -354,3 +356,122 @@ class TestNotificationWSThrottle:
         async_to_sync(scenario)()
         notif.refresh_from_db()
         assert notif.is_read is True
+
+
+@pytest.mark.django_db(transaction=True)
+class TestNotificationWSFlushFailureLogging:
+    """BF-208: WS 冲刷失败路径 capture 恰一次、零 exc_info、原文不落盘"""
+
+    def _assert_safe_record(self, caplog, substr: str) -> None:
+        records = [r for r in caplog.records if substr in r.getMessage()]
+        assert len(records) == 1
+        record = records[0]
+        assert record.exc_info is None
+        assert "exception_type=RuntimeError" in record.getMessage()
+        assert "secret" not in record.getMessage()
+
+    def test_disconnect_flush_failure_logged_safe(self, caplog):
+        """disconnect 直冲失败: capture spy==1, 日志只留 exception_type"""
+        user = _make_user("ws_fail_disc")
+        token = _issue_access(user)
+
+        async def scenario():
+            comm = _make_comm("ws_fail_disc", token)
+            response = await _connect(comm)
+            assert response["type"] == "websocket.accept"
+            await comm.receive_json_from()
+            with (
+                mock.patch("apps.notification.consumer.capture_exception_safe") as spy,
+                mock.patch.object(
+                    NotificationConsumer,
+                    "_flush_pending_mark_read",
+                    new=mock.AsyncMock(side_effect=RuntimeError("secret db://x")),
+                ),
+                caplog.at_level(logging.ERROR),
+            ):
+                await comm.disconnect()
+            return spy
+
+        spy = async_to_sync(scenario)()
+        assert spy.call_count == 1
+        self._assert_safe_record(caplog, "WS disconnect flush failed")
+
+    def test_in_flight_flush_failure_logged_safe(self, caplog):
+        """在途 flush 任务抛错: disconnect shield 等待路径 capture spy==1"""
+        user = _make_user("ws_fail_inflight")
+        token = _issue_access(user)
+
+        async def scenario():
+            comm = _make_comm("ws_fail_inflight", token)
+            response = await _connect(comm)
+            assert response["type"] == "websocket.accept"
+            await comm.receive_json_from()
+            # 经 receive 捕获 consumer 实例, 手工注入一个很快失败的在途任务
+            holder: dict = {}
+            orig_receive = NotificationConsumer.receive
+
+            async def capture(self, text_data=None, bytes_data=None):
+                holder["consumer"] = self
+                await orig_receive(self, text_data, bytes_data)
+
+            with mock.patch.object(NotificationConsumer, "receive", capture):
+                await comm.send_json_to({"type": "ping"})
+                await comm.receive_json_from()
+                consumer = holder["consumer"]
+
+            async def boom():
+                await asyncio.sleep(0.05)
+                raise RuntimeError("secret db://x")
+
+            with (
+                mock.patch("apps.notification.consumer.capture_exception_safe") as spy,
+                caplog.at_level(logging.ERROR),
+            ):
+                consumer._flush_task = asyncio.create_task(boom())
+                await comm.disconnect()
+            return spy
+
+        spy = async_to_sync(scenario)()
+        assert spy.call_count == 1
+        self._assert_safe_record(caplog, "WS in-flight flush failed")
+
+    def test_delayed_flush_failure_retries_and_logged_safe(self, caplog):
+        """_delayed_flush 失败: capture 恰一次; ids 回灌进 pending, 下轮重试成功(语义不变)"""
+        user = _make_user("ws_fail_delay")
+        token = _issue_access(user)
+        notif = Notification.objects.create(
+            recipient_jobcode="ws_fail_delay",
+            notification_type=Notification.NotificationType.APPROVAL,
+            title="t",
+            message="m",
+        )
+        calls: list[list[int]] = []
+
+        async def flaky(self, ids):
+            # 类级替换为普通函数, self 由方法绑定语义传入
+            calls.append(list(ids))
+            if len(calls) == 1:
+                raise RuntimeError("secret db://x")
+
+        async def scenario():
+            comm = _make_comm("ws_fail_delay", token)
+            response = await _connect(comm)
+            assert response["type"] == "websocket.accept"
+            await comm.receive_json_from()
+            with (
+                mock.patch("apps.notification.consumer.capture_exception_safe") as spy,
+                mock.patch("apps.notification.consumer.MARK_READ_FLUSH_DELAY", 0.05),
+                mock.patch.object(NotificationConsumer, "_mark_notifications_read", new=flaky),
+                caplog.at_level(logging.ERROR),
+            ):
+                await comm.send_json_to({"type": "mark_read", "notification_id": notif.id})
+                # 等第一轮失败 + 第二轮重试成功, 避免残留任务跨用例
+                await asyncio.sleep(0.3)
+                await comm.disconnect()
+            return spy
+
+        spy = async_to_sync(scenario)()
+        assert spy.call_count == 1
+        assert calls[0] == [notif.id]
+        assert calls[1] == [notif.id]  # ids 已回灌, 下一轮循环重试
+        self._assert_safe_record(caplog, "WS mark_read flush failed")

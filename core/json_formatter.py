@@ -6,7 +6,6 @@
 
 import json
 import logging
-import traceback
 from datetime import UTC, datetime
 from typing import Any
 
@@ -52,11 +51,8 @@ class StructuredJSONFormatter(logging.Formatter):
                 log_entry[extra_key] = getattr(record, extra_key)
 
         # 附加异常信息
+        # 【A5/OC-3/BF-208】只留异常类型；message/traceback 一律不落盘（凭据/业务值泄露面）
         if record.exc_info and record.exc_info[1]:
-            log_entry["exception"] = {
-                "type": type(record.exc_info[1]).__name__,
-                "message": str(record.exc_info[1]),
-                "traceback": traceback.format_exception(*record.exc_info),
-            }
+            log_entry["exception"] = {"type": type(record.exc_info[1]).__name__}
 
         return json.dumps(log_entry, ensure_ascii=False, default=str)

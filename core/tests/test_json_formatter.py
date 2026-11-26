@@ -63,3 +63,20 @@ class TestExtraWhitelist:
 
         assert {"time", "level", "logger", "module", "message"} <= payload.keys()
         assert {"client_trace_id", "frontend_context", "error_message"}.isdisjoint(payload.keys())
+
+
+def test_exception_payload_only_keeps_type():
+    """BF-208/OC-3: exception 字段只留类型, message/traceback 一律不落盘"""
+    record = logging.LogRecord(
+        name="t",
+        level=logging.ERROR,
+        pathname=__file__,
+        lineno=1,
+        msg="m",
+        args=(),
+        exc_info=(RuntimeError, RuntimeError("secret db://..."), None),
+    )
+    payload = json.loads(StructuredJSONFormatter().format(record))
+
+    assert payload["exception"] == {"type": "RuntimeError"}
+    assert "secret" not in json.dumps(payload, ensure_ascii=False)

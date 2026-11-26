@@ -19,6 +19,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import AuthenticationFailed, TokenError
 
 from apps.authusermanagement.models import AuthUser
+from core.error_reporting import capture_exception_safe, exception_type
 
 
 logger = logging.getLogger(__name__)
@@ -120,8 +121,13 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         # 【F3 兜底】flush 失败不得阻断 group_discard, 否则 channel 永久泄漏在组内
         try:
             await self._flush_pending_mark_read()
-        except Exception:
-            logger.exception("WS disconnect flush failed", extra={"ws_jobcode": self.jobcode})
+        except Exception as e:
+            capture_exception_safe(e)
+            logger.error(
+                "WS disconnect flush failed(exception_type=%s)",
+                exception_type(e),
+                extra={"ws_jobcode": self.jobcode},
+            )
         # 【F2 竞态】不直接 cancel 在途 flush(可能掐死已弹出待写的 DB 写):
         # shield 等待其完成, 仅卡死(>2s)时才取消; 被 cancel 掐掉的 id 已由回灌兜底
         task = self._flush_task
@@ -137,8 +143,13 @@ class NotificationConsumer(AsyncWebsocketConsumer):
                     pass
             except asyncio.CancelledError:
                 pass
-            except Exception:
-                logger.exception("WS in-flight flush failed", extra={"ws_jobcode": self.jobcode})
+            except Exception as e:
+                capture_exception_safe(e)
+                logger.error(
+                    "WS in-flight flush failed(exception_type=%s)",
+                    exception_type(e),
+                    extra={"ws_jobcode": self.jobcode},
+                )
         await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
     async def receive(self, text_data: str | None = None, bytes_data: bytes | None = None) -> None:
@@ -186,9 +197,14 @@ class NotificationConsumer(AsyncWebsocketConsumer):
                 await self._flush_pending_mark_read()
             except asyncio.CancelledError:
                 raise
-            except Exception:
+            except Exception as e:
                 # ids 已回灌进 pending, 下一轮循环重试
-                logger.exception("WS mark_read flush failed", extra={"ws_jobcode": self.jobcode})
+                capture_exception_safe(e)
+                logger.error(
+                    "WS mark_read flush failed(exception_type=%s)",
+                    exception_type(e),
+                    extra={"ws_jobcode": self.jobcode},
+                )
 
     async def _flush_pending_mark_read(self) -> None:
         """取空待写集合并批量 UPDATE(保留 recipient_jobcode 作用域过滤, 越权防护不回退)"""

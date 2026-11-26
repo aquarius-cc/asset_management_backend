@@ -333,6 +333,7 @@ CSP_DIRECTIVES = {
 # 预算: socket_timeout × (n+1) + DB 探测 < compose healthcheck timeout 10s ⇒ 0 ≤ n ≤ 1
 HEALTH_REDIS_SOCKET_TIMEOUT_SECONDS = 3
 HEALTH_REDIS_MAX_RETRIES = 0  # 默认 0 = 与修复前行为一致; 重试判定由编排层 retries=3 承担
+HEALTH_DB_STATEMENT_TIMEOUT_MS = 3000  # [D-13①] 探针 DB 查询 statement_timeout 兜底(PG 会话级; SQLite 跳过)
 
 # Logging
 LOGGING: dict[str, Any] = {

@@ -21,6 +21,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from django.conf import settings
 from django.db.utils import OperationalError
+from django.test.utils import CaptureQueriesContext
 
 from core.json_formatter import StructuredJSONFormatter
 from core.logging_filters import TraceIDFilter
@@ -258,3 +259,52 @@ class TestProbeObservability:
             client.get("/health/")
         assert module_clamped.Redis.from_url.call_count == 1
         assert len(_probe_log_records(caplog)) == 1
+
+
+class TestProbeDatabaseStatementTimeout:
+    """[D-13①] probe_database statement_timeout 兜底: PG 注入 set_config, 非 PG 跳过"""
+
+    def test_real_connection_probe_healthy(self, db):
+        """真连接行为锚：probe_database healthy；PG 下注入 set_config，其他 vendor 跳过"""
+        from django.db import connection
+        from core.health_probe import probe_database
+
+        with CaptureQueriesContext(connection) as ctx:
+            assert probe_database() is True
+        has_set_config = any("set_config" in q["sql"] for q in ctx.captured_queries)
+        if connection.vendor == "postgresql":
+            assert has_set_config
+        else:
+            assert not has_set_config
+
+    def test_pg_vendor_injects_set_config(self, monkeypatch):
+        """PG 分支: 执行 set_config('statement_timeout', ...) 且探针 healthy"""
+        from unittest.mock import MagicMock
+
+        from core import health_probe
+
+        cursor = MagicMock()
+        conn = MagicMock()
+        conn.cursor.return_value.__enter__.return_value = cursor
+        conn.vendor = "postgresql"
+        monkeypatch.setattr("django.db.connection", conn)
+        monkeypatch.setattr(settings, "HEALTH_DB_STATEMENT_TIMEOUT_MS", 3000, raising=False)
+        assert health_probe.probe_database() is True
+        executed = [call.args[0] for call in cursor.execute.call_args_list]
+        assert any("set_config" in sql for sql in executed)
+
+    def test_pg_zero_timeout_skips_set_config(self, monkeypatch):
+        """HEALTH_DB_STATEMENT_TIMEOUT_MS=0: PG 下也跳过(显式关闭兜底)"""
+        from unittest.mock import MagicMock
+
+        from core import health_probe
+
+        cursor = MagicMock()
+        conn = MagicMock()
+        conn.cursor.return_value.__enter__.return_value = cursor
+        conn.vendor = "postgresql"
+        monkeypatch.setattr("django.db.connection", conn)
+        monkeypatch.setattr(settings, "HEALTH_DB_STATEMENT_TIMEOUT_MS", 0, raising=False)
+        assert health_probe.probe_database() is True
+        executed = [call.args[0] for call in cursor.execute.call_args_list]
+        assert not any("set_config" in sql for sql in executed)

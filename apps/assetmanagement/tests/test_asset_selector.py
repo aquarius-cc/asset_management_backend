@@ -7,7 +7,11 @@ from uuid import uuid4
 import pytest
 
 from apps.assetmanagement.models import Asset, Storage
-from apps.assetmanagement.selectors.asset_selector import AssetSelector, AssetTypeSelector
+from apps.assetmanagement.selectors.asset_selector import (
+    AssetSelector,
+    AssetTypeSelector,
+    _apply_exact_filters,
+)
 from apps.authusermanagement.models import AuthUser
 from apps.usermanagement.models import Department, Employee
 from core.tests import TEST_PASSWORD
@@ -375,3 +379,85 @@ class TestGetAssetDetailByCodeSoftDelete:
         with CaptureQueriesContext(connection) as ctx:
             AssetSelector.get_asset_detail_by_code(asset.asset_code, user=admin_auth_user)
         assert any("is_deleted" in q["sql"] for q in ctx.captured_queries)
+
+
+@pytest.mark.django_db
+class TestApplyExactFilters:
+    """[BF-209] _apply_exact_filters：asset_type 双尝试、category 展开、空集防线"""
+
+    def test_empty_filters_passthrough(self, asset):
+        """空 exact_filters 原样透传，不动 queryset"""
+        from apps.assetmanagement.selectors.asset_selector import _apply_exact_filters
+
+        qs = Asset.objects.all()
+        assert _apply_exact_filters(qs, {}) is qs
+
+    def test_asset_type_code_converts_to_recordcode(self, asset):
+        """asset_type 传类型代码：转换为 recordcode 后精确过滤命中"""
+        from apps.assetmanagement.selectors.asset_selector import _apply_exact_filters
+
+        qs = _apply_exact_filters(Asset.objects.all(), {"asset_type": "AT001"})
+        assert qs.filter(pk=asset.pk).exists()
+
+    def test_asset_type_recordcode_direct_hit(self, asset):
+        """asset_type 传 recordcode：直接命中"""
+        from apps.assetmanagement.selectors.asset_selector import _apply_exact_filters
+
+        qs = _apply_exact_filters(Asset.objects.all(), {"asset_type": asset.asset_type_recordcode.recordcode})
+        assert qs.filter(pk=asset.pk).exists()
+
+    def test_asset_type_miss_returns_none(self, asset):
+        """asset_type 双尝试均失败：返回空集（防全表误匹配）"""
+        from apps.assetmanagement.selectors.asset_selector import _apply_exact_filters
+
+        qs = _apply_exact_filters(Asset.objects.all(), {"asset_type": "NO-SUCH-TYPE"})
+        assert qs.count() == 0
+
+    def test_category_expand_hit(self, asset):
+        """asset_type_category 命中：展开该分类下所有类型 recordcode"""
+        from apps.assetmanagement.selectors.asset_selector import _apply_exact_filters
+
+        qs = _apply_exact_filters(Asset.objects.all(), {"asset_type_category": "AT001"})
+        assert qs.filter(pk=asset.pk).exists()
+
+    def test_category_miss_returns_none(self, asset):
+        """asset_type_category 无对应类型：返回空集"""
+        from apps.assetmanagement.selectors.asset_selector import _apply_exact_filters
+
+        qs = _apply_exact_filters(Asset.objects.all(), {"asset_type_category": "NO-CAT"})
+        assert qs.count() == 0
+
+
+@pytest.mark.django_db
+class TestCombineSearch:
+    """[BF-209] combine_search：无条件空集、模糊+精确 AND 组合"""
+
+    def test_no_filters_returns_none(self):
+        """双过滤均空：返回空集（防全表扫描）"""
+        assert AssetSelector.combine_search({}, {}).count() == 0
+
+    def test_fuzzy_and_exact_combined(self, asset):
+        """模糊（asset_name icontains）+ 精确（asset_type 转换）AND 命中"""
+        qs = AssetSelector.combine_search(
+            {"asset_name": "测试"},
+            {"asset_type": "AT001"},
+        )
+        assert qs.filter(pk=asset.pk).exists()
+
+    def test_fuzzy_hit_exact_miss(self, asset):
+        """模糊命中但精确条件无匹配：空集"""
+        qs = AssetSelector.combine_search(
+            {"asset_name": "测试"},
+            {"asset_type": "NO-SUCH-TYPE"},
+        )
+        assert qs.count() == 0
+
+    def test_fuzzy_only(self, asset):
+        """仅模糊条件：命中"""
+        qs = AssetSelector.combine_search({"asset_name": "测试"}, {})
+        assert qs.filter(pk=asset.pk).exists()
+
+    def test_exact_only(self, asset):
+        """仅精确条件：命中"""
+        qs = AssetSelector.combine_search({}, {"asset_type": "AT001"})
+        assert qs.filter(pk=asset.pk).exists()

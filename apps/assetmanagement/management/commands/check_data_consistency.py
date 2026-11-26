@@ -38,9 +38,9 @@ class Command(BaseCommand):
             "set[str]",
             {
                 code
-                for code in RepairAsset.objects.filter(
-                    repair_status=RepairAsset.RepairStatus.IN_PROGRESS
-                ).values_list("asset_recordcode_id", flat=True)
+                for code in RepairAsset.objects.filter(repair_status=RepairAsset.RepairStatus.IN_PROGRESS).values_list(
+                    "asset_recordcode_id", flat=True
+                )
                 if code is not None
             },
         )

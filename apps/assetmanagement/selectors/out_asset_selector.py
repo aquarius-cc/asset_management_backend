@@ -55,9 +55,7 @@ class OutAssetSelector:
         return queryset.filter(asset_cond | user_cond)
 
     @staticmethod
-    def apply_asset_status_filter(
-        queryset: QuerySet[OutAsset], status_filter: str
-    ) -> QuerySet[OutAsset]:
+    def apply_asset_status_filter(queryset: QuerySet[OutAsset], status_filter: str) -> QuerySet[OutAsset]:
         """[M-LAY-01] 资产当前状态过滤唯一实现（空串短路，谓词不变）。
 
         View 仅透传 query_params；禁止再手写 asset_recordcode__asset_current_status 过滤链。

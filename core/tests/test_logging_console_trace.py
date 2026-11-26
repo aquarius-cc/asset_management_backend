@@ -111,15 +111,8 @@ def _base_rest_framework_level(path: Path) -> object:
             n.value
             for n in ast.walk(tree)
             if (
-                (
-                    isinstance(n, ast.AnnAssign)
-                    and isinstance(n.target, ast.Name)
-                    and n.target.id == "LOGGING"
-                )
-                or (
-                    isinstance(n, ast.Assign)
-                    and any(isinstance(t, ast.Name) and t.id == "LOGGING" for t in n.targets)
-                )
+                (isinstance(n, ast.AnnAssign) and isinstance(n.target, ast.Name) and n.target.id == "LOGGING")
+                or (isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "LOGGING" for t in n.targets))
             )
             and isinstance(n.value, ast.Dict)
         ),

@@ -78,9 +78,7 @@ def test_out_asset_status_filter_preserves_inline_predicate():
 @pytest.mark.django_db
 def test_date_range_filters_preserve_inline_predicates():
     waste_base = WasteAsset.objects.filter(is_deleted=False)
-    got = WasteAssetSelector.apply_date_range_filter(
-        waste_base, date(2024, 1, 1), date(2024, 12, 31)
-    )
+    got = WasteAssetSelector.apply_date_range_filter(waste_base, date(2024, 1, 1), date(2024, 12, 31))
     expected = waste_base.filter(waste_asset_date__gte=date(2024, 1, 1)).filter(
         waste_asset_date__lte=date(2024, 12, 31)
     )
@@ -88,9 +86,7 @@ def test_date_range_filters_preserve_inline_predicates():
 
     recycle_base = RecycleAsset.objects.for_list().filter(is_deleted=False)
     got = RecycleAssetSelector.apply_date_range_filter(recycle_base, "2024-01-01", "2024-12-31")
-    expected = recycle_base.filter(recycle_asset_date__gte="2024-01-01").filter(
-        recycle_asset_date__lte="2024-12-31"
-    )
+    expected = recycle_base.filter(recycle_asset_date__gte="2024-01-01").filter(recycle_asset_date__lte="2024-12-31")
     assert str(got.query) == str(expected.query)
 
 

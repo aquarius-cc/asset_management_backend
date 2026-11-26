@@ -34,7 +34,9 @@ def probe_database() -> bool:
             # [D-13③] 空 REDIS_URL 时 probe_redis 必失败 → /health/ 探针 unhealthy
             # 属本地 fail-closed 预期（仅 runserver/pytest 场景，无编排层 env 注入），非缺陷。
             if connection.vendor == "postgresql" and settings.HEALTH_DB_STATEMENT_TIMEOUT_MS > 0:
-                cursor.execute("SELECT set_config('statement_timeout', %s, true)", [str(settings.HEALTH_DB_STATEMENT_TIMEOUT_MS)])
+                cursor.execute(
+                    "SELECT set_config('statement_timeout', %s, true)", [str(settings.HEALTH_DB_STATEMENT_TIMEOUT_MS)]
+                )
             cursor.execute("SELECT 1")
         return True
     except Exception as exc:

@@ -227,7 +227,7 @@ asset_name = serializers.CharField(help_text="资产名称")
 | **防注入**  | 必须使用 ORM 查询，禁止拼接用户输入 raw SQL                 |
 | **CORS** | 生产环境显式配置前端域名，**禁止通配符 `*`**                   |
 | **敏感数据** | 日志中遮蔽采购价/维保信息，可用 `sensitive_variables`       |
-| **幂等性**  | 创建类接口支持 Idempotency-Key（推荐 Redis 存储，设合理 TTL） |
+| **幂等性**  | 当前非幂等：防重依赖前端按钮 disable + loading 与 Service 行锁；Idempotency-Key 未实现（见 04-API接口规范 §4） |
 
 ---
 
@@ -277,7 +277,7 @@ apps/
 
 - 敏感信息在日志中已遮蔽
 
-- 创建类接口已添加幂等键支持
+- 创建类接口当前非幂等，防重依赖前端 disable + loading 与 Service 行锁（幂等键未实现）
 
 ### 文档
 

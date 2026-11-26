@@ -387,42 +387,36 @@ class TestApplyExactFilters:
 
     def test_empty_filters_passthrough(self, asset):
         """空 exact_filters 原样透传，不动 queryset"""
-        from apps.assetmanagement.selectors.asset_selector import _apply_exact_filters
 
         qs = Asset.objects.all()
         assert _apply_exact_filters(qs, {}) is qs
 
     def test_asset_type_code_converts_to_recordcode(self, asset):
         """asset_type 传类型代码：转换为 recordcode 后精确过滤命中"""
-        from apps.assetmanagement.selectors.asset_selector import _apply_exact_filters
 
         qs = _apply_exact_filters(Asset.objects.all(), {"asset_type": "AT001"})
         assert qs.filter(pk=asset.pk).exists()
 
     def test_asset_type_recordcode_direct_hit(self, asset):
         """asset_type 传 recordcode：直接命中"""
-        from apps.assetmanagement.selectors.asset_selector import _apply_exact_filters
 
         qs = _apply_exact_filters(Asset.objects.all(), {"asset_type": asset.asset_type_recordcode.recordcode})
         assert qs.filter(pk=asset.pk).exists()
 
     def test_asset_type_miss_returns_none(self, asset):
         """asset_type 双尝试均失败：返回空集（防全表误匹配）"""
-        from apps.assetmanagement.selectors.asset_selector import _apply_exact_filters
 
         qs = _apply_exact_filters(Asset.objects.all(), {"asset_type": "NO-SUCH-TYPE"})
         assert qs.count() == 0
 
     def test_category_expand_hit(self, asset):
         """asset_type_category 命中：展开该分类下所有类型 recordcode"""
-        from apps.assetmanagement.selectors.asset_selector import _apply_exact_filters
 
         qs = _apply_exact_filters(Asset.objects.all(), {"asset_type_category": "AT001"})
         assert qs.filter(pk=asset.pk).exists()
 
     def test_category_miss_returns_none(self, asset):
         """asset_type_category 无对应类型：返回空集"""
-        from apps.assetmanagement.selectors.asset_selector import _apply_exact_filters
 
         qs = _apply_exact_filters(Asset.objects.all(), {"asset_type_category": "NO-CAT"})
         assert qs.count() == 0

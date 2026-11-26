@@ -267,6 +267,7 @@ class TestProbeDatabaseStatementTimeout:
     def test_real_connection_probe_healthy(self, db):
         """真连接行为锚：probe_database healthy；PG 下注入 set_config，其他 vendor 跳过"""
         from django.db import connection
+
         from core.health_probe import probe_database
 
         with CaptureQueriesContext(connection) as ctx:

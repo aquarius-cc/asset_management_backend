@@ -36,6 +36,7 @@ from core.mixins import LoggingMixin, PaginateAndRespondMixin, ResponseWrapperMi
 from core.pagination import CustomPageNumberPagination
 from core.permissions import IsAssetAdminOrAbove, request_method, resolve_viewset_permissions
 from utils.response_utils import error_response, success_response
+from utils.user_utils import resolve_operator
 
 from ._mixins import AdminWritePermissionMixin, RecordcodeLookupMixin
 
@@ -127,9 +128,24 @@ class WasteAssetViewSet(  # type: ignore[misc]
             status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
         )
 
+    def perform_destroy(self, instance: WasteAsset) -> None:
+        """单条删除路由 Service(M-CONC-01)。
+
+        此前走 DRF 默认 instance.delete():无锁、无业务审计(违反 B7)。
+        响应契约不变(200 + 统一信封);AppValidationError→400,
+        ResourceConflictError→409 均由全局 handler 处理。
+        """
+        operator_jobcode, operator_name = resolve_operator(self.request.user)  # type: ignore[arg-type]
+        WasteAssetService.cancel_waste_asset(
+            instance.asset_recordcode.asset_code,
+            operator_jobcode=operator_jobcode,
+            operator_name=operator_name,
+            user=self.request.user,
+        )
+
     @action(detail=False, methods=["get"], url_path="by-asset/(?P<asset_recordcode>[^/.]+)")
     def by_asset(self, request: Any, asset_recordcode: Any = None) -> Response:
-        visible = AssetSelector.get_queryset_for_user(request.user).filter(asset_code=asset_recordcode).exists()
+        visible = AssetSelector.exists_by_code_for_user(asset_recordcode, user=request.user)
         if not visible:
             return error_response(message=f"资产 {asset_recordcode} 不存在", status_code=404)
         records = WasteAssetSelector.get_by_asset_code(asset_recordcode, user=request.user)
@@ -198,11 +214,7 @@ class WasteAssetViewSet(  # type: ignore[misc]
                 end_date = dt.strptime(end_date_str, "%Y-%m-%d").date()
             except ValueError:
                 return error_response(message="结束日期格式错误,应为 YYYY-MM-DD", status_code=400)
-        qs = self.get_queryset()
-        if start_date:
-            qs = qs.filter(waste_asset_date__gte=start_date)
-        if end_date:
-            qs = qs.filter(waste_asset_date__lte=end_date)
+        qs = WasteAssetSelector.apply_date_range_filter(self.get_queryset(), start_date, end_date)
         return self._paginate_and_respond(qs)
 
     batch_delete_serializer = WasteAssetBatchDeleteSerializer

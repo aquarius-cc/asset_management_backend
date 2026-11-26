@@ -12,8 +12,8 @@ from typing import Any
 from django.db import IntegrityError, transaction
 
 from apps.assetmanagement.audit import AuditLogger
-from apps.assetmanagement.models import Asset
-from apps.assetmanagement.selectors import AssetSelector, DamagedAssetSelector, OutAssetSelector
+from apps.assetmanagement.models import Asset, Contract
+from apps.assetmanagement.selectors import AssetSelector, ContractSelector, DamagedAssetSelector, OutAssetSelector
 from apps.assetmanagement.state_machine import AssetFSM, AssetState, InvalidTransitionError
 from apps.usermanagement.selectors import EmployeeSelector
 from core.batch_mixins import BatchOperationMixin
@@ -54,6 +54,24 @@ def _run_manual_transition(asset: Asset, target_state: AssetState) -> None:
         AssetFSM._transition(asset, target_state)
     except InvalidTransitionError as e:
         raise AppValidationError(detail=str(e), error_code="INVALID_STATE_TRANSITION") from None
+
+
+def _ensure_contract_not_deleted(contract: Any) -> None:
+    """5A:写资产合同 FK 前的锁内守卫。
+
+    contract 为 validated_data 中已解析的 Contract 实例;None 直接放行。
+    持锁读使删合同的 FOR UPDATE 与本事务严格互斥:
+      先删后挂 → 读到 is_deleted=True → CONTRACT_NOT_FOUND;
+      先挂后删 → 对方等本事务提交,届时 exists_by_contract 可见新资产。
+    ResourceConflictError 不吞,透传全局 409。
+    """
+    if contract is None:
+        return
+    try:
+        ContractSelector.get_contract_for_update_by_instance(contract)
+    except Contract.DoesNotExist:
+        code = getattr(contract, "contract_code", str(contract))
+        raise AppValidationError(detail=f"合同 {code} 不存在或已删除", error_code="CONTRACT_NOT_FOUND") from None
 
 
 class AssetCodeGenerator:
@@ -151,6 +169,8 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
         # 创建资产初始状态统一注入 in_store,禁止客户端指定(CT-3);
         # 需在防污染拷贝(dict(asset_data))之后覆写,不污染调用方原 dict。
         asset_data["asset_current_status"] = Asset.AssetStatus.IN_STORE
+        # 5A:写合同 FK 前锁内守卫(防"先删后挂"孤儿引用,M-CONC-02 配对)
+        _ensure_contract_not_deleted(asset_data.get("asset_contract_recordcode"))
         codes = AssetCodeGenerator.generate_with_unique_check(
             asset_type=asset_type,
             purchase_number=purchase_number,
@@ -230,6 +250,9 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
                 merged_attribution[key] = update_data[key]
         ensure_asset_attribution_in_scope(user, merged_attribution)
 
+        if "asset_contract_recordcode" in update_data:
+            # 5A:改挂合同前锁内守卫(防"先删后挂"孤儿引用,M-CONC-02 配对)
+            _ensure_contract_not_deleted(update_data["asset_contract_recordcode"])
         before_data = {key: getattr(asset, key) for key in update_data}
         for key, value in update_data.items():
             setattr(asset, key, value)

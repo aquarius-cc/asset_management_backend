@@ -6,6 +6,7 @@
 
 from typing import Any
 
+from django.db import connection
 from django.db.models import Count, QuerySet, Sum
 
 from apps.assetmanagement.models import Contract
@@ -27,17 +28,27 @@ class ContractSelector:
             return None
 
     @staticmethod
+    def _lock_contract(*, weak: bool = False, **filters: Any) -> Contract:
+        """合同行锁唯一实现(DR-1);weak 仅 PG 生效,默认强锁与既有 5 处调用等价。"""
+        if weak and connection.vendor == "postgresql":
+            qs = Contract.objects.select_for_update(no_key=True)
+        else:
+            qs = Contract.objects.select_for_update()
+        return lock_row_or_409(qs, **filters)  # type: ignore[no-any-return]
+
+    @staticmethod
     def get_contract_for_update(contract_code: str) -> Contract:
         """行锁版本的合同查询(BF-092/I-4: 付款读-改-写防并发丢失更新)
 
         与 get_contract_by_code 语义一致(is_deleted=False 不放宽可见性),
         锁超时经 lock_row_or_409 统一映射为 409 ResourceConflictError。
         """
-        return lock_row_or_409(  # type: ignore[no-any-return]
-            Contract.objects.select_for_update(),
-            contract_code=contract_code,
-            is_deleted=False,
-        )
+        return ContractSelector._lock_contract(contract_code=contract_code, is_deleted=False)
+
+    @staticmethod
+    def get_contract_for_update_by_instance(contract: Contract) -> Contract:
+        """按实例 pk 取合同弱行锁(M-CONC-02 5A 写侧守卫,FOR NO KEY UPDATE)"""
+        return ContractSelector._lock_contract(weak=True, pk=contract.pk, is_deleted=False)
 
     @staticmethod
     def search_contracts(keyword: str) -> QuerySet[Contract]:

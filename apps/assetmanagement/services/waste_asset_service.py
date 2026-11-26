@@ -11,6 +11,7 @@ from django.db import transaction
 from apps.assetmanagement.audit import AuditLogger
 from apps.assetmanagement.models import WasteAsset
 from apps.assetmanagement.selectors.asset_selector import AssetSelector
+from apps.assetmanagement.selectors.waste_asset_selector import WasteAssetSelector
 from core.exceptions import AppValidationError
 
 
@@ -34,9 +35,13 @@ class WasteAssetService:
         - 只删除 WasteAsset 记录,不改变资产状态
         - 如需恢复资产使用,应走重新入库流程
         """
-        waste_asset = WasteAsset.objects.filter(asset_recordcode__asset_code=waste_asset_code, is_deleted=False).first()
-        if not waste_asset:
-            raise AppValidationError(detail=f"已报废记录 {waste_asset_code} 不存在", error_code="WASTE_ASSET_NOT_FOUND")
+        try:
+            # M-CONC-01:行锁读,锁内复检 is_deleted(防并发双请求双份审计+双软删)
+            waste_asset = WasteAssetSelector.get_for_update_by_asset_code(waste_asset_code)
+        except WasteAsset.DoesNotExist:
+            raise AppValidationError(
+                detail=f"已报废记录 {waste_asset_code} 不存在", error_code="WASTE_ASSET_NOT_FOUND"
+            ) from None
 
         asset = waste_asset.asset_recordcode
 
@@ -70,22 +75,18 @@ class WasteAssetService:
 
         【契约变更说明】原 View 循环无 AppValidationError 分支, Service 抛出的
         WASTE_ASSET_NOT_FOUND 被遮蔽为 INTERNAL_ERROR; 迁移后透传真实错误码。
-        _delete_one 内局部转换 DoesNotExist -> NOT_FOUND, 单条 cancel_waste_asset
-        的公开行为不变。
+        【M-CONC-01 错误码口径】① 行锁超时 → ResourceConflictError → fail_items
+        error_code=ASSET_LOCKED(409 语义); ② 锁内取行时记录已被并发软删(不再匹配
+        is_deleted=False) → DoesNotExist → 映射 WASTE_ASSET_NOT_FOUND。二者不可混同。
         """
         from core.batch_mixins import BatchOperationMixin
 
         def _delete_one(waste_asset_code: str) -> None:
-            try:
-                WasteAssetService.cancel_waste_asset(
-                    waste_asset_code,
-                    operator_jobcode=operator_jobcode,
-                    operator_name=operator_name,
-                    user=user,
-                )
-            except WasteAsset.DoesNotExist:
-                raise AppValidationError(
-                    detail=f"已报废记录 {waste_asset_code} 不存在", error_code="NOT_FOUND"
-                ) from None
+            WasteAssetService.cancel_waste_asset(
+                waste_asset_code,
+                operator_jobcode=operator_jobcode,
+                operator_name=operator_name,
+                user=user,
+            )
 
         return BatchOperationMixin.batch_delete_execute(waste_asset_codes, _delete_one)

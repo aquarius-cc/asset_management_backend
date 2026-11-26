@@ -77,6 +77,28 @@ class TestAddPaymentRecord:
         assert result.amount_paid == Decimal("15000.00")
         assert result.amount_unpaid == Decimal("35000.00")
 
+    def test_replay_appends_duplicate_payment_by_design(self):
+        """【CT-4 / M-CONC-03】非幂等特征化：同载荷重放两次产生两条独立付款。
+
+        固化《04-API接口规范》§4「POST 创建（单条）非幂等」契约，
+        防后续以「防重」为名静默加入半吊子去重（B1 方案已否决）。
+        """
+        ContractService.create_contract(_contract_data(contract_amount=Decimal("50000.00")))
+
+        with DjangoTestCase.captureOnCommitCallbacks(execute=True):
+            ContractService.add_payment_record("C001", Decimal("10000.00"), operator_jobcode="E001")
+            second = ContractService.add_payment_record("C001", Decimal("10000.00"), operator_jobcode="E001")
+
+        payments = json.loads(second.paid_record)["payments"]
+        assert len(payments) == 2
+        assert payments[0]["id"] != payments[1]["id"]
+        assert second.amount_paid == Decimal("20000.00")
+        assert second.amount_unpaid == Decimal("30000.00")
+        add_logs = AuditLog.objects.filter(
+            operation_type="update", app_label="contract", after_data__payment_action="add"
+        )
+        assert add_logs.count() == 2
+
     def test_add_payment_decimal_cumulative_precision(self):
         """【CT-4 回归屏障】0.1 三次累计必须精确等于 0.3(十进制累加,禁止二进制浮点漂移)"""
         ContractService.create_contract(_contract_data(contract_amount=Decimal("50000.00")))

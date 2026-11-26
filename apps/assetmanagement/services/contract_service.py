@@ -242,6 +242,14 @@ class ContractService:
 
         Returns:
             Contract: 更新后的合同实例
+
+        【防重口径 / M-CONC-03】本端点非幂等：每次成功调用生成新 payment id 并追加条目，
+        同一请求重放会产生重复付款。防重依赖两层：① 前端提交按钮 disable + loading
+        （ContractPaymentRecord.vue::submitPayment 的 :loading 绑定与 submitting 置位/复位）；
+        ② 本方法内 get_contract_for_update 行锁（见下方 # 【BF-092/I-4】注释）保证并发读-改-写一致。该口径符合
+        《04-API接口规范》§4「POST 创建（单条）非幂等」。若产品改为要求「重放返回原结果」，
+        须另立批次引入请求级幂等键（会改变 paid_record 条目结构，需走跨端契约评审），
+        不得在本方法内静默加唯一性判断。
         """
         # 【BF-092/I-4】行锁防并发丢失更新: 读-改-写 paid_record 前锁定行
         try:
@@ -429,25 +437,22 @@ class ContractService:
             operator_jobcode: 操作人工号
             operator_name: 操作人姓名
         """
-        contract = ContractSelector.get_contract_by_code(contract_code)
-        if not contract or contract.is_deleted:
+        try:
+            contract = ContractSelector.get_contract_for_update(contract_code)
+        except ResourceConflictError:
+            raise
+        except Contract.DoesNotExist:
             raise AppValidationError(detail=f"合同 {contract_code} 不存在或已删除", error_code="CONTRACT_NOT_FOUND")
-
         if AssetSelector.exists_by_contract(contract):
             raise AppValidationError(detail="合同存在关联资产,不允许删除", error_code="HAS_RELATED_ASSETS")
-
         GenericAuditService.log_delete(
             record_code=contract.contract_code,
             app_label="contract",
             description=f"删除合同: {contract.contract_name}",
-            before_data={
-                "contract_code": contract.contract_code,
-                "contract_name": contract.contract_name,
-            },
+            before_data={"contract_code": contract.contract_code, "contract_name": contract.contract_name},
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
         )
-
         contract.delete()
 
     @staticmethod

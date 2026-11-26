@@ -4,7 +4,7 @@
 """
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from django.core.management.base import BaseCommand, CommandError
 
@@ -31,32 +31,41 @@ class Command(BaseCommand):
         strict = options.get("strict", False)
         issues = []
 
-        # 检查1: broken 状态资产应有进行中维修记录
-        broken_assets = Asset.objects.filter(asset_current_status=Asset.AssetStatus.BROKEN)
-        for asset in broken_assets:
-            if not RepairAsset.objects.filter(
-                asset_recordcode=asset,
-                repair_status=RepairAsset.RepairStatus.IN_PROGRESS,
-            ).exists():
-                msg = f"资产 {asset.asset_code} 状态为 broken 但无进行中维修记录"
-                issues.append(msg)
+        # [M-PERF-04] 3N+3→5：一次拉取维修中/已出库的资产编码集合，
+        # 三轮巡检改为对 Asset 结果集做内存判定，查询数与资产量解耦。
+        # recordcode 为 CharField 主键（str），django-stubs 对 FK _id 回退 int 推断，cast 收口。
+        repairing_codes = cast(
+            "set[str]",
+            {
+                code
+                for code in RepairAsset.objects.filter(
+                    repair_status=RepairAsset.RepairStatus.IN_PROGRESS
+                ).values_list("asset_recordcode_id", flat=True)
+                if code is not None
+            },
+        )
+        out_codes = cast(
+            "set[str]",
+            {code for code in OutAsset.objects.values_list("asset_recordcode_id", flat=True) if code is not None},
+        )
 
-        # 检查2: in_use 状态资产应有出库记录
-        in_use_assets = Asset.objects.filter(asset_current_status=Asset.AssetStatus.IN_USE)
-        for asset in in_use_assets:
-            if not OutAsset.objects.filter(asset_recordcode=asset).exists():
-                msg = f"资产 {asset.asset_code} 状态为 in_use 但无出库记录"
-                issues.append(msg)
+        for recordcode, asset_code in Asset.objects.filter(asset_current_status=Asset.AssetStatus.BROKEN).values_list(
+            "recordcode", "asset_code"
+        ):
+            if recordcode not in repairing_codes:
+                issues.append(f"资产 {asset_code} 状态为 broken 但无进行中维修记录")
 
-        # 检查3: in_store 状态资产不应有任何出库记录
-        # [M-12] 原谓词 out_status=OutAsset.OutStatus.PENDING 引用了从未存在的字段
-        # （type: ignore 掩盖的存量 AttributeError，检查 3 对 in_store 资产必然崩溃）。
-        # 出库记录创建即资产转 in_use，in_store + 有出库记录即为不一致，无「待处理」子集。
-        in_store_assets = Asset.objects.filter(asset_current_status=Asset.AssetStatus.IN_STORE)
-        for asset in in_store_assets:
-            if OutAsset.objects.filter(asset_recordcode=asset).exists():
-                msg = f"资产 {asset.asset_code} 状态为 in_store 但存在出库记录"
-                issues.append(msg)
+        for recordcode, asset_code in Asset.objects.filter(asset_current_status=Asset.AssetStatus.IN_USE).values_list(
+            "recordcode", "asset_code"
+        ):
+            if recordcode not in out_codes:
+                issues.append(f"资产 {asset_code} 状态为 in_use 但无出库记录")
+
+        for recordcode, asset_code in Asset.objects.filter(asset_current_status=Asset.AssetStatus.IN_STORE).values_list(
+            "recordcode", "asset_code"
+        ):
+            if recordcode in out_codes:
+                issues.append(f"资产 {asset_code} 状态为 in_store 但存在出库记录")
 
         # 输出结果
         if issues:

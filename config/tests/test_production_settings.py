@@ -76,6 +76,10 @@ class TestConsoleLogFormat:
     def test_console_level_is_info(self):  # 修复 N-1：与 production.py:95 INFO 级别一致
         assert self.logging_cfg["handlers"]["console"]["level"] == "INFO"
 
+    def test_rest_framework_logger_level_is_warning(self):
+        """M-HYG-06 防回退：生产 DRF logger 必须保持 WARNING（严于 base 的 INFO）"""
+        assert self.logging_cfg["loggers"]["rest_framework"]["level"] == "WARNING"
+
     def test_file_handler_unchanged(self):
         assert self.logging_cfg["handlers"]["file"]["formatter"] == "json"
         assert "trace_id" in self.logging_cfg["handlers"]["file"]["filters"]

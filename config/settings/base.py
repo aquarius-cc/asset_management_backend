@@ -368,7 +368,10 @@ LOGGING: dict[str, Any] = {
     "loggers": {
         "django": {"handlers": ["console", "file"], "level": "INFO", "propagate": False},
         "django.server": {"handlers": ["console", "file"], "level": "INFO", "propagate": False},
-        "rest_framework": {"handlers": ["console", "file"], "level": "DEBUG"},
+        "rest_framework": {
+            "handlers": ["console", "file"],
+            "level": "INFO",  # production.py 覆写为 WARNING（更严，不回退）
+        },
         "frontend.error": {"handlers": ["file"], "level": "INFO", "propagate": False},
     },
     "root": {"handlers": ["console", "file"], "level": "WARNING"},

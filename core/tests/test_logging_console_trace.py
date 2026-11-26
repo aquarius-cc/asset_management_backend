@@ -89,3 +89,49 @@ def test_production_console_keeps_json_only_override():
         "LOGGING['handlers']['console']['level']": "INFO",
         "LOGGING['handlers']['console']['formatter']": "json",
     }
+
+
+def _dict_entry(node: ast.Dict, key: str) -> ast.expr:
+    """取 ast.Dict 中指定常量键的值节点；缺失即 KeyError。"""
+    for k, v in zip(node.keys, node.values, strict=False):
+        if isinstance(k, ast.Constant) and k.value == key:
+            return v
+    raise KeyError(key)
+
+
+def _base_rest_framework_level(path: Path) -> object:
+    """AST 提取模块级 LOGGING['loggers']['rest_framework']['level']。
+
+    兼容 LOGGING = {...} 与 LOGGING: dict[...] = {...}（AnnAssign）；
+    仅对 level 常量 literal_eval，避免 LOGGING 内 BASE_DIR/... BinOp 报错。
+    """
+    tree = ast.parse(path.read_text(encoding="utf-8-sig"))
+    logging_node = next(
+        (
+            n.value
+            for n in ast.walk(tree)
+            if (
+                (
+                    isinstance(n, ast.AnnAssign)
+                    and isinstance(n.target, ast.Name)
+                    and n.target.id == "LOGGING"
+                )
+                or (
+                    isinstance(n, ast.Assign)
+                    and any(isinstance(t, ast.Name) and t.id == "LOGGING" for t in n.targets)
+                )
+            )
+            and isinstance(n.value, ast.Dict)
+        ),
+        None,
+    )
+    assert isinstance(logging_node, ast.Dict), "LOGGING 字典字面量未找到"
+    loggers = _dict_entry(logging_node, "loggers")
+    rest = _dict_entry(loggers, "rest_framework")
+    level = _dict_entry(rest, "level")
+    return ast.literal_eval(level)
+
+
+def test_base_rest_framework_logger_level_is_info():
+    """M-HYG-06：base 默认不得为 DEBUG（生产产生低价值高频日志）；生产覆写 WARNING 更严"""
+    assert _base_rest_framework_level(SETTINGS_DIR / "base.py") == "INFO"

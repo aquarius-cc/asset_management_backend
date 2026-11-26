@@ -110,35 +110,7 @@ GET         /assets/{id}/       retrieve()     获取单个资源详情
 PUT         /assets/{id}/       update()       全量更新资源
 PATCH	            /assets/{id}/	             partial_update()	    部分更新资源
 DELETE	            /assets/{id}/	             destroy()	            删除资源
-这些方法都是ViewSet提供的默认动作,你可以在AssetViewSet中重写这些方法来实现自定义逻辑,例如
-from rest_framework import viewsets
-from .models import Asset
-from .serializers.asset_serializers import AssetSerializer
-class AssetViewSet(viewsets.ModelViewSet):
-    queryset = Asset.objects.all()
-    serializer_class = AssetSerializer
-
-    # 重写list方法,自定义列表查询逻辑
-    def list(self, request, *args, **kwargs):
-        # 自定义逻辑
-        return super().list(request, *args, **kwargs)
-
-    # 重写create方法,自定义创建逻辑
-    def create(self, request, *args, **kwargs):
-        # 自定义逻辑
-        return super().create(request, *args, **kwargs)
-
-如果你需要添加额外的自定义动作,可以使用@action装饰器,例如:
-from rest_framework.decorators import action
-from rest_framework.response import Response
-
-class AssetViewSet(viewsets.ModelViewSet):
-    # ... 其他代码 ...
-    @action(detail=True, methods=['post'])
-    def activate(self, request, pk=None):
-        asset = self.get_object()
-        asset.is_active = True
-        asset.save()
-        return Response({'status': 'asset activated'})
-这个自定义动作会映射到POST /assets/{id}/activate/路径。
+自定义 action 的响应必须遵守 B1 信封契约（utils.response_utils.success_response），
+状态变更必须经 Service 层与状态机（B5/B6），禁止在 View 内直接 save() 或裸 dict Response。
+完整示例见 Rules_Fiels/backend-business-rules.md。
 """

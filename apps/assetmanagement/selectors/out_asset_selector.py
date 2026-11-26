@@ -54,6 +54,19 @@ class OutAssetSelector:
             return queryset.filter(user_cond)
         return queryset.filter(asset_cond | user_cond)
 
+    @staticmethod
+    def apply_asset_status_filter(
+        queryset: QuerySet[OutAsset], status_filter: str
+    ) -> QuerySet[OutAsset]:
+        """[M-LAY-01] 资产当前状态过滤唯一实现（空串短路，谓词不变）。
+
+        View 仅透传 query_params；禁止再手写 asset_recordcode__asset_current_status 过滤链。
+        """
+        status = status_filter.strip()
+        if not status:
+            return queryset
+        return queryset.filter(asset_recordcode__asset_current_status=status)
+
     # 搜索参数配置:前端参数名 → 数据库查询字段
     # icontains: 模糊匹配, exact: 精确匹配
     RECYCLABLE_FILTER_CONFIG = {

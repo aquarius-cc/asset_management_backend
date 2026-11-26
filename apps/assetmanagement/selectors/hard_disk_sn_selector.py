@@ -18,7 +18,20 @@ class HardDiskSNSelector:
     @staticmethod
     def get_queryset_for_user(user: Any) -> Any:
         """RBAC 行级过滤(硬盘通过 asset_recordcode 关联到 Asset)"""
-        return get_asset_linked_queryset_for_user(user, HardDiskSN.objects.filter(is_deleted=False))
+        return get_asset_linked_queryset_for_user(
+            user,
+            HardDiskSN.objects.filter(is_deleted=False).select_related("asset_recordcode"),
+        )
+
+    @staticmethod
+    def apply_sn_filter(queryset: QuerySet[HardDiskSN], sn: str) -> QuerySet[HardDiskSN]:
+        """[M-LAY-02] 硬盘序列号过滤唯一实现（作用域由调用方 QuerySet 携带）。"""
+        return queryset.filter(harddisk_sn_code=sn)
+
+    @staticmethod
+    def apply_asset_code_filter(queryset: QuerySet[HardDiskSN], asset_code: str) -> QuerySet[HardDiskSN]:
+        """[M-LAY-02] 关联资产编码过滤 + 既有排序的唯一实现。"""
+        return queryset.filter(asset_recordcode__asset_code=asset_code).order_by("harddisk_sn_code")
 
     @staticmethod
     def get_by_recordcode(recordcode: str) -> HardDiskSN | None:

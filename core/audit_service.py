@@ -10,6 +10,7 @@ from typing import Any
 from django.db import transaction
 
 from core.audit_sanitizer import mask_sensitive_snapshot
+from core.error_reporting import capture_exception_safe, log_channel_failure
 from core.metrics import AUDIT_WRITE_FAILED
 from core.models_audit import AuditLog
 from core.request_context import get_current_ip
@@ -65,9 +66,11 @@ class GenericAuditService:
                     ip_address=ip_address or get_current_ip(),
                 )
             except Exception as e:
-                # 【M-19】审计写入失败属合规事件, 计入指标供告警, 保留 error 日志不上抛
+                # 【M-19】合规事件计数 + error 留痕，不上抛
+                # 【A5/OC-3】走审计失败日志唯一出口（去 exc_info/str(e)）；堆栈由 Sentry 捕获
                 AUDIT_WRITE_FAILED.labels(channel="generic_audit_log").inc()
-                logger.error(f"通用审计日志记录失败: {e}", exc_info=True)
+                capture_exception_safe(e)
+                log_channel_failure(logger, "generic_audit_log", e, message="通用审计日志记录失败")
 
         transaction.on_commit(_write_audit, robust=True)
         return None

@@ -895,6 +895,8 @@ class AuditContext:
                 f"耗时: {duration:.3f}s"
             )
         else:
+            # 【BF-208 订正】历史片段；现行见 core/error_reporting.py：禁 exc_info/str(exc)，堆栈走 Sentry。
+            # 现行写法：只留 exception_type（见 apps/assetmanagement/audit.py __exit__）。
             logger.warning(f"审计异常: {self.operation_type} | 异常: {exc_val} | 耗时: {duration:.3f}s", exc_info=True)
         return False  # 不吞掉异常
 
@@ -918,6 +920,8 @@ class AuditLogger:
             log_func(*args, **kwargs)
             return True
         except Exception as e:
+            # 【BF-208 订正】历史片段；现行见 core/error_reporting.py：禁 exc_info/str(exc)，堆栈走 Sentry。
+            # 现行写法：capture_exception_safe(e) + logger.error("日志记录失败(exception_type=%s)", exception_type(e))
             logger.error(f"日志记录失败: {e}", exc_info=True)
             return False
 

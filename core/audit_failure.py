@@ -1,7 +1,7 @@
 """审计失败可观测事件唯一收口(DR-1): 指标 + 脱敏结构化日志。
 
 渠道表(批次 2 / M-01+M-02, 与 core/metrics.py 注释、backend-business-rules.md §3 约束 8 同步):
-- asset_operation_log   AuditLogger._safe_log 写失败(既有, 不动)
+- asset_operation_log   AuditLogger._safe_log 写失败(渠道/指标语义不动；非 strict 新增 capture_exception_safe 报 Sentry，strict 上抛由全局出口捕获，避免双报；单次失败仍只计一处)
 - generic_audit_log     GenericAuditService on_commit 写库失败(既有, 不动)
 - unregistered_adapter / unregistered_safe_call  未登记资产域(既有, 本批不动)
 - asset_audit_decorator audit_operation 装饰器调度失败(新增, 与 asset_operation_log 互斥)

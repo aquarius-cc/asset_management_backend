@@ -107,7 +107,7 @@ class DamagedAssetViewSet(  # type: ignore[misc]
         approved/rejected 行泄进「待报废」导出文件。故写死 pending。
         将来若页面加审批状态筛选,再升级为读取 query_params。
         """
-        return self.get_queryset().filter(approval_status="pending")
+        return DamagedAssetSelector.apply_pending_approval_filter(self.get_queryset())
 
     def destroy(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         obj = self.get_object()
@@ -210,7 +210,7 @@ class DamagedAssetViewSet(  # type: ignore[misc]
 
     @action(detail=False, methods=["get"], url_path="by-asset/(?P<asset_recordcode>[^/.]+)")
     def by_asset(self, request: Any, asset_recordcode: Any = None) -> Response:
-        visible = AssetSelector.get_queryset_for_user(request.user).filter(asset_code=asset_recordcode).exists()
+        visible = AssetSelector.exists_by_code_for_user(asset_recordcode, user=request.user)
         if not visible:
             return error_response(message=f"资产 {asset_recordcode} 不存在", status_code=404)
         records = DamagedAssetSelector.get_by_asset_code(asset_recordcode, user=request.user)

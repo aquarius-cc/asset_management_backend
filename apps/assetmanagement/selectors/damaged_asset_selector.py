@@ -21,6 +21,11 @@ class DamagedAssetSelector:
         return get_asset_linked_queryset_for_user(user, DamagedAsset.objects.filter(is_deleted=False))
 
     @staticmethod
+    def apply_pending_approval_filter(queryset: QuerySet[DamagedAsset]) -> QuerySet[DamagedAsset]:
+        """[M-LAY-02] 导出恒待审批行的唯一实现（BR-3：状态取 TextChoices 枚举）。"""
+        return queryset.filter(approval_status=DamagedAsset.ApprovalStatus.PENDING)
+
+    @staticmethod
     def get_all_asset_recordcodes() -> QuerySet[DamagedAsset]:
         return DamagedAsset.objects.filter(is_deleted=False)
 

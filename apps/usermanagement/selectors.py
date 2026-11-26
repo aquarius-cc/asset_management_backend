@@ -11,6 +11,11 @@ from apps.usermanagement.models import Department, Employee, EmployeeStatus, Rol
 from core.department_scope import get_employee_scoped_queryset_for_user
 
 
+# 与 Department.get_employee_count() 同语义（仅未删），DR-1 单源。
+# 注意：过滤的是 is_deleted（软删），与 EmployeeStatus.ACTIVE（在职）无关。
+_NOT_DELETED_EMPLOYEE_Q = Q(employee__is_deleted=False)
+
+
 #: ``EmployeeSelector.search_employees`` 匹配的文本字段。
 #: **同时是 OpenAPI ``?keyword=`` 参数说明的权威源**（DR-1）：文档字段清单必须由
 #: 本常量派生,不得在视图/Schema/文档里各写一份——各写一份就会随实现改动而失真
@@ -411,7 +416,13 @@ class DepartmentSelector:
         parent = DepartmentSelector.get_department_by_code(department_code)
         if not parent:
             return Department.objects.none()
-        return Department.objects.filter(parent=parent).order_by("sort_order", "department_code")
+        qs: QuerySet[Department, Department] = Department.objects.filter(parent=parent).select_related("parent")
+        return cast(
+            "QuerySet[Department, Department]",
+            qs.annotate(employee_count=Count("employee", filter=_NOT_DELETED_EMPLOYEE_Q)).order_by(
+                "sort_order", "department_code"
+            ),
+        )
 
     @staticmethod
     def get_departments_by_level(level: int) -> QuerySet[Department]:
@@ -428,48 +439,33 @@ class DepartmentSelector:
 
     @staticmethod
     def build_department_tree() -> list[dict[str, Any]]:
+        """构建完整的部门树形结构（M-PERF-01：3N→1）。
+
+        一次查询取全部未删部门 + select_related 预加载父级 + 条件聚合员工数，
+        内存组树；返回结构与原递归实现逐字段一致。
         """
-        构建完整的部门树形结构
-
-        从根部门开始递归构建树形结构,每个节点包含:
-        - 部门基本信息
-        - children: 子部门列表
-        - employee_count: 当前部门员工数量
-
-        Returns:
-            list: 树形结构的部门列表
-        """
-        # 获取所有根部门
-        root_departments = DepartmentSelector.get_root_departments()
-
-        # 递归构建树
-        tree = []
-        for dept in root_departments:
-            node = DepartmentSelector._build_tree_node(dept)
-            tree.append(node)
-
-        return tree
+        departments = (
+            Department.objects.select_related("parent")
+            .annotate(employee_count=Count("employee", filter=_NOT_DELETED_EMPLOYEE_Q))
+            .order_by("sort_order", "department_code")
+        )
+        roots: list[Department] = []
+        children_map: dict[str, list[Department]] = {}  # key 仅非 None 的 parent_id
+        for dept in departments:
+            if dept.parent_id is None:
+                roots.append(dept)  # 根桶独立，None 永不入 map
+            else:
+                children_map.setdefault(dept.parent_id, []).append(dept)
+        return [DepartmentSelector._build_tree_node(dept, children_map) for dept in roots]
 
     @staticmethod
-    def _build_tree_node(department: Department) -> dict[str, Any]:
-        """
-        递归构建树节点
-
-        Args:
-            department: 部门实例
-
-        Returns:
-            dict: 包含子部门和员工数量的节点数据
-        """
-        # 获取子部门(使用 parent FK)
-        children = Department.objects.filter(parent=department).order_by("sort_order", "department_code")
-
-        # 构建子节点
-        children_data = []
-        for child in children:
-            children_data.append(DepartmentSelector._build_tree_node(child))
-
-        # 构建当前节点
+    def _build_tree_node(
+        department: Department,
+        children_map: dict[str, list[Department]],
+    ) -> dict[str, Any]:
+        """从内存 children_map 组装节点（零查询）。"""
+        code = department.recordcode  # str | None
+        children = children_map.get(code, []) if code is not None else []  # 仅排除 None
         return {
             "recordcode": department.recordcode,
             "department_code": department.department_code,
@@ -480,8 +476,8 @@ class DepartmentSelector:
             "path": department.path,
             "level": department.level,
             "sort_order": department.sort_order,
-            "children": children_data,
-            "employee_count": department.get_employee_count(),
+            "children": [DepartmentSelector._build_tree_node(child, children_map) for child in children],
+            "employee_count": department.employee_count,  # type: ignore[attr-defined]
         }
 
     @staticmethod
@@ -536,9 +532,10 @@ class DepartmentSelector:
             return []
 
         return list(
-            Department.objects.filter(path__startswith=f"{dept.path}/").order_by(
-                "level", "sort_order", "department_code"
-            )
+            Department.objects.filter(path__startswith=f"{dept.path}/")
+            .select_related("parent")
+            .annotate(employee_count=Count("employee", filter=_NOT_DELETED_EMPLOYEE_Q))
+            .order_by("level", "sort_order", "department_code")
         )
 
     @staticmethod

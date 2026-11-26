@@ -100,11 +100,9 @@ class OutAssetViewSet(  # type: ignore[misc]
         search_type = self.request.query_params.get("searchType", "all").lower()
         status_filter = self.request.query_params.get("asset_current_status", "").strip()
 
-        # [B-28/M-06] 关键词过滤统一走 Selector 唯一实现（View 层不再手写 ORM 过滤链）
+        # [B-28/M-06, M-LAY-01] 关键词/状态过滤均走 Selector 唯一实现（View 不写 ORM 链）
         qs = OutAssetSelector.apply_keyword_filter(qs, keyword, search_type)
-
-        if status_filter:
-            qs = qs.filter(asset_recordcode__asset_current_status=status_filter)
+        qs = OutAssetSelector.apply_asset_status_filter(qs, status_filter)
 
         return qs.order_by("-outasset_date")
 
@@ -310,7 +308,7 @@ class OutAssetViewSet(  # type: ignore[misc]
     )
     @action(detail=False, methods=["get"], url_path="by-asset/(?P<asset_code>[^/.]+)")
     def by_asset(self, request: Any, asset_code: Any = None) -> Response:
-        visible = AssetSelector.get_queryset_for_user(request.user).filter(asset_code=asset_code).exists()
+        visible = AssetSelector.exists_by_code_for_user(asset_code, user=request.user)
         if not visible:
             return error_response(message=f"资产 {asset_code} 不存在", status_code=404)
         records = OutAssetSelector.get_outassets_by_asset(asset_code, user=request.user)

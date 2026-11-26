@@ -30,13 +30,23 @@ from typing import Any, Literal
 from django.utils import timezone
 
 from apps.assetmanagement.models.operation_log import AssetOperationLog
-from apps.assetmanagement.services.operation_log_service import OperationLogService
 from core.audit_failure import record_audit_failure
+from core.error_reporting import capture_exception_safe, exception_type
 from core.metrics import AUDIT_WRITE_FAILED
 from core.request_context import get_current_ip
 
 
 logger = logging.getLogger(__name__)
+
+
+def _operation_log_service() -> Any:
+    """延迟取操作日志服务，切断 audit → services 包 → asset_service → audit 的导入期环。
+
+    调用时调用方已完成 services 包初始化；冷启动只 import audit 不再触碰半初始化回边。
+    """
+    from apps.assetmanagement.services.operation_log_service import OperationLogService
+
+    return OperationLogService
 
 
 @dataclass
@@ -79,7 +89,12 @@ class AuditContext:
                 f"耗时: {duration:.3f}s"
             )
         else:
-            logger.warning(f"审计异常: {self.operation_type} | 异常: {exc_val} | 耗时: {duration:.3f}s", exc_info=True)
+            # 【A5/OC-3】只记异常类型；异常继续上抛，堆栈由全局异常出口/Sentry 捕获（避免双报）
+            logger.warning(
+                f"审计异常: {self.operation_type} | 资产: {self.asset_code} | "
+                f"操作人: {self.operator_name}({self.operator_jobcode}) | "
+                f"耗时: {duration:.3f}s | exception_type={exception_type(exc_val)}"
+            )
         return False  # 不吞掉异常
 
 
@@ -103,7 +118,10 @@ class AuditLogger:
             return True
         except Exception as e:
             AUDIT_WRITE_FAILED.labels(channel="asset_operation_log").inc()
-            logger.error(f"日志记录失败: {e}", exc_info=True)
+            # 【A5/OC-3】吞异常路径堆栈走 Sentry 唯一出口；strict 上抛由全局出口捕获，不重复上报
+            if not strict:
+                capture_exception_safe(e)
+            logger.error("日志记录失败(exception_type=%s)", exception_type(e))
             if strict:
                 raise
             return False
@@ -119,7 +137,7 @@ class AuditLogger:
         记录资产创建日志
         """
         return AuditLogger._safe_log(
-            OperationLogService.log_asset_create,
+            _operation_log_service().log_asset_create,
             asset=asset,
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
@@ -137,7 +155,7 @@ class AuditLogger:
     ) -> bool:
         """记录资产更新日志"""
         return AuditLogger._safe_log(
-            OperationLogService.log_asset_update,
+            _operation_log_service().log_asset_update,
             asset=asset,
             before_data=before_data,
             after_data=after_data,
@@ -157,7 +175,7 @@ class AuditLogger:
     ) -> bool:
         """记录资产删除日志"""
         return AuditLogger._safe_log(
-            OperationLogService.log_asset_delete,
+            _operation_log_service().log_asset_delete,
             asset_code=asset_code,
             asset_name=asset_name,
             asset=asset,
@@ -189,7 +207,7 @@ class AuditLogger:
         if description:
             detail = f"{detail} 原因: {description}"
         return AuditLogger._safe_log(
-            OperationLogService.log_operation,
+            _operation_log_service().log_operation,
             asset_code=asset.asset_code,
             asset_name=asset.asset_name,
             asset_specification=asset.asset_specification,
@@ -214,7 +232,7 @@ class AuditLogger:
     ) -> bool:
         """记录资产出库日志"""
         return AuditLogger._safe_log(
-            OperationLogService.log_asset_out,
+            _operation_log_service().log_asset_out,
             asset=asset,
             recordcode=outrecordcode,
             operator_jobcode=operator_jobcode,
@@ -233,7 +251,7 @@ class AuditLogger:
     ) -> bool:
         """记录资产回收日志"""
         return AuditLogger._safe_log(
-            OperationLogService.log_asset_recycle,
+            _operation_log_service().log_asset_recycle,
             asset=asset,
             recordcode=recordcode,
             operator_jobcode=operator_jobcode,
@@ -251,7 +269,7 @@ class AuditLogger:
     ) -> bool:
         """记录资产报废申请日志"""
         return AuditLogger._safe_log(
-            OperationLogService.log_asset_damaged,
+            _operation_log_service().log_asset_damaged,
             asset=asset,
             damaged_record_code=damaged_record_code,
             operator_jobcode=operator_jobcode,
@@ -269,7 +287,7 @@ class AuditLogger:
     ) -> bool:
         """记录资产报废完成日志"""
         return AuditLogger._safe_log(
-            OperationLogService.log_asset_waste,
+            _operation_log_service().log_asset_waste,
             asset=asset,
             waste_record_code=waste_record_code,
             operator_jobcode=operator_jobcode,
@@ -289,7 +307,7 @@ class AuditLogger:
     ) -> bool:
         """记录资产操作日志(通用方法)"""
         return AuditLogger._safe_log(
-            OperationLogService.log_operation,
+            _operation_log_service().log_operation,
             asset_code=asset_code,
             asset_name=asset_name,
             asset_specification=asset_specification,
@@ -307,7 +325,7 @@ class AuditLogger:
     ) -> bool:
         """记录公开扫码查询日志(匿名访问,操作人不落库,仅记 IP)"""
         return AuditLogger._safe_log(
-            OperationLogService.log_operation,
+            _operation_log_service().log_operation,
             asset_code=asset_code,
             asset_name=asset_name,
             asset_specification=asset_specification,

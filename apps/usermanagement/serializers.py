@@ -12,7 +12,6 @@ from apps.usermanagement.department_serializers import (
     DepartmentMoveSerializer,
     DepartmentSerializer,
     DepartmentSortSerializer,
-    DepartmentTreeSerializer,
 )
 from apps.usermanagement.employee_serializers import (
     EmployeeBatchCreateSerializer,
@@ -35,7 +34,6 @@ __all__ = [
     "DepartmentMoveSerializer",
     "DepartmentSerializer",
     "DepartmentSortSerializer",
-    "DepartmentTreeSerializer",
     "EmployeeBatchCreateSerializer",
     "EmployeeBatchDeleteSerializer",
     "EmployeeBatchItemSerializer",

@@ -7,6 +7,10 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import models
 
+from apps.usermanagement.utils.department_cache import (
+    descendants_cache_key,
+    invalidate_self_and_ancestors_cache,
+)
 from core.models import BaseModel
 
 
@@ -91,22 +95,14 @@ class Department(BaseModel):
     def save(self, *args: Any, **kwargs: Any) -> None:
         """保存时清除自身及所有祖先的后代缓存。
 
-        [M-11] 缓存失效统一收敛到 DepartmentService(延迟导入避免 model↔service
-        循环依赖),本方法不再内联遍历(原实现 ancestor_path 缺前导 '/' 且
-        except: pass 吞异常,祖先缓存从未失效)。
+        [M-11/M-LAY-03] 缓存失效统一收敛到 department_cache 中立工具，
+        Model 不再反向调用 DepartmentService 私有成员。
         [v2.2 决策] 失效时机在 save 之后:cache-aside 竞态窗口反转为
         「误删新值 → 下次读回填(自愈)」,优于「先删后存」的「旧值驻留至 TTL」。
         """
         super().save(*args, **kwargs)
-
-        from django.core.cache import cache
-
-        cache.delete(f"dept:{self.recordcode}:descendants")
-        if self.path:
-            from apps.usermanagement.services.department_service import DepartmentService
-
-            ancestor_codes = DepartmentService._collect_ancestor_recordcodes(self.path)
-            DepartmentService._invalidate_ancestors_cache(ancestor_codes)
+        # [BF-214] recordcode 由 BaseModel.save 生成, save 后运行时必非 None, str() 仅做 mypy 收窄
+        invalidate_self_and_ancestors_cache(str(self.recordcode), self.path)
 
     def clean(self) -> None:
         """
@@ -139,9 +135,12 @@ class Department(BaseModel):
         """获取当前部门的所有后代部门(基于 path 查询,带缓存)"""
         if not self.path:
             return []
+        # [BF-214] recordcode 守卫(缓存键语义): 无编码不建缓存键, 与 path 守卫(查询语义)独立
+        if not self.recordcode:
+            return []
         from django.core.cache import cache
 
-        cache_key = f"dept:{self.recordcode}:descendants"
+        cache_key = descendants_cache_key(self.recordcode)
         result = cache.get(cache_key)
         if result is not None:
             return result  # type: ignore[no-any-return]

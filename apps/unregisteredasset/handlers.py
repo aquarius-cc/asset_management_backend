@@ -123,14 +123,8 @@ def _create_recycle_record(
 
 
 def _asset_audit_logger() -> Any:
-    """审计入口延迟加载(DR-1 唯一实现, S1 补痕与 _force_finalize_recycle 共用)。
-
-    [M-16] audit 不得直连导入: audit:33 → services/__init__ → asset_service:14 → audit
-    构成入口次序敏感环, 冷直连即 ImportError。必须随链完整加载 operation_log_service,
-    再取 AuditLogger(导入次序沿既有 isort 字母序: audit 在前)。
-    """
+    """审计入口单点（DR-1；M-LAY-04 已切断导入环，无需强制加载顺序）。"""
     from apps.assetmanagement.audit import AuditLogger
-    from apps.assetmanagement.services.operation_log_service import OperationLogService  # noqa: F401
 
     return AuditLogger
 

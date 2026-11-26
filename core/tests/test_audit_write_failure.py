@@ -12,15 +12,7 @@ import pytest
 from django.db import transaction
 from prometheus_client import REGISTRY
 
-
-# [M-16] audit 不得冷直连导入(入口次序敏感环): 必须先经 operation_log_service 链完整
-# 加载, 再取 AuditLogger; isort 字母序会重排回危险次序, 故锁定导入区。
-# isort: off
-from apps.assetmanagement.services.operation_log_service import OperationLogService  # noqa: F401
-from apps.assetmanagement.audit import AuditLogger
-
-# isort: on
-from apps.assetmanagement.audit import audit_operation
+from apps.assetmanagement.audit import AuditLogger, audit_operation
 from apps.authusermanagement.audit_adapter import AuthAuditAdapter
 from apps.usermanagement.audit_helper import safe_audit_log
 from core.audit_failure import record_audit_failure

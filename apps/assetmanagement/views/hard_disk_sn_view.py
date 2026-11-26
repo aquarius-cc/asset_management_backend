@@ -130,7 +130,7 @@ class HardDiskSNViewSet(  # type: ignore[misc]
         serial = request.data.get("harddisk_sn_code")
         if not serial:
             return error_response(message="请提供硬盘序列号", status_code=400)
-        record = self.get_queryset().filter(harddisk_sn_code=serial).first()
+        record = HardDiskSNSelector.apply_sn_filter(self.get_queryset(), serial).first()
         if record is None:
             return error_response(message="硬盘序列号不存在", status_code=404)
         serializer = self.get_serializer(record)
@@ -138,10 +138,10 @@ class HardDiskSNViewSet(  # type: ignore[misc]
 
     @action(detail=False, methods=["get"], url_path="by-asset/(?P<asset_code>[^/.]+)")
     def by_asset(self, request: Any, asset_code: Any = None) -> Response:
-        visible_asset = AssetSelector.get_queryset_for_user(request.user).filter(asset_code=asset_code).exists()
+        visible_asset = AssetSelector.exists_by_code_for_user(asset_code, user=request.user)
         if not visible_asset:
             return error_response(message=f"资产 {asset_code} 不存在", status_code=404)
-        records = self.get_queryset().filter(asset_recordcode__asset_code=asset_code).order_by("harddisk_sn_code")
+        records = HardDiskSNSelector.apply_asset_code_filter(self.get_queryset(), asset_code)
         page = self.paginate_queryset(records)
         if page is not None:
             serializer = self.get_serializer(page, many=True)

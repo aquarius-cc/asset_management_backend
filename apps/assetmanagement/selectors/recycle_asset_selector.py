@@ -21,6 +21,17 @@ class RecycleAssetSelector:
         return get_asset_linked_queryset_for_user(user, RecycleAsset.objects.for_list().filter(is_deleted=False))
 
     @staticmethod
+    def apply_date_range_filter(
+        queryset: QuerySet[RecycleAsset], date_from: str | None, date_to: str | None
+    ) -> QuerySet[RecycleAsset]:
+        """[M-LAY-02] 回收日期区间过滤唯一实现（字符串由 DateField 转换，行为不变）。"""
+        if date_from:
+            queryset = queryset.filter(recycle_asset_date__gte=date_from)
+        if date_to:
+            queryset = queryset.filter(recycle_asset_date__lte=date_to)
+        return queryset
+
+    @staticmethod
     def get_all_asset_recordcodes() -> QuerySet[RecycleAsset]:
         return RecycleAsset.objects.filter(is_deleted=False)
 

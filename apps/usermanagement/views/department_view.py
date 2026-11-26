@@ -50,7 +50,7 @@ class DepartmentViewSet(  # type: ignore[misc]
     【修复 S12】管理操作需要管理员权限,防止普通用户创建/修改/删除部门
     """
 
-    queryset = Department.objects.all()
+    queryset = Department.objects.select_related("parent")
     serializer_class = DepartmentSerializer
     pagination_class = CustomPageNumberPagination
 
@@ -183,7 +183,7 @@ class DepartmentViewSet(  # type: ignore[misc]
                 "path": child.path,
                 "level": child.level,
                 "sort_order": child.sort_order,
-                "employee_count": child.get_employee_count(),
+                "employee_count": child.employee_count,  # type: ignore[attr-defined]
             }
             for child in children
         ]
@@ -250,7 +250,7 @@ class DepartmentViewSet(  # type: ignore[misc]
                 "path": dept.path,
                 "level": dept.level,
                 "sort_order": dept.sort_order,
-                "employee_count": dept.get_employee_count(),
+                "employee_count": dept.employee_count,  # type: ignore[attr-defined]
             }
             for dept in descendant_departments
         ]

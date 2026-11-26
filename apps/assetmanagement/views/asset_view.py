@@ -208,7 +208,7 @@ class AssetViewSet(  # type: ignore[misc]
         code = recordcode or request.query_params.get("recordcode")
         if not code:
             return error_response(message="缺少 recordcode 参数", status_code=400)
-        assets = self.get_queryset().filter(recordcode=code)
+        assets = AssetSelector.apply_recordcode_filter(self.get_queryset(), code)
         serializer = self.get_serializer(assets, many=True)
         return success_response(data=serializer.data)
 
@@ -392,8 +392,7 @@ class AssetViewSet(  # type: ignore[misc]
         asset_code = request.query_params.get("asset_code")
         if not asset_code:
             return error_response(message="请提供资产编码", status_code=400)
-        visible = self._scoped(AssetSelector.get_assets_for_list()).filter(asset_code=asset_code).first()
-        if visible is None:
+        if not AssetSelector.exists_by_code_for_user(asset_code, user=self.request.user):
             return error_response(message=f"资产 {asset_code} 不存在", status_code=404)
         data = CombinedAssetSerializer.get_asset_details_data(asset_code, user=self.request.user)
         return success_response(data=data, message="查询成功")
@@ -402,7 +401,7 @@ class AssetViewSet(  # type: ignore[misc]
     def contract_by_asset(self, request: Any, asset_code: Any = None) -> Response:
         if not asset_code:
             return error_response(message="请提供资产编码", status_code=400)
-        asset = self._scoped(AssetSelector.get_assets_for_list()).filter(asset_code=asset_code).first()
+        asset = AssetSelector.get_visible_asset_by_code(asset_code, user=self.request.user)
         if asset is None:
             return error_response(message=f"资产 {asset_code} 不存在", status_code=404)
         contract = asset.asset_contract_recordcode
@@ -439,7 +438,7 @@ class AssetViewSet(  # type: ignore[misc]
 
     def batch_delete_prefilter(self, ids: list[str], request: Any) -> list[str]:
         # RBAC: 越权/不存在资产不进入删除流程(视同不存在)
-        scoped_codes = set(self.get_queryset().filter(asset_code__in=ids).values_list("asset_code", flat=True))
+        scoped_codes = AssetSelector.get_visible_asset_codes(self.get_queryset(), ids)
         return [code for code in ids if code in scoped_codes]
 
     @action(detail=True, methods=["post"], url_path="mark-broken")

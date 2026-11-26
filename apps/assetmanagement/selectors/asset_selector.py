@@ -270,6 +270,31 @@ class AssetSelector:
         )
 
     @staticmethod
+    def exists_by_code_for_user(asset_code: str, *, user: Any) -> bool:
+        """资产可见性校验唯一实现（沿用 get_queryset_for_user 行级隔离，DR-3）。"""
+        return AssetSelector.get_queryset_for_user(user).filter(asset_code=asset_code).exists()
+
+    @staticmethod
+    def get_visible_asset_by_code(asset_code: str, *, user: Any) -> Asset | None:
+        """按资产编码取可见资产（越权/不存在均为 None）。
+
+        contract_by_asset 需对象；与 exists_by_code_for_user 语义不同，不合并。
+        """
+        return AssetSelector.get_queryset_for_user(user).filter(asset_code=asset_code).first()
+
+    @staticmethod
+    def apply_recordcode_filter(queryset: QuerySet[Asset], recordcode: str) -> QuerySet[Asset]:
+        """按 recordcode 过滤唯一实现（保留调用方作用域与预加载链）。"""
+        if not recordcode:
+            return queryset
+        return queryset.filter(recordcode=recordcode)
+
+    @staticmethod
+    def get_visible_asset_codes(queryset: QuerySet[Asset], codes: list[str]) -> set[str]:
+        """批量删除前置过滤唯一实现（越权资产视同不存在，set 天然去重）。"""
+        return set(queryset.filter(asset_code__in=codes).values_list("asset_code", flat=True))
+
+    @staticmethod
     def search_assets(
         keyword: str | None = None,
         status: str | None = None,
@@ -428,7 +453,7 @@ class AssetTypeSelector:
 
     @staticmethod
     def get_all_asset_types() -> QuerySet[AssetType]:
-        return AssetType.objects.filter(is_deleted=False)
+        return AssetType.objects.filter(is_deleted=False).select_related("parent")
 
     @staticmethod
     def get_asset_type_by_code(type_code: str) -> AssetType | None:

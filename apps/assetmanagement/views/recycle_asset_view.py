@@ -113,11 +113,7 @@ class RecycleAssetViewSet(  # type: ignore[misc]
 
         date_from = self.request.query_params.get("recycle_date_from")
         date_to = self.request.query_params.get("recycle_date_to")
-        if date_from:
-            qs = qs.filter(recycle_asset_date__gte=date_from)
-        if date_to:
-            qs = qs.filter(recycle_asset_date__lte=date_to)
-        return qs
+        return RecycleAssetSelector.apply_date_range_filter(qs, date_from, date_to)
 
     def create(self, request: Any, *args: Any, **kwargs: Any) -> Response:
         serializer = self.get_serializer(data=request.data)
@@ -151,7 +147,7 @@ class RecycleAssetViewSet(  # type: ignore[misc]
 
     @action(detail=False, methods=["get"], url_path="by-asset/(?P<asset_recordcode_code>[^/.]+)")
     def by_asset(self, request: Any, asset_recordcode_code: Any = None) -> Response:
-        visible = AssetSelector.get_queryset_for_user(request.user).filter(asset_code=asset_recordcode_code).exists()
+        visible = AssetSelector.exists_by_code_for_user(asset_recordcode_code, user=request.user)
         if not visible:
             return error_response(message=f"资产 {asset_recordcode_code} 不存在", status_code=404)
         records = RecycleAssetSelector.get_by_asset_code(asset_recordcode_code, user=request.user)

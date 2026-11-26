@@ -193,7 +193,7 @@ class AssetLifecycleViewSetBase(  # type: ignore[misc]
     @action(detail=False, methods=["get"], url_path="by-asset/(?P<asset_code>[^/.]+)")
     def by_asset(self, request: Any, asset_code: Any = None) -> Response:
         """按资产编码查询该生命周期事件(可见性校验与分页行为三视图集一致)"""
-        visible = AssetSelector.get_queryset_for_user(request.user).filter(asset_code=asset_code).exists()
+        visible = AssetSelector.exists_by_code_for_user(asset_code, user=request.user)
         if not visible:
             return error_response(message=f"资产 {asset_code} 不存在", status_code=404)
         records = self.selector.get_by_asset_code(asset_code, user=request.user)  # type: ignore[attr-defined]

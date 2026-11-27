@@ -170,7 +170,9 @@ class TestUpdateAttributionScope:
         )[0]
 
         with pytest.raises(AppValidationError) as exc_info:
-            AssetService.update_asset(asset.asset_code, {"asset_manager_recordcode": employee_b}, user=manager_a)
+            AssetService.update_asset(
+                asset.asset_code, {"asset_manager_recordcode": employee_b, "version": asset.version}, user=manager_a
+            )
         assert exc_info.value.error_code == "ASSET_ATTRIBUTION_OUT_OF_SCOPE"
 
     def test_update_or_semantics_keeps_cross_path_editable(self, storage, asset_type, manager_a, manager_b):
@@ -189,7 +191,9 @@ class TestUpdateAttributionScope:
             user=su,
         )[0]
 
-        updated = AssetService.update_asset(asset.asset_code, {"asset_manager_recordcode": employee_b}, user=manager_a)
+        updated = AssetService.update_asset(
+            asset.asset_code, {"asset_manager_recordcode": employee_b, "version": asset.version}, user=manager_a
+        )
         assert updated.asset_manager_recordcode.employee_department.department_code == "DEPT-WS-B"
 
 

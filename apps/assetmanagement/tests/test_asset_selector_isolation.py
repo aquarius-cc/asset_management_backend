@@ -182,7 +182,9 @@ class TestServiceWriteIsolation:
 
     def test_own_department_write_still_succeeds(self, user_a, asset_a):
         """对照用例: 越权拒绝不代表部门内写入口被误伤(B12 不破坏正常路径)"""
-        result = AssetService.update_asset("ISO-A001", {"asset_name": "部门A改名"}, user=user_a)
+        result = AssetService.update_asset(
+            "ISO-A001", {"asset_name": "部门A改名", "version": asset_a.version}, user=user_a
+        )
         result.refresh_from_db()
         assert result.asset_name == "部门A改名"
 

@@ -2,6 +2,8 @@
 资产管理模型(核心模型)
 """
 
+from typing import Any
+
 from django.db import models
 
 from apps.assetmanagement.models.asset_type import AssetType
@@ -9,6 +11,34 @@ from apps.assetmanagement.models.contract import Contract
 from apps.assetmanagement.models.storage import Storage
 from apps.usermanagement.models import Employee
 from core.models import BaseModel, SoftDeleteManager
+
+
+# 乐观锁版本化字段集(自增判定唯一事实源):
+# 命中即视为触碰业务数据,save 时 version 自增。
+# 口径 = AssetUpdateSerializer 写字段投影(字段 source/name),由
+# tests/test_asset_write_bypass_guard.py::TestVersionedFieldsProjection 护栏锁定;
+# asset_current_status 刻意排除——状态流转所有权归 FSM,纯状态变更不自增。
+ASSET_VERSIONED_FIELDS = frozenset(
+    [
+        "asset_name",
+        "asset_purchase_price",
+        "asset_purchase_number",
+        "asset_unit",
+        "asset_brand",
+        "asset_specification",
+        "asset_type_recordcode",
+        "asset_contract_recordcode",
+        "asset_purchase_date",
+        "asset_warranty_period",
+        "asset_entry_date",
+        "asset_storage_recordcode",
+        "asset_entry_person_recordcode",
+        "asset_applicant_recordcode",
+        "asset_manager_recordcode",
+        "asset_using_location",
+        "asset_description",
+    ]
+)
 
 
 class AssetQuerySet(models.QuerySet["Asset"]):
@@ -266,3 +296,26 @@ class Asset(BaseModel):
 
     def __str__(self) -> str:
         return f"{self.asset_name}({self.asset_code})"
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        """乐观锁版本自增(四分支),全参透传 BaseModel.save(recordcode 生成/碰撞重试不受影响)。
+
+        - 分支1 新建(adding=True): 不自增,version 停在默认 1;
+        - 分支2 全量 save(update_fields is None): 自增;
+        - 分支3 显式 update_fields 命中 ASSET_VERSIONED_FIELDS: 自增并把 "version" 追加进写字段集;
+        - 分支4 其余显式 update_fields(纯状态流转/软删/仅 updated_at): 不自增。
+
+        调用方约定: update_fields 以关键字参数传入(全仓既有调用点均如此)。
+        """
+        update_fields = kwargs.get("update_fields")
+        if not self._state.adding:
+            if update_fields is None:
+                # 分支2: 全量 save,业务数据面整体落库 → 自增
+                self.version += 1
+            elif ASSET_VERSIONED_FIELDS.intersection(update_fields):
+                # 分支3: 命中版本化字段集 → 自增,并确保 version 随写字段集落库
+                self.version += 1
+                if "version" not in update_fields:
+                    kwargs["update_fields"] = [*update_fields, "version"]
+            # 分支1/分支4: 新建或纯状态/软删写 → 不自增
+        super().save(*args, **kwargs)

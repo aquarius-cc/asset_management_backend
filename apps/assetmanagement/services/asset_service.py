@@ -17,7 +17,7 @@ from apps.assetmanagement.selectors import AssetSelector, ContractSelector, Dama
 from apps.assetmanagement.state_machine import AssetFSM, AssetState, InvalidTransitionError
 from apps.usermanagement.selectors import EmployeeSelector
 from core.batch_mixins import BatchOperationMixin
-from core.exceptions import AppValidationError, NotFoundError, match_integrity_error_rules
+from core.exceptions import AppValidationError, NotFoundError, ResourceConflictError, match_integrity_error_rules
 
 from .asset_lifecycle_mixin import AssetLifecycleMixin
 
@@ -235,6 +235,17 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
         # B12 TOCTOU 兜底: 锁内重取快照后再次校验行级可见性
         AssetSelector.ensure_asset_visible(asset, user)
 
+        # 【乐观锁】version 先取出(不参与字段更新,亦不进不可变校验/审计面),
+        # 序列化器已卡必填(≥1);比对在锁内进行(见下方 VERSION_CONFLICT)
+        version = update_data.pop("version", None)
+
+        # 【乐观锁】锁内比对(compare-and-swap): 客户端载荷版本 != 库内版本 → 409 VERSION_CONFLICT
+        if version != asset.version:
+            raise ResourceConflictError(
+                detail=f"资产 {asset_code} 已被其他用户修改,请刷新后重试",
+                error_code="VERSION_CONFLICT",
+            )
+
         for key in update_data:
             if key in ASSET_UPDATE_IMMUTABLE_FIELDS:
                 raise AppValidationError(detail=f"不允许修改字段: {key}", error_code="FIELD_NOT_ALLOWED")
@@ -256,7 +267,9 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
         before_data = {key: getattr(asset, key) for key in update_data}
         for key, value in update_data.items():
             setattr(asset, key, value)
-        asset.save()
+        # 显式写字段集(分支3): 命中版本化字段集由 Asset.save() 自增 version;
+        # 空 update_data 时仅触碰 updated_at(分支4,不自增)——无业务变更无版本推进
+        asset.save(update_fields=[*update_data, "updated_at"])
         AuditLogger.log_asset_update(
             asset=asset,
             before_data=before_data,
@@ -408,7 +421,9 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
             # 【BF-108】变更原因入操作日志(端点必填, 服务层缺省空串不追加子句)
             description=description,
         )
-        asset.save()
+        # 显式写字段集(分支4): _run_manual_transition 仅触碰 asset_current_status,
+        # 不在版本化字段集内 → 纯状态流转不自增 version(状态所有权归 FSM)
+        asset.save(update_fields=["asset_current_status", "updated_at"])
         return asset
 
     @staticmethod
@@ -459,7 +474,14 @@ class AssetService(AssetLifecycleMixin, BatchOperationMixin):
             operator_jobcode=operator_jobcode,
             operator_name=operator_name,
         )
-        asset.save()
+        # 显式写字段集(分支3): 领用人/管理人属版本化字段集 → 自增 version(归属变更需入版本)
+        asset.save(
+            update_fields=[
+                "asset_applicant_recordcode",
+                "asset_manager_recordcode",
+                "updated_at",
+            ]
+        )
         return asset
 
     @staticmethod

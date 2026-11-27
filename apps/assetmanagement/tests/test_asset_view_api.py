@@ -93,6 +93,7 @@ class TestAssetViewSet:
         """
         url = reverse("assets-detail", kwargs={"recordcode": asset.recordcode})
         data = {
+            "version": asset.version,
             "asset_name": "更新后的资产名称",
             "asset_purchase_price": "1500.00",
             "asset_unit": "台",
@@ -127,6 +128,7 @@ class TestAssetViewSet:
         """PUT(partial=False)全表单路径回归护栏（此前 PUT 无任何用例覆盖）"""
         url = reverse("assets-detail", kwargs={"recordcode": asset.recordcode})
         data = {
+            "version": asset.version,
             "asset_name": "PUT全量更新",
             "asset_type": asset_type.type_code,
             "asset_storage": storage.storage_code,
@@ -141,13 +143,15 @@ class TestAssetViewSet:
     def test_update_asset_rejects_status_field(self, admin_authenticated_client, asset):
         """PATCH asset_current_status → 400:Serializer 未知字段拦截(状态变更只走 FSM 入口,CT-3)"""
         url = reverse("assets-detail", kwargs={"recordcode": asset.recordcode})
-        response = admin_authenticated_client.patch(url, {"asset_current_status": "in_store"}, format="json")
+        response = admin_authenticated_client.patch(
+            url, {"asset_current_status": "in_store", "version": asset.version}, format="json"
+        )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_update_asset_rejects_unknown_field(self, admin_authenticated_client, asset):
         """PATCH 未知字段 → 400:StrictUnknownFieldMixin 收紧 DRF 默认静默忽略"""
         url = reverse("assets-detail", kwargs={"recordcode": asset.recordcode})
-        response = admin_authenticated_client.patch(url, {"bogus_field": 1}, format="json")
+        response = admin_authenticated_client.patch(url, {"bogus_field": 1, "version": asset.version}, format="json")
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_update_asset_rejects_purchase_number_change(self, admin_authenticated_client, asset):
@@ -157,7 +161,9 @@ class TestAssetViewSet:
         任一侧单独上线都会让「整表单编辑」全线 400。
         """
         url = reverse("assets-detail", kwargs={"recordcode": asset.recordcode})
-        response = admin_authenticated_client.patch(url, {"asset_purchase_number": 3}, format="json")
+        response = admin_authenticated_client.patch(
+            url, {"asset_purchase_number": 3, "version": asset.version}, format="json"
+        )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.data["data"]["error_code"] == "FIELD_NOT_ALLOWED"
         asset.refresh_from_db()
@@ -182,7 +188,7 @@ class TestAssetViewSet:
 
     def test_partial_update_asset(self, admin_authenticated_client, asset):
         url = reverse("assets-detail", kwargs={"recordcode": asset.recordcode})
-        data = {"asset_name": "部分更新后的资产名称"}
+        data = {"asset_name": "部分更新后的资产名称", "version": asset.version}
         response = admin_authenticated_client.patch(url, data, format="json")
         assert response.status_code == status.HTTP_200_OK
 

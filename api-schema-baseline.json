@@ -882,7 +882,8 @@
                                 "$ref": "#/components/schemas/AssetUpdateRequest"
                             }
                         }
-                    }
+                    },
+                    "required": true
                 },
                 "security": [
                     {
@@ -16979,7 +16980,7 @@
             },
             "AssetUpdate": {
                 "type": "object",
-                "description": "资产更新序列化器\n\n排除 recordcode 和 asset_code(后端自动生成,不可修改)。\n排除 asset_current_status(状态变更只允许走 FSM 专用入口,禁止经通用更新接口直改)。\n未知字段一律 400(StrictUnknownFieldMixin,DRF 默认静默忽略被收紧)。\n前端传入业务编码(asset_type_code/contract_code/storage_code/employee_jobcode),\nDRF SlugRelatedField 自动转换为 recordcode 存入数据库。",
+                "description": "资产更新序列化器\n\n排除 recordcode 和 asset_code(后端自动生成,不可修改)。\n排除 asset_current_status(状态变更只允许走 FSM 专用入口,禁止经通用更新接口直改)。\n未知字段一律 400(StrictUnknownFieldMixin,DRF 默认静默忽略被收紧)。\n前端传入业务编码(asset_type_code/contract_code/storage_code/employee_jobcode),\nDRF SlugRelatedField 自动转换为 recordcode 存入数据库。\n\n乐观锁: version 必填(write_only),承载客户端加载时的版本快照,服务端锁内比对,\n不一致抛 ResourceConflictError(VERSION_CONFLICT, 409)。严格必填对 PUT/PATCH 均生效\n(validate() 显式校验存在性,覆盖 partial=True 忽略 required 的 PATCH 路径)。",
                 "properties": {
                     "asset_name": {
                         "type": "string",
@@ -17084,7 +17085,7 @@
             },
             "AssetUpdateRequest": {
                 "type": "object",
-                "description": "资产更新序列化器\n\n排除 recordcode 和 asset_code(后端自动生成,不可修改)。\n排除 asset_current_status(状态变更只允许走 FSM 专用入口,禁止经通用更新接口直改)。\n未知字段一律 400(StrictUnknownFieldMixin,DRF 默认静默忽略被收紧)。\n前端传入业务编码(asset_type_code/contract_code/storage_code/employee_jobcode),\nDRF SlugRelatedField 自动转换为 recordcode 存入数据库。",
+                "description": "资产更新序列化器\n\n排除 recordcode 和 asset_code(后端自动生成,不可修改)。\n排除 asset_current_status(状态变更只允许走 FSM 专用入口,禁止经通用更新接口直改)。\n未知字段一律 400(StrictUnknownFieldMixin,DRF 默认静默忽略被收紧)。\n前端传入业务编码(asset_type_code/contract_code/storage_code/employee_jobcode),\nDRF SlugRelatedField 自动转换为 recordcode 存入数据库。\n\n乐观锁: version 必填(write_only),承载客户端加载时的版本快照,服务端锁内比对,\n不一致抛 ResourceConflictError(VERSION_CONFLICT, 409)。严格必填对 PUT/PATCH 均生效\n(validate() 显式校验存在性,覆盖 partial=True 忽略 required 的 PATCH 路径)。",
                 "properties": {
                     "asset_name": {
                         "type": "string",
@@ -17199,8 +17200,16 @@
                         "nullable": true,
                         "title": "资产描述",
                         "description": "资产的补充说明"
+                    },
+                    "version": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "writeOnly": true
                     }
-                }
+                },
+                "required": [
+                    "version"
+                ]
             },
             "AuthUser": {
                 "type": "object",
@@ -23613,7 +23622,7 @@
             },
             "PatchedAssetUpdateRequest": {
                 "type": "object",
-                "description": "资产更新序列化器\n\n排除 recordcode 和 asset_code(后端自动生成,不可修改)。\n排除 asset_current_status(状态变更只允许走 FSM 专用入口,禁止经通用更新接口直改)。\n未知字段一律 400(StrictUnknownFieldMixin,DRF 默认静默忽略被收紧)。\n前端传入业务编码(asset_type_code/contract_code/storage_code/employee_jobcode),\nDRF SlugRelatedField 自动转换为 recordcode 存入数据库。",
+                "description": "资产更新序列化器\n\n排除 recordcode 和 asset_code(后端自动生成,不可修改)。\n排除 asset_current_status(状态变更只允许走 FSM 专用入口,禁止经通用更新接口直改)。\n未知字段一律 400(StrictUnknownFieldMixin,DRF 默认静默忽略被收紧)。\n前端传入业务编码(asset_type_code/contract_code/storage_code/employee_jobcode),\nDRF SlugRelatedField 自动转换为 recordcode 存入数据库。\n\n乐观锁: version 必填(write_only),承载客户端加载时的版本快照,服务端锁内比对,\n不一致抛 ResourceConflictError(VERSION_CONFLICT, 409)。严格必填对 PUT/PATCH 均生效\n(validate() 显式校验存在性,覆盖 partial=True 忽略 required 的 PATCH 路径)。",
                 "properties": {
                     "asset_name": {
                         "type": "string",
@@ -23728,6 +23737,11 @@
                         "nullable": true,
                         "title": "资产描述",
                         "description": "资产的补充说明"
+                    },
+                    "version": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "writeOnly": true
                     }
                 }
             },

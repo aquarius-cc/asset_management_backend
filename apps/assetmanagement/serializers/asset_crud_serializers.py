@@ -141,7 +141,14 @@ class AssetUpdateSerializer(StrictUnknownFieldMixin, serializers.ModelSerializer
     未知字段一律 400(StrictUnknownFieldMixin,DRF 默认静默忽略被收紧)。
     前端传入业务编码(asset_type_code/contract_code/storage_code/employee_jobcode),
     DRF SlugRelatedField 自动转换为 recordcode 存入数据库。
+
+    乐观锁: version 必填(write_only),承载客户端加载时的版本快照,服务端锁内比对,
+    不一致抛 ResourceConflictError(VERSION_CONFLICT, 409)。严格必填对 PUT/PATCH 均生效
+    (validate() 显式校验存在性,覆盖 partial=True 忽略 required 的 PATCH 路径)。
     """
+
+    # 乐观锁版本号: 必填、write_only(不进响应投影,详情由 AssetDetailSerializer 输出)、>=1
+    version = serializers.IntegerField(required=True, write_only=True, min_value=1)
 
     # FK 字段:前端传入业务编码,DRF 自动转换为 recordcode
     asset_type = serializers.SlugRelatedField(
@@ -206,6 +213,7 @@ class AssetUpdateSerializer(StrictUnknownFieldMixin, serializers.ModelSerializer
             "asset_manager",
             "asset_using_location",
             "asset_description",
+            "version",
         ]
         extra_kwargs = {
             "asset_name": {"required": False},
@@ -213,6 +221,13 @@ class AssetUpdateSerializer(StrictUnknownFieldMixin, serializers.ModelSerializer
             "asset_purchase_date": {"required": False},
             "asset_entry_date": {"required": False},
         }
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        """显式校验 version 存在性: PATCH(partial=True) 时 DRF 忽略 required,
+        此处补卡口,保证 PUT/PATCH 严格必填语义一致。"""
+        if "version" not in attrs:
+            raise serializers.ValidationError({"version": "该字段必填"})
+        return attrs
 
 
 class AssetCreateSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]

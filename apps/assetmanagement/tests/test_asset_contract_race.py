@@ -83,7 +83,7 @@ class TestContractWriteGuard:
         with pytest.raises(AppValidationError) as exc_info:
             AssetService.update_asset(
                 asset.asset_code,
-                {"asset_contract_recordcode": contract},
+                {"asset_contract_recordcode": contract, "version": asset.version},
                 user=full_scope_user,
             )
 
@@ -220,7 +220,7 @@ class TestContractLockSqlShape:
         with CaptureQueriesContext(connection) as ctx, transaction.atomic():
             AssetService.update_asset(
                 asset.asset_code,
-                {"asset_contract_recordcode": contract},
+                {"asset_contract_recordcode": contract, "version": asset.version},
                 user=full_scope_user,
             )
         weak_sql = [q["sql"] for q in ctx.captured_queries if "FOR NO KEY UPDATE" in q["sql"]]

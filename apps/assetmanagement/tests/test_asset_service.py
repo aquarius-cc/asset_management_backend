@@ -28,7 +28,7 @@ class TestUpdateAsset:
     def test_update_asset_success(self, asset, admin_auth_user):
         result = AssetService.update_asset(
             asset_code="A001",
-            update_data={"asset_name": "更新后名称"},
+            update_data={"asset_name": "更新后名称", "version": asset.version},
             user=admin_auth_user,
         )
         result.refresh_from_db()
@@ -43,7 +43,7 @@ class TestUpdateAsset:
         with pytest.raises(AppValidationError) as exc_info:
             AssetService.update_asset(
                 asset_code="A001",
-                update_data={"asset_code": "HACKED"},
+                update_data={"asset_code": "HACKED", "version": asset.version},
                 user=admin_auth_user,
             )
         assert exc_info.value.error_code == "FIELD_NOT_ALLOWED"
@@ -57,7 +57,7 @@ class TestUpdateAsset:
         with pytest.raises(AppValidationError) as exc_info:
             AssetService.update_asset(
                 asset_code="A001",
-                update_data={"asset_purchase_number": 3},
+                update_data={"asset_purchase_number": 3, "version": asset.version},
                 user=admin_auth_user,
             )
         assert exc_info.value.error_code == "FIELD_NOT_ALLOWED"
@@ -67,7 +67,7 @@ class TestUpdateAsset:
         with pytest.raises(AppValidationError) as exc_info:
             AssetService.update_asset(
                 asset_code="A001",
-                update_data={"asset_current_status": "in_store"},
+                update_data={"asset_current_status": "in_store", "version": asset.version},
                 user=admin_auth_user,
             )
         assert exc_info.value.error_code == "FIELD_NOT_ALLOWED"
@@ -86,6 +86,7 @@ class TestUpdateAsset:
             update_data={
                 "asset_type_recordcode": new_type,
                 "asset_purchase_price": Decimal("2000.00"),
+                "version": asset.version,
             },
             user=admin_auth_user,
         )
@@ -107,6 +108,7 @@ class TestUpdateAsset:
                 "asset_name": "名称B",
                 "asset_brand": "品牌B",
                 "asset_specification": "规格B",
+                "version": asset.version,
             },
             user=admin_auth_user,
         )

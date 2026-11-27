@@ -120,11 +120,17 @@ class TestImmutableFieldsKill:
 
     @pytest.mark.parametrize(
         "field",
-        ["recordcode", "qr_code", "version", "is_deleted", "created_at", "updated_at", "asset_current_status"],
+        # version 已迁移为 CAS 令牌(pop 先于不可变校验),不再路由到 FIELD_NOT_ALLOWED,
+        # 其专属语义由 test_asset_version_lock.py 锚定
+        ["recordcode", "qr_code", "is_deleted", "created_at", "updated_at", "asset_current_status"],
     )
     def test_immutable_field_rejected_with_exact_detail(self, asset, admin_auth_user, field):
         with pytest.raises(AppValidationError) as exc:
-            AssetService.update_asset(asset_code="A001", update_data={field: "HACKED"}, user=admin_auth_user)
+            AssetService.update_asset(
+                asset_code="A001",
+                update_data={field: "HACKED", "version": asset.version},
+                user=admin_auth_user,
+            )
         assert exc.value.error_code == "FIELD_NOT_ALLOWED"
         assert exc.value.detail == f"不允许修改字段: {field}"
 
@@ -323,7 +329,11 @@ class TestAtomicRollbackKills:
 
         with mock.patch.object(AuditLogger, "log_asset_update", side_effect=RuntimeError("boom")):
             with pytest.raises(RuntimeError):
-                AssetService.update_asset(asset_code="A001", update_data={"asset_name": "已改"}, user=admin_auth_user)
+                AssetService.update_asset(
+                    asset_code="A001",
+                    update_data={"asset_name": "已改", "version": asset.version},
+                    user=admin_auth_user,
+                )
         asset.refresh_from_db()
         assert asset.asset_name == "测试资产"
 
